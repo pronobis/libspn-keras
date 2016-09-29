@@ -1,0 +1,4 @@
+exceptions
+==========
+
+.. automodule:: libspn.exceptions

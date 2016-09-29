@@ -1,0 +1,129 @@
+<svg id="${svgId}" width="950" height="800"></svg>
+<script>
+ require.config({
+   paths: {
+     d3: 'https://d3js.org/d3.v4.min'
+   }
+ });
+ require(['d3'], function(d3){
+
+   var graph = ${graph};
+
+   var color = d3.scaleOrdinal(d3.schemeCategory10);
+
+   var zoom = d3.zoom()
+                .scaleExtent([0.1, 10])
+                .on("zoom", zoomed);
+
+   var svg = d3.select("#${svgId}").
+                call(zoom);
+
+   var width = svg.attr("width");
+   var height = svg.attr("height");
+
+   var simulation = d3.forceSimulation(graph.nodes)
+                      .on("tick", ticked)
+                      .force("link", d3.forceLink(graph.links)
+                                       .distance(80)
+                                       .id(function(d) { return d.id; }))
+                      .force("charge", d3.forceManyBody().
+                                          strength(-1000))
+                      .force("center", d3.forceCenter(width / 2, height / 2));
+
+   /* Contents */
+   var container = svg.append("g").
+                       attr("class", "container");
+
+   var link = container.append("g")
+                       .selectAll("link")
+                       .data(graph.links)
+                       .enter().append("line")
+                       .attr("stroke", "#444")
+                       .attr("stroke-opacity", "0.6")
+                       .attr("stroke-width",
+                             function(d) {
+                               return d.value;
+                               /*return Math.sqrt(d.value);*/
+                             });
+
+   var link_value = container.append("g")
+                             .selectAll("linkvalue")
+                             .data(graph.links)
+                             .enter().append("text")
+                             .attr("alignment-baseline", "middle")
+                             .style("text-anchor", "middle")
+                             .text(function(d) { return d.value; });
+
+   var node = container.append("g")
+                       .selectAll("node")
+                       .data(graph.nodes)
+                       .enter().append("g")
+                       .call(d3.drag()
+                               .on("start", dragstarted)
+                               .on("drag", dragged)
+                               .on("end", dragended));
+
+   /* Node appearance */
+   node.append("rect")
+       .attr("height", 0)
+       .attr("width", 0)
+       .attr("fill", function(d) { return color(d.type); })
+       .attr("stroke", "#000")
+       .attr("stroke-width", "1px");
+
+   node.append("text")
+       .attr("alignment-baseline", "middle")
+       .style("text-anchor", "middle")
+       .text(function(d) { return d.name; });
+
+   /* Adjust rect width to text */
+   var margin=10;
+   node.selectAll('rect')
+       .attr("x", function(d) {return d3.select(this).attr("x") - (this.parentNode.getBBox().width + margin)/2.0;})
+       .attr("y", function(d) {return d3.select(this).attr("y") - (this.parentNode.getBBox().height + margin)/2.0;})
+       .attr("width", function(d) {return this.parentNode.getBBox().width + margin;})
+       .attr("height", function(d) {return this.parentNode.getBBox().height + margin;});
+
+   /* Tooltips */
+   node.append("title")
+       .text(function(d) { return d.tooltip; });
+
+   /* Functions */
+   function zoomed() {
+     container.attr("transform", d3.event.transform);
+   }
+
+   function ticked() {
+     link
+       .attr("x1", function(d) { return d.source.x; })
+       .attr("y1", function(d) { return d.source.y; })
+       .attr("x2", function(d) { return d.target.x; })
+       .attr("y2", function(d) { return d.target.y; });
+
+     link_value
+       .attr("x", function(d) { return (d.source.x+d.target.x)/2; })
+       .attr("y", function(d) { return (d.source.y+d.target.y)/2; })
+
+     node.attr("transform",
+               function(d) { return "translate(" + d.x + "," + d.y + ")"; });
+   }
+
+   function dragstarted(d) {
+     if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+     d.fx = d.x;
+     d.fy = d.y;
+   }
+
+   function dragged(d) {
+     d.fx = d3.event.x;
+     d.fy = d3.event.y;
+   }
+
+   function dragended(d) {
+     if (!d3.event.active) simulation.alphaTarget(0);
+     d.fx = null;
+     d.fy = null;
+   }
+
+ });
+</script>
