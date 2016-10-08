@@ -6,3 +6,5 @@ recommonmark
 sphinx
 sphinxcontrib-napoleon
 sphinx_rtd_theme
+nose2
+python3-tk
