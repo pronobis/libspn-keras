@@ -124,7 +124,7 @@ def scatter_cols(params, indices, out_num_cols, name=None):
     Returns:
         Tensor: Has the same dtype and number of dimensions as ``params``.
     """
-    with tf.op_scope([params, indices], name, "gather_cols"):
+    with tf.op_scope([params, indices], name, "scatter_cols"):
         # Check input
         params = tf.convert_to_tensor(params, name="params")
         indices = np.asarray(indices)
