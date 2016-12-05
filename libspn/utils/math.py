@@ -56,7 +56,7 @@ def gather_cols(params, indices, name=None, use_gather_nd=True):
     Returns:
         Tensor: Has the same dtype and number of dimensions and type as ``params``.
     """
-    with tf.op_scope([params, indices], name, "gather_cols"):
+    with tf.name_scope(name, "gather_cols", [params, indices]):
         params = tf.convert_to_tensor(params, name="params")
         indices = np.asarray(indices)
         # Check params
@@ -124,7 +124,7 @@ def scatter_cols(params, indices, out_num_cols, name=None):
     Returns:
         Tensor: Has the same dtype and number of dimensions as ``params``.
     """
-    with tf.op_scope([params, indices], name, "scatter_cols"):
+    with tf.name_scope(name, "scatter_cols", [params, indices]):
         # Check input
         params = tf.convert_to_tensor(params, name="params")
         indices = np.asarray(indices)
@@ -204,7 +204,7 @@ def broadcast_value(value, shape, dtype, name=None):
     Return:
         Tensor: A tensor containing the broadcasted and converted value.
     """
-    with tf.op_scope([value], name, "broadcast_value"):
+    with tf.name_scope(name, "broadcast_value", [value]):
         # Recognize ValueTypes
         if isinstance(value, ValueType.RANDOM_UNIFORM):
             return tf.random_uniform(shape=shape,
@@ -230,7 +230,7 @@ def normalize_tensor(tensor, name=None):
     Returns:
         Tensor: Normalized tensor.
     """
-    with tf.op_scope([tensor], name, "normalize_tensor"):
+    with tf.name_scope(name, "normalize_tensor", [tensor]):
         tensor = tf.convert_to_tensor(tensor)
         s = tf.reduce_sum(tensor)
         return tf.truediv(tensor, s)
@@ -256,7 +256,7 @@ def reduce_log_sum(log_input, name=None):
     # not needed in such case. But it is unclear if this behavior of reduce_max is
     # stable or a bug that will be removed. For now, we include the -inf
     # detection in case this bug gets fixed one day.
-    with tf.op_scope([log_input], name, "reduce_log_sum"):
+    with tf.name_scope(name, "reduce_log_sum", [log_input]):
         log_max = tf.reduce_max(log_input, 1, keep_dims=True)
         # Compute the value assuming at least one input is not -inf
         log_rebased = tf.sub(log_input, log_max)
@@ -309,7 +309,7 @@ def split(split_dim, split_sizes, value, name=None):
     if split_sizes.size == 1:
         return [value]
     # Split
-    with tf.op_scope([value], name, "split"):
+    with tf.name_scope(name, "split", [value]):
         # Check input
         value = tf.convert_to_tensor(value, name="params")
         value_dims = value.get_shape().ndims
