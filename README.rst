@@ -28,31 +28,48 @@ Features of LibSPN
 ------------------
 
 * Simple interface for manual creation of custom network architectures
+
   * Automatic SPN validity checking and scope calculation
   * Weight sharing
+
 * Integration with TensorFlow
+
   * SPN graph is converted to TensorFlow graph realizing specific algorithms/computations
   * Inputs to the network come from TensorFlow feeds or any TensorFlow tensors
+
 * Dynamic SPN graph data structure enabling easy modifications and learning of an existing SPN graph at run-time
+
 * SPN structure generation and learning
+
   * Dense random SPN generator
   * Simple naive Bayes mixture model generator
   * Learning algorithms are not yet implemented, but infrastructure for them exists
+
 * Loading and saving of structure and weights of learned models
+
 * Simple interface for random data generation, data loading and batching
+
   * Random data sampling from Gaussian Mixtures
   * Using TensorFlow queues for data loading, shuffling and batching
+
 * Built-in visualizations
+
   * SPN graph structure visualization
   * Data/distribution visualizations
+
 * SPN Inference
+
   * SPN/MPN value calculation
   * Gradient calculation
   * Inferring MPE state
+
 * SPN Learning
+
   * Expectation Maximization
   * Gradient Descent (bits still missing, but infrastructure exists)
+
 * Tools
+
   * Generating random sub-sets of all partitions of a set using repeated sampling or enumeration
 
 
