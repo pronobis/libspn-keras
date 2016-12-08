@@ -26,7 +26,7 @@ class TestInference(unittest.TestCase):
         """Calculation of SPN marginal value"""
         # Generate SPN
         gen = spn.TestSPNGenerator(
-            spn_type=spn.TestSPNGenerator.Type.POON10_NAIVE_MIXTURE)
+            spn_type=spn.TestSPNGenerator.Type.POON11_NAIVE_MIXTURE)
         ivs, root = gen.generate()
         # Set default inference type for each node
         root.set_inference_types(spn.InferenceType.MARGINAL)
@@ -66,7 +66,7 @@ class TestInference(unittest.TestCase):
         """Calculation of SPN MPE value"""
         # Generate SPN
         gen = spn.TestSPNGenerator(
-            spn_type=spn.TestSPNGenerator.Type.POON10_NAIVE_MIXTURE)
+            spn_type=spn.TestSPNGenerator.Type.POON11_NAIVE_MIXTURE)
         ivs, root = gen.generate()
         # Set default inference type for each node
         root.set_inference_types(spn.InferenceType.MPE)
@@ -94,7 +94,7 @@ class TestInference(unittest.TestCase):
         """Calculation of a mixed MPE/marginal value"""
         # Generate SPN
         gen = spn.TestSPNGenerator(
-            spn_type=spn.TestSPNGenerator.Type.POON10_NAIVE_MIXTURE)
+            spn_type=spn.TestSPNGenerator.Type.POON11_NAIVE_MIXTURE)
         ivs, root = gen.generate()
         # Set default inference type for each node
         root.set_inference_types(spn.InferenceType.MARGINAL)
@@ -138,7 +138,7 @@ class TestInference(unittest.TestCase):
     def test_mpe_path(self):
         # Generate SPN
         gen = spn.TestSPNGenerator(
-            spn_type=spn.TestSPNGenerator.Type.POON10_NAIVE_MIXTURE)
+            spn_type=spn.TestSPNGenerator.Type.POON11_NAIVE_MIXTURE)
         ivs, root = gen.generate()
         # Add ops
         init = spn.initialize_weights(root)
@@ -173,7 +173,7 @@ class TestInference(unittest.TestCase):
     def test_mpe_state(self):
         # Generate SPN
         gen = spn.TestSPNGenerator(
-            spn_type=spn.TestSPNGenerator.Type.POON10_NAIVE_MIXTURE)
+            spn_type=spn.TestSPNGenerator.Type.POON11_NAIVE_MIXTURE)
         ivs, root = gen.generate()
         # Add ops
         init = spn.initialize_weights(root)

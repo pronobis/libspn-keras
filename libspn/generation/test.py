@@ -18,26 +18,26 @@ class TestSPNGenerator:
 
     class Type(Enum):
 
-        POON10_NAIVE_MIXTURE = 0
-        """A simple naive Bayes mixture from the Poon&Domingos'10 paper."""
+        POON11_NAIVE_MIXTURE = 0
+        """A simple naive Bayes mixture from the Poon&Domingos'11 paper."""
 
     def __init__(self, spn_type):
         self._spn_type = spn_type
 
     def generate(self):
-        if self._spn_type == TestSPNGenerator.Type.POON10_NAIVE_MIXTURE:
-            return self.generate_poon10_naive_mixture()
+        if self._spn_type == TestSPNGenerator.Type.POON11_NAIVE_MIXTURE:
+            return self.generate_poon11_naive_mixture()
 
     @property
     def true_mpe_state(self):
         """The true MPE state for the SPN."""
-        if self._spn_type == TestSPNGenerator.Type.POON10_NAIVE_MIXTURE:
+        if self._spn_type == TestSPNGenerator.Type.POON11_NAIVE_MIXTURE:
             return np.array([1, 0])
 
     @property
     def true_values(self):
         """The true values of the SPN for the :meth:`feed`."""
-        if self._spn_type == TestSPNGenerator.Type.POON10_NAIVE_MIXTURE:
+        if self._spn_type == TestSPNGenerator.Type.POON11_NAIVE_MIXTURE:
             return np.array([[1.0],
                              [0.75],
                              [0.25],
@@ -51,7 +51,7 @@ class TestSPNGenerator:
     @property
     def true_mpe_values(self):
         """The true MPE values of the SPN for the :meth:`feed`."""
-        if self._spn_type == TestSPNGenerator.Type.POON10_NAIVE_MIXTURE:
+        if self._spn_type == TestSPNGenerator.Type.POON11_NAIVE_MIXTURE:
             return np.array([[0.216],
                              [0.216],
                              [0.09],
@@ -65,14 +65,14 @@ class TestSPNGenerator:
     @property
     def feed(self):
         """Feed containing all possible values of the input variables."""
-        if self._spn_type == TestSPNGenerator.Type.POON10_NAIVE_MIXTURE:
+        if self._spn_type == TestSPNGenerator.Type.POON11_NAIVE_MIXTURE:
             values = np.arange(-1, 2)
             points = np.array(np.meshgrid(*[values for i in range(2)])).T
             return points.reshape(-1, points.shape[-1])
 
-    def generate_poon10_naive_mixture(self):
+    def generate_poon11_naive_mixture(self):
         """Generates a simple naive Bayes mixture model shown in Fig1a of the
-        Poon&Domingos'10 paper.
+        Poon&Domingos'11 paper.
 
         Returns:
             A tuple ``(ivs, root)`` with the IVs node providing inputs to the
