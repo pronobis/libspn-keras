@@ -671,7 +671,7 @@ class OpNode(Node):
             ``num_elems`` is the number of elements of the input tensor selected
             by the input indices.
         """
-        with tf.name_scope("gather_input_tensors", input_tensors):
+        with tf.name_scope("gather_input_tensors", values=input_tensors):
             return tuple(None if not i or it is None
                          else it if i.indices is None
                          else utils.gather_cols(it, i.indices)
@@ -694,7 +694,7 @@ class OpNode(Node):
         Returns:
             list of Tensor: A list of tensors containing scattered values.
         """
-        with tf.name_scope("scatter_to_input_tensors", [t[0] for t in tuples]):
+        with tf.name_scope("scatter_to_input_tensors", values=[t[0] for t in tuples]):
             return tuple(None if not i or t is None
                          else t[0] if i.indices is None
                          else utils.scatter_cols(
