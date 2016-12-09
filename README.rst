@@ -30,6 +30,7 @@ Features of LibSPN
 * Simple interface for manual creation of custom network architectures
 
   * Automatic SPN validity checking and scope calculation
+  * Adding explicit latent variables to sums/mixtures
   * Weight sharing
 
 * Integration with TensorFlow
