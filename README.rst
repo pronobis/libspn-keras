@@ -68,8 +68,9 @@ Features of LibSPN
   * Expectation Maximization
   * Gradient Descent (bits still missing, but infrastructure exists)
 
-* Tools
+* Other
 
+  * SPN-specific TensorFlow operations implemented using C++ and CUDA
   * Generating random sub-sets of all partitions of a set using repeated sampling or enumeration
 
 
