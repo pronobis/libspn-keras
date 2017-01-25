@@ -81,7 +81,7 @@ class CSVFileDataset(FileDataset):
         class CustomCSVFileDataset(spn.CSVFileDataset):
 
             def process_data(self, data):
-                return [data[0], tf.pack(data[1:3]), tf.pack(data[3:])]
+                return [data[0], tf.stack(data[1:3]), tf.stack(data[3:])]
 
     and then, give defaults of different type::
 
@@ -138,7 +138,7 @@ class CSVFileDataset(FileDataset):
     @utils.docinherit(Dataset)
     def process_data(self, data):
         if self._num_labels > 0:
-            return [tf.pack(data[0:self._num_labels]),
-                    tf.pack(data[self._num_labels:])]
+            return [tf.stack(data[0:self._num_labels]),
+                    tf.stack(data[self._num_labels:])]
         else:
-            return [tf.pack(data)]
+            return [tf.stack(data)]

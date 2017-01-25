@@ -28,8 +28,8 @@ def session():
     # Op for initializing variables
     # As stated in https://github.com/tensorflow/tensorflow/issues/3819
     # all does not include local (e.g. epoch counter)
-    init_op = tf.group(tf.initialize_all_variables(),
-                       tf.initialize_local_variables())
+    init_op = tf.group(tf.global_variables_initializer(),
+                       tf.local_variables_initializer())
 
     # Create a session
     with tf.Session() as sess:

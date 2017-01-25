@@ -176,13 +176,13 @@ def scatter_cols(params, indices, out_num_cols, name=None):
         else:
             # Scatte a multi-column tensor to a multi-column tensor
             if param_dims == 1:
-                with_zeros = tf.concat(concat_dim=0, values=([0], params))
+                with_zeros = tf.concat_v2(values=([0], params), axis=0)
                 gather_indices = np.zeros(out_num_cols, dtype=int)
                 gather_indices[indices] = np.arange(indices.size) + 1
                 return gather_cols(with_zeros, gather_indices)
             else:
                 zero_col = tf.zeros((tf.shape(params)[0], 1), dtype=params.dtype)
-                with_zeros = tf.concat(concat_dim=1, values=(zero_col, params))
+                with_zeros = tf.concat_v2(values=(zero_col, params), axis=1)
                 gather_indices = np.zeros(out_num_cols, dtype=int)
                 gather_indices[indices] = np.arange(indices.size) + 1
                 return gather_cols(with_zeros, gather_indices)
@@ -269,7 +269,7 @@ def reduce_log_sum(log_input, name=None):
         out_zeros = tf.fill(tf.shape(out_normal),
                             tf.constant(-math.inf, dtype=log_input.dtype))
         # Choose the output for each row
-        return tf.select(all_zero, out_zeros, out_normal)
+        return tf.where(all_zero, out_zeros, out_normal)
 
 
 def concat_maybe(concat_dim, values, name='concat'):
@@ -283,7 +283,7 @@ def concat_maybe(concat_dim, values, name='concat'):
         Tensor: Concatenated values.
     """
     if len(values) > 1:
-        return tf.concat(concat_dim, values)
+        return tf.concat_v2(values, concat_dim)
     else:
         return values[0]
 

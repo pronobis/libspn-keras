@@ -286,7 +286,7 @@ class TestData(unittest.TestCase):
             """Our custom dataset."""
 
             def process_data(self, data):
-                return [data[0], tf.pack(data[1:3]), tf.pack(data[3:])]
+                return [data[0], tf.stack(data[1:3]), tf.stack(data[3:])]
 
         # Note: shuffling is NOT tested
         dataset = CustomCSVFileDataset(os.path.join(TestData.data_dir,
