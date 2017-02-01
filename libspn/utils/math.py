@@ -247,15 +247,6 @@ def reduce_log_sum(log_input, name=None):
         Tensor: The reduced tensor of shape ``(None, 1)``, where the first
         dimension corresponds to the first dimension of ``log_input``.
     """
-    # WARNING: As described here:
-    # http://stackoverflow.com/questions/39211546/bug-in-tensorflow-reduce-max-for-negative-infinity
-    # there clearly is a problem with reduce_max which returns min float32
-    # instead of -inf for negative infinity inputs. At the same time,
-    # tf.maximum works as expected. The final result is still correct, and
-    # actually will lead to a simpler code since the -inf detection is
-    # not needed in such case. But it is unclear if this behavior of reduce_max is
-    # stable or a bug that will be removed. For now, we include the -inf
-    # detection in case this bug gets fixed one day.
     with tf.name_scope(name, "reduce_log_sum", [log_input]):
         log_max = tf.reduce_max(log_input, 1, keep_dims=True)
         # Compute the value assuming at least one input is not -inf
