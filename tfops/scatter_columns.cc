@@ -2,7 +2,7 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/framework/register_types.h"
-#include "tensorflow/core/user_ops/scatter_columns_functor.h"
+#include "scatter_columns_functor.h"
 
 using namespace tensorflow;
 
