@@ -30,36 +30,32 @@ class TestMath(tf.test.TestCase):
             sess.run(gather)
 
     def testScalarParams(self):
-      with self.test_session(use_gpu=False) as sess:
+      with self.assertRaises(ValueError) as sess:
         params = 10
         indices = [1, 2, 3]
         gather = self.gather_columns_module.gather_columns(params, indices)
-        with self.assertRaisesOpError("Params must be at least a vector."):
-            sess.run(gather)
+        sess.run(gather)
 
     def testScalarIndices(self):
-      with self.test_session(use_gpu=False) as sess:
+      with self.assertRaises(ValueError) as sess:
         params = [1, 2, 3]
         indices = 1
         gather = self.gather_columns_module.gather_columns(params, indices)
-        with self.assertRaisesOpError("Indices must be a vector, but it is a: 0D Tensor."):
-            sess.run(gather)
+        sess.run(gather)
 
     def test3DParams(self):
-      with self.test_session(use_gpu=False) as sess:
+      with self.assertRaises(ValueError) as sess:
         params = [[[0, 1, 2]]]
         indices = [1, 2, 3]
         gather = self.gather_columns_module.gather_columns(params, indices)
-        with self.assertRaisesOpError("Params must be 1D or 2D but it is: 3D."):
-            sess.run(gather)
+        sess.run(gather)
 
     def test2DIndices(self):
-      with self.test_session(use_gpu=False) as sess:
+      with self.assertRaises(ValueError) as sess:
         params = [[0, 1, 2]]
         indices = [[1, 2, 3]]
         gather = self.gather_columns_module.gather_columns(params, indices)
-        with self.assertRaisesOpError("Indices must be a vector, but it is a: 2D Tensor."):
-            sess.run(gather)
+        sess.run(gather)
 
     def testNegativeIndices_CPU(self):
       with self.test_session(use_gpu=False) as sess:

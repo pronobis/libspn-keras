@@ -24,54 +24,49 @@ class TestMath(tf.test.TestCase):
             sess.run(scatter)
 
     def testScalarParams(self):
-      with self.test_session(use_gpu=False) as sess:
+      with self.assertRaises(ValueError) as sess:
         params = 10
         indices = [1, 2, 3]
         out_num_cols = 10
         pad_elem = 0
         scatter = self.scatter_columns_module.scatter_columns(params, indices, pad_elem, out_num_cols)
-        with self.assertRaisesOpError("Params must be at least a vector."):
-            sess.run(scatter)
+        sess.run(scatter)
 
     def testScalarIndices(self):
-      with self.test_session(use_gpu=False) as sess:
+      with self.assertRaises(ValueError) as sess:
         params = [1, 2, 3]
         indices = 1
         out_num_cols = 10
         pad_elem = 0
         scatter = self.scatter_columns_module.scatter_columns(params, indices, pad_elem, out_num_cols)
-        with self.assertRaisesOpError("Indices must be a vector, but it is a: 0D Tensor."):
-            sess.run(scatter)
+        sess.run(scatter)
 
     def test3DParams(self):
-      with self.test_session(use_gpu=False) as sess:
+      with self.assertRaises(ValueError) as sess:
         params = [[[0, 1, 2]]]
         indices = [1, 2, 3]
         out_num_cols = 10
         pad_elem = 0
         scatter = self.scatter_columns_module.scatter_columns(params, indices, pad_elem, out_num_cols)
-        with self.assertRaisesOpError("Params must be 1D or 2D but it is: 3D."):
-            sess.run(scatter)
+        sess.run(scatter)
 
     def test2DIndices(self):
-      with self.test_session(use_gpu=False) as sess:
+      with self.assertRaises(ValueError) as sess:
         params = [[0, 1, 2]]
         indices = [[1, 2, 3]]
         out_num_cols = 10
         pad_elem = 0
         scatter = self.scatter_columns_module.scatter_columns(params, indices, pad_elem, out_num_cols)
-        with self.assertRaisesOpError("Indices must be a vector, but it is a: 2D Tensor."):
-            sess.run(scatter)
+        sess.run(scatter)
 
     def test2DPadElem(self):
-      with self.test_session(use_gpu=False) as sess:
+      with self.assertRaises(ValueError) as sess:
         params = [[0, 1, 2]]
         indices = [1, 2, 3]
         out_num_cols = 5
         pad_elem = [[0]]
         scatter = self.scatter_columns_module.scatter_columns(params, indices, pad_elem, out_num_cols)
-        with self.assertRaisesOpError("pad_elem must be a scalar, but it is a: 2D Tensor"):
-            sess.run(scatter)
+        sess.run(scatter)
 
     def testNegativeIndices_CPU(self):
       with self.test_session(use_gpu=False) as sess:
