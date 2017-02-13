@@ -2,7 +2,7 @@
 
 #define EIGEN_USE_GPU
 
-#include "tensorflow/core/user_ops/scatter_columns_functor_gpu.cu.h"
+#include "scatter_columns_functor_gpu.cu.h"
 
 namespace tensorflow {
 

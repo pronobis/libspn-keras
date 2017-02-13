@@ -2,7 +2,7 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/framework/register_types.h"
-#include "tensorflow/core/user_ops/gather_columns_functor.h"
+#include "gather_columns_functor.h"
 
 using namespace tensorflow;
 using namespace std;

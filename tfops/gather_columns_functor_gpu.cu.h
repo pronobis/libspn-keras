@@ -6,7 +6,7 @@
 #define EIGEN_USE_GPU
 
 #include "tensorflow/core/framework/register_types.h"
-#include "tensorflow/core/user_ops/gather_columns_functor.h"
+#include "gather_columns_functor.h"
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow/core/util/cuda_kernel_helper.h"
 
