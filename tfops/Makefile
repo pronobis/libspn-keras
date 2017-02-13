@@ -1,5 +1,5 @@
 CC = g++
-NVCC = nvcc
+NVCC = /usr/local/cuda-8.0/bin/nvcc
 CXXFLAGS = -std=c++11 -fPIC -lcudart -DGOOGLE_CUDA -DEXEC_TIME_CALC
 CUDAFLAGS = -std=c++11 -x=cu -Xcompiler -fPIC -DGOOGLE_CUDA -DEXEC_TIME_CALC
 CXXLIBS = -lcudart
