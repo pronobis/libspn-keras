@@ -80,7 +80,8 @@ class TestScatterColumns(tf.test.TestCase):
             pad_elem = 0
             scatter = self.scatter_columns_module.scatter_columns(
                 params, indices, pad_elem, out_num_cols)
-            with self.assertRaisesOpError("Indices\(1\): -1 is not in range \(0, 6\]."):
+            with self.assertRaisesOpError("Indices\(1\): -1 is not in range "
+                                          "\(0, 6\]."):
                 sess.run(scatter)
 
     def testNegativeIndices_GPU(self):
@@ -91,7 +92,8 @@ class TestScatterColumns(tf.test.TestCase):
             pad_elem = 0
             scatter = self.scatter_columns_module.scatter_columns(
                 params, indices, pad_elem, out_num_cols)
-            with self.assertRaisesOpError("Indices\(1\): -1 is not in range \(0, 6\]."):
+            with self.assertRaisesOpError("Indices\(1\): -1 is not in range "
+                                          "\(0, 6\]."):
                 sess.run(scatter)
 
     def testBadIndices_CPU(self):
@@ -102,7 +104,8 @@ class TestScatterColumns(tf.test.TestCase):
             pad_elem = 0
             scatter = self.scatter_columns_module.scatter_columns(
                 params, indices, pad_elem, out_num_cols)
-            with self.assertRaisesOpError("Indices\(2\): 10 is not in range \(0, 7\]."):
+            with self.assertRaisesOpError("Indices\(2\): 10 is not in range "
+                                          "\(0, 7\]."):
                 sess.run(scatter)
 
     def testBadIndices_GPU(self):
@@ -113,7 +116,8 @@ class TestScatterColumns(tf.test.TestCase):
             pad_elem = 0
             scatter = self.scatter_columns_module.scatter_columns(
                 params, indices, pad_elem, out_num_cols)
-            with self.assertRaisesOpError("Indices\(2\): 10 is not in range \(0, 7\]."):
+            with self.assertRaisesOpError("Indices\(2\): 10 is not in range "
+                                          "\(0, 7\]."):
                 sess.run(scatter)
 
     def testDuplicateIndices_CPU(self):
@@ -124,7 +128,9 @@ class TestScatterColumns(tf.test.TestCase):
             pad_elem = 0
             scatter = self.scatter_columns_module.scatter_columns(
                 params, indices, pad_elem, out_num_cols)
-            with self.assertRaisesOpError("Indices cannot contain duplicates. Total no. of indices: 5 != no. of unique indices: 4."):
+            with self.assertRaisesOpError(
+                    "Indices cannot contain duplicates. Total no. of indices: "
+                    "5 != no. of unique indices: 4."):
                 sess.run(scatter)
 
     def testDuplicateIndices_GPU(self):
@@ -135,7 +141,9 @@ class TestScatterColumns(tf.test.TestCase):
             pad_elem = 0
             scatter = self.scatter_columns_module.scatter_columns(
                 params, indices, pad_elem, out_num_cols)
-            with self.assertRaisesOpError("Indices cannot contain duplicates. Total no. of indices: 5 != no. of unique indices: 4."):
+            with self.assertRaisesOpError(
+                    "Indices cannot contain duplicates. Total no. of indices: "
+                    "5 != no. of unique indices: 4."):
                 sess.run(scatter)
 
     def testWrongOutNumCols(self):
@@ -146,7 +154,8 @@ class TestScatterColumns(tf.test.TestCase):
             pad_elem = 0
             scatter = self.scatter_columns_module.scatter_columns(
                 params, indices, pad_elem, out_num_cols)
-            with self.assertRaisesOpError("out_num_cols: 4 must be >= size of the indexed dimension of params: 5"):
+            with self.assertRaisesOpError("out_num_cols: 4 must be >= size of "
+                                          "the indexed dimension of params: 5"):
                 sess.run(scatter)
 
     def testIncorrectIndicesSize(self):
@@ -157,31 +166,25 @@ class TestScatterColumns(tf.test.TestCase):
             pad_elem = 0
             scatter = self.scatter_columns_module.scatter_columns(
                 params, indices, pad_elem, out_num_cols)
-            with self.assertRaisesOpError("Size of indices: 4 and the indexed dimension of params - 5 - must be the same."):
+            with self.assertRaisesOpError(
+                    "Size of indices: 4 and the indexed dimension "
+                    "of params - 5 - must be the same."):
                 sess.run(scatter)
 
     def test_scatter_cols(self):
         ops.RegisterShape("ScatterColumns")(common_shapes.call_cpp_shape_fn)
 
-        def test(params, indices, out_num_cols, pad_elem, dtype, true_output, use_gpu=False, large_case=False):
+        def test(params, indices, out_num_cols, pad_elem, dtype,
+                 true_output, use_gpu=False, large_case=False):
             with self.test_session(use_gpu=use_gpu) as sess:
                 if dtype == bool:
-                    row1 = row2 = row3 = 1
+                    row1 = row2 = row3 = True
                 else:
                     row1 = 1
                     row2 = 0
                     row3 = -1
 
-                if dtype == tf.bool:
-                    npdtype = np.bool
-                elif dtype == tf.float32:
-                    npdtype = np.float32
-                elif dtype == tf.float64:
-                    npdtype = np.float64
-                elif dtype == tf.int32:
-                    npdtype = np.int32
-                elif dtype == tf.int64:
-                    npdtype = np.int64
+                npdtype = dtype.as_numpy_dtype()
 
                 p1d = tf.constant(params, dtype=dtype)
                 p2d1 = tf.constant(np.array([np.array(params)]), dtype=dtype)
@@ -189,9 +192,14 @@ class TestScatterColumns(tf.test.TestCase):
                 if not large_case:
                     p2d2 = tf.constant(np.array([np.array(params) * row1,
                                                  np.array(params) * row2,
-                                                 np.array(params) * row3]), dtype=dtype)
+                                                 np.array(params) * row3]),
+                                       dtype=dtype)
                 else:
-                    params_matrix = np.empty([self.num_rows, self.num_cols], dtype=npdtype)
+                    # For testing the large case example, create a matrix of size
+                    # (num_rows, num_cols), rather than of size (3, num_cols) as
+                    # per the non-large case example.
+                    params_matrix = np.empty([self.num_rows, self.num_cols],
+                                             dtype=npdtype)
                     params_row = np.array(params, dtype=npdtype)
                     for i in range(0, self.num_rows):
                         params_matrix[i, :] = params_row * (i + 1)
@@ -213,12 +221,14 @@ class TestScatterColumns(tf.test.TestCase):
 
                 np.testing.assert_array_almost_equal(out1d, true_output)
                 self.assertEqual(dtype.as_numpy_dtype, out1d.dtype)
-                np.testing.assert_array_equal(op1d.get_shape(), np.array([out_num_cols]))
+                np.testing.assert_array_equal(op1d.get_shape(),
+                                              np.array([out_num_cols]))
 
                 true_output_2d1 = [np.array(true_output)]
                 np.testing.assert_array_almost_equal(out2d1, true_output_2d1)
                 self.assertEqual(dtype.as_numpy_dtype, out2d1.dtype)
-                np.testing.assert_array_equal(op2d1.get_shape(), np.array([1, out_num_cols]))
+                np.testing.assert_array_equal(op2d1.get_shape(),
+                                              np.array([1, out_num_cols]))
 
                 if not large_case:
                     r_1 = np.array(true_output)
@@ -236,7 +246,11 @@ class TestScatterColumns(tf.test.TestCase):
 
                     true_shape = np.array([3, out_num_cols])
                 else:
-                    params_matrix = np.empty([self.num_rows, self.num_cols * 2], dtype=npdtype)
+                    # For large test case, again create a large output matrix,
+                    # based on the true output parameter, to compare the op
+                    # output against.
+                    params_matrix = np.empty([self.num_rows, self.num_cols * 2],
+                                             dtype=npdtype)
                     true_output_row = np.array(true_output, dtype=npdtype)
                     ind = np.array(indices)
                     for i in range(0, self.num_rows):
@@ -258,6 +272,7 @@ class TestScatterColumns(tf.test.TestCase):
 
         # Single column output
         # float
+        # CPU
         test([float_val],
              [0],
              1,
@@ -273,6 +288,7 @@ class TestScatterColumns(tf.test.TestCase):
              [float_val],
              use_gpu=False)
 
+        # GPU
         test([float_val],
              [0],
              1,
@@ -289,6 +305,7 @@ class TestScatterColumns(tf.test.TestCase):
              use_gpu=True)
 
         # int
+        # CPU
         test([int_32_upper],
              [0],
              1,
@@ -304,6 +321,7 @@ class TestScatterColumns(tf.test.TestCase):
              [int_64_upper],
              use_gpu=False)
 
+        # GPU
         test([int_32_upper],
              [0],
              1,
@@ -320,6 +338,7 @@ class TestScatterColumns(tf.test.TestCase):
              use_gpu=True)
 
         # bool
+        # CPU
         test([True],
              [0],
              1,
@@ -328,6 +347,7 @@ class TestScatterColumns(tf.test.TestCase):
              [True],
              use_gpu=False)
 
+        # GPU
         test([True],
              [0],
              1,
@@ -337,6 +357,7 @@ class TestScatterColumns(tf.test.TestCase):
              use_gpu=True)
 
         # Multi-column output, single-column input
+        # CPU
         test([float_val],
              [1],
              4,
@@ -352,6 +373,7 @@ class TestScatterColumns(tf.test.TestCase):
              [float_val, pad_elem, pad_elem, pad_elem],
              use_gpu=False)
 
+        # GPU
         test([float_val],
              [1],
              4,
@@ -368,6 +390,7 @@ class TestScatterColumns(tf.test.TestCase):
              use_gpu=True)
 
         # int
+        # CPU
         test([int_32_upper],
              [2],
              5,
@@ -383,6 +406,7 @@ class TestScatterColumns(tf.test.TestCase):
              [pad_elem, pad_elem, pad_elem, pad_elem, int_64_upper],
              use_gpu=False)
 
+        # GPU
         test([int_32_upper],
              [2],
              5,
@@ -399,6 +423,7 @@ class TestScatterColumns(tf.test.TestCase):
              use_gpu=True)
 
         # bool
+        # CPU
         test([True],
              [3],
              5,
@@ -407,6 +432,7 @@ class TestScatterColumns(tf.test.TestCase):
              [False, False, False, True, False],
              use_gpu=False)
 
+        # GPU
         test([True],
              [3],
              5,
@@ -418,80 +444,115 @@ class TestScatterColumns(tf.test.TestCase):
         # Multi-column output, multi-column input
         # float
         # No consecutive padded columns
-        test([float_val, float_val * 2, float_val * 3, float_val * 4, float_val * 5, float_val * 6],
+        # CPU
+        test([float_val, float_val * 2, float_val * 3, float_val * 4,
+              float_val * 5, float_val * 6],
              [5, 3, 9, 1, 8, 6],
              10,
              pad_elem,
              tf.float32,
              [pad_elem, float_val * 4, pad_elem, float_val * 2, pad_elem,
-                 float_val, float_val * 6, pad_elem, float_val * 5, float_val * 3],
+              float_val, float_val * 6, pad_elem, float_val * 5, float_val * 3],
              use_gpu=False)
-        test([float_val, float_val * 2, float_val * 3, float_val * 4, float_val * 5, float_val * 6],
+
+        # GPU
+        test([float_val, float_val * 2, float_val * 3, float_val * 4,
+              float_val * 5, float_val * 6],
              [5, 3, 9, 1, 8, 6],
              10,
              pad_elem,
              tf.float32,
              [pad_elem, float_val * 4, pad_elem, float_val * 2, pad_elem,
-                 float_val, float_val * 6, pad_elem, float_val * 5, float_val * 3],
+              float_val, float_val * 6, pad_elem, float_val * 5, float_val * 3],
              use_gpu=True)
 
         # Consecutive padded columns in the end
-        test([float_val, float_val * 2, float_val * 3, float_val * 4, float_val * 5, float_val * 6],
+        # CPU
+        test([float_val, float_val * 2, float_val * 3, float_val * 4,
+              float_val * 5, float_val * 6],
              [5, 3, 9, 1, 8, 6],
              15,
              pad_elem,
              tf.float64,
-             [pad_elem, float_val * 4, pad_elem, float_val * 2, pad_elem, float_val, float_val * 6,
-                 pad_elem, float_val * 5, float_val * 3, pad_elem, pad_elem, pad_elem, pad_elem, pad_elem],
+             [pad_elem, float_val * 4, pad_elem, float_val * 2, pad_elem,
+              float_val, float_val * 6, pad_elem, float_val * 5, float_val * 3,
+              pad_elem, pad_elem, pad_elem, pad_elem, pad_elem],
              use_gpu=False)
-        test([float_val, float_val * 2, float_val * 3, float_val * 4, float_val * 5, float_val * 6],
+
+        # GPU
+        test([float_val, float_val * 2, float_val * 3, float_val * 4,
+              float_val * 5, float_val * 6],
              [5, 3, 9, 1, 8, 6],
              15,
              pad_elem,
              tf.float64,
-             [pad_elem, float_val * 4, pad_elem, float_val * 2, pad_elem, float_val, float_val * 6,
-                 pad_elem, float_val * 5, float_val * 3, pad_elem, pad_elem, pad_elem, pad_elem, pad_elem],
+             [pad_elem, float_val * 4, pad_elem, float_val * 2, pad_elem,
+              float_val, float_val * 6, pad_elem, float_val * 5, float_val * 3,
+              pad_elem, pad_elem, pad_elem, pad_elem, pad_elem],
              use_gpu=True)
 
         # int
         # Consecutive padded columns in the beginning
-        test([float_val, float_val * 2, float_val * 3, float_val * 4, float_val * 5, float_val * 6, float_val * 7, float_val * 8, float_val * 9],
+        # CPU
+        test([float_val, float_val * 2, float_val * 3, float_val * 4,
+              float_val * 5, float_val * 6, float_val * 7, float_val * 8,
+              float_val * 9],
              [7, 14, 5, 9, 10, 11, 6, 3, 8],
              15,
              pad_elem,
              tf.float32,
-             [pad_elem, pad_elem, pad_elem, float_val * 8, pad_elem, float_val * 3, float_val * 7, float_val,
-                 float_val * 9, float_val * 4, float_val * 5, float_val * 6, pad_elem, pad_elem, float_val * 2],
+             [pad_elem, pad_elem, pad_elem, float_val * 8, pad_elem,
+              float_val * 3, float_val * 7, float_val, float_val * 9,
+              float_val * 4, float_val * 5, float_val * 6, pad_elem,
+              pad_elem, float_val * 2],
              use_gpu=False)
-        test([float_val, float_val * 2, float_val * 3, float_val * 4, float_val * 5, float_val * 6, float_val * 7, float_val * 8, float_val * 9],
+
+        # GPU
+        test([float_val, float_val * 2, float_val * 3, float_val * 4,
+              float_val * 5, float_val * 6, float_val * 7, float_val * 8,
+              float_val * 9],
              [7, 14, 5, 9, 10, 11, 6, 3, 8],
              15,
              pad_elem,
              tf.float32,
-             [pad_elem, pad_elem, pad_elem, float_val * 8, pad_elem, float_val * 3, float_val * 7, float_val,
-                 float_val * 9, float_val * 4, float_val * 5, float_val * 6, pad_elem, pad_elem, float_val * 2],
+             [pad_elem, pad_elem, pad_elem, float_val * 8, pad_elem,
+              float_val * 3, float_val * 7, float_val, float_val * 9,
+              float_val * 4, float_val * 5, float_val * 6, pad_elem, pad_elem,
+              float_val * 2],
              use_gpu=True)
 
         # Consecutive padded columns in the middle
-        test([float_val, float_val * 2, float_val * 3, float_val * 4, float_val * 5, float_val * 6, float_val * 7, float_val * 8, float_val * 9],
+        # CPU
+        test([float_val, float_val * 2, float_val * 3, float_val * 4,
+              float_val * 5, float_val * 6, float_val * 7, float_val * 8,
+              float_val * 9],
              [13, 8, 4, 1, 2, 3, 11, 0, 9],
              15,
              pad_elem,
              tf.float64,
-             [float_val * 8, float_val * 4, float_val * 5, float_val * 6, float_val * 3, pad_elem, pad_elem,
-                 pad_elem, float_val * 2, float_val * 9, pad_elem, float_val * 7, pad_elem, float_val, pad_elem],
+             [float_val * 8, float_val * 4, float_val * 5, float_val * 6,
+              float_val * 3, pad_elem, pad_elem, pad_elem, float_val * 2,
+              float_val * 9, pad_elem, float_val * 7, pad_elem, float_val,
+              pad_elem],
              use_gpu=False)
-        test([float_val, float_val * 2, float_val * 3, float_val * 4, float_val * 5, float_val * 6, float_val * 7, float_val * 8, float_val * 9],
+
+        # GPU
+        test([float_val, float_val * 2, float_val * 3, float_val * 4,
+              float_val * 5, float_val * 6, float_val * 7, float_val * 8,
+              float_val * 9],
              [13, 8, 4, 1, 2, 3, 11, 0, 9],
              15,
              pad_elem,
              tf.float64,
-             [float_val * 8, float_val * 4, float_val * 5, float_val * 6, float_val * 3, pad_elem, pad_elem,
-                 pad_elem, float_val * 2, float_val * 9, pad_elem, float_val * 7, pad_elem, float_val, pad_elem],
+             [float_val * 8, float_val * 4, float_val * 5, float_val * 6,
+              float_val * 3, pad_elem, pad_elem, pad_elem, float_val * 2,
+              float_val * 9, pad_elem, float_val * 7, pad_elem, float_val,
+              pad_elem],
              use_gpu=True)
 
         # bool
         # No padded columns
+        # CPU
         test([True, False, False, True],
              [2, 1, 3, 0],
              4,
@@ -499,6 +560,8 @@ class TestScatterColumns(tf.test.TestCase):
              tf.bool,
              [True, False, True, False],
              use_gpu=False)
+
+        # GPU
         test([True, False, False, True],
              [2, 1, 3, 0],
              4,
@@ -508,24 +571,28 @@ class TestScatterColumns(tf.test.TestCase):
              use_gpu=True)
 
         # Consecutive padded columns in the beginning, middle and end
+        # CPU
         test([True, False, False, True],
              [5, 11, 3, 9],
              15,
              False,
              tf.bool,
              [False, False, False, False, False, True, False, False,
-                 False, True, False, False, False, False, False],
+              False, True, False, False, False, False, False],
              use_gpu=False)
+
+        # GPU
         test([True, False, False, True],
              [5, 11, 3, 9],
              15,
              False,
              tf.bool,
              [False, False, False, False, False, True, False, False,
-                 False, True, False, False, False, False, False],
+              False, True, False, False, False, False, False],
              use_gpu=True)
 
         # Large case for performance test
+        # CPU
         true_output = list(np.arange(self.num_cols, 0, -0.5))
         true_output[1:self.num_cols * 2:2] = list(np.full((self.num_cols), pad_elem, np.int64))
         test(list(range(1, self.num_cols + 1)),  # [1, 2, 3, ..., n-1, n]
@@ -538,6 +605,7 @@ class TestScatterColumns(tf.test.TestCase):
              use_gpu=False,
              large_case=True)
 
+        # GPU
         true_output = list(np.arange(self.num_cols, 0, -0.5))
         true_output[1:self.num_cols * 2:2] = list(np.full((self.num_cols), pad_elem, np.int64))
         test(list(range(1, self.num_cols + 1)),  # [1, 2, 3, ..., n-1, n]
@@ -549,6 +617,7 @@ class TestScatterColumns(tf.test.TestCase):
              true_output,  # [n, pad_elem, n-1, pad_elem, n-2, ..., 2, pad_elem, 1, pad_elem]
              use_gpu=True,
              large_case=True)
+
 
 if __name__ == '__main__':
     unittest.main()
