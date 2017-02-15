@@ -1,7 +1,7 @@
 CC = g++
 NVCC = /usr/local/cuda-8.0/bin/nvcc
-CXXFLAGS = -std=c++11 -fPIC -lcudart -DGOOGLE_CUDA -DEXEC_TIME_CALC
-CUDAFLAGS = -std=c++11 -x=cu -Xcompiler -fPIC -DGOOGLE_CUDA -DEXEC_TIME_CALC
+CXXFLAGS = -std=c++11 -fPIC -lcudart -DGOOGLE_CUDA
+CUDAFLAGS = -std=c++11 -x=cu -Xcompiler -fPIC -DGOOGLE_CUDA
 CXXLIBS = -lcudart
 LIBDIRS = -L /usr/local/cuda-8.0/lib64/
 TF_INCDIR = -I $(shell (python -c 'import tensorflow as tf; print(tf.sysconfig.get_include())'))
@@ -15,6 +15,10 @@ SHROBJ = gather_columns.so scatter_columns.so
 SHROBJ_DEP = gather_columns.cc scatter_columns.cc
 
 all: gather_columns.so scatter_columns.so
+
+debug: CXXFLAGS += -DEXEC_TIME_CALC
+debug: CUDAFLAGS += -DEXEC_TIME_CALC
+debug: all
 
 $(OBJ_DIR)/%.o: %.cc $(OBJ_DEPS)
 	@mkdir -p $(@D)
