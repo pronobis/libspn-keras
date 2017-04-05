@@ -1,7 +1,7 @@
 CC = g++
 NVCC = /usr/local/cuda-8.0/bin/nvcc
-CXXFLAGS = -std=c++11 -fPIC -lcudart -DGOOGLE_CUDA -D_GLIBCXX_USE_CXX11_ABI=0
-CUDAFLAGS = -std=c++11 -x=cu -Xcompiler -fPIC -DGOOGLE_CUDA -D_GLIBCXX_USE_CXX11_ABI=0
+CXXFLAGS = -std=c++11 -fPIC -lcudart -D GOOGLE_CUDA=1 -D_GLIBCXX_USE_CXX11_ABI=0 -O2
+CUDAFLAGS = -std=c++11 -x=cu -Xcompiler -fPIC -D GOOGLE_CUDA=1 -D_GLIBCXX_USE_CXX11_ABI=0
 CXXLIBS = -lcudart
 LIBDIRS = -L /usr/local/cuda-8.0/lib64/
 TF_INCDIR = -I $(shell (python -c 'import tensorflow as tf; print(tf.sysconfig.get_include())'))
