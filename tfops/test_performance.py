@@ -30,63 +30,53 @@ class TestGatherColumnsPerformance(tf.test.TestCase):
     def setUpClass(self):
         # Params
         self.dtype = tf.float32
-        self.npdtype = self.dtype.as_numpy_dtype()
-        printc("Params:")
+        printc("Info:")
         printc("- num_cols: %s" % self.num_cols)
         printc("- num_rows: %s" % self.num_rows)
         printc("- num_stacked_ops: %s" % self.num_stacked_ops)
         printc("- log_device_placement: %s" % self.log_device_placement)
+        printc("- dtype: %s" % self.dtype)
+        # Generate params matrix
+        self.params = np.random.rand(self.num_rows, self.num_cols)
+        self.params = np.asarray(self.params,
+                                 dtype=self.dtype.as_numpy_dtype())
 
-    def run_test(self, fun, params, indices, true_output,
-                 device_name):
-
+    def run_test(self, fun, indices, device_name):
         with self.test_session(config=tf.ConfigProto(
                 log_device_placement=self.log_device_placement)) as sess:
             with tf.device(device_name):
-                # Based on the params vector, create a params matrix of size
-                # (num_rows, num_cols).
-                params_matrix = np.empty([self.num_rows, self.num_cols],
-                                         dtype=self.npdtype)
-                params_row = np.array(params, dtype=self.npdtype)
-                for i in range(0, self.num_rows):
-                    params_matrix[i, :] = params_row * (i + 1)
-                op2d2 = tf.constant(params_matrix, dtype=self.dtype)
+                indices = np.asarray(indices, dtype=np.int32)
 
-                ind = np.array(indices, dtype=np.int32)
+                # Create an op stack
+                op = tf.constant(self.params, dtype=self.dtype)
+                for i in range(self.num_stacked_ops):
+                    op = fun(op, indices)
 
-                # Create an Op Stack
-                for i in range(0, self.num_stacked_ops):
-                    op2d2 = fun(op2d2, ind)
-
-                # Create a large output matrix, based on the true output
-                # parameter, to compare the final op's output against.
-                true_output_row = np.array(true_output, dtype=self.npdtype)
-                for i in range(0, self.num_rows):
-                    params_matrix[i, :] = true_output_row * (i + 1)
-                true_output_2d2 = params_matrix
+                # Compute true output with numpy
+                true_out = self.params
+                for i in range(self.num_stacked_ops):
+                    true_out = true_out[:, indices]
 
             # Run
             start_time = time.time()
-            out2d2 = sess.run(op2d2)
+            op_out = sess.run(op)
             total_time = time.time() - start_time
 
-            # Calclate and print total time taken to process the op stack.
-            # To print processing time of each individual op, use 'Make debug'
+            # Print stats
+            # To print processing time of each individual op, use 'make debug'
             # instead, which enables the EXEC_TIME_CALC debug flag.
             printc("Total time for case %s on %s: %.5f s" %
                    (self.id().split('.')[2].upper(), device_name, total_time))
 
             # Test generated output
-            np.testing.assert_array_almost_equal(out2d2, true_output_2d2)
+            np.testing.assert_array_almost_equal(op_out, true_out)
 
     def run_test_opt0(self, fun, device_name):
         """Case: Worst-case (in-op optimization not used (0%))"""
 
         self.run_test(
             fun,
-            list(range(1, self.num_cols + 1)),  # params:  [1, 2, 3, ..., n-1, n], n = num_cols
             list(range(self.num_cols - 1, -1, -1)),  # indices: [n-1, n-2, n-3, ..., 1, 0]
-            list(range(1, self.num_cols + 1)),  # Expected op output: [n, n-1, n-2, ..., 2, 1]
             device_name=device_name)
 
     def run_test_tfindexing_opt0(self, device_name):
