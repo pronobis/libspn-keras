@@ -10,11 +10,9 @@ OBJ_DIR=obj
 _OBJ = gather_columns_functor_gpu.cu.o scatter_columns_functor_gpu.cu.o
 OBJ = $(patsubst %,$(OBJ_DIR)/%,$(_OBJ))
 OBJ_DEPS = gather_columns_functor_gpu.cu.cc scatter_columns_functor_gpu.cu.cc
-
-SHROBJ = gather_columns.so scatter_columns.so
 SHROBJ_DEP = gather_columns.cc scatter_columns.cc
 
-all: gather_columns.so scatter_columns.so
+all: libspn_ops.so
 
 debug: CXXFLAGS += -DEXEC_TIME_CALC
 debug: CUDAFLAGS += -DEXEC_TIME_CALC
@@ -24,10 +22,7 @@ $(OBJ_DIR)/%.o: %.cc $(OBJ_DEPS)
 	@mkdir -p $(@D)
 	$(NVCC) -c -o $@ $< $(CUDAFLAGS) $(TF_INCDIR)
 
-gather_columns.so: $(OBJ) $(SHROBJ_DEP)
-	$(CC) $(CXXFLAGS) -shared -o $@ $^ $(TF_INCDIR) $(LIBDIRS)
-
-scatter_columns.so: $(OBJ) $(SHROBJ_DEP)
+libspn_ops.so: $(OBJ) $(SHROBJ_DEP)
 	$(CC) $(CXXFLAGS) -shared -o $@ $^ $(TF_INCDIR) $(LIBDIRS)
 
 clean:

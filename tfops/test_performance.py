@@ -7,11 +7,11 @@ from context import libspn as spn
 import time
 import argparse
 
-gather_columns_module = tf.load_op_library('./gather_columns.so')
+libspn_ops_module = tf.load_op_library('./libspn_ops.so')
 
 
 def fun_custom(params, indices):
-    return gather_columns_module.gather_columns(params, indices)
+    return libspn_ops_module.gather_columns(params, indices)
 
 
 def fun_tfindexing(params, indices):
