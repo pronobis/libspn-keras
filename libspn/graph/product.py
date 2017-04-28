@@ -112,7 +112,7 @@ class Product(OpNode):
         # Prepare values
         value_tensors = self._gather_input_tensors(*value_tensors)
         if len(value_tensors) > 1:
-            values = tf.concat_v2(value_tensors, 1)
+            values = tf.concat(values=value_tensors, axis=1)
         else:
             values = value_tensors[0]
         return values

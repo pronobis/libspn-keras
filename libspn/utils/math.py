@@ -176,13 +176,13 @@ def scatter_cols(params, indices, out_num_cols, name=None):
         else:
             # Scatte a multi-column tensor to a multi-column tensor
             if param_dims == 1:
-                with_zeros = tf.concat_v2(values=([0], params), axis=0)
+                with_zeros = tf.concat(values=([0], params), axis=0)
                 gather_indices = np.zeros(out_num_cols, dtype=int)
                 gather_indices[indices] = np.arange(indices.size) + 1
                 return gather_cols(with_zeros, gather_indices)
             else:
                 zero_col = tf.zeros((tf.shape(params)[0], 1), dtype=params.dtype)
-                with_zeros = tf.concat_v2(values=(zero_col, params), axis=1)
+                with_zeros = tf.concat(values=(zero_col, params), axis=1)
                 gather_indices = np.zeros(out_num_cols, dtype=int)
                 gather_indices[indices] = np.arange(indices.size) + 1
                 return gather_cols(with_zeros, gather_indices)
@@ -250,7 +250,7 @@ def reduce_log_sum(log_input, name=None):
     with tf.name_scope(name, "reduce_log_sum", [log_input]):
         log_max = tf.reduce_max(log_input, 1, keep_dims=True)
         # Compute the value assuming at least one input is not -inf
-        log_rebased = tf.sub(log_input, log_max)
+        log_rebased = tf.subtract(log_input, log_max)
         out_normal = log_max + tf.log(tf.reduce_sum(tf.exp(log_rebased),
                                                     1, keep_dims=True))
         # Check if all input values in a row are -inf (all non-log inputs are 0)
@@ -274,7 +274,7 @@ def concat_maybe(concat_dim, values, name='concat'):
         Tensor: Concatenated values.
     """
     if len(values) > 1:
-        return tf.concat_v2(values, concat_dim)
+        return tf.concat(values=values, axis=concat_dim)
     else:
         return values[0]
 
