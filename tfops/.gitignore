@@ -1,3 +1,2 @@
 obj
-gather_columns.so
-scatter_columns.so
+libspn_ops.so
