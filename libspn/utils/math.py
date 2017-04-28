@@ -10,7 +10,7 @@
 import tensorflow as tf
 import math
 import numpy as np
-from libspn import utils
+from libspn.utils.serialization import register_serializable
 
 
 class ValueType:
@@ -31,7 +31,7 @@ class ValueType:
             self.min_val = min_val
             self.max_val = max_val
             # TODO: Move to metaclass
-            utils.register_serializable(type(self))
+            register_serializable(type(self))
 
         def serialize(self):
             return {'min_val': self.min_val,
