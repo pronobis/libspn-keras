@@ -98,7 +98,9 @@ def get_logger():
     frm = inspect.stack()[1]
     # Use class name to name the logger and add spn.
     # If no class, use the spn logger
-    if frm.function == "<module>":
+    # We use frm[3] for compatibility with Python 3.4
+    # In Python>=3.5 can use frm.function (it is a named tuple)
+    if frm[3] == "<module>":
         logger_name = "spn"
     else:
         logger_name = "spn." + frm.function
