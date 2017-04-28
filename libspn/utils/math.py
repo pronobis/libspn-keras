@@ -255,10 +255,12 @@ def reduce_log_sum(log_input, name=None):
                                                     1, keep_dims=True))
         # Check if all input values in a row are -inf (all non-log inputs are 0)
         # and produce output for that case
+        # We use float('inf') for compatibility with Python<3.5
+        # For Python>=3.5 we can use math.inf instead
         all_zero = tf.equal(log_max,
-                            tf.constant(-math.inf, dtype=log_input.dtype))
+                            tf.constant(-float('inf'), dtype=log_input.dtype))
         out_zeros = tf.fill(tf.shape(out_normal),
-                            tf.constant(-math.inf, dtype=log_input.dtype))
+                            tf.constant(-float('inf'), dtype=log_input.dtype))
         # Choose the output for each row
         return tf.where(all_zero, out_zeros, out_normal)
 
