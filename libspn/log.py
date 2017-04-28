@@ -103,7 +103,7 @@ def get_logger():
     if frm[3] == "<module>":
         logger_name = "spn"
     else:
-        logger_name = "spn." + frm.function
+        logger_name = "spn." + frm[3]
     # Module name can be obtained this way:
     # module = inspect.getmodule(frm.frame)
     # module.__name__
