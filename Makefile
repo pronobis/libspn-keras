@@ -23,11 +23,11 @@ wheel:
 sdist:
 	@python3 setup.py sdist
 
+build:
+	@python3 setup.py build
+
 install:
 	@pip3 install --user .
 
-dev-install:
+dev-install: build  # Run build manually, since dev install does not
 	@pip3 install --user -e .
-
-build:
-	@python3 setup.py build
