@@ -7,7 +7,6 @@
 
    Home <self>
    installation
-   tests
 
 .. toctree::
    :hidden:
