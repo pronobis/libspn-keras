@@ -129,7 +129,11 @@ setup(
     setup_requires=[
         'setuptools_scm',  # Use version from SCM using setuptools_scm
         'setuptools_git >= 0.3',  # Ship files tracked by git in src dist
-        'colorama'
+        'colorama',  # For color output
+        # For building docs:
+        'recommonmark',
+        'sphinxcontrib-napoleon',
+        'sphinx_rtd_theme'
     ],
     use_scm_version=True,  # Use version from SCM using setuptools_scm
     classifiers=[
