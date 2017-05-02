@@ -2,6 +2,9 @@ DOC_BUILD_DIR=build/sphinx
 DOC_SOURCE_DIR=docs
 SOURCE_DIR=libspn
 
+# Make sure the targets are never "up to date"
+.PHONY: build
+
 flake8:
 	@python3 setup.py flake8
 
