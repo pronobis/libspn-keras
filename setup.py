@@ -98,6 +98,11 @@ class BuildCommand(distutils.command.build.build):
                            'scatter_columns.cc',
                            'scatter_columns_functor.cc']])
 
+    def _test(self):
+        print(self._col_head + "Testing:" + self._col_clear)
+        import libspn.ops.ops
+        print("Custom ops loaded correctly!")
+
     def run(self):
         # Original run
         super().run()
@@ -115,6 +120,7 @@ class BuildCommand(distutils.command.build.build):
               self._col_clear)
         self._configure()
         self._build()
+        self._test()
         print(self._col_head +
               "========================== DONE ==========================" +
               self._col_clear)
