@@ -30,7 +30,8 @@ def display_tf_graph(graph=tf.get_default_graph(), max_const_size=32):
             document.getElementById("{id}").pbtxt = {data};
           }}
         </script>
-        <link rel="import" href="https://tensorboard.appspot.com/tf-graph-basic.build.html" onload=load()>
+        <link rel="import" href="https://tensorboard.appspot.com/tf-graph-basic.build.html"
+              onload=load()>
         <div style="height:600px">
           <tf-graph-basic id="{id}"></tf-graph-basic>
         </div>

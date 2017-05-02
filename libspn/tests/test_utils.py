@@ -8,14 +8,18 @@
 # ------------------------------------------------------------------------
 
 import unittest
-from context import libspn as spn
 import tensorflow as tf
+# from context import libspn as spn
 
 
 class TestUtils(unittest.TestCase):
 
     def tearDown(self):
         tf.reset_default_graph()
+
+    @classmethod
+    def setUpClass(cls):
+        pass
 
 
 if __name__ == '__main__':

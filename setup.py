@@ -101,6 +101,8 @@ class BuildCommand(distutils.command.build.build):
     def _test(self):
         print(self._col_head + "Testing:" + self._col_clear)
         import libspn.ops.ops
+        libspn.ops.gather_cols
+        libspn.ops.scatter_cols
         print("Custom ops loaded correctly!")
 
     def run(self):

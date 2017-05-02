@@ -90,6 +90,7 @@ class Logger(logging.getLoggerClass()):
             args = tuple(_pprinter.pformat(a) for a in args)
             self._log(DEBUG2, msg, args, **kwargs)
 
+
 logging.setLoggerClass(Logger)
 
 

@@ -105,7 +105,8 @@ class EMLearning():
                 with tf.name_scope(node.name) as scope:
                     if self._initial_accum_value is not None:
                         accum = tf.Variable(tf.ones_like(node.variable,
-                                                         dtype=conf.dtype) * self._initial_accum_value,
+                                                         dtype=conf.dtype) *
+                                            self._initial_accum_value,
                                             dtype=conf.dtype,
                                             collections=['em_accumulators'])
                     else:

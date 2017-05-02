@@ -431,5 +431,6 @@ class TestPartition(unittest.TestCase):
         with self.assertRaises(ValueError):
             spn.utils.random_partitions([1], 2, 1)
 
+
 if __name__ == '__main__':
     unittest.main()

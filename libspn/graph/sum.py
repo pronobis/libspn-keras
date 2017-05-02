@@ -7,7 +7,6 @@
 
 from itertools import chain
 import tensorflow as tf
-import numpy as np
 from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode, Input
 from libspn.inference.type import InferenceType

@@ -193,5 +193,6 @@ class TestInference(unittest.TestCase):
         np.testing.assert_array_equal(out.ravel(), gen.true_mpe_state)
         np.testing.assert_array_equal(out_log.ravel(), gen.true_mpe_state)
 
+
 if __name__ == '__main__':
     unittest.main()

@@ -322,5 +322,6 @@ class TestGraphAlgorithms(unittest.TestCase):
         self.assertEqual(c1, c3)
         self.assertEqual(c2, c3)
 
+
 if __name__ == '__main__':
     unittest.main()

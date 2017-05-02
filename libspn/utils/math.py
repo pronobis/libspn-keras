@@ -8,7 +8,6 @@
 """LibSPN math functions."""
 
 import tensorflow as tf
-import math
 import numpy as np
 from libspn.utils.serialization import register_serializable
 

@@ -9,8 +9,7 @@
 
 import unittest
 import tensorflow as tf
-import numpy as np
-from context import libspn as spn
+# from context import libspn as spn
 
 
 class TestInference(unittest.TestCase):
@@ -24,3 +23,7 @@ class TestInference(unittest.TestCase):
 
     def test_hard_em(self):
         pass
+
+
+if __name__ == '__main__':
+    unittest.main()
