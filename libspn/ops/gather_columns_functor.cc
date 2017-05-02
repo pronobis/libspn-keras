@@ -1,20 +1,19 @@
 #if GOOGLE_CUDA
 
-#include "tensorflow/core/user_ops/gather_columns_functor.h"
+#include "gather_columns_functor.h"
 #include "tensorflow/core/framework/register_types.h"
 
-namespace tensorflow {
-namespace functor {
-
+namespace tensorflow
+{
+namespace functor
+{
 //--Forward declarations of the functor specializations for GPU--//
 #define DECLARE_GPU_SPECS_INDEX(T, IndT)                            \
   template <>                                                       \
   int64 GatherColumnsFunctor<GPUDevice, T, IndT>::operator()(       \
       const GPUDevice& dvc, typename TTypes<T>::ConstMatrix params, \
-      typename TTypes<IndT>::ConstFlat indices,                     \
-      int64 params_rows,                                            \
-      int64 params_cols,                                            \
-      typename TTypes<T>::Matrix out);                              \
+      typename TTypes<IndT>::ConstFlat indices, int64 params_rows,  \
+      int64 params_cols, typename TTypes<T>::Matrix out);           \
   extern template struct GatherColumnsFunctor<GPUDevice, T, IndT>;
 
 #define DECLARE_GPU_SPECS(T)         \
