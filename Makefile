@@ -25,3 +25,6 @@ install:
 
 dev-install:
 	@pip3 install --user -e .
+
+build:
+	@python3 setup.py build
