@@ -17,15 +17,6 @@ def get_readme():
         return f.read()
 
 
-def find_in_path(name, paths):
-    "Find a file in paths"
-    for dir in paths.split(os.pathsep):
-        filepath = os.path.join(dir, name)
-        if os.path.exists(filepath):
-            return os.path.abspath(filepath)
-    return None
-
-
 class BuildCommand(distutils.command.build.build):
     """Custom build command compiling the C++ code."""
 
@@ -107,6 +98,7 @@ class BuildCommand(distutils.command.build.build):
                            'scatter_columns_functor.cc']])
 
     def run(self):
+        # Original run
         super().run()
 
         # For color output
@@ -116,6 +108,7 @@ class BuildCommand(distutils.command.build.build):
         self._col_cmd = colorama.Style.BRIGHT + colorama.Fore.BLUE
         self._col_clear = colorama.Style.RESET_ALL
 
+        # Build
         print(self._col_head +
               "====================== BUILDING OPS ======================" +
               self._col_clear)
@@ -158,6 +151,9 @@ setup(
     packages=['libspn'],
     install_requires=[
         'tensorflow',
+        'numpy',
+        'scipy',
+        'matplotlib',
     ],
     zip_safe=False,
     cmdclass={"build": BuildCommand},  # Custom build command for C++ code
