@@ -285,3 +285,13 @@ texinfo_documents = [
 
 autoclass_content = 'class'
 autodoc_default_flags = ['members', 'undoc-members', 'inherited-members', 'show-inheritance']
+
+# ---------------------------------
+# Developer documentation options
+# ---------------------------------
+# autodoc_member_order = 'bysource'
+
+# This replaces flags `private-members` of autodoc and includes
+# only the private/special members that are documented.
+#napoleon_include_private_with_doc = True
+#napoleon_include_special_with_doc = True
