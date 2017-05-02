@@ -61,8 +61,7 @@ class BuildCommand(distutils.command.build.build):
                    '--expt-relaxed-constexpr',  # To silence harmless warnings
                    '-I', self._tf_includes]
             print(self._col_cmd + ' '.join(cmd) + self._col_clear)
-            subprocess.run(cmd,
-                           check=True)
+            subprocess.check_call(cmd)  # Used instead of run for 3.4 compatibility
         except subprocess.CalledProcessError:
             os.sys.exit('ERROR: Build error!')
         return obj_file
@@ -78,8 +77,7 @@ class BuildCommand(distutils.command.build.build):
                     '-I', self._tf_includes,
                     '-L', self._cuda_libs])
             print(self._col_cmd + ' '.join(cmd) + self._col_clear)
-            subprocess.run(cmd,
-                           check=True)
+            subprocess.check_call(cmd)  # Used instead of run for 3.4 compatibility
         except subprocess.CalledProcessError:
             os.sys.exit('ERROR: Build error!')
         return lib_file
@@ -106,7 +104,7 @@ class BuildCommand(distutils.command.build.build):
         import colorama
         colorama.init()
         self._col_head = colorama.Style.BRIGHT + colorama.Fore.YELLOW
-        self._col_cmd = colorama.Style.BRIGHT + colorama.Fore.BLUE
+        self._col_cmd = colorama.Fore.BLUE
         self._col_clear = colorama.Style.RESET_ALL
 
         # Build
