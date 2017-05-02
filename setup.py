@@ -58,6 +58,7 @@ class BuildCommand(distutils.command.build.build):
                    obj_file, src_file,
                    '-std=c++11', '-x=cu', '-Xcompiler', '-fPIC',
                    '-DGOOGLE_CUDA=1', '-D_GLIBCXX_USE_CXX11_ABI=0',
+                   '--expt-relaxed-constexpr',  # To silence harmless warnings
                    '-I', self._tf_includes]
             print(self._col_cmd + ' '.join(cmd) + self._col_clear)
             subprocess.run(cmd,
