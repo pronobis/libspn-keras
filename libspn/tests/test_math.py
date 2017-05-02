@@ -7,16 +7,12 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
 
 
-class TestMath(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
+class TestMath(tf.test.TestCase):
 
     def test_gather_cols_errors(self):
         # Should work
@@ -74,7 +70,7 @@ class TestMath(unittest.TestCase):
                 op2d1t = spn.utils.gather_cols(p2d1, indices, use_gather_nd=True)
                 op2d2f = spn.utils.gather_cols(p2d2, indices, use_gather_nd=False)
                 op2d2t = spn.utils.gather_cols(p2d2, indices, use_gather_nd=True)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out1df = sess.run(op1df)
                     out1dt = sess.run(op1dt)
                     out2d1f = sess.run(op2d1f)
@@ -160,7 +156,7 @@ class TestMath(unittest.TestCase):
                 op1d = spn.utils.scatter_cols(p1d, indices, num_cols)
                 op2d1 = spn.utils.scatter_cols(p2d1, indices, num_cols)
                 op2d2 = spn.utils.scatter_cols(p2d2, indices, num_cols)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out1d = sess.run(op1d)
                     out2d1 = sess.run(op2d1)
                     out2d2 = sess.run(op2d2)
@@ -226,7 +222,7 @@ class TestMath(unittest.TestCase):
         v4 = spn.utils.broadcast_value([1],
                                        (2, 3), dtype=tf.float64)
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             out1 = sess.run(v1)
             out2 = sess.run(v2)
             out3 = sess.run(v3)
@@ -258,7 +254,7 @@ class TestMath(unittest.TestCase):
         v9 = spn.utils.normalize_tensor([[0.25, 0.25],
                                          [0.25, 0.25]])
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             out1 = sess.run(v1)
             out2 = sess.run(v2)
             out3 = sess.run(v3)
@@ -306,7 +302,7 @@ class TestMath(unittest.TestCase):
                 op_log = spn.utils.reduce_log_sum(log_inpt_tensor)
                 op = tf.exp(op_log)
 
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out = sess.run(op)
 
                 np.testing.assert_array_almost_equal(out,
@@ -324,7 +320,7 @@ class TestMath(unittest.TestCase):
         op2 = spn.utils.split(split_dim=1, split_sizes=(1, 3, 1, 2), value=value2)
         op3 = spn.utils.split(split_dim=0, split_sizes=(7), value=value1)
         op4 = spn.utils.split(split_dim=1, split_sizes=(7), value=value2)
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             out1 = sess.run(op1)
             out2 = sess.run(op2)
             out3 = sess.run(op3)
@@ -355,4 +351,4 @@ class TestMath(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()
