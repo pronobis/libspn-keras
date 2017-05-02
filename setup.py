@@ -57,7 +57,8 @@ class BuildCommand(distutils.command.build.build):
             cmd = [self._cuda_nvcc, "-c", "-o",
                    obj_file, src_file,
                    '-std=c++11', '-x=cu', '-Xcompiler', '-fPIC',
-                   '-DGOOGLE_CUDA=1', '-D_GLIBCXX_USE_CXX11_ABI=0',
+                   '-DGOOGLE_CUDA=1',
+                   # '-D_GLIBCXX_USE_CXX11_ABI=0',  # Was needed for gcc 5.0 before
                    '--expt-relaxed-constexpr',  # To silence harmless warnings
                    '-I', self._tf_includes]
             print(self._col_cmd + ' '.join(cmd) + self._col_clear)
@@ -73,7 +74,8 @@ class BuildCommand(distutils.command.build.build):
                    inputs +
                    ['-std=c++11', '-fPIC', '-lcudart',
                     '-DGOOGLE_CUDA=1',
-                    '-D_GLIBCXX_USE_CXX11_ABI=0', '-O2',
+                    # '-D_GLIBCXX_USE_CXX11_ABI=0',  # Was needed for gcc 5.0 before
+                    '-O2',  # Used in other TF code and sufficient for max opt
                     '-I', self._tf_includes,
                     '-L', self._cuda_libs])
             print(self._col_cmd + ' '.join(cmd) + self._col_clear)
