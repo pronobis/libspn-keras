@@ -68,6 +68,9 @@ from libspn.log import INFO
 from libspn.log import DEBUG1
 from libspn.log import DEBUG2
 
+# Custom TF ops
+from libspn.ops import ops
+
 # Utils and config
 from libspn import conf
 from libspn import utils
@@ -100,8 +103,8 @@ __all__ = [
     'plot_2d', 'display_tf_graph', 'display_spn_graph',
     # Logging
     'config_logger', 'get_logger', 'WARNING', 'INFO', 'DEBUG1', 'DEBUG2',
-    # Utils and config
-    'conf', 'utils', 'ValueType',
+    # Custom ops, utils and config
+    'ops', 'conf', 'utils', 'ValueType',
     # Exceptions
     'StructureError']
 
