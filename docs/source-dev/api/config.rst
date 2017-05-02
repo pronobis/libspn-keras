@@ -1,4 +1,0 @@
-config
-======
-
-.. automodule:: libspn.conf

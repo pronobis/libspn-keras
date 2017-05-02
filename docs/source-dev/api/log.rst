@@ -1,4 +1,0 @@
-log
-===
-
-.. automodule:: libspn.log

@@ -1,4 +1,0 @@
-session
-=======
-
-.. automodule:: libspn.session
