@@ -29,5 +29,8 @@ build:
 install:
 	@pip3 install --user .
 
-dev-install: build  # Run build manually, since dev install does not
+# Run build after install since dev-install doesn't do it
+# Run it after install, so that deps are installed
+dev-install:
 	@pip3 install --user -e .
+	$(MAKE) build
