@@ -1,4 +1,4 @@
 Installation
 ============
 
-This document will describe how to install LibSPN. Currently, we use a dot module to install TensorFlow and LibSPN together.
+See developer instructions in the GitHub Wiki for now.
