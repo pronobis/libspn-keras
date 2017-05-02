@@ -19,3 +19,9 @@ wheel:
 
 sdist:
 	@python3 setup.py sdist
+
+install:
+	@pip3 install --user .
+
+dev-install:
+	@pip3 install --user -e .
