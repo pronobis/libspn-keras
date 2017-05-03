@@ -17,8 +17,8 @@ REGISTER_OP("ScatterColumns")
     .Input("pad_elem: T")
     .Output("columns: T")
     .Attr("out_num_col: int >= 1 = 1")
-    .Attr("T: type = DT_DOUBLE")
-    .Attr("IndT: {int32,int64} = DT_INT64")
+    .Attr("T: type")
+    .Attr("IndT: {int32,int64}")
     .SetShapeFn([](InferenceContext* ctx) {
       ShapeHandle params_shape;
       TF_RETURN_IF_ERROR(ctx->WithRankAtLeast(ctx->input(0), 1, &params_shape));
