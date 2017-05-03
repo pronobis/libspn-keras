@@ -312,7 +312,7 @@ def main():
     parser.add_argument('--num_param_rows', default=200, type=int)
     parser.add_argument('--num_param_cols', default=100, type=int)
     parser.add_argument('--num_indices', default=50, type=int)
-    parser.add_argument('--num_ops', default=50, type=int)
+    parser.add_argument('--num_ops', default=100, type=int)
     parser.add_argument('--num_runs', default=10, type=int)
     parser.add_argument('--log-devices', action='store_true')
     parser.add_argument('--with-indexing', action='store_true')
