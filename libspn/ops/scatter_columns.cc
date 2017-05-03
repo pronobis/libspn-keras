@@ -4,8 +4,8 @@
 #include "tensorflow/core/framework/register_types.h"
 #include "tensorflow/core/framework/shape_inference.h"
 
-using namespace tensorflow;
-
+namespace tensorflow
+{
 using shape_inference::InferenceContext;
 using shape_inference::ShapeHandle;
 using shape_inference::DimensionHandle;
@@ -183,3 +183,5 @@ TF_CALL_GPU_NUMBER_TYPES(REGISTER_SCATTERCOLUMNS_GPU);
 
 #undef REGISTER_SCATTERCOLUMNS_ALL_INDICES
 #undef REGISTER_SCATTERCOLUMNS_ALL
+
+}  // namespace tensorflow

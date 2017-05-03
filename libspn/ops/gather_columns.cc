@@ -4,11 +4,10 @@
 #include "tensorflow/core/framework/register_types.h"
 #include "tensorflow/core/framework/shape_inference.h"
 
-using namespace tensorflow;
-using namespace std;
-
-using shape_inference::InferenceContext;
+namespace tensorflow
+{
 using shape_inference::ShapeHandle;
+using shape_inference::InferenceContext;
 
 REGISTER_OP("GatherColumns")
     .Input("params: T")
@@ -146,3 +145,5 @@ TF_CALL_GPU_NUMBER_TYPES(REGISTER_GATHERCOLUMNS_GPU);
 
 #undef REGISTER_GATHERCOLUMNS_ALL_INDICES
 #undef REGISTER_GATHERCOLUMNS_ALL
+
+}  // namespace tensorflow
