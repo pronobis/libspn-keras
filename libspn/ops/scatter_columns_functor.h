@@ -3,6 +3,7 @@
 
 #include <unordered_set>
 #include "tensorflow/core/framework/tensor_types.h"
+#include "tensorflow/core/framework/type_traits.h"
 #include "tensorflow/core/kernels/bounds_check.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/gtl/inlined_vector.h"
@@ -95,7 +96,7 @@ Status CountAndCopy(const typename TTypes<T>::ConstMatrix& params,
   }
 
   //--Vector containing padding elements. Size of this vector = maximum no. of
-  //consecutive padding columns in the output tensor--//
+  // consecutive padding columns in the output tensor--//
   gtl::InlinedVector<T, 4> pad_elem_vec(max_cons_pad_cols, pad_elem[0]);
 
 //--Debugging flag disabled by default--//
@@ -106,7 +107,7 @@ Status CountAndCopy(const typename TTypes<T>::ConstMatrix& params,
 #endif  // EXEC_TIME_CALC
 
   //--Mem-copy columns, bunching consecutive padding columns together, one row
-  //at a time--//
+  // at a time--//
   for (int row = 0; row < params_rows; row++)
   {
     for (int col = 0; col < out_num_cols;)
@@ -135,7 +136,7 @@ Status CountAndCopy(const typename TTypes<T>::ConstMatrix& params,
       else
       {
         //--Mem-copy columns of padding elements (per row) from padding element
-        //vector--//
+        // vector--//
         memcpy(&output(row, col), &pad_elem_vec[0],
                (cons_pad_cols[col] * sizeof(T)));
         col += cons_pad_cols[col];

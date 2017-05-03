@@ -70,7 +70,7 @@ struct GatherColumnsFunctor<GPUDevice, T, IndT>
 #endif  // EXEC_TIME_CALC
 
     CudaLaunchConfig config = GetCudaLaunchConfig(output_size, d);
-    GatherColumnsOpKernel<T,IndT>
+    GatherColumnsOpKernel<T, IndT>
         <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
         params.data(), indices.data(), params_cols, indices_size, output_size,
         output.data());

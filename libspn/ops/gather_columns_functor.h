@@ -2,6 +2,7 @@
 #define TENSORFLOW_USEROPS_GATHER_COLUMNS_FUNCTOR_H_
 
 #include "tensorflow/core/framework/tensor_types.h"
+#include "tensorflow/core/framework/type_traits.h"
 #include "tensorflow/core/kernels/bounds_check.h"
 #include "tensorflow/core/platform/prefetch.h"
 #include "tensorflow/core/platform/types.h"
@@ -30,7 +31,7 @@ IndT CountAndCopy(typename TTypes<T>::ConstMatrix params,
     else
     {
       //--Single column tensor, indices must include it, so just copy params
-      //tensor to output tensor and return--//
+      // tensor to output tensor and return--//
       memcpy(&output(0, 0), &params(0, 0), (params_rows * sizeof(T)));
       return -1;
     }
@@ -86,7 +87,7 @@ IndT CountAndCopy(typename TTypes<T>::ConstMatrix params,
 #endif  // EXEC_TIME_CALC
 
   //--Mem-copy columns, bunching consecutive columns together, one row at a
-  //time--//
+  // time--//
   for (int row = 0; row < params_rows; row++)
   {
     for (int col = 0; col < indices_size;)
