@@ -321,8 +321,6 @@ def main():
     dtype = tf.float32
     args = parser.parse_args()
 
-    print(args.with_indexing)
-
     t = PerformanceTest(args.num_param_rows, args.num_param_cols,
                         args.num_indices, args.num_ops, args.num_runs,
                         dtype, args.with_indexing,
