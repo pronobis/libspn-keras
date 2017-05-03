@@ -47,20 +47,39 @@ class BuildCommand(distutils.command.build.build):
         import tensorflow
         self._tf_includes = tensorflow.sysconfig.get_include()
         self._tf_version = tensorflow.__version__
+        self._tf_gcc_version = tensorflow.__compiler_version__
+        self._tf_gcc_version_major = int(self._tf_gcc_version[0])
         print("- Found TensorFlow %s" % self._tf_version)
+        print("  gcc version: %s" % self._tf_gcc_version)
         print("  includes: %s" % self._tf_includes)
+
+        # gcc
+        try:
+            cmd = ['gcc', '-dumpversion']
+            # Used instead of run for 3.4 compatibility
+            self._gcc_version = subprocess.check_output(cmd).decode('ascii').strip()
+            self._gcc_version_major = int(self._gcc_version[0])
+        except subprocess.CalledProcessError:
+            os.sys.exit('ERROR: gcc not found!')
+        print("- Found gcc %s" % self._gcc_version)
+        self._downgrade_abi = (self._gcc_version_major > self._tf_gcc_version_major)
+        if self._downgrade_abi:
+            print("  TF gcc version < system gcc version: "
+                  "using -D_GLIBCXX_USE_CXX11_ABI=0")
 
     def _run_nvcc(self, filename):
         obj_file = os.path.join(self._build_dir, filename + ".o")
         src_file = os.path.join(self._src_dir, filename)
         try:
-            cmd = [self._cuda_nvcc, "-c", "-o",
-                   obj_file, src_file,
-                   '-std=c++11', '-x=cu', '-Xcompiler', '-fPIC',
-                   '-DGOOGLE_CUDA=1',
-                   # '-D_GLIBCXX_USE_CXX11_ABI=0',  # Was needed for gcc 5.0 before
-                   '--expt-relaxed-constexpr',  # To silence harmless warnings
-                   '-I', self._tf_includes]
+            cmd = ([self._cuda_nvcc, "-c", "-o",
+                    obj_file, src_file,
+                    '-std=c++11', '-x=cu', '-Xcompiler', '-fPIC',
+                    '-DGOOGLE_CUDA=1',
+                    '--expt-relaxed-constexpr',  # To silence harmless warnings
+                    '-I', self._tf_includes] +
+                   # Downgrade the ABI if system gcc > TF gcc
+                   (['-D_GLIBCXX_USE_CXX11_ABI=0']
+                    if self._downgrade_abi else []))
             print(self._col_cmd + ' '.join(cmd) + self._col_clear)
             subprocess.check_call(cmd)  # Used instead of run for 3.4 compatibility
         except subprocess.CalledProcessError:
@@ -74,10 +93,12 @@ class BuildCommand(distutils.command.build.build):
                    inputs +
                    ['-std=c++11', '-fPIC', '-lcudart',
                     '-DGOOGLE_CUDA=1',
-                    # '-D_GLIBCXX_USE_CXX11_ABI=0',  # Was needed for gcc 5.0 before
                     '-O2',  # Used in other TF code and sufficient for max opt
                     '-I', self._tf_includes,
-                    '-L', self._cuda_libs])
+                    '-L', self._cuda_libs] +
+                   # Downgrade the ABI if system gcc > TF gcc
+                   (['-D_GLIBCXX_USE_CXX11_ABI=0']
+                    if self._downgrade_abi else []))
             print(self._col_cmd + ' '.join(cmd) + self._col_clear)
             subprocess.check_call(cmd)  # Used instead of run for 3.4 compatibility
         except subprocess.CalledProcessError:
