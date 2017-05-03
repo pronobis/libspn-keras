@@ -5,8 +5,8 @@
 #include "gather_columns_functor_gpu.cu.h"
 #include "tensorflow/core/framework/register_types.h"
 
-namespace tensorflow {
-
+namespace tensorflow
+{
 typedef Eigen::GpuDevice GPUDevice;
 
 #define DEFINE_GPU_SPECS_INDEX(T, IndT) \
