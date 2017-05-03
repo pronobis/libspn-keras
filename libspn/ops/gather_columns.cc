@@ -90,7 +90,7 @@ public:
     }
 
     //--Create an output tensor--//
-    Tensor* output = NULL;
+    Tensor* output = nullptr;
     OP_REQUIRES_OK(ctx, ctx->allocate_output(0, output_shape, &output));
 
     auto output_tensor = output->shaped<T, 2>({params_rows, indices_size});

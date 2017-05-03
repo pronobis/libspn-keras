@@ -3,8 +3,11 @@
 #define EIGEN_USE_GPU
 
 #include "scatter_columns_functor_gpu.cu.h"
+#include "tensorflow/core/framework/register_types.h"
 
 namespace tensorflow {
+
+typedef Eigen::GpuDevice GPUDevice;
 
 #define DEFINE_GPU_SPECS_INDEX(T, IndT) \
   template struct functor::ScatterColumnsFunctor<GPUDevice, T, IndT>
