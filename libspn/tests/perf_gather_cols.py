@@ -111,7 +111,7 @@ class PerformanceTest:
 
     def __init__(self, num_param_rows, num_param_cols, num_indices,
                  num_ops, num_runs, dtype, with_indexing,
-                 with_cpu, with_gpu, log_devs):
+                 without_cpu, without_gpu, log_devs):
         self.num_param_rows = num_param_rows
         self.num_param_cols = num_param_cols
         self.num_indices = num_indices
@@ -119,8 +119,8 @@ class PerformanceTest:
         self.num_runs = num_runs
         self.dtype = dtype
         self.with_indexing = with_indexing
-        self.with_cpu = with_cpu
-        self.with_gpu = with_gpu
+        self.without_cpu = without_cpu
+        self.without_gpu = without_gpu
         self.log_devs = log_devs
 
         print1("Params:")
@@ -157,6 +157,7 @@ class PerformanceTest:
                    for i in range(self.num_ops)]
             # Group all
             tup = tf.tuple(ops)
+            grp = tf.group(*ops)
             setup_time = time.time() - start_time
         # Get num of graph ops
         graph_size = len(tf.get_default_graph().get_operations())
@@ -169,14 +170,15 @@ class PerformanceTest:
             for n in range(self.num_runs):
                 # Run
                 start_time = time.time()
-                out = sess.run(tup, feed_dict={params_pl: params})
+                sess.run(grp, feed_dict={params_pl: params})
                 run_times.append(time.time() - start_time)
-                # Check output
-                for o in out:
-                    try:
-                        np.testing.assert_array_almost_equal(o, true_out)
-                    except AssertionError:
-                        output_correct = False
+            # Run the tuple to get and check the output
+            out = sess.run(tup, feed_dict={params_pl: params})
+            for o in out:
+                try:
+                    np.testing.assert_array_almost_equal(o, true_out)
+                except AssertionError:
+                    output_correct = False
         # Return stats
         return OpTestResult(op_name, on_gpu, graph_size, setup_time,
                             run_times, output_correct)
@@ -186,10 +188,10 @@ class PerformanceTest:
         cpu_results = []
         gpu_results = []
         for op_fun in op_funs:
-            if self.with_cpu:
+            if not self.without_cpu:
                 cpu_results.append(
                     self._run_op_test(op_fun, params, indices, on_gpu=False))
-            if self.with_gpu:
+            if not self.without_gpu:
                 gpu_results.append(
                     self._run_op_test(op_fun, params, indices, on_gpu=True))
         return TestResults(test_name, cpu_results, gpu_results)
@@ -312,17 +314,19 @@ def main():
     parser.add_argument('--num_indices', default=50, type=int)
     parser.add_argument('--num_ops', default=50, type=int)
     parser.add_argument('--num_runs', default=10, type=int)
-    parser.add_argument('--log-devices', default=False, type=bool)
-    parser.add_argument('--with-indexing', default=False, type=bool)
-    parser.add_argument('--with-cpu', default=True, type=bool)
-    parser.add_argument('--with-gpu', default=True, type=bool)
+    parser.add_argument('--log-devices', action='store_true')
+    parser.add_argument('--with-indexing', action='store_true')
+    parser.add_argument('--without-cpu', action='store_true')
+    parser.add_argument('--without-gpu', action='store_true')
     dtype = tf.float32
     args = parser.parse_args()
+
+    print(args.with_indexing)
 
     t = PerformanceTest(args.num_param_rows, args.num_param_cols,
                         args.num_indices, args.num_ops, args.num_runs,
                         dtype, args.with_indexing,
-                        args.with_cpu, args.with_gpu,
+                        args.without_cpu, args.without_gpu,
                         args.log_devices)
     t.run()
 
