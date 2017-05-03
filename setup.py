@@ -167,6 +167,7 @@ setup(
         'numpy',
         'scipy',
         'matplotlib',
+        'colorama'  # For color output in tests
     ],
     zip_safe=False,
     cmdclass={"build": BuildCommand},  # Custom build command for C++ code
