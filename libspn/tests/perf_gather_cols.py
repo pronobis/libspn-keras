@@ -174,8 +174,8 @@ class PerformanceTest:
         for op_fun in op_funs:
             cpu_results.append(
                 self._run_op_test(op_fun, params, indices, on_gpu=False))
-            # gpu_results.append(
-            # self._run_op_test(op_fun, params, indices, on_gpu=True))
+            gpu_results.append(
+                self._run_op_test(op_fun, params, indices, on_gpu=True))
         return TestResults(test_name, cpu_results, gpu_results)
 
     def _run_1d(self):
