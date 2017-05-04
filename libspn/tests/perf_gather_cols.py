@@ -17,18 +17,16 @@ import sys
 col.init()
 
 
-def print1(str, file=None):
+def print1(str, file):
     if file:
         print(str, file=file)
-    else:
-        print(col.Fore.YELLOW + str + col.Style.RESET_ALL)
+    print(col.Fore.YELLOW + str + col.Style.RESET_ALL)
 
 
-def print2(str, file=None):
+def print2(str, file):
     if file:
         print(str, file=file)
-    else:
-        print(col.Fore.BLUE + str + col.Style.RESET_ALL)
+    print(col.Fore.BLUE + str + col.Style.RESET_ALL)
 
 
 class Ops:
@@ -87,7 +85,7 @@ class TestResults:
         self.cpu_results = cpu_results
         self.gpu_results = gpu_results
 
-    def print(self, file=None):
+    def print(self, file):
         def get_header(dev):
             return ("%3s %11s: %5s %11s %15s %14s %10s" %
                     (dev, 'op', 'size', 'setup_time',
@@ -102,23 +100,22 @@ class TestResults:
                      res.output_correct))
 
         # Print results
-        print(file=file)
-        print1("-----------------------", file=file)
-        print1("%s" % self.test_name, file=file)
-        print1("-----------------------", file=file)
-        print1(get_header("CPU"), file=file)
+        print1("\n-----------------------", file)
+        print1("%s" % self.test_name, file)
+        print1("-----------------------", file)
+        print1(get_header("CPU"), file)
         for res in sorted(self.cpu_results, key=lambda x: x.op_name):
-            print1(get_res(res), file=file)
-        print1(get_header("GPU"), file=file)
+            print1(get_res(res), file)
+        print1(get_header("GPU"), file)
         for res in sorted(self.gpu_results, key=lambda x: x.op_name):
-            print1(get_res(res), file=file)
+            print1(get_res(res), file)
 
 
 class PerformanceTest:
 
     def __init__(self, num_param_rows, num_param_cols, num_indices,
                  num_parallel_ops, num_stacked_ops, num_runs, dtype,
-                 with_indexing, without_cpu, without_gpu, log_devs, save_to):
+                 with_indexing, without_cpu, without_gpu, log_devs, file):
         self.num_param_rows = num_param_rows
         self.num_param_cols = num_param_cols
         self.num_indices = num_indices
@@ -130,16 +127,17 @@ class PerformanceTest:
         self.without_cpu = without_cpu
         self.without_gpu = without_gpu
         self.log_devs = log_devs
-        self.save_to = save_to
+        self.file = file
 
-        print1("Params:")
-        print1("- num_param_rows=%s" % num_param_rows)
-        print1("- num_param_cols=%s" % num_param_cols)
-        print1("- num_indices=%s" % num_indices)
-        print1("- num_parallel_ops=%s" % num_parallel_ops)
-        print1("- num_stacked_ops=%s" % num_stacked_ops)
-        print1("- num_runs=%s" % num_runs)
-        print1("- dtype=%s" % dtype)
+        print1("Params:", file)
+        print1("- num_param_rows=%s" % num_param_rows, file)
+        print1("- num_param_cols=%s" % num_param_cols, file)
+        print1("- num_indices=%s" % num_indices, file)
+        print1("- num_parallel_ops=%s" % num_parallel_ops, file)
+        print1("- num_stacked_ops=%s" % num_stacked_ops, file)
+        print1("- num_runs=%s" % num_runs, file)
+        print1("- dtype=%s" % dtype, file)
+        print1("", file=file)
 
     def _run_op_test(self, op_fun, params, indices,
                      num_parallel_ops, num_stacked_ops, on_gpu):
@@ -158,7 +156,7 @@ class PerformanceTest:
         print2("--> %s: on_gpu=%s, params_shape=%s, indices_shape=%s"
                " num_parallel_ops=%s, num_stacked_ops=%s" %
                (op_name, on_gpu, params.shape, indices.shape,
-                num_parallel_ops, num_stacked_ops))
+                num_parallel_ops, num_stacked_ops), self.file)
         # Compute true output with numpy
         if params.ndim == 1:
             true_out = params
@@ -391,19 +389,14 @@ class PerformanceTest:
 
     def run(self):
         """Run all tests."""
+        print1("Running tests:", self.file)
         results = []
         results += self._run_1d()
         results += self._run_2d()
 
         # Print results
         for res in results:
-            res.print()
-
-        # Save results
-        if self.save_to:
-            with open(self.save_to, 'w') as f:
-                for res in results:
-                    res.print(f)
+            res.print(self.file)
 
 
 def main():
@@ -438,13 +431,22 @@ def main():
     if args.num_param_cols % 10:
         sys.exit('ERROR: num_param_cols must be divisible by 10')
 
-    t = PerformanceTest(args.num_param_rows, args.num_param_cols,
-                        args.num_indices, args.num_parallel_ops,
-                        args.num_stacked_ops, args.num_runs,
-                        dtype, args.with_indexing,
-                        args.without_cpu, args.without_gpu,
-                        args.log_devices, args.save_to)
-    t.run()
+    # Open a file
+    f = None
+    if args.save_to:
+        f = open(args.save_to, 'w')
+
+    try:
+        t = PerformanceTest(args.num_param_rows, args.num_param_cols,
+                            args.num_indices, args.num_parallel_ops,
+                            args.num_stacked_ops, args.num_runs,
+                            dtype, args.with_indexing,
+                            args.without_cpu, args.without_gpu,
+                            args.log_devices, f)
+        t.run()
+    finally:
+        if f is not None:
+            f.close()
 
 
 if __name__ == '__main__':
