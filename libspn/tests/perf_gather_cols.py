@@ -17,12 +17,18 @@ import sys
 col.init()
 
 
-def print1(str):
-    print(col.Fore.YELLOW + str + col.Style.RESET_ALL)
+def print1(str, file=None):
+    if file:
+        print(str, file=file)
+    else:
+        print(col.Fore.YELLOW + str + col.Style.RESET_ALL)
 
 
-def print2(str):
-    print(col.Fore.BLUE + str + col.Style.RESET_ALL)
+def print2(str, file=None):
+    if file:
+        print(str, file=file)
+    else:
+        print(col.Fore.BLUE + str + col.Style.RESET_ALL)
 
 
 class Ops:
@@ -81,38 +87,38 @@ class TestResults:
         self.cpu_results = cpu_results
         self.gpu_results = gpu_results
 
-    def print(self):
-        def print_header(dev):
-            print1("%3s %11s: %5s %11s %15s %14s %10s" %
-                   (dev, 'op', 'size', 'setup_time',
-                    'first_run_time', 'rest_run_time', 'correct'))
+    def print(self, file=None):
+        def get_header(dev):
+            return ("%3s %11s: %5s %11s %15s %14s %10s" %
+                    (dev, 'op', 'size', 'setup_time',
+                     'first_run_time', 'rest_run_time', 'correct'))
 
-        def print_res(res):
+        def get_res(res):
             """Helper function printing a single result."""
-            print1("%15s: %5d %11.2f %15.2f %14.2f %10s" %
-                   (res.op_name, res.graph_size,
-                    res.setup_time * 1000, res.run_times[0] * 1000,
-                    np.mean(res.run_times[1:]) * 1000,
-                    res.output_correct))
+            return ("%15s: %5d %11.2f %15.2f %14.2f %10s" %
+                    (res.op_name, res.graph_size,
+                     res.setup_time * 1000, res.run_times[0] * 1000,
+                     np.mean(res.run_times[1:]) * 1000,
+                     res.output_correct))
 
         # Print results
-        print()
-        print1("-----------------------")
-        print1("%s" % self.test_name)
-        print1("-----------------------")
-        print_header("CPU")
+        print(file=file)
+        print1("-----------------------", file=file)
+        print1("%s" % self.test_name, file=file)
+        print1("-----------------------", file=file)
+        print1(get_header("CPU"), file=file)
         for res in sorted(self.cpu_results, key=lambda x: x.op_name):
-            print_res(res)
-        print_header("GPU")
+            print1(get_res(res), file=file)
+        print1(get_header("GPU"), file=file)
         for res in sorted(self.gpu_results, key=lambda x: x.op_name):
-            print_res(res)
+            print1(get_res(res), file=file)
 
 
 class PerformanceTest:
 
     def __init__(self, num_param_rows, num_param_cols, num_indices,
                  num_parallel_ops, num_stacked_ops, num_runs, dtype,
-                 with_indexing, without_cpu, without_gpu, log_devs):
+                 with_indexing, without_cpu, without_gpu, log_devs, save_to):
         self.num_param_rows = num_param_rows
         self.num_param_cols = num_param_cols
         self.num_indices = num_indices
@@ -124,6 +130,7 @@ class PerformanceTest:
         self.without_cpu = without_cpu
         self.without_gpu = without_gpu
         self.log_devs = log_devs
+        self.save_to = save_to
 
         print1("Params:")
         print1("- num_param_rows=%s" % num_param_rows)
@@ -384,13 +391,19 @@ class PerformanceTest:
 
     def run(self):
         """Run all tests."""
-
         results = []
         results += self._run_1d()
         results += self._run_2d()
 
+        # Print results
         for res in results:
             res.print()
+
+        # Save results
+        if self.save_to:
+            with open(self.save_to, 'w') as f:
+                for res in results:
+                    res.print(f)
 
 
 def main():
