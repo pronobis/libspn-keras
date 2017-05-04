@@ -67,10 +67,11 @@ class Ops:
 class OpTestResult:
     """Result of a single test of a single op."""
 
-    def __init__(self, op_name, on_gpu, graph_size, setup_time,
+    def __init__(self, op_name, on_gpu, index_dtype, graph_size, setup_time,
                  run_times, output_correct):
         self.op_name = op_name
         self.on_gpu = on_gpu
+        self.index_dtype = index_dtype
         self.graph_size = graph_size
         self.setup_time = setup_time
         self.run_times = run_times
@@ -87,14 +88,14 @@ class TestResults:
 
     def print(self, file):
         def get_header(dev):
-            return ("%3s %11s: %5s %11s %15s %14s %10s" %
-                    (dev, 'op', 'size', 'setup_time',
+            return ("%3s %11s %5s: %5s %11s %15s %14s %10s" %
+                    (dev, 'op', 'dt', 'size', 'setup_time',
                      'first_run_time', 'rest_run_time', 'correct'))
 
         def get_res(res):
             """Helper function printing a single result."""
-            return ("%15s: %5d %11.2f %15.2f %14.2f %10s" %
-                    (res.op_name, res.graph_size,
+            return ("%15s %5s: %5d %11.2f %15.2f %14.2f %10s" %
+                    (res.op_name, str(res.index_dtype)[14:-2], res.graph_size,
                      res.setup_time * 1000, res.run_times[0] * 1000,
                      np.mean(res.run_times[1:]) * 1000,
                      res.output_correct))
@@ -140,12 +141,12 @@ class PerformanceTest:
         print1("", file=file)
 
     def _run_op_test(self, op_fun, params, indices,
-                     num_parallel_ops, num_stacked_ops, on_gpu):
+                     num_parallel_ops, num_stacked_ops, on_gpu, index_dtype):
         """Run a single test for a single op."""
         # Preparations
         op_name = op_fun.__name__
         device_name = '/gpu:0' if on_gpu else '/cpu:0'
-        indices = np.asarray(indices, dtype=np.int32)
+        indices = np.asarray(indices, dtype=index_dtype)
         params = np.asarray(params, dtype=self.dtype.as_numpy_dtype())
         # Verify if we can stack multiple operations together
         if num_stacked_ops > 1:
@@ -153,9 +154,9 @@ class PerformanceTest:
                 sys.exit('ERROR: Cannot stack operations if param_cols is'
                          ' not equal to size of indices.')
         # Print
-        print2("--> %s: on_gpu=%s, params_shape=%s, indices_shape=%s"
-               " num_parallel_ops=%s, num_stacked_ops=%s" %
-               (op_name, on_gpu, params.shape, indices.shape,
+        print2("--> %s: on_gpu=%s, index_dtype=%s, params_shape=%s, "
+               "indices_shape=%s, num_parallel_ops=%s, num_stacked_ops=%s" %
+               (op_name, on_gpu, index_dtype, params.shape, indices.shape,
                 num_parallel_ops, num_stacked_ops), self.file)
         # Compute true output with numpy
         if params.ndim == 1:
@@ -203,7 +204,7 @@ class PerformanceTest:
                 except AssertionError:
                     output_correct = False
         # Return stats
-        return OpTestResult(op_name, on_gpu, graph_size, setup_time,
+        return OpTestResult(op_name, on_gpu, index_dtype, graph_size, setup_time,
                             run_times, output_correct)
 
     def _run_test(self, test_name, op_funs, params, indices,
@@ -216,12 +217,20 @@ class PerformanceTest:
                 cpu_results.append(
                     self._run_op_test(op_fun, params, indices,
                                       num_parallel_ops, num_stacked_ops,
-                                      on_gpu=False))
+                                      on_gpu=False, index_dtype=np.int32))
+                cpu_results.append(
+                    self._run_op_test(op_fun, params, indices,
+                                      num_parallel_ops, num_stacked_ops,
+                                      on_gpu=False, index_dtype=np.int64))
             if not self.without_gpu:
                 gpu_results.append(
                     self._run_op_test(op_fun, params, indices,
                                       num_parallel_ops, num_stacked_ops,
-                                      on_gpu=True))
+                                      on_gpu=True, index_dtype=np.int32))
+                gpu_results.append(
+                    self._run_op_test(op_fun, params, indices,
+                                      num_parallel_ops, num_stacked_ops,
+                                      on_gpu=True, index_dtype=np.int64))
         return TestResults(test_name, cpu_results, gpu_results)
 
     def _run_1d(self):
