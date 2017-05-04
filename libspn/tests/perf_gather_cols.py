@@ -115,13 +115,12 @@ class TestResults:
 class PerformanceTest:
 
     def __init__(self, num_param_rows, num_param_cols, num_indices,
-                 num_parallel_ops, num_stacked_ops, num_runs, dtype,
+                 num_ops, num_runs, dtype,
                  with_indexing, without_cpu, without_gpu, log_devs, file):
         self.num_param_rows = num_param_rows
         self.num_param_cols = num_param_cols
         self.num_indices = num_indices
-        self.num_parallel_ops = num_parallel_ops
-        self.num_stacked_ops = num_stacked_ops
+        self.num_ops = num_ops
         self.num_runs = num_runs
         self.dtype = dtype
         self.with_indexing = with_indexing
@@ -134,54 +133,46 @@ class PerformanceTest:
         print1("- num_param_rows=%s" % num_param_rows, file)
         print1("- num_param_cols=%s" % num_param_cols, file)
         print1("- num_indices=%s" % num_indices, file)
-        print1("- num_parallel_ops=%s" % num_parallel_ops, file)
-        print1("- num_stacked_ops=%s" % num_stacked_ops, file)
+        print1("- num_ops=%s" % num_ops, file)
         print1("- num_runs=%s" % num_runs, file)
         print1("- dtype=%s" % dtype, file)
         print1("", file=file)
 
     def _run_op_test(self, op_fun, params, indices,
-                     num_parallel_ops, num_stacked_ops, on_gpu, index_dtype):
+                     on_gpu, index_dtype):
         """Run a single test for a single op."""
         # Preparations
         op_name = op_fun.__name__
         device_name = '/gpu:0' if on_gpu else '/cpu:0'
         indices = np.asarray(indices, dtype=index_dtype)
         params = np.asarray(params, dtype=self.dtype.as_numpy_dtype())
-        # Verify if we can stack multiple operations together
-        if num_stacked_ops > 1:
-            if params.shape[-1] != indices.size:
-                sys.exit('ERROR: Cannot stack operations if param_cols is'
-                         ' not equal to size of indices.')
         # Print
-        print2("--> %s: on_gpu=%s, index_dtype=%s, params_shape=%s, "
-               "indices_shape=%s, num_parallel_ops=%s, num_stacked_ops=%s" %
-               (op_name, on_gpu, index_dtype, params.shape, indices.shape,
-                num_parallel_ops, num_stacked_ops), self.file)
+        print2("--> %s: on_gpu=%s, index_dtype=%s, params_shape=%s, indices_shape=%s"
+               % (op_name, on_gpu, index_dtype, params.shape, indices.shape),
+               self.file)
         # Compute true output with numpy
         if params.ndim == 1:
-            true_out = params
-            for i in range(num_stacked_ops):
-                true_out = true_out[indices]
+            true_out = params[indices]
         else:
-            true_out = params
-            for i in range(num_stacked_ops):
-                true_out = true_out[:, indices]
+            true_out = params[:, indices]
         # Create graph
         tf.reset_default_graph()
         with tf.device(device_name):
-            start_time = time.time()
-            # Create input constants
+            # Create input
+            # We cannot use a constant here, since the operation will be pre-computed
+            # on a CPU for some cases (e.g. for int64 indices)
+            # To ensure that data is copied only once, we add an identity op
+            # which is served the input data and connected to all ops
             params_pl = tf.placeholder(dtype=self.dtype)
+            params_op = tf.identity(params_pl)
             # Create ops
-            ops = [params_pl
-                   for _ in range(num_parallel_ops)]
-            for i in range(num_stacked_ops):
-                ops = [op_fun(o, indices)
-                       for o in ops]
-            # Group all
-            tup = tf.tuple(ops)
-            grp = tf.group(*ops)
+            start_time = time.time()
+            ops = op_fun(params_op, indices)
+            for _ in range(self.num_ops - 1):
+                # The tuple ensures that the next op waits for the output
+                # of the previous op, effectively stacking the ops
+                # but using the original input every time
+                ops = op_fun(tf.tuple([params_op, ops])[0], indices)
             setup_time = time.time() - start_time
         # Get num of graph ops
         graph_size = len(tf.get_default_graph().get_operations())
@@ -194,21 +185,18 @@ class PerformanceTest:
             for n in range(self.num_runs):
                 # Run
                 start_time = time.time()
-                sess.run(grp, feed_dict={params_pl: params})
+                out = sess.run(ops, feed_dict={params_pl: params})
                 run_times.append(time.time() - start_time)
-            # Run the tuple to get and check the output
-            out = sess.run(tup, feed_dict={params_pl: params})
-            for o in out:
+                # Test value
                 try:
-                    np.testing.assert_array_almost_equal(o, true_out)
+                    np.testing.assert_array_almost_equal(out, true_out)
                 except AssertionError:
                     output_correct = False
         # Return stats
         return OpTestResult(op_name, on_gpu, index_dtype, graph_size, setup_time,
                             run_times, output_correct)
 
-    def _run_test(self, test_name, op_funs, params, indices,
-                  num_parallel_ops, num_stacked_ops):
+    def _run_test(self, test_name, op_funs, params, indices):
         """Run a single test for multiple ops and devices."""
         cpu_results = []
         gpu_results = []
@@ -216,20 +204,16 @@ class PerformanceTest:
             if not self.without_cpu:
                 cpu_results.append(
                     self._run_op_test(op_fun, params, indices,
-                                      num_parallel_ops, num_stacked_ops,
                                       on_gpu=False, index_dtype=np.int32))
                 cpu_results.append(
                     self._run_op_test(op_fun, params, indices,
-                                      num_parallel_ops, num_stacked_ops,
                                       on_gpu=False, index_dtype=np.int64))
             if not self.without_gpu:
                 gpu_results.append(
                     self._run_op_test(op_fun, params, indices,
-                                      num_parallel_ops, num_stacked_ops,
                                       on_gpu=True, index_dtype=np.int32))
                 gpu_results.append(
                     self._run_op_test(op_fun, params, indices,
-                                      num_parallel_ops, num_stacked_ops,
                                       on_gpu=True, index_dtype=np.int64))
         return TestResults(test_name, cpu_results, gpu_results)
 
@@ -242,72 +226,41 @@ class PerformanceTest:
         # 1 index
         indices = np.random.randint(low=0, high=self.num_param_cols,
                                     size=1)
-        r = self._run_test('1d_1index_parallel',
+        r = self._run_test('1d_1index',
                            [Ops.custom, Ops.gather_1d, Ops.slice_1d],
-                           params, indices,
-                           num_parallel_ops=self.num_parallel_ops,
-                           num_stacked_ops=1)
+                           params, indices)
         results.append(r)
 
         # Passthrough
         indices = range(self.num_param_cols)
-        r = self._run_test('1d_passthrough_%sindices_parallel' % self.num_param_cols,
+        r = self._run_test('1d_passthrough_%sindices' % self.num_param_cols,
                            [Ops.custom, Ops.gather_1d, Ops.noop],
-                           params, indices,
-                           num_parallel_ops=self.num_parallel_ops,
-                           num_stacked_ops=1)
+                           params, indices)
         results.append(r)
 
-        # Partially optimized (parallel)
+        # Partially optimized
         shuffled_ind = [0, 1, 2, 9, 5, 4, 6, 7, 8, 3]
         indices = np.empty((self.num_param_cols // 10, 10))
         indices[:] = shuffled_ind
         indices = indices.ravel()
-        r = self._run_test('1d_opt_%sindices_parallel' % self.num_param_cols,
+        r = self._run_test('1d_opt_%sindices' % self.num_param_cols,
                            [Ops.custom, Ops.gather_1d],
-                           params, indices,
-                           num_parallel_ops=self.num_parallel_ops,
-                           num_stacked_ops=1)
+                           params, indices)
         results.append(r)
 
-        # Partially optimized (stacked)
-        shuffled_ind = [0, 1, 2, 9, 5, 4, 6, 7, 8, 3]
-        indices = np.empty((self.num_param_cols // 10, 10))
-        indices[:] = shuffled_ind
-        indices = indices.ravel()
-        r = self._run_test('1d_opt_%sindices_stacked' % self.num_param_cols,
-                           [Ops.custom, Ops.gather_1d],
-                           params, indices,
-                           num_parallel_ops=1,
-                           num_stacked_ops=self.num_stacked_ops)
-        results.append(r)
-
-        # Worst case (parallel)
+        # Worst case
         indices = range(self.num_param_cols - 1, -1, -1)
-        r = self._run_test('1d_worst_%sindices_parallel' % self.num_param_cols,
+        r = self._run_test('1d_worst_%sindices' % self.num_param_cols,
                            [Ops.custom, Ops.gather_1d],
-                           params, indices,
-                           num_parallel_ops=self.num_parallel_ops,
-                           num_stacked_ops=1)
-        results.append(r)
-
-        # Worst case (stacked)
-        indices = range(self.num_param_cols - 1, -1, -1)
-        r = self._run_test('1d_worst_%sindices_stacked' % self.num_param_cols,
-                           [Ops.custom, Ops.gather_1d],
-                           params, indices,
-                           num_parallel_ops=1,
-                           num_stacked_ops=self.num_stacked_ops)
+                           params, indices)
         results.append(r)
 
         # Random
         indices = np.random.randint(low=0, high=self.num_param_cols,
                                     size=self.num_indices)
-        r = self._run_test('1d_random_%dindices_parallel' % self.num_indices,
+        r = self._run_test('1d_random_%dindices' % self.num_indices,
                            [Ops.custom, Ops.gather_1d],
-                           params, indices,
-                           num_parallel_ops=self.num_parallel_ops,
-                           num_stacked_ops=1)
+                           params, indices)
         results.append(r)
 
         return results
@@ -321,77 +274,44 @@ class PerformanceTest:
         # 1 index
         indices = np.random.randint(low=0, high=self.num_param_cols,
                                     size=1)
-        r = self._run_test('2d_1index_parallel',
+        r = self._run_test('2d_1index',
                            [Ops.custom, Ops.gather_nd, Ops.slice_2d],
-                           params, indices,
-                           num_parallel_ops=self.num_parallel_ops,
-                           num_stacked_ops=1)
+                           params, indices)
         results.append(r)
 
         # Passthrough
         indices = range(self.num_param_cols)
-        r = self._run_test('2d_passthrough_%sindices_parallel' % self.num_param_cols,
+        r = self._run_test('2d_passthrough_%sindices' % self.num_param_cols,
                            [Ops.custom, Ops.gather_nd, Ops.noop],
-                           params, indices,
-                           num_parallel_ops=self.num_parallel_ops,
-                           num_stacked_ops=1)
+                           params, indices)
         results.append(r)
 
-        # Partially optimized (parallel)
+        # Partially optimized
         shuffled_ind = [0, 1, 2, 9, 5, 4, 6, 7, 8, 3]
         indices = np.empty((self.num_param_cols // 10, 10))
         indices[:] = shuffled_ind
         indices = indices.ravel()
-        r = self._run_test('2d_opt_%sindices_parallel' % self.num_param_cols,
+        r = self._run_test('2d_opt_%sindices' % self.num_param_cols,
                            [Ops.custom, Ops.gather_nd] +
                            ([Ops.indexing] if self.with_indexing else []),
-                           params, indices,
-                           num_parallel_ops=self.num_parallel_ops,
-                           num_stacked_ops=1)
+                           params, indices)
         results.append(r)
 
-        # Partially optimized (stacked)
-        shuffled_ind = [0, 1, 2, 9, 5, 4, 6, 7, 8, 3]
-        indices = np.empty((self.num_param_cols // 10, 10))
-        indices[:] = shuffled_ind
-        indices = indices.ravel()
-        r = self._run_test('2d_opt_%sindices_stacked' % self.num_param_cols,
-                           [Ops.custom, Ops.gather_nd] +
-                           ([Ops.indexing] if self.with_indexing else []),
-                           params, indices,
-                           num_parallel_ops=1,
-                           num_stacked_ops=self.num_stacked_ops)
-        results.append(r)
-
-        # Worst case (parallel)
+        # Worst case
         indices = range(self.num_param_cols - 1, -1, -1)
-        r = self._run_test('2d_worst_%sindices_parallel' % self.num_param_cols,
+        r = self._run_test('2d_worst_%sindices' % self.num_param_cols,
                            [Ops.custom, Ops.gather_nd] +
                            ([Ops.indexing] if self.with_indexing else []),
-                           params, indices,
-                           num_parallel_ops=self.num_parallel_ops,
-                           num_stacked_ops=1)
-        results.append(r)
-
-        # Worst case (stacked)
-        indices = range(self.num_param_cols - 1, -1, -1)
-        r = self._run_test('2d_worst_%sindices_stacked' % self.num_param_cols,
-                           [Ops.custom, Ops.gather_nd] +
-                           ([Ops.indexing] if self.with_indexing else []),
-                           params, indices,
-                           num_parallel_ops=1,
-                           num_stacked_ops=self.num_stacked_ops)
+                           params, indices)
         results.append(r)
 
         # Random
         indices = np.random.randint(low=0, high=self.num_param_cols,
                                     size=self.num_indices)
-        r = self._run_test('2d_random_%dindices_parallel' % self.num_indices,
+        r = self._run_test('2d_random_%dindices' % self.num_indices,
                            [Ops.custom, Ops.gather_nd] +
                            ([Ops.indexing] if self.with_indexing else []),
-                           params, indices,
-                           num_parallel_ops=self.num_parallel_ops,
-                           num_stacked_ops=1)
+                           params, indices)
         results.append(r)
 
         return results
@@ -417,10 +337,8 @@ def main():
                         help="Num of cols of params")
     parser.add_argument('--num-indices', default=50, type=int,
                         help="Num of indices used for SOME tests")
-    parser.add_argument('--num-parallel-ops', default=200, type=int,
-                        help="Num of ops used for parallel tests")
-    parser.add_argument('--num-stacked-ops', default=200, type=int,
-                        help="Num of ops used for stacked tests")
+    parser.add_argument('--num-ops', default=200, type=int,
+                        help="Num of ops used for tests")
     parser.add_argument('--num-runs', default=10, type=int,
                         help="Number of times each test is run")
     parser.add_argument('--log-devices', action='store_true',
@@ -447,9 +365,8 @@ def main():
 
     try:
         t = PerformanceTest(args.num_param_rows, args.num_param_cols,
-                            args.num_indices, args.num_parallel_ops,
-                            args.num_stacked_ops, args.num_runs,
-                            dtype, args.with_indexing,
+                            args.num_indices, args.num_ops,
+                            args.num_runs, dtype, args.with_indexing,
                             args.without_cpu, args.without_gpu,
                             args.log_devices, f)
         t.run()
