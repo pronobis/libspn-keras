@@ -408,9 +408,9 @@ def main():
                         help="Num of cols of params")
     parser.add_argument('--num_indices', default=50, type=int,
                         help="Num of indices used for SOME tests")
-    parser.add_argument('--num_parallel_ops', default=100, type=int,
+    parser.add_argument('--num_parallel_ops', default=200, type=int,
                         help="Num of ops used for parallel tests")
-    parser.add_argument('--num_stacked_ops', default=100, type=int,
+    parser.add_argument('--num_stacked_ops', default=200, type=int,
                         help="Num of ops used for stacked tests")
     parser.add_argument('--num_runs', default=10, type=int,
                         help="Number of times each test is run")
