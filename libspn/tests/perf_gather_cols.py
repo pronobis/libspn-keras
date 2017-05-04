@@ -396,16 +396,28 @@ class PerformanceTest:
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_param_rows', default=200, type=int)
-    parser.add_argument('--num_param_cols', default=100, type=int)
-    parser.add_argument('--num_indices', default=50, type=int)
-    parser.add_argument('--num_parallel_ops', default=100, type=int)
-    parser.add_argument('--num_stacked_ops', default=100, type=int)
-    parser.add_argument('--num_runs', default=10, type=int)
-    parser.add_argument('--log-devices', action='store_true')
-    parser.add_argument('--with-indexing', action='store_true')
-    parser.add_argument('--without-cpu', action='store_true')
-    parser.add_argument('--without-gpu', action='store_true')
+    parser.add_argument('--num_param_rows', default=200, type=int,
+                        help="Num of rows of params")
+    parser.add_argument('--num_param_cols', default=100, type=int,
+                        help="Num of cols of params")
+    parser.add_argument('--num_indices', default=50, type=int,
+                        help="Num of indices used for SOME tests")
+    parser.add_argument('--num_parallel_ops', default=100, type=int,
+                        help="Num of ops used for parallel tests")
+    parser.add_argument('--num_stacked_ops', default=100, type=int,
+                        help="Num of ops used for stacked tests")
+    parser.add_argument('--num_runs', default=10, type=int,
+                        help="Number of times each test is run")
+    parser.add_argument('--log-devices', action='store_true',
+                        help="Log on which device op is run. Affects run time!")
+    parser.add_argument('--with-indexing', action='store_true',
+                        help="Test TF indexing as well")
+    parser.add_argument('--without-cpu', action='store_true',
+                        help="Do not run CPU tests")
+    parser.add_argument('--without-gpu', action='store_true',
+                        help="Do not run GPU tests")
+    parser.add_argument('--save-to', default='', type=str,
+                        help="Save results to file")
     dtype = tf.float32
     args = parser.parse_args()
 
@@ -418,7 +430,7 @@ def main():
                         args.num_stacked_ops, args.num_runs,
                         dtype, args.with_indexing,
                         args.without_cpu, args.without_gpu,
-                        args.log_devices)
+                        args.log_devices, args.save_to)
     t.run()
 
 
