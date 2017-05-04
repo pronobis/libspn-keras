@@ -41,24 +41,25 @@ struct GatherColumnsFunctor<GPUDevice, T, IndT>
     const int64 output_size = output.size();
     const int64 indices_size = indices.size();
 
-    IndT* h_indices = nullptr;
-    h_indices = (IndT*)malloc(indices_size * sizeof(IndT));
+    // Andrzej: Bounds check has been disabled to improve performance
+    // IndT* h_indices = nullptr;
+    // h_indices = (IndT*)malloc(indices_size * sizeof(IndT));
 
-    if (h_indices)
-    {
-      cudaMemcpy(h_indices, indices.data(), indices_size * sizeof(IndT),
-                 cudaMemcpyDeviceToHost);
+    // if (h_indices)
+    // {
+    //   cudaMemcpy(h_indices, indices.data(), indices_size * sizeof(IndT),
+    //              cudaMemcpyDeviceToHost);
 
-      for (int c = 0; c < indices_size; c++)
-      {
-        //--Check indices[i] ∈ (0, params_cols]--//
-        if (!FastBoundsCheck(h_indices[c], params_cols))
-        {
-          free(h_indices);
-          return c;
-        }
-      }
-    }
+    //   for (int c = 0; c < indices_size; c++)
+    //   {
+    //     //--Check indices[i] ∈ (0, params_cols]--//
+    //     if (!FastBoundsCheck(h_indices[c], params_cols))
+    //     {
+    //       free(h_indices);
+    //       return c;
+    //     }
+    //   }
+    // }
 
 //--Debugging flag disabled by default--//
 #if EXEC_TIME_CALC
@@ -85,8 +86,9 @@ struct GatherColumnsFunctor<GPUDevice, T, IndT>
     std::cout << "GPU - Time taken: " << time_taken << " ms" << endl;
 #endif  // EXEC_TIME_CALC
 
-    if (h_indices)
-      free(h_indices);
+    // Andrzej: Bounds check has been disabled to improve performance
+    // if (h_indices)
+    //   free(h_indices);
 
     return -1;
   }
