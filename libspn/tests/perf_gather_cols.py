@@ -402,17 +402,17 @@ class PerformanceTest:
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_param_rows', default=200, type=int,
+    parser.add_argument('--num-param-rows', default=200, type=int,
                         help="Num of rows of params")
-    parser.add_argument('--num_param_cols', default=100, type=int,
+    parser.add_argument('--num-param-cols', default=100, type=int,
                         help="Num of cols of params")
-    parser.add_argument('--num_indices', default=50, type=int,
+    parser.add_argument('--num-indices', default=50, type=int,
                         help="Num of indices used for SOME tests")
-    parser.add_argument('--num_parallel_ops', default=200, type=int,
+    parser.add_argument('--num-parallel-ops', default=200, type=int,
                         help="Num of ops used for parallel tests")
-    parser.add_argument('--num_stacked_ops', default=200, type=int,
+    parser.add_argument('--num-stacked-ops', default=200, type=int,
                         help="Num of ops used for stacked tests")
-    parser.add_argument('--num_runs', default=10, type=int,
+    parser.add_argument('--num-runs', default=10, type=int,
                         help="Number of times each test is run")
     parser.add_argument('--log-devices', action='store_true',
                         help="Log on which device op is run. Affects run time!")
