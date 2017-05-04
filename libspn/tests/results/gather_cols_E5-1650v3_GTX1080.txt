@@ -1,0 +1,222 @@
+Params:
+- num_param_rows=200
+- num_param_cols=100
+- num_indices=50
+- num_parallel_ops=200
+- num_stacked_ops=200
+- num_runs=10
+- dtype=<dtype: 'float32'>
+
+Running tests:
+--> custom: on_gpu=False, params_shape=(100,), indices_shape=(1,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=True, params_shape=(100,), indices_shape=(1,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_1d: on_gpu=False, params_shape=(100,), indices_shape=(1,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_1d: on_gpu=True, params_shape=(100,), indices_shape=(1,) num_parallel_ops=200, num_stacked_ops=1
+--> slice_1d: on_gpu=False, params_shape=(100,), indices_shape=(1,) num_parallel_ops=200, num_stacked_ops=1
+--> slice_1d: on_gpu=True, params_shape=(100,), indices_shape=(1,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=False, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=True, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_1d: on_gpu=False, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_1d: on_gpu=True, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> noop: on_gpu=False, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> noop: on_gpu=True, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=False, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=True, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_1d: on_gpu=False, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_1d: on_gpu=True, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=False, params_shape=(100,), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> custom: on_gpu=True, params_shape=(100,), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> gather_1d: on_gpu=False, params_shape=(100,), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> gather_1d: on_gpu=True, params_shape=(100,), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> custom: on_gpu=False, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=True, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_1d: on_gpu=False, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_1d: on_gpu=True, params_shape=(100,), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=False, params_shape=(100,), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> custom: on_gpu=True, params_shape=(100,), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> gather_1d: on_gpu=False, params_shape=(100,), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> gather_1d: on_gpu=True, params_shape=(100,), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> custom: on_gpu=False, params_shape=(100,), indices_shape=(50,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=True, params_shape=(100,), indices_shape=(50,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_1d: on_gpu=False, params_shape=(100,), indices_shape=(50,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_1d: on_gpu=True, params_shape=(100,), indices_shape=(50,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=False, params_shape=(200, 100), indices_shape=(1,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=True, params_shape=(200, 100), indices_shape=(1,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_nd: on_gpu=False, params_shape=(200, 100), indices_shape=(1,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_nd: on_gpu=True, params_shape=(200, 100), indices_shape=(1,) num_parallel_ops=200, num_stacked_ops=1
+--> slice_2d: on_gpu=False, params_shape=(200, 100), indices_shape=(1,) num_parallel_ops=200, num_stacked_ops=1
+--> slice_2d: on_gpu=True, params_shape=(200, 100), indices_shape=(1,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=False, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=True, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_nd: on_gpu=False, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_nd: on_gpu=True, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> noop: on_gpu=False, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> noop: on_gpu=True, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=False, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=True, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_nd: on_gpu=False, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_nd: on_gpu=True, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=False, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> custom: on_gpu=True, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> gather_nd: on_gpu=False, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> gather_nd: on_gpu=True, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> custom: on_gpu=False, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=True, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_nd: on_gpu=False, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_nd: on_gpu=True, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=False, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> custom: on_gpu=True, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> gather_nd: on_gpu=False, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> gather_nd: on_gpu=True, params_shape=(200, 100), indices_shape=(100,) num_parallel_ops=1, num_stacked_ops=200
+--> custom: on_gpu=False, params_shape=(200, 100), indices_shape=(50,) num_parallel_ops=200, num_stacked_ops=1
+--> custom: on_gpu=True, params_shape=(200, 100), indices_shape=(50,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_nd: on_gpu=False, params_shape=(200, 100), indices_shape=(50,) num_parallel_ops=200, num_stacked_ops=1
+--> gather_nd: on_gpu=True, params_shape=(200, 100), indices_shape=(50,) num_parallel_ops=200, num_stacked_ops=1
+
+-----------------------
+1d_1index_parallel
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      202.17           26.41           0.18       True
+      gather_1d:   603      184.04           24.96           0.12       True
+       slice_1d:   803      361.12           33.43           0.12       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      181.70          159.52           6.04       True
+      gather_1d:   603      185.41           45.09           3.62       True
+       slice_1d:   803      317.48           33.14           0.18       True
+
+-----------------------
+1d_passthrough_100indices_parallel
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      177.57           24.00           0.12       True
+      gather_1d:   603      180.99           24.29           0.12       True
+           noop:   203       65.40            6.02           0.12       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      177.45           46.98           6.09       True
+      gather_1d:   603      239.05           45.39           3.57       True
+           noop:   203       64.97            6.17           0.14       True
+
+-----------------------
+1d_opt_100indices_parallel
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      174.94           24.32           0.12       True
+      gather_1d:   603      183.55           24.76           0.12       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      178.46           47.40           6.10       True
+      gather_1d:   603      231.15           44.98           3.58       True
+
+-----------------------
+1d_opt_100indices_stacked
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   404      111.77           20.70           0.38       True
+      gather_1d:   404      115.12           21.48           0.35       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   404      109.85           39.31           5.86       True
+      gather_1d:   404      115.82           38.46           3.01       True
+
+-----------------------
+1d_worst_100indices_parallel
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      177.05           24.75           0.12       True
+      gather_1d:   603      213.26           27.43           0.12       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      229.45           47.75           6.15       True
+      gather_1d:   603      224.81           45.04           3.56       True
+
+-----------------------
+1d_worst_100indices_stacked
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   404      110.40           20.24           0.42       True
+      gather_1d:   404      115.84           21.12           0.33       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   404      111.25           38.76           5.22       True
+      gather_1d:   404      165.51           38.90           3.04       True
+
+-----------------------
+1d_random_50indices_parallel
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      176.63           24.11           0.12       True
+      gather_1d:   603      180.07           24.52           0.12       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      175.44           46.33           6.00       True
+      gather_1d:   603      179.09           44.49           3.55       True
+
+-----------------------
+2d_1index_parallel
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      231.62           24.72           0.13       True
+      gather_nd:  3803     1330.17          161.61           0.22       True
+       slice_2d:   803      450.73           38.74           0.14       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      178.71           46.41           6.01       True
+      gather_nd:  3803     1341.00          202.13           4.02       True
+       slice_2d:   803      347.29           34.28           0.26       True
+
+-----------------------
+2d_passthrough_100indices_parallel
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      175.47           24.79           0.13       True
+      gather_nd:  3803     1367.51          162.44           0.27       True
+           noop:   203       68.49            6.56           0.11       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      176.14           47.99           6.13       True
+      gather_nd:  3803     1349.66          203.76           5.16       True
+           noop:   203       65.51            6.54           0.15       True
+
+-----------------------
+2d_opt_100indices_parallel
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      175.21           24.68           0.17       True
+      gather_nd:  3803     1310.61          158.16           0.29       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      247.26           47.23           6.07       True
+      gather_nd:  3803     1350.62          203.58           5.21       True
+
+-----------------------
+2d_opt_100indices_stacked
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   404      110.57           29.86           8.88       True
+      gather_nd:  3604     1317.57          200.95          26.57       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   404      109.93           39.19           5.26       True
+      gather_nd:  3604     1320.83          206.42           6.24       True
+
+-----------------------
+2d_worst_100indices_parallel
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      176.06           25.06           0.20       True
+      gather_nd:  3803     1388.50          157.94           0.28       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      175.33           46.75           6.06       True
+      gather_nd:  3803     1345.10          202.28           5.10       True
+
+-----------------------
+2d_worst_100indices_stacked
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   404      110.99           34.92          14.51       True
+      gather_nd:  3604     1280.17          190.34          22.84       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   404      110.39           39.61           5.11       True
+      gather_nd:  3604     1297.64          207.72           6.45       True
+
+-----------------------
+2d_random_50indices_parallel
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      177.46           25.46           0.16       True
+      gather_nd:  3803     1343.46          162.58           0.26       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         custom:   603      177.38           47.48           6.03       True
+      gather_nd:  3803     1367.96          198.05           5.17       True
