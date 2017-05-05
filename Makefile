@@ -26,6 +26,9 @@ sdist:
 build:
 	@python3 setup.py build
 
+clean:
+	@python3 setup.py clean
+
 install:
 	@pip3 install --user .
 

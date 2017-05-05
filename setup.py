@@ -2,6 +2,7 @@
 
 from setuptools import setup
 import distutils.command.build
+import distutils.command.clean
 import shutil
 import sys
 import os
@@ -12,11 +13,38 @@ if sys.version_info < (3, 4):
     sys.exit('ERROR: Python < 3.4 is not supported!')
 
 
-def get_readme():
-    with open('README.rst') as f:
-        return f.read()
+###############################
+# Specify sources
+###############################
+SOURCES_CUDA = ['gather_columns_functor_gpu.cu.cc',
+                'scatter_columns_functor_gpu.cu.cc']
+HEADERS_CUDA = ['gather_columns_functor_gpu.cu.h',
+                'scatter_columns_functor_gpu.cu.h']
+SOURCES = ['gather_columns.cc',
+           'gather_columns_functor.cc',
+           'scatter_columns.cc',
+           'scatter_columns_functor.cc']
+HEADERS = ['gather_columns_functor.h',
+           'scatter_columns_functor.h']
 
 
+###############################
+# Compute paths
+###############################
+BUILD_DIR = os.path.abspath(os.path.join('build', 'ops'))
+SOURCE_DIR = os.path.abspath(os.path.join('libspn', 'ops'))
+TARGET = os.path.join(SOURCE_DIR, "libspn_ops.so")
+OBJECTS_CUDA = [os.path.join(BUILD_DIR, os.path.basename(s) + ".o")
+                for s in SOURCES_CUDA]
+SOURCES_CUDA = [os.path.join(SOURCE_DIR, i) for i in SOURCES_CUDA]
+HEADERS_CUDA = [os.path.join(SOURCE_DIR, i) for i in HEADERS_CUDA]
+SOURCES = [os.path.join(SOURCE_DIR, i) for i in SOURCES]
+HEADERS = [os.path.join(SOURCE_DIR, i) for i in HEADERS]
+
+
+###############################
+# Build command
+###############################
 class BuildCommand(distutils.command.build.build):
     """Custom build command compiling the C++ code."""
 
@@ -129,39 +157,17 @@ class BuildCommand(distutils.command.build.build):
 
     def _build(self):
         print(self._col_head + "Building:" + self._col_clear)
-        # Make paths
-        self._build_dir = os.path.abspath(os.path.join('build', 'ops'))
-        self._src_dir = os.path.abspath(os.path.join('libspn', 'ops'))
-        os.makedirs(self._build_dir, exist_ok=True)
-        # Define sources and target
-        sources_cuda = [os.path.join(self._src_dir, i) for i in
-                        ['gather_columns_functor_gpu.cu.cc',
-                         'scatter_columns_functor_gpu.cu.cc']]
-        headers_cuda = [os.path.join(self._src_dir, i) for i in
-                        ['gather_columns_functor_gpu.cu.h',
-                         'scatter_columns_functor_gpu.cu.h']]
-        sources = [os.path.join(self._src_dir, i) for i in
-                   ['gather_columns.cc',
-                    'gather_columns_functor.cc',
-                    'scatter_columns.cc',
-                    'scatter_columns_functor.cc']]
-        headers = [os.path.join(self._src_dir, i) for i in
-                   ['gather_columns_functor.h',
-                    'scatter_columns_functor.h']]
-        target = os.path.join(self._src_dir, "libspn_ops.so")
+        # Make dirs
+        os.makedirs(BUILD_DIR, exist_ok=True)
         # Should rebuild?
-        if self._is_dirty(target, sources + headers +
-                          sources_cuda + headers_cuda):
+        if self._is_dirty(TARGET, SOURCES + HEADERS +
+                          SOURCES_CUDA + HEADERS_CUDA):
             # Compile cuda
-            objects_cuda = []
-            for s, h in zip(sources_cuda, headers_cuda):
-                obj = os.path.join(self._build_dir,
-                                   os.path.basename(s) + ".o")
-                objects_cuda.append(obj)
-                if self._is_dirty(obj, [s, h]):
-                    self._run_nvcc(obj, s)
+            for s, h, o in zip(SOURCES_CUDA, HEADERS_CUDA, OBJECTS_CUDA):
+                if self._is_dirty(o, [s, h]):
+                    self._run_nvcc(o, s)
             # Compile rest and link
-            self._run_gcc(target, objects_cuda + sources)
+            self._run_gcc(TARGET, OBJECTS_CUDA + SOURCES)
         else:
             print("Everything up to date.")
 
@@ -176,7 +182,7 @@ class BuildCommand(distutils.command.build.build):
         # Original run
         super().run()
 
-        # For color output
+        # Initialize color - here to ensure colorama is installed
         import colorama
         colorama.init()
         self._col_head = colorama.Style.BRIGHT + colorama.Fore.YELLOW
@@ -195,6 +201,40 @@ class BuildCommand(distutils.command.build.build):
               self._col_clear)
 
 
+class CleanCommand(distutils.command.clean.clean):
+    """Custom clean command including the C++ code."""
+
+    def _clean(self, files):
+        print(self._col_head + "Cleaning:" + self._col_clear)
+        for f in files:
+            if os.path.exists(f):
+                print("Removing " + f)
+                os.remove(f)
+
+    def run(self):
+        # Original run
+        super().run()
+
+        # Initialize color - here to ensure colorama is installed
+        import colorama
+        colorama.init()
+        self._col_head = colorama.Style.BRIGHT + colorama.Fore.YELLOW
+        self._col_cmd = colorama.Fore.BLUE
+        self._col_clear = colorama.Style.RESET_ALL
+
+        # Clean
+        self._clean([TARGET] + OBJECTS_CUDA)
+
+
+def get_readme():
+    """Read readme file."""
+    with open('README.rst') as f:
+        return f.read()
+
+
+###############################
+# Setup
+###############################
 setup(
     ################
     # General Info
@@ -237,7 +277,8 @@ setup(
         'colorama'  # For color output in tests
     ],
     zip_safe=False,
-    cmdclass={"build": BuildCommand},  # Custom build command for C++ code
+    cmdclass={"build": BuildCommand,  # Custom build command for C++ code
+              "clean": CleanCommand},  # Custom clean command for C++ code
     # Stuff in git repo will be included in source dist
     include_package_data=True,
     # Stuff listed below will be included in binary dist
