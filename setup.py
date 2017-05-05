@@ -20,7 +20,23 @@ def get_readme():
 class BuildCommand(distutils.command.build.build):
     """Custom build command compiling the C++ code."""
 
+    user_options = [
+        ('exec-time', None, 'Compile in execution time measurement code')
+    ]
+
+    def initialize_options(self):
+        super().initialize_options()
+        self.exec_time = None
+
+    def finalize_options(self):
+        super().finalize_options()
+
     def _configure(self):
+        # Options
+        print(self._col_head + "Options:" + self._col_clear)
+        print("- Debug: %s" % ("NO" if self.debug is None else "YES"))
+        print("- Exec time: %s" % ("NO" if self.exec_time is None else "YES"))
+        # Detect
         print(self._col_head + "Configuring:" + self._col_clear)
         # CUDA
         # - try finding nvcc in PATH
@@ -79,7 +95,9 @@ class BuildCommand(distutils.command.build.build):
                     '-I', self._tf_includes] +
                    # Downgrade the ABI if system gcc > TF gcc
                    (['-D_GLIBCXX_USE_CXX11_ABI=0']
-                    if self._downgrade_abi else []))
+                    if self._downgrade_abi else []) +
+                   (['-DEXEC_TIME_CALC=1']
+                    if self.exec_time is not None else []))
             print(self._col_cmd + ' '.join(cmd) + self._col_clear)
             subprocess.check_call(cmd)  # Used instead of run for 3.4 compatibility
         except subprocess.CalledProcessError:
@@ -98,7 +116,9 @@ class BuildCommand(distutils.command.build.build):
                     '-L', self._cuda_libs] +
                    # Downgrade the ABI if system gcc > TF gcc
                    (['-D_GLIBCXX_USE_CXX11_ABI=0']
-                    if self._downgrade_abi else []))
+                    if self._downgrade_abi else []) +
+                   (['-DEXEC_TIME_CALC=1']
+                    if self.exec_time is not None else []))
             print(self._col_cmd + ' '.join(cmd) + self._col_clear)
             subprocess.check_call(cmd)  # Used instead of run for 3.4 compatibility
         except subprocess.CalledProcessError:
