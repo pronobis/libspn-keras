@@ -1,0 +1,261 @@
+Params:
+- num_param_rows=200
+- num_param_cols=100
+- num_indices=50
+- num_ops=200
+- num_runs=10
+- dtype=<dtype: 'float32'>
+
+Running tests:
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(1,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(1,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(1,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(1,)
+--> gather_1d: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(1,)
+--> gather_1d: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(1,)
+--> gather_1d: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(1,)
+--> gather_1d: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(1,)
+--> slice_1d: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(1,)
+--> slice_1d: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(1,)
+--> slice_1d: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(1,)
+--> slice_1d: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(1,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> gather_1d: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> gather_1d: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> gather_1d: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> gather_1d: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> noop: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> noop: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> noop: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> noop: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> gather_1d: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> gather_1d: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> gather_1d: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> gather_1d: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> gather_1d: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> gather_1d: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> gather_1d: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(100,)
+--> gather_1d: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(100,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(50,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(50,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(50,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(50,)
+--> gather_1d: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(50,)
+--> gather_1d: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(50,)
+--> gather_1d: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(100,), indices_shape=(50,)
+--> gather_1d: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(100,), indices_shape=(50,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(1,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(1,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(1,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(1,)
+--> gather_nd: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(1,)
+--> gather_nd: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(1,)
+--> gather_nd: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(1,)
+--> gather_nd: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(1,)
+--> slice_2d: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(1,)
+--> slice_2d: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(1,)
+--> slice_2d: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(1,)
+--> slice_2d: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(1,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> gather_nd: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> gather_nd: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> gather_nd: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> gather_nd: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> noop: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> noop: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> noop: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> noop: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> gather_nd: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> gather_nd: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> gather_nd: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> gather_nd: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> gather_nd: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> gather_nd: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> gather_nd: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(100,)
+--> gather_nd: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(100,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(50,)
+--> custom: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(50,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(50,)
+--> custom: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(50,)
+--> gather_nd: on_gpu=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(50,)
+--> gather_nd: on_gpu=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(50,)
+--> gather_nd: on_gpu=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100), indices_shape=(50,)
+--> gather_nd: on_gpu=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100), indices_shape=(50,)
+
+-----------------------
+1d_1index
+-----------------------
+CPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      403.84           57.18           0.86       True
+         custom int64:   999      385.03           53.77           0.78       True
+      gather_1d int32:   999      389.37           53.24           0.83       True
+      gather_1d int64:   999      389.16           54.38           0.71       True
+       slice_1d int32:  1199      724.17           66.48           0.88       True
+       slice_1d int64:  1199      563.60           61.81           0.84       True
+GPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      387.04          497.16           7.05       True
+         custom int64:   999      548.91           70.81           2.75       True
+      gather_1d int32:   999      433.00           77.68           6.79       True
+      gather_1d int64:   999      483.82           74.27           3.16       True
+       slice_1d int32:  1199      619.40           76.60           2.97       True
+       slice_1d int64:  1199      566.52           70.19           3.01       True
+
+-----------------------
+1d_passthrough_100indices
+-----------------------
+CPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      382.83           53.87           1.02       True
+         custom int64:   999      437.28           53.75           0.90       True
+      gather_1d int32:   999      452.71           56.02           1.17       True
+      gather_1d int64:   999      378.70           53.81           0.94       True
+           noop int32:   599      266.30           24.91           0.40       True
+           noop int64:   599      239.70           24.90           0.40       True
+GPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      379.62           80.00           6.60       True
+         custom int64:   999      479.56           72.03           2.79       True
+      gather_1d int32:   999      380.13           77.12           6.04       True
+      gather_1d int64:   999      434.54           60.66           2.93       True
+           noop int32:   599      237.96           28.84           0.63       True
+           noop int64:   599      285.61           32.30           0.63       True
+
+-----------------------
+1d_opt_100indices
+-----------------------
+CPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      375.54           53.91           0.80       True
+         custom int64:   999      375.83           52.87           1.06       True
+      gather_1d int32:   999      411.63           53.70           1.15       True
+      gather_1d int64:   999      433.74           54.93           0.98       True
+GPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      423.53           81.33           6.93       True
+         custom int64:   999      394.68           59.30           3.30       True
+      gather_1d int32:   999      380.48           77.20           6.82       True
+      gather_1d int64:   999      468.12           74.15           3.15       True
+
+-----------------------
+1d_worst_100indices
+-----------------------
+CPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      534.59           67.50           1.24       True
+         custom int64:   999      382.49           52.75           0.82       True
+      gather_1d int32:   999      387.02           54.89           1.16       True
+      gather_1d int64:   999      373.09           54.71           0.98       True
+GPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      365.89           76.93           6.57       True
+         custom int64:   999      532.61           74.45           3.32       True
+      gather_1d int32:   999      423.89           77.02           5.74       True
+      gather_1d int64:   999      391.80           60.15           3.04       True
+
+-----------------------
+1d_random_50indices
+-----------------------
+CPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      367.13           52.73           1.00       True
+         custom int64:   999      421.09           53.28           0.92       True
+      gather_1d int32:   999      438.21           54.92           0.99       True
+      gather_1d int64:   999      385.41           55.61           0.89       True
+GPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      366.60           76.13           6.56       True
+         custom int64:   999      406.29           59.18           3.19       True
+      gather_1d int32:   999      386.72           79.52           5.81       True
+      gather_1d int64:   999      436.63           61.20           3.09       True
+
+-----------------------
+2d_1index
+-----------------------
+CPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      387.76           54.25           1.14       True
+         custom int64:   999      387.10           54.63           1.13       True
+      gather_nd int32:  4199     1823.23          248.98          18.23       True
+      gather_nd int64:  4199     1866.88          262.35          17.82       True
+       slice_2d int32:  1199      644.08           68.68           0.93       True
+       slice_2d int64:  1199      538.24           62.26           1.03       True
+GPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      439.46           77.60           6.18       True
+         custom int64:   999      405.06           58.67           3.25       True
+      gather_nd int32:  4199     1914.75          280.61          12.59       True
+      gather_nd int64:  4199     1957.50          262.41           8.98       True
+       slice_2d int32:  1199      585.12           71.24           2.96       True
+       slice_2d int64:  1199      571.50           69.71           3.13       True
+
+-----------------------
+2d_passthrough_100indices
+-----------------------
+CPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      393.54           55.48           3.18       True
+         custom int64:   999      420.89           60.98           3.84       True
+      gather_nd int32:  4199     1857.23          263.22          32.29       True
+      gather_nd int64:  4199     1872.71          265.88          31.33       True
+           noop int32:   599      243.75           26.05           0.33       True
+           noop int64:   599      235.06           25.17           0.41       True
+GPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      393.79           75.94           6.53       True
+         custom int64:   999      403.87           58.76           3.42       True
+      gather_nd int32:  4199     1828.17          280.39          12.64       True
+      gather_nd int64:  4199     1855.33          262.12          10.52       True
+           noop int32:   599      235.73           28.72           0.67       True
+           noop int64:   599      234.11           29.27           0.74       True
+
+-----------------------
+2d_opt_100indices
+-----------------------
+CPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      454.92           67.06          14.60       True
+         custom int64:   999      367.93           63.80          12.13       True
+      gather_nd int32:  4199     1911.15          262.65          29.14       True
+      gather_nd int64:  4199     1834.18          261.56          29.35       True
+GPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      369.65           77.22           6.33       True
+         custom int64:   999      435.77           60.02           3.32       True
+      gather_nd int32:  4199     1936.17          286.85          14.84       True
+      gather_nd int64:  4199     1943.51          258.85          10.78       True
+
+-----------------------
+2d_worst_100indices
+-----------------------
+CPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      407.90           91.06          36.87       True
+         custom int64:   999      573.17           98.45          39.62       True
+      gather_nd int32:  4199     1986.66          261.33          31.31       True
+      gather_nd int64:  4199     1864.13          281.48          30.56       True
+GPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      489.05           95.32           7.45       True
+         custom int64:   999      474.49           74.19           3.08       True
+      gather_nd int32:  4199     2053.81          311.60          13.72       True
+      gather_nd int64:  4199     1950.33          283.69          11.77       True
+
+-----------------------
+2d_random_50indices
+-----------------------
+CPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      406.36           74.34          13.85       True
+         custom int64:   999      431.19           75.71          23.11       True
+      gather_nd int32:  4199     1835.92          256.53          29.66       True
+      gather_nd int64:  4199     1858.50          253.62          29.09       True
+GPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+         custom int32:   999      511.96           78.04           6.26       True
+         custom int64:   999      457.98           71.57           2.98       True
+      gather_nd int32:  4199     1870.30          286.91          15.31       True
+      gather_nd int64:  4199     1876.09          264.37           9.87       True
