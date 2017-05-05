@@ -35,34 +35,36 @@ class Ops:
         return spn.ops.scatter_cols(params, indices,
                                     out_num_col=out_size, pad_elem=0)
 
-    # def gather_nd(params, indices):
-    #     return tf.transpose(tf.gather_nd(tf.transpose(params),
-    #                                      np.expand_dims(indices, 1)))
-
-    # def indexing(params, indices):
-    #     return tf.stack([params[:, c] for c in indices], -1)
-
     def noop(params, indices, out_size):
         return params
 
-    # def gather_1d(params, indices):
-    #     return tf.gather(params, indices)
+    def pad_1d(params, indices, out_size):
+        return tf.pad(params, [[indices[0], out_size - indices[0] - 1]])
 
-    # def gather_2d(params, indices):
-    #     p_shape = tf.shape(params)
-    #     p_flat = tf.reshape(params, [-1])
-    #     i_flat = tf.reshape(tf.reshape(tf.range(0, p_shape[0]) * p_shape[1],
-    #                                    [-1, 1]) + indices, [-1])
-    #     return tf.reshape(tf.gather(p_flat, i_flat),
-    #                       [p_shape[0], -1])
+    def pad_2d(params, indices, out_size):
+        return tf.pad(params, [[0, 0],
+                               [indices[0], out_size - indices[0] - 1]])
 
-    # def slice_1d(params, indices):
-    #     index = indices[0]
-    #     return tf.slice(params, [index], [1])
+    def gather_1d(params, indices, out_size):
+        with_zeros = tf.concat(values=([0], params), axis=0)
+        gather_indices = np.zeros(out_size, dtype=int)
+        gather_indices[indices] = np.arange(indices.size) + 1
+        return tf.gather(with_zeros, gather_indices)
 
-    # def slice_2d(params, indices):
-    #     index = indices[0]
-    #     return tf.slice(params, [0, index], [-1, 1])
+    def gather_nd(params, indices, out_size):
+        zero_col = tf.zeros((tf.shape(params)[0], 1), dtype=params.dtype)
+        with_zeros = tf.concat(values=(zero_col, params), axis=1)
+        gather_indices = np.zeros(out_size, dtype=int)
+        gather_indices[indices] = np.arange(indices.size) + 1
+        return tf.transpose(tf.gather_nd(tf.transpose(with_zeros),
+                                         np.expand_dims(gather_indices, 1)))
+
+    def custom_gather_cols(params, indices, out_size):
+        zero_col = tf.zeros((tf.shape(params)[0], 1), dtype=params.dtype)
+        with_zeros = tf.concat(values=(zero_col, params), axis=1)
+        gather_indices = np.zeros(out_size, dtype=int)
+        gather_indices[indices] = np.arange(indices.size) + 1
+        return spn.ops.gather_cols(with_zeros, gather_indices)
 
 
 class OpTestResult:
@@ -89,13 +91,13 @@ class TestResults:
 
     def print(self, file):
         def get_header(dev):
-            return ("%3s %11s %5s: %5s %11s %15s %14s %10s" %
+            return ("%3s %14s %5s: %5s %11s %15s %14s %10s" %
                     (dev, 'op', 'dt', 'size', 'setup_time',
                      'first_run_time', 'rest_run_time', 'correct'))
 
         def get_res(res):
             """Helper function printing a single result."""
-            return ("%15s %5s: %5d %11.2f %15.2f %14.2f %10s" %
+            return ("%18s %5s: %5d %11.2f %15.2f %14.2f %10s" %
                     (res.op_name, str(res.index_dtype)[14:-2], res.graph_size,
                      res.setup_time * 1000, res.run_times[0] * 1000,
                      np.mean(res.run_times[1:]) * 1000,
@@ -117,14 +119,13 @@ class PerformanceTest:
 
     def __init__(self, num_param_rows, num_param_cols, out_size,
                  num_ops, num_runs, dtype,
-                 with_indexing, without_cpu, without_gpu, log_devs, file):
+                 without_cpu, without_gpu, log_devs, file):
         self.num_param_rows = num_param_rows
         self.num_param_cols = num_param_cols
         self.out_size = out_size
         self.num_ops = num_ops
         self.num_runs = num_runs
         self.dtype = dtype
-        self.with_indexing = with_indexing
         self.without_cpu = without_cpu
         self.without_gpu = without_gpu
         self.log_devs = log_devs
@@ -228,7 +229,7 @@ class PerformanceTest:
         params = np.random.rand(1)
         indices = np.random.randint(low=0, high=self.out_size, size=1)
         r = self._run_test('1d_1index',
-                           [Ops.custom],
+                           [Ops.custom, Ops.pad_1d, Ops.gather_1d],
                            params, indices, self.out_size)
         results.append(r)
 
@@ -236,7 +237,7 @@ class PerformanceTest:
         params = np.random.rand(self.out_size)
         indices = range(self.out_size)
         r = self._run_test('1d_passthrough_%sindices' % self.out_size,
-                           [Ops.custom, Ops.noop],
+                           [Ops.custom, Ops.noop, Ops.gather_1d],
                            params, indices, self.out_size)
         results.append(r)
 
@@ -244,7 +245,7 @@ class PerformanceTest:
         params = np.random.rand(self.out_size)
         indices = range(self.out_size - 1, -1, -1)
         r = self._run_test('1d_reverse_%sindices' % self.out_size,
-                           [Ops.custom],
+                           [Ops.custom, Ops.gather_1d],
                            params, indices, self.out_size)
         results.append(r)
 
@@ -254,7 +255,7 @@ class PerformanceTest:
         indices = np.random.choice(self.out_size, size=self.num_param_cols,
                                    replace=False)
         r = self._run_test('1d_random_%dindices' % self.num_param_cols,
-                           [Ops.custom],
+                           [Ops.custom, Ops.gather_1d],
                            params, indices, self.out_size)
         results.append(r)
 
@@ -268,7 +269,8 @@ class PerformanceTest:
         params = np.random.rand(self.num_param_rows, 1)
         indices = np.random.randint(low=0, high=self.out_size, size=1)
         r = self._run_test('2d_1index',
-                           [Ops.custom],
+                           [Ops.custom, Ops.pad_2d, Ops.gather_nd,
+                            Ops.custom_gather_cols],
                            params, indices, self.out_size)
         results.append(r)
 
@@ -276,7 +278,8 @@ class PerformanceTest:
         params = np.random.rand(self.num_param_rows, self.out_size)
         indices = range(self.out_size)
         r = self._run_test('2d_passthrough_%sindices' % self.out_size,
-                           [Ops.custom, Ops.noop],
+                           [Ops.custom, Ops.noop, Ops.gather_nd,
+                            Ops.custom_gather_cols],
                            params, indices, self.out_size)
         results.append(r)
 
@@ -284,7 +287,7 @@ class PerformanceTest:
         params = np.random.rand(self.num_param_rows, self.out_size)
         indices = range(self.out_size - 1, -1, -1)
         r = self._run_test('2d_reverse_%sindices' % self.out_size,
-                           [Ops.custom],
+                           [Ops.custom, Ops.gather_nd, Ops.custom_gather_cols],
                            params, indices, self.out_size)
         results.append(r)
 
@@ -294,7 +297,7 @@ class PerformanceTest:
         indices = np.random.choice(self.out_size, size=self.num_param_cols,
                                    replace=False)
         r = self._run_test('2d_random_%dindices' % self.num_param_cols,
-                           [Ops.custom],
+                           [Ops.custom, Ops.gather_nd, Ops.custom_gather_cols],
                            params, indices, self.out_size)
         results.append(r)
 
@@ -327,8 +330,6 @@ def main():
                         help="Number of times each test is run")
     parser.add_argument('--log-devices', action='store_true',
                         help="Log on which device op is run. Affects run time!")
-    parser.add_argument('--with-indexing', action='store_true',
-                        help="Test TF indexing as well")
     parser.add_argument('--without-cpu', action='store_true',
                         help="Do not run CPU tests")
     parser.add_argument('--without-gpu', action='store_true',
@@ -350,7 +351,7 @@ def main():
     try:
         t = PerformanceTest(args.num_param_rows, args.num_param_cols,
                             args.out_size, args.num_ops,
-                            args.num_runs, dtype, args.with_indexing,
+                            args.num_runs, dtype,
                             args.without_cpu, args.without_gpu,
                             args.log_devices, f)
         t.run()
