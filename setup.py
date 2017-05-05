@@ -14,6 +14,12 @@ if sys.version_info < (3, 4):
 
 
 ###############################
+# Specify defaults
+###############################
+DEFAULT_COMPUTE_CAPABILITIES = ["3.5", "5.2", "6.1"]
+
+
+###############################
 # Specify sources
 ###############################
 SOURCES_CUDA = ['gather_columns_functor_gpu.cu.cc',
@@ -49,19 +55,30 @@ class BuildCommand(distutils.command.build.build):
     """Custom build command compiling the C++ code."""
 
     user_options = [
-        ('exec-time', None, 'Compile in execution time measurement code')
+        ('exec-time', None, 'Compile in execution time measurement code'),
+        ('compute-capabilities=', None,
+         'List of coma separated compute capabilities to use (default: %s)'
+         % (','.join(DEFAULT_COMPUTE_CAPABILITIES)))
     ]
 
     def initialize_options(self):
         super().initialize_options()
         self.exec_time = None
+        self.compute_capabilities = (','.join(DEFAULT_COMPUTE_CAPABILITIES))
 
     def finalize_options(self):
         super().finalize_options()
+        self.compute_capabilities = self.compute_capabilities.split(',')
+        try:
+            self.compute_capabilities = [c[0] + c[2]
+                                         for c in self.compute_capabilities]
+        except IndexError:
+            sys.exit("ERROR: Incorrect compute capabilities.")
 
     def _configure(self):
         # Options
         print(self._col_head + "Options:" + self._col_clear)
+        print("- Compute capabilities: %s" % ','.join(self.compute_capabilities))
         print("- Debug: %s" % ("NO" if self.debug is None else "YES"))
         print("- Exec time: %s" % ("NO" if self.exec_time is None else "YES"))
         # Detect
@@ -122,8 +139,12 @@ class BuildCommand(distutils.command.build.build):
                    # Downgrade the ABI if system gcc > TF gcc
                    (['-D_GLIBCXX_USE_CXX11_ABI=0']
                     if self._downgrade_abi else []) +
+                   # --exec-time build option
                    (['-DEXEC_TIME_CALC=1']
-                    if self.exec_time is not None else []))
+                    if self.exec_time is not None else []) +
+                   # Compute capabilities
+                   [('-gencode=arch=compute_%s,\"code=sm_%s,compute_%s\"' %
+                     (c, c, c)) for c in self.compute_capabilities])
             print(self._col_cmd + ' '.join(cmd) + self._col_clear)
             subprocess.check_call(cmd)  # Used instead of run for 3.4 compatibility
         except subprocess.CalledProcessError:
@@ -141,6 +162,7 @@ class BuildCommand(distutils.command.build.build):
                    # Downgrade the ABI if system gcc > TF gcc
                    (['-D_GLIBCXX_USE_CXX11_ABI=0']
                     if self._downgrade_abi else []) +
+                   # --exec-time build option
                    (['-DEXEC_TIME_CALC=1']
                     if self.exec_time is not None else []))
             print(self._col_cmd + ' '.join(cmd) + self._col_clear)
@@ -249,7 +271,9 @@ setup(
         # For building docs:
         'recommonmark',
         'sphinxcontrib-napoleon',
-        'sphinx_rtd_theme'
+        'sphinx_rtd_theme',
+        # For testing
+        'flake8'
     ],
     use_scm_version=True,  # Use version from SCM using setuptools_scm
     classifiers=[
