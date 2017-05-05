@@ -47,14 +47,14 @@ class Ops:
 
     def gather_1d(params, indices, out_size):
         with_zeros = tf.concat(values=([0], params), axis=0)
-        gather_indices = np.zeros(out_size, dtype=int)
+        gather_indices = np.zeros(out_size, dtype=indices.dtype)
         gather_indices[indices] = np.arange(indices.size) + 1
         return tf.gather(with_zeros, gather_indices)
 
     def gather_nd(params, indices, out_size):
         zero_col = tf.zeros((tf.shape(params)[0], 1), dtype=params.dtype)
         with_zeros = tf.concat(values=(zero_col, params), axis=1)
-        gather_indices = np.zeros(out_size, dtype=int)
+        gather_indices = np.zeros(out_size, dtype=indices.dtype)
         gather_indices[indices] = np.arange(indices.size) + 1
         return tf.transpose(tf.gather_nd(tf.transpose(with_zeros),
                                          np.expand_dims(gather_indices, 1)))
@@ -62,7 +62,7 @@ class Ops:
     def custom_gather_cols(params, indices, out_size):
         zero_col = tf.zeros((tf.shape(params)[0], 1), dtype=params.dtype)
         with_zeros = tf.concat(values=(zero_col, params), axis=1)
-        gather_indices = np.zeros(out_size, dtype=int)
+        gather_indices = np.zeros(out_size, dtype=indices.dtype)
         gather_indices[indices] = np.arange(indices.size) + 1
         return spn.ops.gather_cols(with_zeros, gather_indices)
 
