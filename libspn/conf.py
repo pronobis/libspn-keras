@@ -12,9 +12,6 @@ import tensorflow as tf
 dtype = tf.float32
 """Default dtype used by LibSPN."""
 
-index_dtype = tf.int64
-"""Default dtype used for integer indices."""
-
 custom_gather_cols = True
 """Whether to use custom op for implementing
 :meth:`~libspn.utils.gather_cols`."""
