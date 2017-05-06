@@ -16,6 +16,8 @@ gather_cols
 - Gather, gather_nd, and custom ops suffer from performance loss for int32 indices. Slicing does not, which might be related to the fact that no index arithmetic happens in case of slice.
 - GTX1050 and GTX1080 offer much better GPU performance than Titan X (Pascal) or Tesla P100 on DGX1 (the last one offers good performance for int64 indices)
 - i7-7700HQ seems to offer best CPU performance
+- adding validate_indices=False to tf.gather() does not affect performance
+
 
 ### 1D 1index
 
