@@ -124,4 +124,113 @@ scatter_cols
 
 ### Overview
 
-- scatter_cols-with_gpu_bounds_check - original version of scatter_cols making internal gpu/cpu data copying and bounds check
+- scatter_cols-with_gpu_bounds_check - original version of scatter_cols making internal gpu/cpu data copying and bounds check. We compile specifically for compute capabilities  ["3.5", "5.2", "6.1"] to fix the error on GTX1050.
+
+
+### General Observations
+
+- the custom op is very inefficient and shold not be used until fixed
+
+- Gather, gather_nd, and custom ops suffer from performance loss for int32 indices. Slicing does not, which might be related to the fact that no index arithmetic happens in case of slice.
+- GTX1050 and GTX1080 offer much better GPU performance than Titan X (Pascal) or Tesla P100 on DGX1 (the last one offers good performance for int64 indices)
+- i7-7700HQ seems to offer best CPU performance
+
+
+### 1D 1index
+
+#### CPU
+
+- pad offers clearly better performance, most likely even if custom op is fixed
+- pad offers smallest graph
+
+#### GPU
+
+- pad offers clearly better performance, most likely even if custom op is fixed
+- pad offers smallest graph
+
+#### Result
+
+- used pad
+
+
+### 1D passthrough
+
+#### CPU
+
+- noop is much faster than any op and results in smaller graph
+
+#### GPU
+
+- noop is much faster than any op and results in smaller graph
+
+#### Result
+
+- use noop
+
+
+### 1D other
+
+#### CPU
+
+- gather_1d is more efficient than custom right now
+- custom offers smaller graph
+
+#### GPU
+
+- gather_1d is much more efficient than custom right now
+- custom offers smaller graph
+
+
+#### Result
+
+- FIX CUSTOM
+- use gather 1d until then, since size difference is not huge
+
+
+### 2D 1index
+
+#### CPU
+
+- custom is fastest
+- pad offers slightly smaller graph and is 2nd fastest
+
+
+#### GPU
+
+- pad offers the smallest graph and is clearly the fastest
+
+
+#### Result
+
+- use pad
+
+
+### 2D passthrough
+
+#### CPU
+
+- noop is much faster than any op and results in smaller graph
+
+#### GPU
+
+- noop is much faster than any op and results in smaller graph
+
+#### Result
+
+- use noop
+
+
+### 2D other
+
+#### CPU
+
+- custom is fastest and offers smallest graph
+
+#### GPU
+
+- custom_gather is twice as fast as custom, but builds 3 times larger graph
+
+#### Result
+
+- FIX CUSTOM
+- use custom until then still
