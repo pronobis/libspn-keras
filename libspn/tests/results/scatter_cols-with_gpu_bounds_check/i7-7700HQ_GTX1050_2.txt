@@ -108,142 +108,142 @@ Running tests:
 1d_1index
 -----------------------
 CPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      320.92           58.67           0.73       True
-            custom int64:  1199      306.46           57.59           0.72       True
-         gather_1d int32:  1599      499.50           78.28           0.78       True
-         gather_1d int64:  1599      445.60           88.78           0.84       True
-            pad_1d int32:   999      293.51           44.70           0.46       True
-            pad_1d int64:   999      342.72           44.66           0.45       True
+            custom int32:  1199      372.78           59.60           0.70       True
+            custom int64:  1199      312.48           65.40           0.68       True
+         gather_1d int32:  1599      532.42           90.65           0.86       True
+         gather_1d int64:  1599      447.62           84.11           0.79       True
+            pad_1d int32:   999      291.14           45.01           0.50       True
+            pad_1d int64:   999      341.33           43.75           0.49       True
 GPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      341.32          184.20           8.66       True
-            custom int64:  1199      339.85           68.05           7.36       True
-         gather_1d int32:  1599      524.91           85.82           3.14       True
-         gather_1d int64:  1599      443.38           85.21           3.05       True
-            pad_1d int32:   999      289.14           49.17           1.38       True
-            pad_1d int64:   999      310.14           48.13           1.41       True
+            custom int32:  1199      363.29          187.70           8.72       True
+            custom int64:  1199      304.11           66.12           7.22       True
+         gather_1d int32:  1599      495.45          103.04           4.48       True
+         gather_1d int64:  1599      449.74           86.38           3.04       True
+            pad_1d int32:   999      293.89           48.50           1.39       True
+            pad_1d int64:   999      290.15           48.39           1.33       True
 
 -----------------------
 1d_passthrough_100indices
 -----------------------
 CPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      341.72           60.29           3.48       True
-            custom int64:  1199      302.78           61.10           3.56       True
-         gather_1d int32:  1599      444.78           78.19           0.77       True
-         gather_1d int64:  1599      492.30           79.45           0.78       True
-              noop int32:   599      169.23           24.27           0.36       True
-              noop int64:   599      156.81           25.00           0.38       True
+            custom int32:  1199      344.35           60.84           3.54       True
+            custom int64:  1199      299.25           60.79           3.59       True
+         gather_1d int32:  1599      449.07           79.23           0.80       True
+         gather_1d int64:  1599      494.29           87.76           0.91       True
+              noop int32:   599      153.92           24.20           0.30       True
+              noop int64:   599      154.80           24.33           0.26       True
 GPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      338.82           88.59          14.81       True
-            custom int64:  1199      316.59           85.42          14.11       True
-         gather_1d int32:  1599      444.95           85.99           3.09       True
-         gather_1d int64:  1599      537.91           86.74           3.11       True
-              noop int32:   599      157.00           26.88           0.65       True
-              noop int64:   599      207.23           26.23           0.58       True
+            custom int32:  1199      396.78           89.62          14.71       True
+            custom int64:  1199      301.68           74.61          13.28       True
+         gather_1d int32:  1599      486.84          102.71           4.44       True
+         gather_1d int64:  1599      499.70           86.29           3.12       True
+              noop int32:   599      155.60           27.29           0.68       True
+              noop int64:   599      230.80           26.71           0.67       True
 
 -----------------------
 1d_reverse_100indices
 -----------------------
 CPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      297.02           60.03           3.46       True
-            custom int64:  1199      307.75           60.98           3.50       True
-         gather_1d int32:  1599      487.18           78.92           0.80       True
-         gather_1d int64:  1599      486.39           79.08           0.81       True
+            custom int32:  1199      292.38           61.13           3.68       True
+            custom int64:  1199      305.97           60.80           3.53       True
+         gather_1d int32:  1599      484.88           80.46           0.81       True
+         gather_1d int64:  1599      437.23           81.50           0.79       True
 GPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      349.31           88.49          14.82       True
-            custom int64:  1199      319.80           74.84          13.06       True
-         gather_1d int32:  1599      492.41           91.09           3.09       True
-         gather_1d int64:  1599      436.38           86.76           3.10       True
+            custom int32:  1199      401.20           98.27          14.77       True
+            custom int64:  1199      312.75           81.16          14.26       True
+         gather_1d int32:  1599      495.14          102.86           4.54       True
+         gather_1d int64:  1599      440.64           87.00           2.98       True
 
 -----------------------
 1d_random_50indices
 -----------------------
 CPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      347.02           61.33           2.04       True
-            custom int64:  1199      297.37           59.18           2.03       True
-         gather_1d int32:  1599      446.91           80.18           0.78       True
-         gather_1d int64:  1599      494.28           80.65           0.84       True
+            custom int32:  1199      349.14           66.48           2.30       True
+            custom int64:  1199      325.28           59.43           2.05       True
+         gather_1d int32:  1599      442.43           83.13           0.79       True
+         gather_1d int64:  1599      491.91           79.46           0.80       True
 GPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      340.58           86.34          12.67       True
-            custom int64:  1199      329.20           70.76          10.72       True
-         gather_1d int32:  1599      481.27           86.45           3.14       True
-         gather_1d int64:  1599      442.41           85.36           3.06       True
+            custom int32:  1199      341.57           87.80          12.33       True
+            custom int64:  1199      297.58           71.56          10.64       True
+         gather_1d int32:  1599      522.09          117.57           4.64       True
+         gather_1d int64:  1599      447.84           89.23           2.98       True
 
 -----------------------
 2d_1index
 -----------------------
 CPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      328.48           64.82           1.70       True
-            custom int64:  1199      362.97           58.28           1.67       True
-custom_gather_cols int32:  3199     1098.69          213.07          14.60       True
-custom_gather_cols int64:  3199     1062.41          182.85          13.39       True
-         gather_nd int32:  6399     2066.48          362.71          17.74       True
-         gather_nd int64:  6399     2126.26          361.09          17.78       True
-            pad_2d int32:   999      293.95           48.40           4.56       True
-            pad_2d int64:   999      306.15           48.73           4.52       True
+            custom int32:  1199      301.52           58.52           1.73       True
+            custom int64:  1199      362.22           58.51           1.68       True
+custom_gather_cols int32:  3199     1136.07          189.15          13.52       True
+custom_gather_cols int64:  3199     1059.50          186.91          13.62       True
+         gather_nd int32:  6399     2076.21          370.88          17.87       True
+         gather_nd int64:  6399     2160.04          424.65          18.60       True
+            pad_2d int32:   999      311.66           55.39           4.87       True
+            pad_2d int64:   999      310.67           50.29           4.77       True
 GPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      303.03           83.50           9.49       True
-            custom int64:  1199      365.85           67.52           7.94       True
-custom_gather_cols int32:  3199     1065.57          192.88           5.18       True
-custom_gather_cols int64:  3199     1094.24          184.04           4.47       True
-         gather_nd int32:  6399     2171.29          375.22           7.83       True
-         gather_nd int64:  6399     2137.99          378.47           7.93       True
-            pad_2d int32:   999      359.97           48.20           1.45       True
-            pad_2d int64:   999      331.60           52.13           1.50       True
+            custom int32:  1199      312.59           83.33           9.44       True
+            custom int64:  1199      347.93           68.39           7.86       True
+custom_gather_cols int32:  3199     1109.18          203.73           6.02       True
+custom_gather_cols int64:  3199     1076.37          186.64           4.40       True
+         gather_nd int32:  6399     2122.07          442.46           9.58       True
+         gather_nd int64:  6399     2091.67          385.40           8.43       True
+            pad_2d int32:   999      359.18           52.36           1.46       True
+            pad_2d int64:   999      298.26           49.45           1.47       True
 
 -----------------------
 2d_passthrough_100indices
 -----------------------
 CPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      345.79           67.65           9.49       True
-            custom int64:  1199      309.44           70.37          12.24       True
-custom_gather_cols int32:  3199     1121.02          175.41           3.38       True
-custom_gather_cols int64:  3199     1068.80          174.90           3.38       True
-         gather_nd int32:  6399     2086.13          371.77          30.27       True
-         gather_nd int64:  6399     2133.68          375.57          30.39       True
-              noop int32:   599      153.66           24.04           0.35       True
-              noop int64:   599      153.81           24.01           0.27       True
+            custom int32:  1199      353.55           79.95          10.78       True
+            custom int64:  1199      311.77           71.52          12.89       True
+custom_gather_cols int32:  3199     1108.60          180.51           3.38       True
+custom_gather_cols int64:  3199     1140.08          175.74           3.49       True
+         gather_nd int32:  6399     2114.96          381.52          30.09       True
+         gather_nd int64:  6399     2154.90          382.48          30.25       True
+              noop int32:   599      161.55           24.23           0.37       True
+              noop int64:   599      153.00           24.18           0.35       True
 GPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      337.14           91.48          15.95       True
-            custom int64:  1199      331.53           74.11          13.80       True
-custom_gather_cols int32:  3199     1095.78          193.59           4.51       True
-custom_gather_cols int64:  3199     1057.75          215.26           4.49       True
-         gather_nd int32:  6399     2155.71          392.56           7.79       True
-         gather_nd int64:  6399     2121.52          390.67           9.05       True
-              noop int32:   599      205.25           26.84           0.69       True
-              noop int64:   599      153.59           26.15           0.66       True
+            custom int32:  1199      345.25           91.14          15.44       True
+            custom int64:  1199      296.07           74.12          13.86       True
+custom_gather_cols int32:  3199     1095.47          204.43           5.99       True
+custom_gather_cols int64:  3199     1128.93          188.92           4.53       True
+         gather_nd int32:  6399     2179.89          395.33           9.63       True
+         gather_nd int64:  6399     2206.46          378.69           7.79       True
+              noop int32:   599      206.91           28.44           0.61       True
+              noop int64:   599      160.11           26.89           0.70       True
 
 -----------------------
 2d_reverse_100indices
 -----------------------
 CPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      351.76           68.25          10.80       True
-            custom int64:  1199      321.12           69.99          12.77       True
-custom_gather_cols int32:  3199     1107.26          189.52          14.65       True
-custom_gather_cols int64:  3199     1089.67          206.00          14.41       True
-         gather_nd int32:  6399     2065.84          368.35          30.60       True
-         gather_nd int64:  6399     2145.89          367.46          30.10       True
+            custom int32:  1199      344.48           70.28           9.87       True
+            custom int64:  1199      307.18           73.28          12.75       True
+custom_gather_cols int32:  3199     1141.20          188.98          14.56       True
+custom_gather_cols int64:  3199     1069.75          191.48          14.83       True
+         gather_nd int32:  6399     2053.95          371.31          30.69       True
+         gather_nd int64:  6399     2139.75          370.89          30.17       True
 GPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      297.40           89.16          15.84       True
-            custom int64:  1199      346.01           74.20          13.87       True
-custom_gather_cols int32:  3199     1081.26          183.72           4.55       True
-custom_gather_cols int64:  3199     1064.62          198.17           5.20       True
-         gather_nd int32:  6399     2243.35          376.94           7.96       True
-         gather_nd int64:  6399     2124.41          393.18           7.80       True
+            custom int32:  1199      300.07           91.64          15.72       True
+            custom int64:  1199      372.39           85.11          15.04       True
+custom_gather_cols int32:  3199     1079.60          220.03           6.08       True
+custom_gather_cols int64:  3199     1062.70          186.44           4.62       True
+         gather_nd int32:  6399     2190.46          392.60           9.86       True
+         gather_nd int64:  6399     2161.22          380.46           8.00       True
 
 -----------------------
 2d_random_50indices
 -----------------------
 CPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      368.65           68.09           8.96       True
-            custom int64:  1199      302.23           67.01           9.75       True
-custom_gather_cols int32:  3199     1106.58          189.99          14.05       True
-custom_gather_cols int64:  3199     1098.91          185.22          14.24       True
-         gather_nd int32:  6399     2072.28          361.16          25.55       True
-         gather_nd int64:  6399     2120.91          371.01          25.45       True
+            custom int32:  1199      356.97           69.14           9.33       True
+            custom int64:  1199      294.29           68.49          11.75       True
+custom_gather_cols int32:  3199     1139.74          194.30          14.27       True
+custom_gather_cols int64:  3199     1075.66          187.06          14.29       True
+         gather_nd int32:  6399     2039.94          399.90          25.55       True
+         gather_nd int64:  6399     2084.10          380.73          26.96       True
 GPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
-            custom int32:  1199      297.67           86.35          13.12       True
-            custom int64:  1199      349.24           72.88          11.48       True
-custom_gather_cols int32:  3199     1081.19          184.05           4.61       True
-custom_gather_cols int64:  3199     1076.37          195.82           4.51       True
-         gather_nd int32:  6399     2206.67          372.17           7.93       True
-         gather_nd int64:  6399     2121.40          370.98           7.87       True
+            custom int32:  1199      324.89           98.46          13.27       True
+            custom int64:  1199      354.92           72.43          11.71       True
+custom_gather_cols int32:  3199     1110.71          205.37           5.99       True
+custom_gather_cols int64:  3199     1071.14          186.64           4.49       True
+         gather_nd int32:  6399     2124.21          393.13           9.67       True
+         gather_nd int64:  6399     2181.38          381.57           7.87       True
