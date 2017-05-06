@@ -269,8 +269,10 @@ setup(
         'setuptools_git >= 0.3',  # Ship files tracked by git in src dist
         'colorama',  # For color output
         # For building docs:
+        'sphinx',
         'recommonmark',
         'sphinxcontrib-napoleon',
+        'sphinxcontrib-websupport',
         'sphinx_rtd_theme',
         # For testing
         'flake8'
