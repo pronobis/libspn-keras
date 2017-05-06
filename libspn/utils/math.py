@@ -10,6 +10,8 @@
 import tensorflow as tf
 import numpy as np
 from libspn.utils.serialization import register_serializable
+from libspn import conf
+from libspn.ops import ops
 
 
 class ValueType:
@@ -41,16 +43,13 @@ class ValueType:
             self.max_val = data['max_val']
 
 
-def gather_cols(params, indices, name=None, use_gather_nd=True):
+def gather_cols(params, indices, name=None):
     """Gather columns of a 2D tensor or values of a 1D tensor.
 
     Args:
         params (Tensor): A 1D or 2D tensor.
         indices (array_like): A 1D integer array.
         name (str): A name for the operation (optional).
-        use_gather_nd (bool): Use ``transpose`` and ``gather_nd`` instead of
-                              ``gather`` when gathering multiple columns from
-                              a 2D params tensor.
 
     Returns:
         Tensor: Has the same dtype and number of dimensions and type as ``params``.
@@ -84,29 +83,31 @@ def gather_cols(params, indices, name=None, use_gather_nd=True):
         if param_size == 1:
             # Single column tensor, indices must include it, just forward tensor
             return params
+        elif indices.size == param_size and np.all(np.ediff1d(indices) == 1):
+            # Indices index all params in the original order, pass through
+            return params
         elif indices.size == 1:
-            index = indices[0]
-            # Gathering a single column, just slice
+            # Gathering a single column
             if param_dims == 1:
-                return tf.slice(params, [index], [1])
+                # Gather is faster than custom for 1D.
+                # It is as fast as slice for int64, and generates smaller graph
+                return tf.gather(params, indices)
             else:
-                return tf.slice(params, [0, index], [-1, 1])
+                if conf.custom_gather_cols:
+                    return ops.gather_cols(params, indices)
+                else:
+                    return tf.slice(params, [0, indices[0]], [-1, 1])
         else:
             # Gathering multiple columns from multi-column tensor
             if param_dims == 1:
+                # Gather is faster than custom for 1D.
                 return tf.gather(params, indices)
             else:
-                # Two possibilities to deal with 2d gathering
-                if use_gather_nd:
+                if conf.custom_gather_cols:
+                    return ops.gather_cols(params, indices)
+                else:
                     return tf.transpose(tf.gather_nd(tf.transpose(params),
                                                      np.expand_dims(indices, 1)))
-                else:
-                    p_shape = tf.shape(params)
-                    p_flat = tf.reshape(params, [-1])
-                    i_flat = tf.reshape(tf.reshape(tf.range(0, p_shape[0]) * p_shape[1],
-                                                   [-1, 1]) + indices, [-1])
-                    return tf.reshape(tf.gather(p_flat, i_flat),
-                                      [p_shape[0], -1])
 
 
 def scatter_cols(params, indices, out_num_cols, name=None):
