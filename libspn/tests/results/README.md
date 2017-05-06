@@ -27,7 +27,7 @@ gather_cols
 
 - int32 much slower than int64 (particularly for dgx1) for gather and custom, but not slice
 - for int64, all methods offer similar performance, with gather and slice being slightly faster
-- for int32, slice wins, with gather and custom being equivalent, but much slower
+- for int32, slice wins, with gather and custom being comparable to each other, but much slower
 - slice makes more ops and setup time
 
 #### Result
@@ -233,4 +233,4 @@ scatter_cols
 #### Result
 
 - FIX CUSTOM
-- use custom until then still
+- use either custom or casutom_gather
