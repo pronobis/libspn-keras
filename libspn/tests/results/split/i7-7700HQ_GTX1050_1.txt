@@ -1,0 +1,52 @@
+Params:
+- num_value_rows=200
+- num_value_cols=100
+- num_ops=200
+- num_runs=10
+- dtype=<dtype: 'float32'>
+
+Running tests:
+--> tf_split: on_gpu=False, split_sizes_dtype=<class 'numpy.int32'>, value_shape=(200, 100), split_sizes_shape=(100,)
+--> tf_split: on_gpu=False, split_sizes_dtype=<class 'numpy.int64'>, value_shape=(200, 100), split_sizes_shape=(100,)
+--> tf_split: on_gpu=True, split_sizes_dtype=<class 'numpy.int32'>, value_shape=(200, 100), split_sizes_shape=(100,)
+--> tf_split: on_gpu=True, split_sizes_dtype=<class 'numpy.int64'>, value_shape=(200, 100), split_sizes_shape=(100,)
+--> indexing: on_gpu=False, split_sizes_dtype=<class 'numpy.int32'>, value_shape=(200, 100), split_sizes_shape=(100,)
+--> indexing: on_gpu=False, split_sizes_dtype=<class 'numpy.int64'>, value_shape=(200, 100), split_sizes_shape=(100,)
+--> indexing: on_gpu=True, split_sizes_dtype=<class 'numpy.int32'>, value_shape=(200, 100), split_sizes_shape=(100,)
+--> indexing: on_gpu=True, split_sizes_dtype=<class 'numpy.int64'>, value_shape=(200, 100), split_sizes_shape=(100,)
+--> tf_split: on_gpu=False, split_sizes_dtype=<class 'numpy.int32'>, value_shape=(200, 100), split_sizes_shape=(10,)
+--> tf_split: on_gpu=False, split_sizes_dtype=<class 'numpy.int64'>, value_shape=(200, 100), split_sizes_shape=(10,)
+--> tf_split: on_gpu=True, split_sizes_dtype=<class 'numpy.int32'>, value_shape=(200, 100), split_sizes_shape=(10,)
+--> tf_split: on_gpu=True, split_sizes_dtype=<class 'numpy.int64'>, value_shape=(200, 100), split_sizes_shape=(10,)
+--> indexing: on_gpu=False, split_sizes_dtype=<class 'numpy.int32'>, value_shape=(200, 100), split_sizes_shape=(10,)
+--> indexing: on_gpu=False, split_sizes_dtype=<class 'numpy.int64'>, value_shape=(200, 100), split_sizes_shape=(10,)
+--> indexing: on_gpu=True, split_sizes_dtype=<class 'numpy.int32'>, value_shape=(200, 100), split_sizes_shape=(10,)
+--> indexing: on_gpu=True, split_sizes_dtype=<class 'numpy.int64'>, value_shape=(200, 100), split_sizes_shape=(10,)
+
+-----------------------
+1elem_splits
+-----------------------
+CPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+       indexing int32: 100300    33092.95         6745.02          26.98       True
+       indexing int64: 100300    34243.02         6838.69          27.39       True
+       tf_split int32: 20900     6199.49          844.51          30.79       True
+       tf_split int64: 20900     6451.19          807.86          31.22       True
+GPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+       indexing int32: 100300    34084.89         7287.99          94.89       True
+       indexing int64: 100300    34435.07         7078.98          97.26       True
+       tf_split int32: 20900     6478.35          940.43          18.91       True
+       tf_split int64: 20900     6417.63          832.95          19.03       True
+
+-----------------------
+10_splits
+-----------------------
+CPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+       indexing int32: 10390     3329.85          646.30           3.47       True
+       indexing int64: 10390     3455.15          631.44           3.45       True
+       tf_split int32:  2990     2261.68          178.34           4.75       True
+       tf_split int64:  2990      923.51          128.92           4.00       True
+GPU          op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+       indexing int32: 10390     3511.22          659.01          10.12       True
+       indexing int64: 10390     3487.40          656.88           9.78       True
+       tf_split int32:  2990      900.25          136.53           7.69       True
+       tf_split int64:  2990      931.00          147.14           8.69       True
