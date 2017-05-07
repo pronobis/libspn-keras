@@ -164,8 +164,62 @@ class TestMath(tf.test.TestCase):
         self.assertIs(out, t)
 
     def test_scatter_cols_errors(self):
-        # TODO
-        pass
+        # Should work
+        spn.utils.scatter_cols(tf.constant([10, 11, 12]),
+                               [0, 1, 2], 3)
+        spn.utils.scatter_cols(tf.constant([[10, 11, 12]]),
+                               [0, 1, 2], 3)
+        spn.utils.scatter_cols(tf.placeholder(tf.float32,
+                                              shape=(None, 3)),
+                               [0, 1, 2], 3)
+
+        # Param size defined
+        with self.assertRaises(RuntimeError):
+            spn.utils.scatter_cols(tf.placeholder(tf.float32,
+                                                  shape=(None, None)),
+                                   [0, 1, 2], 3)
+        # Param dim number
+        with self.assertRaises(ValueError):
+            spn.utils.scatter_cols(tf.constant(10),
+                                   [0, 1, 2], 3)
+        with self.assertRaises(ValueError):
+            spn.utils.scatter_cols(tf.constant([[[10, 11, 12]]]),
+                                   [0, 1, 2], 3)
+        # out_num_cols type
+        with self.assertRaises(ValueError):
+            spn.utils.scatter_cols(tf.constant([10, 11, 12]),
+                                   [0, 1, 2], 3.1)
+        # out_num_cols value
+        with self.assertRaises(ValueError):
+            spn.utils.scatter_cols(tf.constant([10, 11, 12]),
+                                   [0, 1, 2], 2)
+        # Indices dims
+        with self.assertRaises(ValueError):
+            spn.utils.scatter_cols(tf.constant([10, 11, 12]),
+                                   [[0, 1, 2]], 3)
+        with self.assertRaises(ValueError):
+            spn.utils.scatter_cols(tf.constant([10, 11, 12]),
+                                   1, 3)
+        # Indices size
+        with self.assertRaises(ValueError):
+            spn.utils.scatter_cols(tf.constant([10, 11, 12]),
+                                   [0, 1, 2, 3], 4)
+        with self.assertRaises(ValueError):
+            spn.utils.scatter_cols(tf.constant([10, 11, 12]),
+                                   [0, 1], 4)
+        with self.assertRaises(ValueError):
+            spn.utils.scatter_cols(tf.constant([10, 11, 12]),
+                                   [], 4)
+        # Indices values
+        with self.assertRaises(ValueError):
+            spn.utils.scatter_cols(tf.constant([10, 11, 12]),
+                                   [0.1, 1, 2], 3)
+        with self.assertRaises(ValueError):
+            spn.utils.scatter_cols(tf.constant([10, 11, 12]),
+                                   [0, 1, 3], 3)
+        with self.assertRaises(ValueError):
+            spn.utils.scatter_cols(tf.constant([10, 11, 12]),
+                                   [0, 1, 1], 3)
 
     def test_scatter_cols(self):
         def test(params, indices, num_cols, dtype, true_output):
