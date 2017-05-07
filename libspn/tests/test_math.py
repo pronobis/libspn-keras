@@ -31,6 +31,9 @@ class TestMath(tf.test.TestCase):
                                   [0, 1, 2])
         # Param dim number
         with self.assertRaises(ValueError):
+            spn.utils.gather_cols(tf.constant(10),
+                                  [0, 1, 2])
+        with self.assertRaises(ValueError):
             spn.utils.gather_cols(tf.constant([[[10, 11, 12]]]),
                                   [0, 1, 2])
         # Index dims
