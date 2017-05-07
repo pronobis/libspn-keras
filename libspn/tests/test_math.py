@@ -79,7 +79,6 @@ class TestMath(tf.test.TestCase):
                                        dtype=params_dtype)
                     # Define ops for different implementations
                     custom_gather_cols = spn.conf.custom_gather_cols
-                    custom_scatter_cols = spn.conf.custom_scatter_cols
                     spn.conf.custom_gather_cols = False
                     op1dn = spn.utils.gather_cols(p1d, indices)
                     op2d1n = spn.utils.gather_cols(p2d1, indices)
@@ -89,7 +88,6 @@ class TestMath(tf.test.TestCase):
                     op2d1c = spn.utils.gather_cols(p2d1, indices)
                     op2d2c = spn.utils.gather_cols(p2d2, indices)
                     spn.conf.custom_gather_cols = custom_gather_cols
-                    spn.conf.custom_scatter_cols = custom_scatter_cols
                     # Run
                     out1dn = sess.run(op1dn)
                     out1dc = sess.run(op1dc)
@@ -130,20 +128,20 @@ class TestMath(tf.test.TestCase):
         # Single column input tensor
         test_all_dtypes([10],
                         [0],
-                        [1.0])
+                        [10.0])
 
         # Single index
         test_all_dtypes([10, 11, 12],
                         [1],
-                        [2.0])
+                        [11.0])
 
         # Multiple indices
         test_all_dtypes([10, 11, 12],
                         [2, 1, 0],
-                        [3.0, 2.0, 1.0])
+                        [12.0, 11.0, 10.0])
         test_all_dtypes([10, 11, 12],
                         [0, 2],
-                        [1.0, 3.0])
+                        [10.0, 12.0])
 
         # Gathering single column tensor should return that tensor directly
         t = tf.constant([10])
