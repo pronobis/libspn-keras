@@ -97,7 +97,7 @@ class Concat(OpNode):
             raise StructureError("%s is missing inputs." % self)
         # Concatenate inputs
         input_tensors = self._gather_input_tensors(*input_tensors)
-        return utils.concat_maybe(1, input_tensors)
+        return utils.concat_maybe(input_tensors, 1)
 
     @utils.docinherit(OpNode)
     def _compute_log_value(self, *input_tensors):
@@ -117,7 +117,7 @@ class Concat(OpNode):
             raise StructureError("%s is missing inputs." % self)
         # Split counts for each input
         input_sizes = self.get_input_sizes(*input_values)
-        split = utils.split(1, input_sizes, counts)
+        split = utils.split_maybe(counts, input_sizes, 1)
         return self._scatter_to_input_tensors(*[(t, v) for t, v in
                                                 zip(split, input_values)])
 

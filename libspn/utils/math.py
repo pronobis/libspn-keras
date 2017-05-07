@@ -287,8 +287,8 @@ def reduce_log_sum(log_input, name=None):
         return tf.where(all_zero, out_zeros, out_normal)
 
 
-def concat_maybe(concat_dim, values, name='concat'):
-    """Concatenate values if there is more than one value. Oherwise, just
+def concat_maybe(values, axis, name='concat'):
+    """Concatenate ``values`` if there is more than one value. Oherwise, just
     forward value as is.
 
     Args:
@@ -298,51 +298,30 @@ def concat_maybe(concat_dim, values, name='concat'):
         Tensor: Concatenated values.
     """
     if len(values) > 1:
-        return tf.concat(values=values, axis=concat_dim)
+        return tf.concat(values=values, axis=axis, name=name)
     else:
         return values[0]
 
 
-def split(split_dim, split_sizes, value, name=None):
+def split_maybe(value, split_sizes, axis, name='split'):
     """Split ``value`` into multiple tensors of sizes given by ``split_sizes``.
     ``split_sizes`` must sum to the size of ``split_dim``. If only one split_size
-    is given, the function does nothing and just forwards the value as the only split.
+    is given, the function does nothing and just forwards the value as the only
+    split.
 
     Args:
-        split_dim (int): The dimensions along which to split.
-        split_sizes (list of int): Sizes of each split.
         value (Tensor): The tensor to split.
+        split_sizes (list of int): Sizes of each split.
+        axis (int): The dimensions along which to split.
 
     Returns:
         list of Tensor: List of resulting tensors.
     """
-    # Check input
-    if split_dim > 1:
-        raise NotImplementedError("split only works for dimensions 0 and 1")
-    split_sizes = np.asarray(split_sizes)
-    # Anything to split?
-    if split_sizes.size == 1:
+    if len(split_sizes) > 1:
+        return tf.split(value=value, num_or_size_splits=split_sizes,
+                        axis=axis, name=name)
+    else:
         return [value]
-    # Split
-    with tf.name_scope(name, "split", [value]):
-        # Check input
-        value = tf.convert_to_tensor(value, name="params")
-        value_dims = value.get_shape().ndims
-        if value_dims < 1 or value_dims > 2:
-            raise NotImplementedError("split only works for 1D or 2D values")
-        # Split
-        slice_indices = np.cumsum(split_sizes)
-        if split_dim == 0:
-            if value_dims == 1:
-                split = [value[start:stop] for start, stop in
-                         zip(np.r_[0, slice_indices], slice_indices)]
-            elif value_dims == 2:
-                split = [value[start:stop, :] for start, stop in
-                         zip(np.r_[0, slice_indices], slice_indices)]
-        elif split_dim == 1:
-            split = [value[:, start:stop] for start, stop in
-                     zip(np.r_[0, slice_indices], slice_indices)]
-    return split
 
 
 def print_tensor(*tensors):
