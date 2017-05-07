@@ -16,43 +16,43 @@ class TestMath(tf.test.TestCase):
 
     def test_gather_cols_errors(self):
         # Should work
-        spn.utils.gather_cols(tf.constant([1, 2, 3]),
+        spn.utils.gather_cols(tf.constant([10, 11, 12]),
                               [0, 1, 2])
-        spn.utils.gather_cols(tf.constant([[1, 2, 3]]),
+        spn.utils.gather_cols(tf.constant([[10, 11, 12]]),
                               [0, 1, 2])
         spn.utils.gather_cols(tf.placeholder(tf.float32,
                                              shape=(None, 3)),
                               [0, 1, 2])
 
-        # Param dim number
+        # Param size defined
         with self.assertRaises(RuntimeError):
             spn.utils.gather_cols(tf.placeholder(tf.float32,
                                                  shape=(None, None)),
                                   [0, 1, 2])
-        # Param size defined
+        # Param dim number
         with self.assertRaises(ValueError):
-            spn.utils.gather_cols(tf.constant([[[1, 2, 3]]]),
+            spn.utils.gather_cols(tf.constant([[[10, 11, 12]]]),
                                   [0, 1, 2])
         # Index dims
         with self.assertRaises(ValueError):
-            spn.utils.gather_cols(tf.constant([1, 2, 3]),
+            spn.utils.gather_cols(tf.constant([10, 11, 12]),
                                   [[0, -1, 2]])
         with self.assertRaises(ValueError):
-            spn.utils.gather_cols(tf.constant([1, 2, 3]),
+            spn.utils.gather_cols(tf.constant([10, 11, 12]),
                                   1)
         # Indices empty
         with self.assertRaises(ValueError):
-            spn.utils.gather_cols(tf.constant([1, 2, 3]),
+            spn.utils.gather_cols(tf.constant([10, 11, 12]),
                                   [])
         # Index values
         with self.assertRaises(ValueError):
-            spn.utils.gather_cols(tf.constant([1, 2, 3]),
+            spn.utils.gather_cols(tf.constant([10, 11, 12]),
                                   [0, -1, 2])
         with self.assertRaises(ValueError):
-            spn.utils.gather_cols(tf.constant([1, 2, 3]),
+            spn.utils.gather_cols(tf.constant([10, 11, 12]),
                                   [0, 3, 2])
         with self.assertRaises(ValueError):
-            spn.utils.gather_cols(tf.constant([1, 2, 3]),
+            spn.utils.gather_cols(tf.constant([10, 11, 12]),
                                   [0.1, 3, 2])
 
     def test_gather_cols(self):
