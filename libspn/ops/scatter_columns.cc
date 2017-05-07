@@ -16,7 +16,7 @@ REGISTER_OP("ScatterColumns")
     .Input("indices: IndT")
     .Input("pad_elem: T")
     .Output("columns: T")
-    .Attr("out_num_col: int >= 1 = 1")
+    .Attr("num_out_col: int >= 1")
     .Attr("T: type")
     .Attr("IndT: {int32,int64}")
     .SetShapeFn([](InferenceContext* ctx) {
@@ -30,11 +30,11 @@ REGISTER_OP("ScatterColumns")
       TF_RETURN_IF_ERROR(
           ctx->WithRank(ctx->input(2), 0, &unused_shape));  //--pad_elem--//
 
-      int64 out_num_cols;
-      TF_RETURN_IF_ERROR(ctx->GetAttr("out_num_col", &out_num_cols));
+      int64 num_out_cols;
+      TF_RETURN_IF_ERROR(ctx->GetAttr("num_out_col", &num_out_cols));
 
       DimensionHandle out_last_dim;
-      out_last_dim = ctx->MakeDim(out_num_cols);
+      out_last_dim = ctx->MakeDim(num_out_cols);
 
       ShapeHandle out_shape;
       TF_RETURN_IF_ERROR(
@@ -55,7 +55,7 @@ class ScatterColumnsOp : public OpKernel
     OP_REQUIRES_OK(ctx,
                    ctx->MatchSignature({data_t, index_t, data_t}, {data_t}));
 
-    OP_REQUIRES_OK(ctx, ctx->GetAttr("out_num_col", &out_num_cols));
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("num_out_col", &num_out_cols));
   }
 
   void Compute(OpKernelContext* ctx) override
@@ -106,7 +106,7 @@ class ScatterColumnsOp : public OpKernel
       params_cols = params.dim_size(0);
 
       //--Set output tensor dims--//
-      output_shape.set_dim(0, out_num_cols);
+      output_shape.set_dim(0, num_out_cols);
     }
     else if (params_shape.dims() == 2)
     {
@@ -115,12 +115,12 @@ class ScatterColumnsOp : public OpKernel
 
       //--Set output tensor dims--//
       output_shape.set_dim(0, params_rows);
-      output_shape.set_dim(1, out_num_cols);
+      output_shape.set_dim(1, num_out_cols);
     }
 
-    OP_REQUIRES(ctx, out_num_cols >= params_cols,
+    OP_REQUIRES(ctx, num_out_cols >= params_cols,
                 errors::InvalidArgument(
-                    "out_num_cols: ", out_num_cols,
+                    "num_out_cols: ", num_out_cols,
                     " must be >= size of the indexed dimension of params: ",
                     params_cols));
 
@@ -134,19 +134,19 @@ class ScatterColumnsOp : public OpKernel
     Tensor* output = nullptr;
     OP_REQUIRES_OK(ctx, ctx->allocate_output(0, output_shape, &output));
 
-    auto output_tensor = output->shaped<T, 2>({params_rows, out_num_cols});
+    auto output_tensor = output->shaped<T, 2>({params_rows, num_out_cols});
     auto params_tensor = params.shaped<T, 2>({params_rows, params_cols});
     auto pad_elem = pad_elem_tensor.flat<T>();
 
     functor::ScatterColumnsFunctor<Device, T, IndT> functor;
 
     OP_REQUIRES_OK(ctx, functor(ctx->eigen_device<Device>(), params_tensor,
-                                indices_flat, out_num_cols, pad_elem.data(),
+                                indices_flat, num_out_cols, pad_elem.data(),
                                 params_rows, params_cols, output_tensor));
   }
 
  private:
-  IndT out_num_cols;
+  IndT num_out_cols;
 };
 
 #define REGISTER_SCATTERCOLUMNS_ALL(dev, type, index_type)         \

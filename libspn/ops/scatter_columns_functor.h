@@ -23,7 +23,7 @@ namespace functor
 template <typename T, typename IndT>
 Status CountAndCopy(const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstFlat& indices,
-                    const IndT& out_num_cols, const T* pad_elem,
+                    const IndT& num_out_cols, const T* pad_elem,
                     const int64& params_rows, const int64& params_cols,
                     typename TTypes<T>::Matrix& output)
 {
@@ -38,22 +38,22 @@ Status CountAndCopy(const typename TTypes<T>::ConstMatrix& params,
   }
 
   std::vector<IndT> out_indices(
-      out_num_cols, -1);  //--Here '-1' refers to padding column(s)--//
+      num_out_cols, -1);  //--Here '-1' refers to padding column(s)--//
 
   //--Arrange output indices--//
   //--E.g.:  params = [11, 12, 13, 14]
-  //-- out_num_cols = 10
+  //-- num_out_cols = 10
   //--     pad_elem = 0
   //--      indices = [7, 4, 2, 3]
   //--       output = [0, 0, 13, 14, 12, 0, 0, 11, 0, 0]
   //--  out_indices = [-1, -1, 2, 3, 1, -1, -1, 0, -1, -1]
   for (IndT i = 0; i < indices_size; i++)
   {
-    //--Check indices[i] ∈ (0, out_num_cols]--//
-    if (!FastBoundsCheck(indices(i), out_num_cols))
+    //--Check indices[i] ∈ (0, num_out_cols]--//
+    if (!FastBoundsCheck(indices(i), num_out_cols))
     {
       return errors::InvalidArgument("Indices(", i, "): ", indices(i),
-                                     " is not in range (0, ", out_num_cols,
+                                     " is not in range (0, ", num_out_cols,
                                      "].");
     }
 
@@ -62,23 +62,23 @@ Status CountAndCopy(const typename TTypes<T>::ConstMatrix& params,
 
   //--Group consecutive padding columns together--//
   //--E.g.:  params = [11, 12, 13, 14]
-  //-- out_num_cols = 10
+  //-- num_out_cols = 10
   //--     pad_elem = 0
   //--      indices = [7, 4, 2, 3]
   //--       output = [0, 0, 13, 14, 12, 0, 0, 11, 0, 0]
   //--cons_pad_cols = [2, 1,  0,  0,  0, 2, 1,  0, 2, 1]
 
-  std::vector<int> cons_pad_cols(out_num_cols, 0);
+  std::vector<int> cons_pad_cols(num_out_cols, 0);
   int pad_cols;
   int max_cons_pad_cols = 0;
 
-  for (int c = 0; c < out_num_cols; c++)
+  for (int c = 0; c < num_out_cols; c++)
   {
     pad_cols = 0;
     while (out_indices[c + pad_cols] < 0)
     {
       pad_cols++;
-      if (c + pad_cols >= out_num_cols)
+      if (c + pad_cols >= num_out_cols)
       {
         break;
       }
@@ -110,10 +110,10 @@ Status CountAndCopy(const typename TTypes<T>::ConstMatrix& params,
   // at a time--//
   for (int row = 0; row < params_rows; row++)
   {
-    for (int col = 0; col < out_num_cols;)
+    for (int col = 0; col < num_out_cols;)
     {
       //--If not the final copy--//
-      if (col + 1 < out_num_cols)
+      if (col + 1 < num_out_cols)
       {
         //--Prefetch the next destination (output) memory address--//
         port::prefetch<port::PREFETCH_HINT_T0>(&output(row, (col + 1)));
@@ -160,11 +160,11 @@ struct ScatterColumnsFunctorCPU
 {
   Status operator()(const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstFlat& indices,
-                    const IndT& out_num_cols, const T* pad_elem,
+                    const IndT& num_out_cols, const T* pad_elem,
                     const int64& params_rows, const int64& params_cols,
                     typename TTypes<T>::Matrix& output)
   {
-    return CountAndCopy<T, IndT>(params, indices, out_num_cols, pad_elem,
+    return CountAndCopy<T, IndT>(params, indices, num_out_cols, pad_elem,
                                  params_rows, params_cols, output);
   }
 };
@@ -175,7 +175,7 @@ struct ScatterColumnsFunctor
   Status operator()(const Device& dvc,
                     const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstFlat& indices,
-                    const IndT& out_num_cols, const T* pad_elem,
+                    const IndT& num_out_cols, const T* pad_elem,
                     const int64& params_rows, const int64& params_cols,
                     typename TTypes<T>::Matrix& output);
 };
@@ -186,11 +186,11 @@ struct ScatterColumnsFunctor<CPUDevice, T, IndT>
   Status operator()(const CPUDevice& dvc,
                     const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstFlat& indices,
-                    const IndT& out_num_cols, const T* pad_elem,
+                    const IndT& num_out_cols, const T* pad_elem,
                     const int64& params_rows, const int64& params_cols,
                     typename TTypes<T>::Matrix& output)
   {
-    return ScatterColumnsFunctorCPU<T, IndT>()(params, indices, out_num_cols,
+    return ScatterColumnsFunctorCPU<T, IndT>()(params, indices, num_out_cols,
                                                pad_elem, params_rows,
                                                params_cols, output);
   }

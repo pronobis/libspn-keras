@@ -33,7 +33,7 @@ class Ops:
 
     def custom(params, indices, out_size):
         return spn.ops.scatter_cols(params, indices,
-                                    out_num_col=out_size, pad_elem=0)
+                                    num_out_col=out_size, pad_elem=0)
 
     def noop(params, indices, out_size):
         return params

@@ -13,7 +13,7 @@ namespace functor
   Status ScatterColumnsFunctor<GPUDevice, T, IndT>::operator()(              \
       const GPUDevice& dvc, const typename TTypes<T>::ConstMatrix& params,   \
       const typename TTypes<IndT>::ConstFlat& indices,                       \
-      const IndT& out_num_cols, const T* pad_elem, const int64& params_rows, \
+      const IndT& num_out_cols, const T* pad_elem, const int64& params_rows, \
       const int64& params_cols, typename TTypes<T>::Matrix& output);         \
   extern template struct ScatterColumnsFunctor<GPUDevice, T, IndT>;
 

@@ -183,11 +183,11 @@ class TestMath(tf.test.TestCase):
         with self.assertRaises(ValueError):
             spn.utils.scatter_cols(tf.constant([[[10, 11, 12]]]),
                                    [0, 1, 2], 3)
-        # out_num_cols type
+        # num_out_cols type
         with self.assertRaises(ValueError):
             spn.utils.scatter_cols(tf.constant([10, 11, 12]),
                                    [0, 1, 2], 3.1)
-        # out_num_cols value
+        # num_out_cols value
         with self.assertRaises(ValueError):
             spn.utils.scatter_cols(tf.constant([10, 11, 12]),
                                    [0, 1, 2], 2)
@@ -220,10 +220,10 @@ class TestMath(tf.test.TestCase):
                                    [0, 1, 1], 3)
 
     def test_scatter_cols(self):
-        def test(params, indices, out_num_cols, true_output,
+        def test(params, indices, num_out_cols, true_output,
                  params_dtype, indices_dtype, on_gpu):
             with self.subTest(params=params, indices=indices,
-                              out_num_cols=out_num_cols,
+                              num_out_cols=num_out_cols,
                               params_dtype=params_dtype,
                               indices_dtype=indices_dtype,
                               on_gpu=on_gpu):
@@ -242,13 +242,13 @@ class TestMath(tf.test.TestCase):
                     # Define ops for different implementations
                     custom_scatter_cols = spn.conf.custom_scatter_cols
                     spn.conf.custom_scatter_cols = False
-                    op1dn = spn.utils.scatter_cols(p1d, indices, out_num_cols)
-                    op2d1n = spn.utils.scatter_cols(p2d1, indices, out_num_cols)
-                    op2d2n = spn.utils.scatter_cols(p2d2, indices, out_num_cols)
+                    op1dn = spn.utils.scatter_cols(p1d, indices, num_out_cols)
+                    op2d1n = spn.utils.scatter_cols(p2d1, indices, num_out_cols)
+                    op2d2n = spn.utils.scatter_cols(p2d2, indices, num_out_cols)
                     spn.conf.custom_scatter_cols = True
-                    op1dc = spn.utils.scatter_cols(p1d, indices, out_num_cols)
-                    op2d1c = spn.utils.scatter_cols(p2d1, indices, out_num_cols)
-                    op2d2c = spn.utils.scatter_cols(p2d2, indices, out_num_cols)
+                    op1dc = spn.utils.scatter_cols(p1d, indices, num_out_cols)
+                    op2d1c = spn.utils.scatter_cols(p2d1, indices, num_out_cols)
+                    op2d2c = spn.utils.scatter_cols(p2d2, indices, num_out_cols)
                     spn.conf.custom_scatter_cols = custom_scatter_cols
                     # Run
                     out1dn = sess.run(op1dn)
@@ -275,24 +275,24 @@ class TestMath(tf.test.TestCase):
                 self.assertEqual(params_dtype.as_numpy_dtype, out2d2n.dtype)
                 self.assertEqual(params_dtype.as_numpy_dtype, out2d2c.dtype)
 
-        def test_all_dtypes(params, indices, out_num_cols, true_output):
+        def test_all_dtypes(params, indices, num_out_cols, true_output):
             # CPU
-            test(params, indices, out_num_cols, true_output,
+            test(params, indices, num_out_cols, true_output,
                  tf.float32, np.int32, False)
-            test(params, indices, out_num_cols, true_output,
+            test(params, indices, num_out_cols, true_output,
                  tf.float32, np.int64, False)
-            test(params, indices, out_num_cols, true_output,
+            test(params, indices, num_out_cols, true_output,
                  tf.float64, np.int32, False)
-            test(params, indices, out_num_cols, true_output,
+            test(params, indices, num_out_cols, true_output,
                  tf.float64, np.int64, False)
             # GPU
-            test(params, indices, out_num_cols, true_output,
+            test(params, indices, num_out_cols, true_output,
                  tf.float32, np.int32, True)
-            test(params, indices, out_num_cols, true_output,
+            test(params, indices, num_out_cols, true_output,
                  tf.float32, np.int64, True)
-            test(params, indices, out_num_cols, true_output,
+            test(params, indices, num_out_cols, true_output,
                  tf.float64, np.int32, True)
-            test(params, indices, out_num_cols, true_output,
+            test(params, indices, num_out_cols, true_output,
                  tf.float64, np.int64, True)
 
         # Single column input, single column output
