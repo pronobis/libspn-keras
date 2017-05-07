@@ -438,19 +438,22 @@ class TestMath(tf.test.TestCase):
         test(tf.float32)
         test(tf.float64)
 
-    def test_split(self):
+    def test_split_maybe(self):
         value1 = tf.constant(np.r_[:7])
         value2 = tf.constant(np.r_[:21].reshape(-1, 7))
-        op1 = spn.utils.split(split_dim=0, split_sizes=(1, 3, 1, 2), value=value1)
-        op2 = spn.utils.split(split_dim=1, split_sizes=(1, 3, 1, 2), value=value2)
-        op3 = spn.utils.split(split_dim=0, split_sizes=(7), value=value1)
-        op4 = spn.utils.split(split_dim=1, split_sizes=(7), value=value2)
+        op1 = spn.utils.split_maybe(value=value1, split_sizes=(1, 3, 1, 2),
+                                    axis=0)
+        op2 = spn.utils.split_maybe(value=value2, split_sizes=(1, 3, 1, 2),
+                                    axis=1)
+        op3 = spn.utils.split_maybe(value=value1, split_sizes=(7,), axis=0)
+        op4 = spn.utils.split_maybe(value=value2, split_sizes=(7,), axis=1)
         with self.test_session() as sess:
             out1 = sess.run(op1)
             out2 = sess.run(op2)
             out3 = sess.run(op3)
             out4 = sess.run(op4)
 
+        # Test values
         np.testing.assert_array_equal(out1[0], np.array([0]))
         np.testing.assert_array_equal(out1[1], np.array([1, 2, 3]))
         np.testing.assert_array_equal(out1[2], np.array([4]))
@@ -473,6 +476,9 @@ class TestMath(tf.test.TestCase):
         np.testing.assert_array_equal(out4[0], np.array([[0, 1, 2, 3, 4, 5, 6],
                                                          [7, 8, 9, 10, 11, 12, 13],
                                                          [14, 15, 16, 17, 18, 19, 20]]))
+        # Test if original tensor returned for 1 split
+        self.assertIs(op3[0], value1)
+        self.assertIs(op4[0], value2)
 
 
 if __name__ == '__main__':
