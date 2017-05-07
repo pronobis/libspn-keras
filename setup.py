@@ -296,7 +296,7 @@ setup(
     ################
     packages=['libspn'],
     install_requires=[
-        # 'tensorflow', Disabled, since it will overwrite a GPU installation with manulinux from pypi
+        # 'tensorflow', Disabled, it overwrites a GPU installation with manulinux from pypi
         'numpy',
         'scipy',
         'matplotlib',
