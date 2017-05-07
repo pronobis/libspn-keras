@@ -125,29 +125,29 @@ class TestMath(tf.test.TestCase):
             test(params, indices, true_output, tf.float64, np.int64, True)
 
         # Single column input tensor
-        test_all_dtypes([1],
+        test_all_dtypes([10],
                         [0],
                         [1.0])
 
         # Single index
-        test_all_dtypes([1, 2, 3],
+        test_all_dtypes([10, 11, 12],
                         [1],
                         [2.0])
 
         # Multiple indices
-        test_all_dtypes([1, 2, 3],
+        test_all_dtypes([10, 11, 12],
                         [2, 1, 0],
                         [3.0, 2.0, 1.0])
-        test_all_dtypes([1, 2, 3],
+        test_all_dtypes([10, 11, 12],
                         [0, 2],
                         [1.0, 3.0])
 
         # Gathering single column tensor should return that tensor directly
-        t = tf.constant([1])
+        t = tf.constant([10])
         out = spn.utils.gather_cols(t, [0])
         self.assertIs(out, t)
-        t = tf.constant([[1],
-                         [2]])
+        t = tf.constant([[10],
+                         [11]])
         out = spn.utils.gather_cols(t, [0])
         self.assertIs(out, t)
 
