@@ -220,67 +220,117 @@ class TestMath(tf.test.TestCase):
                                    [0, 1, 1], 3)
 
     def test_scatter_cols(self):
-        def test(params, indices, num_cols, dtype, true_output):
+        def test(params, indices, out_num_cols, true_output,
+                 params_dtype, indices_dtype, on_gpu):
             with self.subTest(params=params, indices=indices,
-                              num_cols=num_cols, dtype=dtype):
-                p1d = tf.constant(params, dtype=dtype)
-                p2d1 = tf.constant(np.array([np.array(params)]), dtype=dtype)
-                p2d2 = tf.constant(np.array([np.array(params),
-                                             np.array(params) * 2,
-                                             np.array(params) * 3]), dtype=dtype)
-                op1d = spn.utils.scatter_cols(p1d, indices, num_cols)
-                op2d1 = spn.utils.scatter_cols(p2d1, indices, num_cols)
-                op2d2 = spn.utils.scatter_cols(p2d2, indices, num_cols)
-                with self.test_session() as sess:
-                    out1d = sess.run(op1d)
-                    out2d1 = sess.run(op2d1)
-                    out2d2 = sess.run(op2d2)
-                np.testing.assert_array_almost_equal(out1d, true_output)
-                self.assertEqual(dtype.as_numpy_dtype, out1d.dtype)
+                              out_num_cols=out_num_cols,
+                              params_dtype=params_dtype,
+                              indices_dtype=indices_dtype,
+                              on_gpu=on_gpu):
+                tf.reset_default_graph()
+                with self.test_session(force_gpu=on_gpu) as sess:
+                    # Indices
+                    indices = np.asarray(indices, dtype=indices_dtype)
+                    # Params
+                    p1d = tf.constant(params, dtype=params_dtype)
+                    p2d1 = tf.constant(np.array([np.array(params)]),
+                                       dtype=params_dtype)
+                    p2d2 = tf.constant(np.array([np.array(params),
+                                                 np.array(params) * 2,
+                                                 np.array(params) * 3]),
+                                       dtype=params_dtype)
+                    # Define ops for different implementations
+                    custom_scatter_cols = spn.conf.custom_scatter_cols
+                    spn.conf.custom_scatter_cols = False
+                    op1dn = spn.utils.scatter_cols(p1d, indices, out_num_cols)
+                    op2d1n = spn.utils.scatter_cols(p2d1, indices, out_num_cols)
+                    op2d2n = spn.utils.scatter_cols(p2d2, indices, out_num_cols)
+                    spn.conf.custom_scatter_cols = True
+                    op1dc = spn.utils.scatter_cols(p1d, indices, out_num_cols)
+                    op2d1c = spn.utils.scatter_cols(p2d1, indices, out_num_cols)
+                    op2d2c = spn.utils.scatter_cols(p2d2, indices, out_num_cols)
+                    spn.conf.custom_scatter_cols = custom_scatter_cols
+                    # Run
+                    out1dn = sess.run(op1dn)
+                    out1dc = sess.run(op1dc)
+                    out2d1n = sess.run(op2d1n)
+                    out2d1c = sess.run(op2d1c)
+                    out2d2n = sess.run(op2d2n)
+                    out2d2c = sess.run(op2d2c)
+                # Compare
+                np.testing.assert_array_almost_equal(out1dn, true_output)
+                np.testing.assert_array_almost_equal(out1dc, true_output)
+                self.assertEqual(params_dtype.as_numpy_dtype, out1dn.dtype)
+                self.assertEqual(params_dtype.as_numpy_dtype, out1dc.dtype)
                 true_output_2d1 = [np.array(true_output)]
                 true_output_2d2 = [np.array(true_output),
                                    np.array(true_output) * 2,
                                    np.array(true_output) * 3]
-                np.testing.assert_array_almost_equal(out2d1, true_output_2d1)
-                np.testing.assert_array_almost_equal(out2d2, true_output_2d2)
-                self.assertEqual(dtype.as_numpy_dtype, out2d1.dtype)
-                self.assertEqual(dtype.as_numpy_dtype, out2d2.dtype)
+                np.testing.assert_array_almost_equal(out2d1n, true_output_2d1)
+                np.testing.assert_array_almost_equal(out2d1c, true_output_2d1)
+                np.testing.assert_array_almost_equal(out2d2n, true_output_2d2)
+                np.testing.assert_array_almost_equal(out2d2c, true_output_2d2)
+                self.assertEqual(params_dtype.as_numpy_dtype, out2d1n.dtype)
+                self.assertEqual(params_dtype.as_numpy_dtype, out2d1c.dtype)
+                self.assertEqual(params_dtype.as_numpy_dtype, out2d2n.dtype)
+                self.assertEqual(params_dtype.as_numpy_dtype, out2d2c.dtype)
 
-        # Single column output
-        test([10],
-             [0],
-             1,
-             tf.float32,
-             [10.0])
-        test([10],
-             [0],
-             1,
-             tf.float64,
-             [10.0])
+        def test_all_dtypes(params, indices, out_num_cols, true_output):
+            # CPU
+            test(params, indices, out_num_cols, true_output,
+                 tf.float32, np.int32, False)
+            test(params, indices, out_num_cols, true_output,
+                 tf.float32, np.int64, False)
+            test(params, indices, out_num_cols, true_output,
+                 tf.float64, np.int32, False)
+            test(params, indices, out_num_cols, true_output,
+                 tf.float64, np.int64, False)
+            # GPU
+            test(params, indices, out_num_cols, true_output,
+                 tf.float32, np.int32, True)
+            test(params, indices, out_num_cols, true_output,
+                 tf.float32, np.int64, True)
+            test(params, indices, out_num_cols, true_output,
+                 tf.float64, np.int32, True)
+            test(params, indices, out_num_cols, true_output,
+                 tf.float64, np.int64, True)
+
+        # Single column input, single column output
+        test_all_dtypes([10],
+                        [0],
+                        1,
+                        [10.0])
 
         # Multi-column output, single-column input
-        test([10],
-             [1],
-             4,
-             tf.float32,
-             [0.0, 10.0, 0.0, 0.0])
-        test([10],
-             [0],
-             4,
-             tf.float64,
-             [10.0, 0.0, 0.0, 0.0])
+        test_all_dtypes([10],
+                        [1],
+                        4,
+                        [0.0, 10.0, 0.0, 0.0])
 
         # Multi-column output, multi-column input
-        test([10, 20, 30],
-             [1, 3, 0],
-             4,
-             tf.float32,
-             [30.0, 10.0, 0.0, 20.0])
-        test([10, 20, 30],
-             [1, 3, 0],
-             4,
-             tf.float64,
-             [30.0, 10.0, 0.0, 20.0])
+        test_all_dtypes([10, 11, 12],
+                        [1, 3, 0],
+                        4,
+                        [12.0, 10.0, 0.0, 11.0])
+
+        # Pass through if scattering to a single column
+        t = tf.constant([10])
+        out = spn.utils.scatter_cols(t, [0], 1)
+        self.assertIs(out, t)
+        t = tf.constant([[10],
+                         [11]])
+        out = spn.utils.scatter_cols(t, [0], 1)
+        self.assertIs(out, t)
+
+        # Pass through if scattering to the output of same size
+        # in original index order
+        t = tf.constant([10, 11, 12])
+        out = spn.utils.scatter_cols(t, [0, 1, 2], 3)
+        self.assertIs(out, t)
+        t = tf.constant([[10, 11, 12],
+                         [13, 14, 15]])
+        out = spn.utils.scatter_cols(t, [0, 1, 2], 3)
+        self.assertIs(out, t)
 
     def test_broadcast_value(self):
         """broadcast_value for various value types"""
