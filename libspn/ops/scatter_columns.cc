@@ -142,7 +142,7 @@ class ScatterColumnsOp : public OpKernel
 
     OP_REQUIRES_OK(ctx, functor(ctx->eigen_device<Device>(), params_tensor,
                                 indices_flat, num_out_cols, pad_elem.data(),
-                                params_rows, params_cols, output_tensor));
+                                output_tensor));
   }
 
  private:

@@ -35,11 +35,12 @@ template <typename T, typename IndT>
 struct GatherColumnsFunctor<GPUDevice, T, IndT>
 {
   int64 operator()(const GPUDevice& d, typename TTypes<T>::ConstMatrix params,
-                   typename TTypes<IndT>::ConstFlat indices, int64 params_rows,
-                   int64 params_cols, typename TTypes<T>::Matrix output)
+                   typename TTypes<IndT>::ConstFlat indices,
+                   typename TTypes<T>::Matrix output)
   {
     const int64 output_size = output.size();
     const int64 indices_size = indices.size();
+    const int64 params_cols = params.dimension(1);
 
     // Andrzej: Bounds check has been disabled to improve performance
     // IndT* h_indices = nullptr;

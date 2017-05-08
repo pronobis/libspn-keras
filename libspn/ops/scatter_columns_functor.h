@@ -24,10 +24,10 @@ template <typename T, typename IndT>
 Status CountAndCopy(const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstFlat& indices,
                     const IndT& num_out_cols, const T* pad_elem,
-                    const int64& params_rows, const int64& params_cols,
                     typename TTypes<T>::Matrix& output)
 {
   const int64 indices_size = indices.dimension(0);
+  const int64 params_rows = params.dimension(0);
 
   unordered_set<IndT> unique_ind(&indices(0), &indices(indices_size));
   if (unique_ind.size() != indices_size)
@@ -161,11 +161,10 @@ struct ScatterColumnsFunctorCPU
   Status operator()(const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstFlat& indices,
                     const IndT& num_out_cols, const T* pad_elem,
-                    const int64& params_rows, const int64& params_cols,
                     typename TTypes<T>::Matrix& output)
   {
-    return CountAndCopy<T, IndT>(params, indices, num_out_cols, pad_elem,
-                                 params_rows, params_cols, output);
+    return CountAndCopy<T, IndT>(params, indices, num_out_cols,
+                                 pad_elem, output);
   }
 };
 
@@ -176,7 +175,6 @@ struct ScatterColumnsFunctor
                     const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstFlat& indices,
                     const IndT& num_out_cols, const T* pad_elem,
-                    const int64& params_rows, const int64& params_cols,
                     typename TTypes<T>::Matrix& output);
 };
 
@@ -187,12 +185,10 @@ struct ScatterColumnsFunctor<CPUDevice, T, IndT>
                     const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstFlat& indices,
                     const IndT& num_out_cols, const T* pad_elem,
-                    const int64& params_rows, const int64& params_cols,
                     typename TTypes<T>::Matrix& output)
   {
     return ScatterColumnsFunctorCPU<T, IndT>()(params, indices, num_out_cols,
-                                               pad_elem, params_rows,
-                                               params_cols, output);
+                                               pad_elem, output);
   }
 };
 

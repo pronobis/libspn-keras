@@ -53,12 +53,14 @@ struct ScatterColumnsFunctor<GPUDevice, T, IndT>
                     const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstFlat& indices,
                     const IndT& num_out_cols, const T* pad_elem,
-                    const int64& params_rows, const int64& params_cols,
                     typename TTypes<T>::Matrix& output)
   {
     const int64 output_size = output.size();
     const int64 params_size = params.size();
     const int64 indices_size = indices.size();
+
+    const int64 params_rows = params.dimension(0);
+    const int64 params_cols = params.dimension(1);
 
 //--Debugging flag disabled by default--//
 #if EXEC_TIME_CALC
