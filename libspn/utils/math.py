@@ -110,9 +110,9 @@ def gather_cols(params, indices, name=None):
                                                      np.expand_dims(indices, 1)))
 
 
-def scatter_cols(params, indices, out_num_cols, name=None):
+def scatter_cols(params, indices, num_out_cols, name=None):
     """Scatter columns of a 2D tensor or values of a 1D tensor into a tensor
-    with the same number of dimensions and ``out_num_cols`` columns or values.
+    with the same number of dimensions and ``num_out_cols`` columns or values.
 
     Args:
         params (Tensor): A 1D or 2D tensor.
@@ -140,12 +140,12 @@ def scatter_cols(params, indices, out_num_cols, name=None):
         # We need the size defined for optimizations
         if param_size is None:
             raise RuntimeError("The indexed dimension of 'params' is not specified")
-        # Check out_num_cols
-        if not isinstance(out_num_cols, int):
-            raise ValueError("'out_num_cols' must be integer, not %s"
-                             % type(out_num_cols))
-        if out_num_cols < param_size:
-            raise ValueError("'out_num_cols' must be larger than the size of "
+        # Check num_out_cols
+        if not isinstance(num_out_cols, int):
+            raise ValueError("'num_out_cols' must be integer, not %s"
+                             % type(num_out_cols))
+        if num_out_cols < param_size:
+            raise ValueError("'num_out_cols' must be larger than the size of "
                              "the indexed dimension of 'params'")
         # Check indices
         if indices.ndim != 1:
@@ -156,32 +156,32 @@ def scatter_cols(params, indices, out_num_cols, name=None):
         if not issubclass(indices.dtype.type, np.integer):
             raise ValueError("'indices' must be integer, not %s"
                              % indices.dtype)
-        if np.any((indices < 0) | (indices >= out_num_cols)):
-            raise ValueError("'indices' must be smaller than 'out_num_cols'")
+        if np.any((indices < 0) | (indices >= num_out_cols)):
+            raise ValueError("'indices' must be smaller than 'num_out_cols'")
         if len(set(indices)) != len(indices):
             raise ValueError("'indices' cannot contain duplicates")
         # Define op
-        if out_num_cols == 1:
+        if num_out_cols == 1:
             # Scatter to a single column tensor, it must be from 1 column
             # tensor and the indices must include it. Just forward the tensor.
             return params
-        elif out_num_cols == indices.size and np.all(np.ediff1d(indices) == 1):
+        elif num_out_cols == indices.size and np.all(np.ediff1d(indices) == 1):
             # Output equals input
             return params
         elif param_size == 1:
             # Scatter a single column tensor to a multi-column tensor
             if param_dims == 1:
                 # Just pad with zeros, pad is fastest and offers smallest graph
-                return tf.pad(params, [[indices[0], out_num_cols - indices[0] - 1]])
+                return tf.pad(params, [[indices[0], num_out_cols - indices[0] - 1]])
             else:
                 if conf.custom_scatter_cols:
                     return ops.scatter_cols(
                         params, indices,
                         pad_elem=tf.constant(0, dtype=params.dtype),
-                        out_num_col=out_num_cols)
+                        num_out_col=num_out_cols)
                 else:
                     return tf.pad(params, [[0, 0],
-                                           [indices[0], out_num_cols - indices[0] - 1]])
+                                           [indices[0], num_out_cols - indices[0] - 1]])
         else:
             # Scatter a multi-column tensor to a multi-column tensor
             if param_dims == 1:
@@ -189,10 +189,10 @@ def scatter_cols(params, indices, out_num_cols, name=None):
                     return ops.scatter_cols(
                         params, indices,
                         pad_elem=tf.constant(0, dtype=params.dtype),
-                        out_num_col=out_num_cols)
+                        num_out_col=num_out_cols)
                 else:
                     with_zeros = tf.concat(values=([0], params), axis=0)
-                    gather_indices = np.zeros(out_num_cols, dtype=int)
+                    gather_indices = np.zeros(num_out_cols, dtype=int)
                     gather_indices[indices] = np.arange(indices.size) + 1
                     return gather_cols(with_zeros, gather_indices)
             else:
@@ -200,12 +200,12 @@ def scatter_cols(params, indices, out_num_cols, name=None):
                     return ops.scatter_cols(
                         params, indices,
                         pad_elem=tf.constant(0, dtype=params.dtype),
-                        out_num_col=out_num_cols)
+                        num_out_col=num_out_cols)
                 else:
                     zero_col = tf.zeros((tf.shape(params)[0], 1),
                                         dtype=params.dtype)
                     with_zeros = tf.concat(values=(zero_col, params), axis=1)
-                    gather_indices = np.zeros(out_num_cols, dtype=int)
+                    gather_indices = np.zeros(num_out_cols, dtype=int)
                     gather_indices[indices] = np.arange(indices.size) + 1
                     return gather_cols(with_zeros, gather_indices)
 

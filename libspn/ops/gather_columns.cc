@@ -102,8 +102,8 @@ class GatherColumnsOp : public OpKernel
 
     functor::GatherColumnsFunctor<Device, T, IndT> functor;
     int64 bad_i =
-        functor(ctx->eigen_device<Device>(), params_tensor, indices_flat,
-                params_rows, params_cols, output_tensor);
+        functor(ctx->eigen_device<Device>(), params_tensor,
+                indices_flat, output_tensor);
 
     OP_REQUIRES(ctx, bad_i < 0, errors::InvalidArgument(
                                     "Indices(", bad_i, ") is not in range (0, ",

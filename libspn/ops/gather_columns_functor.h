@@ -19,9 +19,12 @@ namespace functor
 //--Helper method to copy using memcpy()--//
 template <typename T, typename IndT>
 IndT CountAndCopy(typename TTypes<T>::ConstMatrix params,
-                  typename TTypes<IndT>::ConstFlat indices, int64 params_rows,
-                  int64 params_cols, typename TTypes<T>::Matrix output)
+                  typename TTypes<IndT>::ConstFlat indices,
+                  typename TTypes<T>::Matrix output)
 {
+  const int64 params_rows = params.dimension(0);
+  const int64 params_cols = params.dimension(1);
+
   if (params_cols == 1)
   {
     if (indices(0) != 0)
@@ -125,11 +128,10 @@ template <typename T, typename IndT>
 struct GatherColumnsFunctorCPU
 {
   int64 operator()(typename TTypes<T>::ConstMatrix params,
-                   typename TTypes<IndT>::ConstFlat indices, int64 params_rows,
-                   int64 params_cols, typename TTypes<T>::Matrix output)
+                   typename TTypes<IndT>::ConstFlat indices,
+                   typename TTypes<T>::Matrix output)
   {
-    return CountAndCopy<T, IndT>(params, indices, params_rows, params_cols,
-                                 output);
+    return CountAndCopy<T, IndT>(params, indices, output);
   }
 };
 
@@ -137,19 +139,17 @@ template <typename Device, typename T, typename IndT>
 struct GatherColumnsFunctor
 {
   int64 operator()(const Device& dvc, typename TTypes<T>::ConstMatrix params,
-                   typename TTypes<IndT>::ConstFlat indices, int64 params_rows,
-                   int64 params_cols, typename TTypes<T>::Matrix output);
+                   typename TTypes<IndT>::ConstFlat indices,
+                   typename TTypes<T>::Matrix output);
 };
 
 template <typename T, typename IndT>
 struct GatherColumnsFunctor<CPUDevice, T, IndT>
 {
   int64 operator()(const CPUDevice& dvc, typename TTypes<T>::ConstMatrix params,
-                   typename TTypes<IndT>::ConstFlat indices, int64 params_rows,
-                   int64 params_cols, typename TTypes<T>::Matrix output)
+                   typename TTypes<IndT>::ConstFlat indices, typename TTypes<T>::Matrix output)
   {
-    return GatherColumnsFunctorCPU<T, IndT>()(params, indices, params_rows,
-                                              params_cols, output);
+    return GatherColumnsFunctorCPU<T, IndT>()(params, indices, output);
   }
 };
 

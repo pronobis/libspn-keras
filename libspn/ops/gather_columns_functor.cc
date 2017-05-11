@@ -12,8 +12,8 @@ namespace functor
   template <>                                                       \
   int64 GatherColumnsFunctor<GPUDevice, T, IndT>::operator()(       \
       const GPUDevice& dvc, typename TTypes<T>::ConstMatrix params, \
-      typename TTypes<IndT>::ConstFlat indices, int64 params_rows,  \
-      int64 params_cols, typename TTypes<T>::Matrix out);           \
+      typename TTypes<IndT>::ConstFlat indices,                     \
+      typename TTypes<T>::Matrix out);                              \
   extern template struct GatherColumnsFunctor<GPUDevice, T, IndT>;
 
 #define DECLARE_GPU_SPECS(T)         \
