@@ -6,10 +6,10 @@ gather_cols
 
 ### Overview
 
-- gather_cols-with_gpu_bounds_check - the GPU kernel of custom ops still had bounds check enabled
-- gather_cols-without_gpu_bounds_check - the GPU kernel now does not have the bounds check
-- gather_cols-with_compute_capabilities - the version without bounds check is teseted after we added compilation specifically for compute capabilities  ["3.5", "5.2", "6.1"] to setup.py to fix the error on GTX1050.
-
+- gather_cols-1-with_gpu_bounds_check - the GPU kernel of custom ops still had bounds check enabled
+- gather_cols-2-without_gpu_bounds_check - the GPU kernel now does not have the bounds check
+- gather_cols-3-with_compute_capabilities - the version without bounds check is teseted after we added compilation specifically for compute capabilities  ["3.5", "5.2", "6.1"] to setup.py to fix the error on GTX1050.
+- gather_cols-4-new_params - version with new parameters of the kernels
 
 ### General Observations
 
@@ -126,7 +126,8 @@ scatter_cols
 
 ### Overview
 
-- scatter_cols-with_gpu_bounds_check - original version of scatter_cols making internal gpu/cpu data copying and bounds check. We compile specifically for compute capabilities  ["3.5", "5.2", "6.1"] to fix the error on GTX1050.
+- scatter_cols-1-with_gpu_bounds_check - original version of scatter_cols making internal gpu/cpu data copying and bounds check. We compile specifically for compute capabilities  ["3.5", "5.2", "6.1"] to fix the error on GTX1050.
+- scatter_cols-2-without_gpu_bounds_check - improved version without bounds check and with cleaner parameters of the kernels
 
 
 ### General Observations
