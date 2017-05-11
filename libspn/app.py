@@ -17,7 +17,7 @@ class App(ABC):
     """A helper class for building scripts/applications.
 
     The logic of the app should be placed in :func:`run`. To define command
-    line arguments, override :func:`define_args` and :func:`test_args`.
+    line arguments, override :func:`define_args` and :func:`process_args`.
 
     To print inside the app, use either the logger with :func:`warning`,
     :func:`info`, :func:`debug1` and :func:`debug2`, or color print
@@ -89,9 +89,9 @@ class App(ABC):
         else:
             log_level = log.INFO
         log.config_logger(log_level, stream=sys.stderr)
-        # Test and print
+        # Process and print
         self._print_header()
-        self.test_args()
+        self.process_args()
         # Run the app
         try:
             self.run()
@@ -120,8 +120,8 @@ class App(ABC):
             parse (argparse.ArgumentParser): The parser.
         """
 
-    def test_args(self):
-        """Test values of arguments in ``self.args`` here."""
+    def process_args(self):
+        """Test and process values of arguments in ``self.args`` here."""
 
     def print1(self, msg):
         """Print with color 1."""
