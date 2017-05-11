@@ -21,7 +21,7 @@ class SpnData(spn.App):
 
     def define_args(self, parser, commands):
         ##########################
-        # Read sub-command
+        # Read command
         ##########################
         read_parser = commands.add_parser('read', help='read data from a dataset',
                                           formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -65,7 +65,7 @@ class SpnData(spn.App):
                                   "only the listed classes will be provided")
 
         ##########################
-        # Write sub-command
+        # Write command
         ##########################
         write_parser = commands.add_parser('write', help='writes data using a writer',
                                            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -112,7 +112,6 @@ class SpnData(spn.App):
                                        classes=self.args.read.mnist_classes,
                                        seed=self.args.read.seed)
         elif self.args.read.dataset == Dataset.IMAGE:
-            # Try discovering orig image sizes from the first image
             dataset = spn.ImageDataset(image_files=self.args.read.path,
                                        format=self.args.read.image_format,
                                        num_epochs=self.args.read.num_epochs,
