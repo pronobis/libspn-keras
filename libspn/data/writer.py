@@ -7,17 +7,12 @@
 
 from abc import ABC, abstractmethod
 import numpy as np
+import os
+import scipy
 
 
 class DataWriter(ABC):
-    """An abstract class defining the interface of a data writer.
-
-    Args:
-        path (str): Full path to the file.
-    """
-
-    def __init__(self, path):
-        self._path = path
+    """An abstract class defining the interface of a data writer."""
 
     @abstractmethod
     def write(self, data):
@@ -40,7 +35,7 @@ class CSVDataWriter(DataWriter):
     """
 
     def __init__(self, path, delimiter=',', fmt_int="%d", fmt_float="%.18e"):
-        super().__init__(path)
+        self._path = os.path.expanduser(path)
         self._delimiter = delimiter
         self._fmt_int = fmt_int
         self._fmt_float = fmt_float
@@ -81,3 +76,83 @@ class CSVDataWriter(DataWriter):
 
         # Append further writes
         self.__mode = 'ab'
+
+
+class ImageDataWriter(DataWriter):
+    """Writer writing flattened image data. The image format is selected by the
+    extension given as part of the path. The images are normalized to [0, 1]
+    before being saved.
+
+    Args:
+        path (str): Path to an image file. The path can be parameterized by
+                    ``%n``, which will be replaced by the number of the image.
+                    It can also be parameterized by ``%l`` which will be replaced
+                    by any labels given to :func:`write`.
+        shape (ImageShape): Shape of the image data.
+        normalize (bool): Normalize data before saving.
+        num_digits (int): Minimum number of digits of the image number.
+    """
+
+    def __init__(self, path, shape, normalize=False, num_digits=4):
+        self._path = os.path.expanduser(path)
+        self._shape = shape
+        self._normalize = normalize
+        self._num_digits = num_digits
+        self._image_no = 0
+
+    def write(self, images, image_no=None, labels=None):
+        """Write image data to file(s). `images` can be either a single image
+
+        Args:
+            images (array): An array containing a single image or multiple
+                            images of the given shape.
+            image_no (int): Optional. Number of the first image to write.
+                            If not given, the number of the last written image
+                            is incremented and used.
+            labels (value or array): A value or array of values used to label
+                                     the image or images given.
+        """
+        if not (issubclass(images.dtype.type, np.integer) or
+                issubclass(images.dtype.type, np.floating)):
+            raise ValueError("images must be of int or float dtype")
+        if image_no is not None and not isinstance(image_no, int):
+            raise ValueError("image_no must be integer")
+
+        # Convert 1-image case to multi-image case
+        if images.ndim == 1:
+            images = images.reshape([1, -1])
+            if labels is not None:
+                labels = [labels]
+        # Set image number
+        if image_no is not None:
+            self._image_no = image_no
+        # Calculate shape for imsave
+        shape = self._shape
+        if self._shape[2] == 1:  # imshow wants single channel as MxN
+            shape = self._shape[:2]
+        # Save all images
+        for i in range(images.shape[0]):
+            # Generate path
+            path = self._path
+            if '%n' in path:
+                path = path.replace(
+                    '%n', ("%0" + str(self._num_digits) + "d") % (self._image_no))
+            if labels is not None and '%l' in path:
+                label = labels[i]
+                if isinstance(label, bytes):
+                    label = label.decode("utf-8")
+                else:
+                    label = str(label)
+                path = path.replace('%l', label)
+            # Normalize?
+            # imsave normalizes float images, but not uint8 images
+            if self._normalize:
+                if issubclass(images.dtype.type, np.integer):
+                    images = images.astype(np.float32)
+            else:
+                if issubclass(images.dtype.type, np.floating):
+                    images *= 255.0
+                images = images.astype(np.uint8)  # Convert also int32/64 to 8
+            # Save
+            scipy.misc.imsave(path, images[i].reshape(shape))
+            self._image_no += 1

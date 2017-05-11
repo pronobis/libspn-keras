@@ -16,7 +16,7 @@ Various LibSPN math functions.
 .. autofunction:: libspn.utils.normalize_tensor
 .. autofunction:: libspn.utils.reduce_log_sum
 .. autofunction:: libspn.utils.concat_maybe
-.. autofunction:: libspn.utils.split
+.. autofunction:: libspn.utils.split_maybe
 
 
 Set Partitions

@@ -8,6 +8,7 @@
 import tensorflow as tf
 from libspn.data.dataset import Dataset
 from libspn import utils
+import os
 
 
 class FileDataset(Dataset):
@@ -20,32 +21,38 @@ class FileDataset(Dataset):
                              when using a glob is not predictable (even with
                              ``shuffle`` set to ``False``), but will be constant
                              across epochs.
-        num_epochs (int): Number of training epochs for which data is produced.
+        num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
-        shuffle (bool): Shuffle data within an epoch.
-        num_threads (int): Number of threads enqueuing the example queue. If
+        shuffle (bool): Shuffle data within each epoch.
+        shuffle_batch (bool): Shuffle data when generating batches.
+        min_after_dequeue (int): Min number of elements in the data queue after
+                                 each dequeue. This is the minimum number of
+                                 elements from which the shuffled batch will
+                                 be drawn. Relevant only if ``shuffle_batch``
+                                 is ``True``.
+        num_threads (int): Number of threads enqueuing the data queue. If
                            larger than ``1``, the performance will be better,
-                           but examples might not be in order even if ``shuffle``
-                           is ``False``. If ``shuffle`` is ``True``, this might
-                           lead to examples repeating in the same batch.
-        min_after_dequeue (int): Min number of elements in the queue after each
-                                 dequeue. This is the minimum number of elements
-                                 from which the shuffled batch will be drawn.
-                                 Relevant only if ``shuffle`` is ``True``.
+                           but examples might not be in order even if
+                           ``shuffle_batch`` is ``False``. If ``shuffle_batch``
+                           is ``True``, this might lead to examples repeating in
+                           the same batch.
         allow_smaller_final_batch(bool): If ``False``, the last batch will be
                                          omitted if it has less elements than
                                          ``batch_size``.
+        seed (int): Optional. Seed used when shuffling.
     """
 
     def __init__(self, files, num_epochs, batch_size, shuffle,
-                 min_after_dequeue=1000, num_threads=1,
-                 allow_smaller_final_batch=False):
+                 shuffle_batch, min_after_dequeue=None, num_threads=1,
+                 allow_smaller_final_batch=False, seed=None):
         if not isinstance(files, str) and not isinstance(files, list):
             raise ValueError("file_name is neither a string or a list of strings")
         super().__init__(num_epochs=num_epochs, batch_size=batch_size,
-                         shuffle=shuffle, min_after_dequeue=min_after_dequeue,
+                         shuffle=shuffle, shuffle_batch=shuffle_batch,
+                         min_after_dequeue=min_after_dequeue,
                          num_threads=num_threads,
-                         allow_smaller_final_batch=allow_smaller_final_batch)
+                         allow_smaller_final_batch=allow_smaller_final_batch,
+                         seed=seed)
         self.__files = files
 
     def _get_file_queue(self):
@@ -55,12 +62,18 @@ class FileDataset(Dataset):
             A queue serving file names.
         """
         if isinstance(self.__files, str):
-            fnames = tf.train.match_filenames_once(self.__files)
+            fnames = tf.train.match_filenames_once(
+                os.path.expanduser(self.__files))
         else:
             fnames = self.__files
+        # Since fnames is a variable holding all the files, and since
+        # input_producer shuffles all input data before passing it to
+        # the queue, all files will always be shuffled independently
+        # of the capacity parameter of string_input_producer
         return tf.train.string_input_producer(fnames,
                                               num_epochs=self._num_epochs,
-                                              shuffle=self._shuffle)
+                                              shuffle=self._shuffle,
+                                              seed=self._seed)
 
 
 class CSVFileDataset(FileDataset):
@@ -95,36 +108,41 @@ class CSVFileDataset(FileDataset):
                              when using a glob is not predictable (even with
                              ``shuffle`` set to ``False``), but will be constant
                              across epochs.
-        num_epochs (int): Number of training epochs for which data is produced.
+        num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
-        shuffle (bool): Shuffle data within an epoch.
-        num_threads (int): Number of threads enqueuing the example queue. If
-                           larger than ``1``, the performance will be better,
-                           but examples might not be in order even if ``shuffle``
-                           is ``False``. If ``shuffle`` is ``True``, this might
-                           lead to examples repeating in the same batch.
-        min_after_dequeue (int): Min number of elements in the queue after each
-                                 dequeue. This is the minimum number of elements
-                                 from which the shuffled batch will be drawn.
-                                 Relevant only if ``shuffle`` is ``True``.
-        allow_smaller_final_batch(bool): If ``False``, the last batch will be
-                                         omitted if it has less elements than
-                                         ``batch_size``.
+        shuffle (bool): Shuffle data within each epoch.
         num_labels (int): The number of columns considered labels. If set to
                           ``0``, no labels are returned.
         defaults (list of Tensor): A list of tensors, one tensor per column of
                                    the input record, with a default value for
                                    that column.
+        min_after_dequeue (int): Min number of elements in the data queue after
+                                 each dequeue. This is the minimum number of
+                                 elements from which the shuffled batch will
+                                 be drawn. Relevant only if ``shuffle``
+                                 is ``True``.
+        num_threads (int): Number of threads enqueuing the data queue. If
+                           larger than ``1``, the performance will be better,
+                           but examples might not be in order even if
+                           ``shuffle`` is ``False``. If ``shuffle`` is ``True``,
+                           this might lead to examples repeating in the same
+                           batch.
+        allow_smaller_final_batch(bool): If ``False``, the last batch will be
+                                         omitted if it has less elements than
+                                         ``batch_size``.
+        seed (int): Optional. Seed used when shuffling.
     """
 
     def __init__(self, files, num_epochs, batch_size, shuffle,
-                 min_after_dequeue=1000, num_threads=1,
-                 allow_smaller_final_batch=False, num_labels=0, defaults=None):
-        super().__init__(files=files, num_epochs=num_epochs,
-                         batch_size=batch_size, shuffle=shuffle,
+                 num_labels=0, defaults=None,
+                 min_after_dequeue=None, num_threads=1,
+                 allow_smaller_final_batch=False, seed=None):
+        super().__init__(files=files, num_epochs=num_epochs, batch_size=batch_size,
+                         shuffle=shuffle, shuffle_batch=shuffle,
                          min_after_dequeue=min_after_dequeue,
                          num_threads=num_threads,
-                         allow_smaller_final_batch=allow_smaller_final_batch)
+                         allow_smaller_final_batch=allow_smaller_final_batch,
+                         seed=seed)
         self._num_labels = num_labels
         self._defaults = defaults
 

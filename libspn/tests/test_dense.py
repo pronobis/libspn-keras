@@ -14,7 +14,6 @@ import tensorflow as tf
 import numpy as np
 from context import libspn as spn
 
-spn.config_logger(spn.DEBUG1)
 logger = spn.get_logger()
 
 

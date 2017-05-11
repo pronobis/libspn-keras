@@ -31,7 +31,8 @@ class TestData(unittest.TestCase):
         """File queue of FileDataset"""
         # Glob
         dataset = spn.FileDataset(os.path.join(TestData.data_dir, "data_int*.csv"),
-                                  num_epochs=1, batch_size=1, shuffle=False)
+                                  num_epochs=1, batch_size=1, shuffle=False,
+                                  shuffle_batch=False)
         fqueue = dataset._get_file_queue()
         files = []
         with spn.session() as (sess, run):
@@ -46,7 +47,8 @@ class TestData(unittest.TestCase):
         # List of files
         dataset = spn.FileDataset([os.path.join(TestData.data_dir, p)
                                    for p in ["data_int1.csv", "data_int2.csv"]],
-                                  num_epochs=1, batch_size=1, shuffle=False)
+                                  num_epochs=1, batch_size=1, shuffle=False,
+                                  shuffle_batch=False)
         fqueue = dataset._get_file_queue()
         files = []
         with spn.session() as (sess, run):
@@ -58,7 +60,8 @@ class TestData(unittest.TestCase):
 
         # One file
         dataset = spn.FileDataset(os.path.join(TestData.data_dir, "data_int1.csv"),
-                                  num_epochs=1, batch_size=1, shuffle=False)
+                                  num_epochs=1, batch_size=1, shuffle=False,
+                                  shuffle_batch=False)
         fqueue = dataset._get_file_queue()
         files = []
         with spn.session() as (sess, run):
@@ -70,7 +73,8 @@ class TestData(unittest.TestCase):
 
         # Glob, multiple epochs
         dataset = spn.FileDataset(os.path.join(TestData.data_dir, "data_int*.csv"),
-                                  num_epochs=2, batch_size=1, shuffle=False)
+                                  num_epochs=2, batch_size=1, shuffle=False,
+                                  shuffle_batch=False)
         fqueue = dataset._get_file_queue()
         files = []
         with spn.session() as (sess, run):
@@ -87,7 +91,8 @@ class TestData(unittest.TestCase):
         # List of files, multiple epochs
         dataset = spn.FileDataset([os.path.join(TestData.data_dir, p)
                                    for p in ["data_int1.csv", "data_int2.csv"]],
-                                  num_epochs=2, batch_size=1, shuffle=False)
+                                  num_epochs=2, batch_size=1, shuffle=False,
+                                  shuffle_batch=False)
         fqueue = dataset._get_file_queue()
         files = []
         with spn.session() as (sess, run):
@@ -129,11 +134,11 @@ class TestData(unittest.TestCase):
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
+                                     num_labels=0,
+                                     defaults=[[101], [102], [103], [104], [105]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
-                                     allow_smaller_final_batch=False,
-                                     num_labels=0,
-                                     defaults=[[101], [102], [103], [104], [105]])
+                                     allow_smaller_final_batch=False)
         batches = [np.array([[1, 2, 3, 4, 5],
                              [6, 102, 8, 9, 10],
                              [11, 12, 103, 14, 15]], dtype=np.int32),
@@ -163,11 +168,11 @@ class TestData(unittest.TestCase):
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
+                                     num_labels=0,
+                                     defaults=[[101], [102], [103], [104], [105]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
-                                     allow_smaller_final_batch=True,
-                                     num_labels=0,
-                                     defaults=[[101], [102], [103], [104], [105]])
+                                     allow_smaller_final_batch=True)
         batches = [np.array([[1, 2, 3, 4, 5],
                              [6, 102, 8, 9, 10],
                              [11, 12, 103, 14, 15]], dtype=np.int32),
@@ -198,11 +203,11 @@ class TestData(unittest.TestCase):
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
+                                     num_labels=2,
+                                     defaults=[[101], [102], [103], [104], [105]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
-                                     allow_smaller_final_batch=True,
-                                     num_labels=2,
-                                     defaults=[[101], [102], [103], [104], [105]])
+                                     allow_smaller_final_batch=True)
         batches = [[np.array([[1, 2],
                               [6, 102],
                               [11, 12]], dtype=np.int32),
@@ -253,11 +258,12 @@ class TestData(unittest.TestCase):
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
+                                     num_labels=2,
+                                     defaults=[[101.0], [102.0], [103.0],
+                                               [104.0], [105.0]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
-                                     allow_smaller_final_batch=True,
-                                     num_labels=2,
-                                     defaults=[[101.0], [102.0], [103.0], [104.0], [105.0]])
+                                     allow_smaller_final_batch=True)
         batches = [[np.array([[1., 2.],
                               [6., 102.],
                               [11., 12.]], dtype=np.float32),
@@ -294,11 +300,12 @@ class TestData(unittest.TestCase):
                                        num_epochs=2,
                                        batch_size=3,
                                        shuffle=False,
+                                       num_labels=2,
+                                       defaults=[[101.0], [102], [103],
+                                                 [104.0], [105.0]],
                                        min_after_dequeue=1000,
                                        num_threads=1,
-                                       allow_smaller_final_batch=True,
-                                       num_labels=2,
-                                       defaults=[[101.0], [102], [103], [104.0], [105.0]])
+                                       allow_smaller_final_batch=True)
         batches = [[np.array([1., 6., 11.], dtype=np.float32),
                     np.array([[2, 3],
                               [102, 8],
@@ -551,11 +558,11 @@ class TestData(unittest.TestCase):
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
+                                     num_labels=2,
+                                     defaults=[[101], [102], [103], [104], [105]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
-                                     allow_smaller_final_batch=True,
-                                     num_labels=2,
-                                     defaults=[[101], [102], [103], [104], [105]])
+                                     allow_smaller_final_batch=True)
         data = dataset.read_all()
         self.assertEqual(len(data), 2)
         np.testing.assert_array_equal(data[0],
@@ -638,11 +645,11 @@ class TestData(unittest.TestCase):
                                      num_epochs=2,
                                      batch_size=4,
                                      shuffle=False,
+                                     num_labels=0,
+                                     defaults=[[101], [102], [103], [104], [105]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
-                                     allow_smaller_final_batch=True,
-                                     num_labels=0,
-                                     defaults=[[101], [102], [103], [104], [105]])
+                                     allow_smaller_final_batch=True)
         writer = spn.CSVDataWriter(path)
         data1 = dataset.read_all()
         dataset.write_all(writer)
@@ -652,11 +659,11 @@ class TestData(unittest.TestCase):
                                      num_epochs=1,
                                      batch_size=4,
                                      shuffle=False,
+                                     num_labels=0,
+                                     defaults=[[201], [202], [203], [204], [205]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
-                                     allow_smaller_final_batch=True,
-                                     num_labels=0,
-                                     defaults=[[201], [202], [203], [204], [205]])
+                                     allow_smaller_final_batch=True)
         data2 = dataset.read_all()
 
         # Compare
@@ -670,11 +677,12 @@ class TestData(unittest.TestCase):
                                      num_epochs=2,
                                      batch_size=4,
                                      shuffle=False,
+                                     num_labels=2,
+                                     defaults=[[101], [102], [103.0],
+                                               [104.0], [105.0]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
-                                     allow_smaller_final_batch=True,
-                                     num_labels=2,
-                                     defaults=[[101], [102], [103.0], [104.0], [105.0]])
+                                     allow_smaller_final_batch=True)
         writer = spn.CSVDataWriter(path)
         data1 = dataset.read_all()
         dataset.write_all(writer)
@@ -684,11 +692,12 @@ class TestData(unittest.TestCase):
                                      num_epochs=1,
                                      batch_size=4,
                                      shuffle=False,
+                                     num_labels=2,
+                                     defaults=[[201], [202], [203.0],
+                                               [204.0], [205.0]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
-                                     allow_smaller_final_batch=True,
-                                     num_labels=2,
-                                     defaults=[[201], [202], [203.0], [204.0], [205.0]])
+                                     allow_smaller_final_batch=True)
         data2 = dataset.read_all()
 
         # Compare
@@ -713,11 +722,11 @@ class TestData(unittest.TestCase):
                                      num_epochs=1,
                                      batch_size=10,
                                      shuffle=False,
+                                     num_labels=1,
+                                     defaults=[[1], [1.0], [1.0]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
-                                     allow_smaller_final_batch=True,
-                                     num_labels=1,
-                                     defaults=[[1], [1.0], [1.0]])
+                                     allow_smaller_final_batch=True)
         data = dataset.read_all()
 
         # Compare

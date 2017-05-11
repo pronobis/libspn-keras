@@ -36,35 +36,35 @@ class GaussianMixtureDataset(Dataset):
     Args:
         components (list of Components): List of components of the mixture.
         num_samples (int): Number of random samples in the dataset.
-        num_epochs (int): Number of training epochs for which data is produced.
+        num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
-        shuffle (bool): Shuffle data within an epoch.
+        shuffle (bool): Shuffle data within each epoch.
         num_threads (int): Number of threads enqueuing the example queue. If
                            larger than ``1``, the performance will be better,
-                           but examples might not be in order even if ``shuffle``
-                           is ``False``. If ``shuffle`` is ``True``, this might
-                           lead to examples repeating in the same batch.
+                           but examples might not be in order even if
+                           ``shuffle`` is ``False``.
         allow_smaller_final_batch(bool): If ``False``, the last batch will be
                                          omitted if it has less elements than
                                          ``batch_size``.
         num_vals (int): Optional. If specified, the generated samples will be
                         digitized into ``num_vals`` discrete values.
+        seed (int): Optional. Seed used when shuffling.
     """
 
     Component = namedtuple("Component", ['weight', 'mean', 'cov', 'label'])
     Component.__new__.__defaults__ = (None,)  # Set default value for label
 
-    def __init__(self, components, num_samples,
-                 num_epochs, batch_size, shuffle,
-                 num_threads=1, allow_smaller_final_batch=False,
-                 num_vals=None):
+    def __init__(self, components, num_samples, num_epochs, batch_size,
+                 shuffle, num_threads=1, allow_smaller_final_batch=False,
+                 num_vals=None, seed=None):
         super().__init__(num_epochs=num_epochs, batch_size=batch_size,
+                         shuffle=shuffle,
                          # We shuffle the samples in this class
-                         # so batch shuffling is not needed anymore
-                         shuffle=False, min_after_dequeue=None,
+                         # so batch shuffling is not needed
+                         shuffle_batch=False, min_after_dequeue=None,
                          num_threads=num_threads,
-                         allow_smaller_final_batch=allow_smaller_final_batch)
-        self.__shuffle = shuffle
+                         allow_smaller_final_batch=allow_smaller_final_batch,
+                         seed=seed)
         self._components = components
         self._num_samples = num_samples
         self._num_vals = num_vals
@@ -74,26 +74,31 @@ class GaussianMixtureDataset(Dataset):
 
     @property
     def samples(self):
+        """array: Array of data samples."""
         return self._samples
 
     @property
     def labels(self):
+        """array: Array of data labels."""
         return self._labels
 
     @property
     def likelihoods(self):
+        """array: Array of data likelihoods."""
         return self._likelihoods
 
     @utils.docinherit(Dataset)
     def generate_data(self):
         self.generate_samples()
         # Add input producer that serves the generated samples
+        # All data is shuffled independently of the capacity parameter
         producer = tf.train.slice_input_producer([self._samples,
                                                   self._labels,
                                                   self._likelihoods],
                                                  num_epochs=self._num_epochs,
                                                  # Shuffle data
-                                                 shuffle=self.__shuffle)
+                                                 shuffle=self._shuffle,
+                                                 seed=self._seed)
         return producer
 
     @utils.docinherit(Dataset)
@@ -155,28 +160,29 @@ class IntGridDataset(Dataset):
     Args:
         num_dims (int): Number of dimensions.
         num_vals (int): Number of possible values.
-        num_epochs (int): Number of training epochs for which data is produced.
+        num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
-        shuffle (bool): Shuffle data within an epoch.
+        shuffle (bool): Shuffle data within each epoch.
         num_threads (int): Number of threads enqueuing the example queue. If
                            larger than ``1``, the performance will be better,
-                           but examples might not be in order even if ``shuffle``
-                           is ``False``. If ``shuffle`` is ``True``, this might
-                           lead to examples repeating in the same batch.
+                           but examples might not be in order even if
+                           ``shuffle`` is ``False``.
         allow_smaller_final_batch(bool): If ``False``, the last batch will be
                                          omitted if it has less elements than
                                          ``batch_size``.
+        seed (int): Optional. Seed used when shuffling.
     """
 
     def __init__(self, num_dims, num_vals, num_epochs, batch_size, shuffle,
-                 num_threads=1, allow_smaller_final_batch=False):
+                 num_threads=1, allow_smaller_final_batch=False, seed=None):
         super().__init__(num_epochs=num_epochs, batch_size=batch_size,
+                         shuffle=shuffle,
                          # We shuffle the samples in this class
-                         # so batch shuffling is not needed anymore
-                         shuffle=False, min_after_dequeue=None,
+                         # so batch shuffling is not needed
+                         shuffle_batch=False, min_after_dequeue=None,
                          num_threads=num_threads,
-                         allow_smaller_final_batch=allow_smaller_final_batch)
-        self.__shuffle = shuffle
+                         allow_smaller_final_batch=allow_smaller_final_batch,
+                         seed=seed)
         self._num_dims = num_dims
         self._num_vals = num_vals
 
@@ -189,10 +195,12 @@ class IntGridDataset(Dataset):
         points = points.reshape(-1, points.shape[-1])
 
         # Add input producer that serves the generated samples
+        # All data is shuffled independently of the capacity parameter
         producer = tf.train.slice_input_producer([points],
                                                  num_epochs=self._num_epochs,
                                                  # Shuffle data
-                                                 shuffle=self.__shuffle)
+                                                 shuffle=self._shuffle,
+                                                 seed=self._seed)
         return producer
 
     @utils.docinherit(Dataset)

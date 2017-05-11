@@ -49,14 +49,20 @@ from libspn.data.file import FileDataset
 from libspn.data.file import CSVFileDataset
 from libspn.data.generated import GaussianMixtureDataset
 from libspn.data.generated import IntGridDataset
+from libspn.data.mnist import MnistDataset
+from libspn.data.image import ImageDataset
+from libspn.data.image import ImageFormat
+from libspn.data.image import ImageShape
 from libspn.data.writer import DataWriter
 from libspn.data.writer import CSVDataWriter
+from libspn.data.writer import ImageDataWriter
 
 # Session
 from libspn.session import session
 
 # Visualization
 from libspn.visual.plot import plot_2d
+from libspn.visual.plot import image
 from libspn.visual.tf_graph import display_tf_graph
 from libspn.visual.spn_graph import display_spn_graph
 
@@ -75,6 +81,9 @@ from libspn.ops import ops
 from libspn import conf
 from libspn import utils
 from libspn.utils import ValueType
+
+# App
+from libspn.app import App
 
 # Exceptions
 from libspn.exceptions import StructureError
@@ -96,15 +105,16 @@ __all__ = [
     'EMLearning', 'GDLearning',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
-    'IntGridDataset', 'DataWriter', 'CSVDataWriter',
+    'IntGridDataset', 'MnistDataset', 'ImageDataset', 'ImageFormat',
+    'ImageShape', 'DataWriter', 'CSVDataWriter', 'ImageDataWriter',
     # Session
     'session',
     # Visualization
-    'plot_2d', 'display_tf_graph', 'display_spn_graph',
+    'plot_2d', 'image', 'display_tf_graph', 'display_spn_graph',
     # Logging
     'config_logger', 'get_logger', 'WARNING', 'INFO', 'DEBUG1', 'DEBUG2',
     # Custom ops, utils and config
-    'ops', 'conf', 'utils', 'ValueType',
+    'ops', 'conf', 'utils', 'ValueType', 'App',
     # Exceptions
     'StructureError']
 

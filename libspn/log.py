@@ -125,6 +125,10 @@ def config_logger(level=WARNING, file_name=None, stream=sys.stderr):
         file_name(str): If not None, log will be saved to the given file.
         stream: If not None, log will be output to the given stream.
     """
+    # Create formatter
+    formatter = logging.Formatter(
+        "[%(levelname)s] [%(name)s:%(funcName)s] %(message)-s")
+    # Create handlers
     handlers = []
     if stream is not None:
         handlers.append(logging.StreamHandler(stream))
@@ -132,6 +136,10 @@ def config_logger(level=WARNING, file_name=None, stream=sys.stderr):
         handlers.append(logging.FileHandler(file_name))
     if not handlers:
         handlers.append(logging.NullHandler)
-    logging.basicConfig(level=level, handlers=handlers,
-                        format="[%(levelname)s] "
-                        "[%(name)s:%(funcName)s] %(message)-s")
+    # Replace all existing handlers of the root logger
+    logging.root.handlers = []
+    for h in handlers:
+        h.setFormatter(formatter)
+        logging.root.addHandler(h)
+    # Set level
+    logging.root.setLevel(level)
