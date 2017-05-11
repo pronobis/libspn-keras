@@ -174,14 +174,15 @@ def scatter_cols(params, indices, num_out_cols, name=None):
                 # Just pad with zeros, pad is fastest and offers smallest graph
                 return tf.pad(params, [[indices[0], num_out_cols - indices[0] - 1]])
             else:
-                if conf.custom_scatter_cols:
-                    return ops.scatter_cols(
-                        params, indices,
-                        pad_elem=tf.constant(0, dtype=params.dtype),
-                        num_out_col=num_out_cols)
-                else:
-                    return tf.pad(params, [[0, 0],
-                                           [indices[0], num_out_cols - indices[0] - 1]])
+                # Currently pad is fastest (for GPU) and builds smaller graph
+                # if conf.custom_scatter_cols:
+                #     return ops.scatter_cols(
+                #         params, indices,
+                #         pad_elem=tf.constant(0, dtype=params.dtype),
+                #         num_out_col=num_out_cols)
+                # else:
+                return tf.pad(params, [[0, 0],
+                                       [indices[0], num_out_cols - indices[0] - 1]])
         else:
             # Scatter a multi-column tensor to a multi-column tensor
             if param_dims == 1:

@@ -73,14 +73,14 @@ gather_cols
 
 #### CPU
 
-- custom is the fastest, a bit faster than slice, but much more than gather_nd
+- custom and slice perform the same, much better than gather_nd
 - slice and gather_nd build larger graphs than custom
 
 #### GPU
 
 - int32 much slower than int64 (particularly for dgx1) for gather_nd and custom, but not slice
 - custom is always much faster than gather_nd and build smaller graphs
-- custom is faster than slice for int64 indices, but can be 2x slower for int32 indices
+- custom is roughly equivalent to slice for int64 indices, but can be 2x slower for int32 indices
 - slice makes more ops and setup time
 
 #### Result
@@ -143,12 +143,12 @@ scatter_cols
 
 #### CPU
 
-- pad offers clearly better performance, most likely even if custom op is fixed
+- pad offers the better performance
 - pad offers smallest graph
 
 #### GPU
 
-- pad offers clearly better performance, most likely even if custom op is fixed
+- pad offers clearly better performance
 - pad offers smallest graph
 
 #### Result
@@ -175,19 +175,18 @@ scatter_cols
 
 #### CPU
 
-- gather_1d is more efficient than custom right now
+- gather_1d is more efficient than custom
 - custom offers smaller graph
 
 #### GPU
 
-- gather_1d is much more efficient than custom right now
+- custom is more efficient than gather_1d
 - custom offers smaller graph
 
 
 #### Result
 
-- FIX CUSTOM
-- use gather 1d until then, since size difference is not huge
+- use custom, since gpu performance is more important
 
 
 ### 2D 1index
@@ -205,7 +204,7 @@ scatter_cols
 
 #### Result
 
-- use pad
+- use pad, since graph size and gpu performance matters
 
 
 ### 2D passthrough
@@ -231,9 +230,8 @@ scatter_cols
 
 #### GPU
 
-- custom_gather is twice as fast as custom, but builds 3 times larger graph
+- custom is fastest and offers smallest graph
 
 #### Result
 
-- FIX CUSTOM
-- use either custom or casutom_gather
+- use custom
