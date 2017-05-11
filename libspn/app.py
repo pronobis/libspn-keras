@@ -62,7 +62,10 @@ class App(ABC):
         parser = argparse.ArgumentParser(
             description=self.description,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-        self.define_args(parser)
+        parser_optional = parser._action_groups.pop()
+        commands = parser.add_subparsers(title='sub-commands')
+        parser._action_groups.append(parser_optional)
+        self.define_args(parser, commands)
         other_params = parser.add_argument_group(title="other")
         other_params.add_argument('-v', '--debug1', action='store_true',
                                   help="print log messages at level DEBUG1")
@@ -71,7 +74,7 @@ class App(ABC):
         other_params.add_argument('-o', '--out', type=str,
                                   metavar='FILE',
                                   help="save output to FILE")
-        self.args = parser.parse_args()
+        self._parse_args(parser, commands)
         # Redirect copy of output to a file
         self._orig_stdout = sys.stdout  # Used to not copy color codes to file
         self._orig_stderr = sys.stderr  # Used to not copy color codes to file
@@ -113,11 +116,12 @@ class App(ABC):
         """Implement app functionality here."""
 
     @abstractmethod
-    def define_args(self, parser):
+    def define_args(self, parser, commands):
         """Define argparse arguments here.
 
         Args:
-            parse (argparse.ArgumentParser): The parser.
+            parse (argparse.ArgumentParser): The root parser.
+            commands (argparse._SubParsersAction): Use to define commands.
         """
 
     def process_args(self):
@@ -147,6 +151,26 @@ class App(ABC):
                   file=self._orig_stderr)
         sys.exit(1)
 
+    def _parse_args(self, parser, commands):
+        """Parse arguments considering commands."""
+        # Divide argv by commands
+        split_argv = [[]]
+        for c in sys.argv[1:]:
+            if c in commands.choices:
+                split_argv.append([c])
+            else:
+                split_argv[-1].append(c)
+        # Initialize namespace
+        self.args = argparse.Namespace()
+        for c in commands.choices:
+            setattr(self.args, c, None)
+        # Parse each command
+        parser.parse_args(split_argv[0], namespace=self.args)  # Without command
+        for argv in split_argv[1:]:  # Commands
+            n = argparse.Namespace()
+            setattr(self.args, argv[0], n)
+            parser.parse_args(argv, namespace=n)
+
     def _print_header(self):
         self.print1("======================================")
         self.print1(self.description)
@@ -154,5 +178,13 @@ class App(ABC):
         self.print1("Args:")
         for name, val in sorted(vars(self.args).items()):
             if name not in {'out', 'debug1', 'debug2'}:
-                self.print1("- %s: %s" % (name, val))
+                var = getattr(self.args, name)
+                if isinstance(var, argparse.Namespace):  # command
+                    self.print1("- %s:" % name)
+                    for n, v in sorted(vars(var).items()):
+                        if not hasattr(self.args, n):  # Ignore root arguments
+                            self.print1("  - %s: %s" % (n, v))
+                else:
+                    self.print1("- %s: %s" % (name, val))
+
         self.print1("======================================")
