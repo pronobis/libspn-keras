@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import os
 import scipy
+from libspn.log import get_logger
 
 
 class DataWriter(ABC):
@@ -41,17 +42,13 @@ class CSVDataWriter(DataWriter):
         self._fmt_float = fmt_float
         self.__mode = 'wb'  # Initial mode
 
-    def write(self, data):
+    def write(self, *data):
         """Write arrays of data. The first call to write erases any existing
         file, while all subsequent calls will append to the same file.
 
         Args:
-            data: An array or a list of arrays with the data to write.
+            data: Arrays with the data to write.
         """
-        # Ensure list
-        if not isinstance(data, list) and not isinstance(data, tuple):
-            data = [data]
-
         # Get columns
         cols = []
         fmt = ['%d', '%f', '%f']
@@ -93,6 +90,9 @@ class ImageDataWriter(DataWriter):
         num_digits (int): Minimum number of digits of the image number.
     """
 
+    logger = get_logger()
+    debug1 = logger.debug1
+
     def __init__(self, path, shape, normalize=False, num_digits=4):
         self._path = os.path.expanduser(path)
         self._shape = shape
@@ -100,23 +100,28 @@ class ImageDataWriter(DataWriter):
         self._num_digits = num_digits
         self._image_no = 0
 
-    def write(self, images, image_no=None, labels=None):
+    def write(self, images, labels=None, image_no=None):
         """Write image data to file(s). `images` can be either a single image
 
         Args:
             images (array): An array containing a single image or multiple
                             images of the given shape.
+            labels (value or array): A value or array of values used to label
+                                     the image or images given.
             image_no (int): Optional. Number of the first image to write.
                             If not given, the number of the last written image
                             is incremented and used.
-            labels (value or array): A value or array of values used to label
-                                     the image or images given.
         """
         if not (issubclass(images.dtype.type, np.integer) or
                 issubclass(images.dtype.type, np.floating)):
             raise ValueError("images must be of int or float dtype")
         if image_no is not None and not isinstance(image_no, int):
             raise ValueError("image_no must be integer")
+
+        self.debug1("Batch size:%s dtype:%s max_min:%s min_max:%s" %
+                    (images.shape[0], images.dtype,
+                     np.amax(np.amin(images, axis=1)),
+                     np.amin(np.amax(images, axis=1))))
 
         # Convert 1-image case to multi-image case
         if images.ndim == 1:

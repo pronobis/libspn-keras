@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 import tensorflow as tf
 import numpy as np
 from libspn.session import session
+from libspn.log import get_logger
 
 
 class Dataset(ABC):
@@ -35,6 +36,9 @@ class Dataset(ABC):
                                          ``batch_size``.
         seed (int): Optional. Seed used when shuffling.
     """
+
+    logger = get_logger()
+    info = logger.info
 
     def __init__(self, num_epochs, batch_size, shuffle, shuffle_batch,
                  min_after_dequeue=None, num_threads=1,
@@ -85,8 +89,7 @@ class Dataset(ABC):
         """Get an operation obtaining batches of data from the dataset.
 
         Returns:
-            A tensor, a list of tensors or a dictionary of tensors with the
-            batch data.
+            A tensor or a list of tensors with the batch data.
         """
         with tf.name_scope("Dataset") as self._name_scope:
             raw_data = self.generate_data()
@@ -98,8 +101,7 @@ class Dataset(ABC):
         """Assemble a TF operation generating the next data sample.
 
         Returns:
-            A list of tensors or a dictionary of tensors with a single
-            data sample.
+            A list of tensors with a single data sample.
         """
         pass
 
@@ -108,12 +110,10 @@ class Dataset(ABC):
         """Assemble a TF operation processing a data sample.
 
         Args:
-            data: A list of tensors or a dictionary of tensors with
-                  a single data sample.
+            data: A list of tensors with a single data sample.
 
         Returns:
-            A list of tensors or a dictionary of tensors with a single
-            data sample.
+            A list of tensors with a single data sample.
         """
         pass
 
@@ -171,9 +171,6 @@ class Dataset(ABC):
         if isinstance(batches[0], list):
             return [np.concatenate([b[key] for b in batches])
                     for key in range(len(batches[0]))]
-        elif isinstance(batches[0], dict):
-            return {key: np.concatenate([b[key] for b in batches])
-                    for key in batches[0].keys()}
         else:
             return np.concatenate(batches)
 
@@ -189,6 +186,11 @@ class Dataset(ABC):
         with tf.Graph().as_default():
             data = self.get_data()
             with session() as (sess, run):
+                i = 0
                 while run():
                     out = sess.run(data)
-                    writer.write(out)
+                    i += 1
+                    self.info("Batch %d" % i)
+                    if not isinstance(out, list):  # Convert to list
+                        out = [out]
+                    writer.write(*out)

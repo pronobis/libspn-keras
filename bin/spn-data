@@ -10,6 +10,10 @@ class Dataset(Enum):
     MNIST = 1
 
 
+class Writer(Enum):
+    IMAGES = 0
+
+
 class SpnData(spn.App):
 
     def __init__(self):
@@ -51,7 +55,6 @@ class SpnData(spn.App):
         image_params.add_argument('--normalize', action='store_true',
                                   help="normalize images to have zero mean and unit norm")
 
-        # MNIST
         mnist_params = parser.add_argument_group(title="MNIST")
         mnist_params.add_argument('--mnist-subset', type=str, default='all',
                                   choices=[i.name.lower()
@@ -111,21 +114,8 @@ class SpnData(spn.App):
                                          # should already be normalized
                                          normalize=True)
 
-        # Run session
-        data = dataset.get_data()
-        with spn.session() as (sess, run):
-            i = 0
-            while run():
-                i += 1
-                samples, labels = sess.run(data)
-                batch_size = samples.shape[0]
-                self.print2("=> Batch %d of size %d" % (i, batch_size))
-                if self.logger.root.level <= spn.DEBUG1:
-                    self.debug1("Batch dtype:%s max_min:%s min_max:%s" %
-                                (samples.dtype,
-                                 np.amax(np.amin(samples, axis=1)),
-                                 np.amin(np.amax(samples, axis=1))))
-                writer.write(samples, labels=labels)
+        # Write all
+        dataset.write_all(writer)
 
 
 if __name__ == '__main__':

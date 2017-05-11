@@ -714,8 +714,8 @@ class TestData(unittest.TestCase):
                          [1 / 3, 1 / 4],
                          [1 / 5, 1 / 6],
                          [1 / 7, 1 / 8]])
-        writer.write((arr1, arr2))
-        writer.write((arr1, arr2))
+        writer.write(arr1, arr2)
+        writer.write(arr1, arr2)
 
         # Read
         dataset = spn.CSVFileDataset(path,
