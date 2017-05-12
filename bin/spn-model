@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import libspn as spn
-from collections import namedtuple
 from enum import Enum
 
 
@@ -21,28 +20,26 @@ class WeightInitType(Enum):
 
 class SpnModel(spn.App):
 
-    TrainParams = namedtuple('TrainParams', ['model', 'dataset'])
-
     def __init__(self):
         super().__init__("Model")
 
     def define_args(self, parser, commands):
         ##########################
-        # Train command
+        # Learn command
         ##########################
-        train_parser = commands.add_parser('train', app=self,
-                                           help='train a model')
-        train_parser.add_argument('model', type=str,
+        learn_parser = commands.add_parser('learn', app=self,
+                                           help='learn a model')
+        learn_parser.add_argument('model', type=str,
                                   choices=[i.name.lower() for i in Model],
-                                  help="model to train")
-        train_parser.add_argument('dataset', type=str,
+                                  help="model to learn")
+        learn_parser.add_argument('dataset', type=str,
                                   choices=[i.name.lower() for i in Dataset],
                                   help="training dataset to use")
-        train_parser.add_argument('path', type=str,
+        learn_parser.add_argument('path', type=str,
                                   help="path to the training data; "
                                   "a folder, a glob, or a coma-separated list of files")
 
-        data_params = train_parser.add_argument_group(title="data parameters")
+        data_params = learn_parser.add_argument_group(title="data parameters")
         data_params.add_argument('--num-epochs', type=int, default='100',
                                  help="number of training epochs")
         data_params.add_argument('--batch-size', type=int, default='100',
@@ -54,7 +51,7 @@ class SpnModel(spn.App):
         data_params.add_argument('--seed', type=int, default=None,
                                  help="seed used for shuffling")
 
-        image_params = train_parser.add_argument_group(title="image data parameters")
+        image_params = learn_parser.add_argument_group(title="image data parameters")
         image_params.add_argument('--image-format', type=str, default='float',
                                   choices=[i.name.lower()
                                            for i in spn.ImageFormat],
@@ -64,7 +61,7 @@ class SpnModel(spn.App):
         image_params.add_argument('--crop', type=int, default=0,
                                   help="crop image border pixels")
 
-        mnist_params = train_parser.add_argument_group(title="MNIST data parameters")
+        mnist_params = learn_parser.add_argument_group(title="MNIST data parameters")
         mnist_params.add_argument('--mnist-subset', type=str, default='all',
                                   choices=[i.name.lower()
                                            for i in spn.MnistDataset.Subset],
@@ -73,7 +70,7 @@ class SpnModel(spn.App):
                                   help="coma-separated list of digits; if specified, "
                                   "only the listed classes will be provided")
 
-        model_params = train_parser.add_argument_group(title="model parameters")
+        model_params = learn_parser.add_argument_group(title="model parameters")
         model_params.add_argument('--dense-decomps', type=int, default=1,
                                   help='Dense generator: Number of decompositions')
         model_params.add_argument('--dense-subsets', type=int, default=2,
@@ -87,7 +84,7 @@ class SpnModel(spn.App):
         model_params.add_argument('--dense-input-mixtures', type=int, default=3,
                                   help='Dense generator: Number of input mixtures')
 
-        learn_params = train_parser.add_argument_group(title="learning parameters")
+        learn_params = learn_parser.add_argument_group(title="learning parameters")
         learn_params.add_argument('--weight-init', type=str, default='random',
                                   help='Weight init value: ' +
                                   ', '.join([a.name.lower() for a in WeightInitType]))
@@ -120,86 +117,86 @@ class SpnModel(spn.App):
                                          help='get mpe state of data variables')
 
     def process_args(self, parser, args):
-        if args.train is None and args.load is None:
-            parser.error("either train or load command must be used")
+        if args.learn is None and args.load is None:
+            parser.error("either learn or load command must be used")
 
         ##########################
-        # Train command
+        # Learn command
         ##########################
         # Positional
-        args.train.model = Model[args.train.model.upper()]
-        args.train.dataset = Dataset[args.train.dataset.upper()]
+        args.learn.model = Model[args.learn.model.upper()]
+        args.learn.dataset = Dataset[args.learn.dataset.upper()]
         # Data
-        args.train.image_format = spn.ImageFormat[args.train.image_format.upper()]
-        if args.train.ratio < 1:
+        args.learn.image_format = spn.ImageFormat[args.learn.image_format.upper()]
+        if args.learn.ratio < 1:
             parser.error("RATIO must be >=1")
-        if args.train.crop < 0:
+        if args.learn.crop < 0:
             parser.error("CROP cannot be negative")
-        args.train.mnist_subset = spn.MnistDataset.Subset[args.train.mnist_subset.upper()]
-        if args.train.mnist_classes is not None:
+        args.learn.mnist_subset = spn.MnistDataset.Subset[args.learn.mnist_subset.upper()]
+        if args.learn.mnist_classes is not None:
             try:
-                args.train.mnist_classes = set([int(i) for i in
-                                                args.train.mnist_classes.split(',')])
+                args.learn.mnist_classes = set([int(i) for i in
+                                                args.learn.mnist_classes.split(',')])
             except ValueError:
-                parser.error("Incorrect mnist_classes '%s'" % args.train.mnist_classes)
+                parser.error("Incorrect mnist_classes '%s'" % args.learn.mnist_classes)
         # Model
-        args.train.dense_input_dist = spn.DenseSPNGenerator.InputDist[
-            args.train.dense_input_dist.upper()]
-        args.train.weight_init = WeightInitType[args.train.weight_init.upper()]
-        args.train.value_inference = spn.InferenceType[args.train.value_inference.upper()]
+        args.learn.dense_input_dist = spn.DenseSPNGenerator.InputDist[
+            args.learn.dense_input_dist.upper()]
+        args.learn.weight_init = WeightInitType[args.learn.weight_init.upper()]
+        args.learn.value_inference = spn.InferenceType[args.learn.value_inference.upper()]
 
     def run(self, args):
         ##########################
-        # Train command
+        # Learn command
         ##########################
-        if args.train is not None:
+        if args.learn is not None:
             # Create dataset
-            if args.train.dataset == Dataset.MNIST:
-                dataset = spn.MnistDataset(data_dir=args.train.path,
-                                           subset=args.train.mnist_subset,
-                                           format=args.train.image_format,
-                                           num_epochs=args.train.num_epochs,
-                                           batch_size=args.train.batch_size,
-                                           shuffle=args.train.shuffle,
-                                           ratio=args.train.ratio,
-                                           crop=args.train.crop,
-                                           num_threads=args.train.num_threads,
+            if args.learn.dataset == Dataset.MNIST:
+                dataset = spn.MnistDataset(data_dir=args.learn.path,
+                                           subset=args.learn.mnist_subset,
+                                           format=args.learn.image_format,
+                                           num_epochs=args.learn.num_epochs,
+                                           batch_size=args.learn.batch_size,
+                                           shuffle=args.learn.shuffle,
+                                           ratio=args.learn.ratio,
+                                           crop=args.learn.crop,
+                                           num_threads=args.learn.num_threads,
                                            allow_smaller_final_batch=True,
-                                           classes=args.train.mnist_classes,
-                                           seed=args.train.seed)
-            elif args.train.dataset == Dataset.IMAGE:
-                dataset = spn.ImageDataset(image_files=args.train.path,
-                                           format=args.train.image_format,
-                                           num_epochs=args.train.num_epochs,
-                                           batch_size=args.train.batch_size,
-                                           shuffle=args.train.shuffle,
-                                           ratio=args.train.ratio,
-                                           crop=args.train.crop,
-                                           num_threads=args.train.num_threads,
+                                           classes=args.learn.mnist_classes,
+                                           seed=args.learn.seed)
+            elif args.learn.dataset == Dataset.IMAGE:
+                dataset = spn.ImageDataset(image_files=args.learn.path,
+                                           format=args.learn.image_format,
+                                           num_epochs=args.learn.num_epochs,
+                                           batch_size=args.learn.batch_size,
+                                           shuffle=args.learn.shuffle,
+                                           ratio=args.learn.ratio,
+                                           crop=args.learn.crop,
+                                           num_threads=args.learn.num_threads,
                                            allow_smaller_final_batch=True,
-                                           seed=args.train.seed)
+                                           seed=args.learn.seed)
             # Decode weight_init_value
-            if args.train.weight_init == WeightInitType.ONE:
+            if args.learn.weight_init == WeightInitType.ONE:
                 weight_init_value = 1
-            elif args.train.weight_init == WeightInitType.RANDOM:
+            elif args.learn.weight_init == WeightInitType.RANDOM:
                 weight_init_value = spn.ValueType.RANDOM_UNIFORM(0, 1)
-            # Train model
-            if args.train.model == Model.DENSE:
+            # Learn model
+            if args.learn.model == Model.DENSE:
                 model = spn.DenseModel()
                 model.build_spn(dataset,
-                                num_decomps=args.train.dense_decomps,
-                                num_subsets=args.train.dense_subsets,
-                                num_mixtures=args.train.dense_mixtures,
-                                input_dist=args.train.dense_input_dist,
-                                num_input_mixtures=args.train.dense_input_mixtures,
+                                num_decomps=args.learn.dense_decomps,
+                                num_subsets=args.learn.dense_subsets,
+                                num_mixtures=args.learn.dense_mixtures,
+                                input_dist=args.learn.dense_input_dist,
+                                num_input_mixtures=args.learn.dense_input_mixtures,
                                 weight_init_value=weight_init_value)
-                # model.save_graph()
-                model.train(value_inference_type=args.train.value_inference,
-                            init_accum_value=args.train.init_accum,
-                            additive_smoothing_value=args.train.smoothing_val,
-                            additive_smoothing_decay=args.train.smoothing_decay,
-                            additive_smoothing_min=args.train.smoothing_min,
-                            stop_condition=args.train.stop_condition)
+                model.learn(value_inference_type=args.learn.value_inference,
+                            init_accum_value=args.learn.init_accum,
+                            additive_smoothing_value=args.learn.smoothing_val,
+                            additive_smoothing_decay=args.learn.smoothing_decay,
+                            additive_smoothing_min=args.learn.smoothing_min,
+                            stop_condition=args.learn.stop_condition)
+                model.save_graph()
 
         ##########################
         # MPE command

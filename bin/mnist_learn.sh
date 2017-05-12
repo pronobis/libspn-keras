@@ -1,6 +1,6 @@
 #!/bin/sh
 
-./spn-model -v train dense mnist "~/Data/mnist" \
+./spn-model -v learn dense mnist "~/Data/mnist" \
             --num-epochs 100 \
             --batch-size 100 \
             --shuffle \
@@ -8,7 +8,7 @@
             --image-format binary \
             --ratio 2 \
             --crop 2 \
-            --mnist-subset=train\
+            --mnist-subset train\
             --dense-input-dist raw \
             --dense-decomps 1 \
             --dense-subsets 2 \
