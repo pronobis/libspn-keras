@@ -39,6 +39,7 @@ class DenseSPNGenerator:
     logger = get_logger()
     debug1 = logger.debug1
     debug2 = logger.debug2
+    debug3 = logger.debug3
 
     class InputDist(Enum):
         """Determines how inputs sharing the same scope (for instance IVs for
@@ -75,7 +76,7 @@ class DenseSPNGenerator:
 
     def __init__(self, num_decomps, num_subsets, num_mixtures,
                  input_dist=InputDist.MIXTURE, num_input_mixtures=None,
-                 balanced=False):
+                 balanced=True):
         # Args
         if not isinstance(num_decomps, int) or num_decomps < 1:
             raise ValueError("num_decomps must be a positive integer")
@@ -199,23 +200,23 @@ class DenseSPNGenerator:
             requires further decomposition.
         """
         # Get subset partitions
-        DenseSPNGenerator.debug2("Decomposing subset:\n%s", subset_info.subset)
+        DenseSPNGenerator.debug3("Decomposing subset:\n%s", subset_info.subset)
         num_elems = len(subset_info.subset)
         num_subsubsets = min(num_elems, self.num_subsets)  # Requested num subsets
         partitions = utils.random_partitions(subset_info.subset, num_subsubsets,
                                              self.num_decomps,
                                              stirling=self.__stirling,
                                              balanced=self.balanced)
-        DenseSPNGenerator.debug1("Randomized %s decompositions of a subset"
+        DenseSPNGenerator.debug2("Randomized %s decompositions of a subset"
                                  " of %s elements into %s sets",
                                  len(partitions), num_elems, num_subsubsets)
 
         # Generate nodes for each decomposition/partition
         subsubset_infos = []
         for part in partitions:
-            DenseSPNGenerator.debug1("Decomposition %s: into %s subsubsets of cardinality %s",
+            DenseSPNGenerator.debug2("Decomposition %s: into %s subsubsets of cardinality %s",
                                      self.__decomp_id, len(part), [len(s) for s in part])
-            DenseSPNGenerator.debug2("Decomposition %s subsubsets:\n%s",
+            DenseSPNGenerator.debug3("Decomposition %s subsubsets:\n%s",
                                      self.__decomp_id, part)
             # Handle each subsubset
             sums_id = 1
