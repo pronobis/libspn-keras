@@ -258,6 +258,10 @@ class Node(ABC):
         # Not the best oop, but avoids the need for importing .node to check
         return isinstance(self, VarNode)
 
+    def get_tf_graph_size(self):
+        """Get the size of the TensorFlow graph with which this SPN graph node is associated."""
+        return len(self.tf_graph.get_operations())
+
     def get_nodes(self, skip_params=False):
         """Get a list of nodes in the (sub-)graph rooted in this node.
 
