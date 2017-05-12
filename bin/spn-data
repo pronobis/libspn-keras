@@ -32,11 +32,11 @@ class SpnData(spn.App):
                                  "a folder, a glob, or a coma-separated list of files")
 
         data_params = read_parser.add_argument_group(title="data parameters")
-        data_params.add_argument('--num_epochs', type=int, default='1',
+        data_params.add_argument('--num-epochs', type=int, default='1',
                                  help="number of epochs of produced data")
-        data_params.add_argument('--batch_size', type=int, default='100',
+        data_params.add_argument('--batch-size', type=int, default='100',
                                  help="size of a batch when processing data")
-        data_params.add_argument('--num_threads', type=int, default='1',
+        data_params.add_argument('--num-threads', type=int, default='1',
                                  help="number of threads enqueuing the data queue.")
         data_params.add_argument('--shuffle', action='store_true',
                                  help="shuffle the data every epoch")
