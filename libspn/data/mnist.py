@@ -211,7 +211,9 @@ class MnistDataset(Dataset):
             labels = np.concatenate([train_y, test_y])
 
         # Filter classes
-        if self._classes is not None:
+        if self._classes is None:
+            self._labels = labels
+        else:
             chosen = np.in1d(labels, list(self._classes))
             samples = samples[chosen]
             self._labels = labels[chosen]

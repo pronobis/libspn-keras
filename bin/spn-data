@@ -91,7 +91,8 @@ class SpnData(spn.App):
                                                     self.args.read.mnist_classes.split(',')])
             except ValueError:
                 self.error("Incorrect mnist_classes '%s'" % self.args.read.mnist_classes)
-        self.args.write.writer = Writer[self.args.write.writer.upper()]
+        if self.args.write is not None:
+            self.args.write.writer = Writer[self.args.write.writer.upper()]
 
     def run(self):
         # Create dataset
