@@ -37,16 +37,32 @@ class SpnModel(spn.App):
         train_parser.add_argument('path', type=str,
                                   help="path to the training data; "
                                   "a folder, a glob, or a coma-separated list of files")
-        train_parser.add_argument('--num_epochs', type=int, default='1',
-                                  help="number of training epochs")
-        train_parser.add_argument('--batch_size', type=int, default='100',
-                                  help="size of a batch used for training")
-        train_parser.add_argument('--num_threads', type=int, default='1',
-                                  help="number of threads enqueuing the data queue.")
-        train_parser.add_argument('--shuffle', action='store_true',
-                                  help="shuffle the data every epoch")
-        train_parser.add_argument('--seed', type=str, default=None,
-                                  help="seed used for shuffling")
+
+        training_params = train_parser.add_argument_group(title="training")
+        training_params.add_argument('--num_epochs', type=int, default='1',
+                                     help="number of training epochs")
+        training_params.add_argument('--batch_size', type=int, default='100',
+                                     help="size of a batch used for training")
+        training_params.add_argument('--num_threads', type=int, default='1',
+                                     help="number of threads enqueuing the data queue.")
+        training_params.add_argument('--shuffle', action='store_true',
+                                     help="shuffle the data every epoch")
+        training_params.add_argument('--seed', type=str, default=None,
+                                     help="seed used for shuffling")
+
+        model_params = train_parser.add_argument_group(title="model")
+        model_params.add_argument('--dense-input-dist', type=str, default='raw',
+                                  help='Dense generator: Input distributions: ' +
+                                  ', '.join([a.name.lower()
+                                             for a in spn.DenseSPNGenerator.InputDist]))
+        model_params.add_argument('--dense-decomps', type=int, default=1,
+                                  help='Dense generator: Number of decompositions')
+        model_params.add_argument('--dense-subsets', type=int, default=2,
+                                  help='Dense generator: Number of subsets')
+        model_params.add_argument('--dense-mixtures', type=int, default=4,
+                                  help='Dense generator: Number of mixtures')
+        model_params.add_argument('--dense-input-mixtures', type=int, default=3,
+                                  help='Dense generator: Number of input mixtures')
 
         image_params = train_parser.add_argument_group(title="images")
         image_params.add_argument('--image-format', type=str, default='float',
@@ -84,6 +100,10 @@ class SpnModel(spn.App):
     def process_args(self):
         if self.args.train is None and self.args.load is None:
             self.error("either train or load command must be used")
+
+        ##########################
+        # Train command
+        ##########################
         self.args.train.model = Model[self.args.train.model.upper()]
         self.args.train.dataset = Dataset[self.args.train.dataset.upper()]
         if self.args.train.crop < 0:
@@ -98,6 +118,8 @@ class SpnModel(spn.App):
                                                      self.args.train.mnist_classes.split(',')])
             except ValueError:
                 self.error("Incorrect mnist_classes '%s'" % self.args.train.mnist_classes)
+        self.args.train.dense_input_dist = spn.DenseSPNGenerator.InputDist[
+            self.args.train.dense_input_dist.upper()]
 
     def run(self):
         ##########################
@@ -131,9 +153,14 @@ class SpnModel(spn.App):
                                            seed=self.args.train.seed)
             # Create model
             if self.args.train.model == Model.DENSE:
-                model = spn.DenseModel()
+                model = spn.DenseModel(num_decomps=self.args.train.dense_decomps,
+                                       num_subsets=self.args.train.dense_subsets,
+                                       num_mixtures=self.args.train.dense_mixtures,
+                                       input_dist=self.args.train.dense_input_dist,
+                                       num_input_mixtures=self.args.train.dense_input_mixtures)
 
             # Train
+            model.build_spn(dataset)
             model.train()
 
         ##########################

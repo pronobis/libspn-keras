@@ -1,3 +1,3 @@
 #!/bin/sh
 
-./spn-model train dense mnist "~/Data/mnist"
+./spn-model -v  train dense mnist "~/Data/mnist"
