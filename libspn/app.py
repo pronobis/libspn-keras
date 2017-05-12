@@ -29,6 +29,28 @@ class App(ABC):
         description (str): App description.
     """
 
+    class Parser(argparse.ArgumentParser):
+        """Custom parser with better error display."""
+
+        def __init__(self, app, prog=None, usage=None, description=None,
+                     epilog=None, parents=[],
+                     prefix_chars='-', fromfile_prefix_chars=None,
+                     argument_default=None, conflict_handler='error',
+                     add_help=True, allow_abbrev=True):
+            super().__init__(prog=prog, usage=usage, description=description,
+                             epilog=epilog, parents=parents,
+                             prefix_chars=prefix_chars,
+                             fromfile_prefix_chars=fromfile_prefix_chars,
+                             argument_default=argument_default,
+                             conflict_handler=conflict_handler,
+                             add_help=add_help, allow_abbrev=allow_abbrev,
+                             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+            self._app = app
+
+        def error(self, message):
+            self.print_help()
+            self._app.error(message)
+
     class StreamFork():
         """Forks a stream to another stream and a file."""
 
@@ -47,13 +69,15 @@ class App(ABC):
     def __init__(self, description):
         self.description = 'LibSPN: ' + description
         col.init()
+        self._out_file = None
+        self._orig_stdout = sys.stdout  # Used to not copy color codes to file
+        self._orig_stderr = sys.stderr  # Used to not copy color codes to file
 
     def main(self):
         """Main function of the app."""
         # Argument parsing
-        parser = argparse.ArgumentParser(
-            description=self.description,
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        parser = App.Parser(app=self,
+                            description=self.description)
         parser_optional = parser._action_groups.pop()
         commands = parser.add_subparsers(title='sub-commands')
         parser._action_groups.append(parser_optional)
@@ -66,30 +90,26 @@ class App(ABC):
         other_params.add_argument('-o', '--out', type=str,
                                   metavar='FILE',
                                   help="save output to FILE")
-        self._parse_args(parser, commands)
+        args = self._parse_args(parser, commands)
         # Redirect copy of output to a file
-        self._orig_stdout = sys.stdout  # Used to not copy color codes to file
-        self._orig_stderr = sys.stderr  # Used to not copy color codes to file
-        if self.args.out:
-            self._out_file = open(self.args.out, 'w')
+        if args.out:
+            self._out_file = open(args.out, 'w')
             sys.stdout = App.StreamFork(sys.stdout, self._out_file)
             sys.stderr = App.StreamFork(sys.stderr, self._out_file)
-        else:
-            self._out_file = None
         # Configure logger to output to the new stderr at specified level
-        if self.args.debug2:
+        if args.debug2:
             log_level = log.DEBUG2
-        elif self.args.debug1:
+        elif args.debug1:
             log_level = log.DEBUG1
         else:
             log_level = log.INFO
         log.config_logger(log_level, stream=sys.stderr)
         # Process and print
-        self._print_header()
-        self.process_args()
+        self._print_header(args)
+        self.process_args(parser, args)
         # Run the app
         try:
-            self.run()
+            self.run(args)
         except Exception as e:
             # Print exception traceback to save it to file before
             # the file is closed in finally
@@ -104,7 +124,7 @@ class App(ABC):
                 self._out_file.close()
 
     @abstractmethod
-    def run(self):
+    def run(self, args):
         """Implement app functionality here."""
 
     @abstractmethod
@@ -116,8 +136,9 @@ class App(ABC):
             commands (argparse._SubParsersAction): Use to define commands.
         """
 
-    def process_args(self):
-        """Test and process values of arguments in ``self.args`` here."""
+    def process_args(self, parser, args):
+        """Test and process values of arguments in ``args`` here. Report
+        parsing error using ``parser.error()``."""
 
     def print1(self, msg):
         """Print with color 1."""
@@ -153,28 +174,29 @@ class App(ABC):
             else:
                 split_argv[-1].append(c)
         # Initialize namespace
-        self.args = argparse.Namespace()
+        args = argparse.Namespace()
         for c in commands.choices:
-            setattr(self.args, c, None)
+            setattr(args, c, None)
         # Parse each command
-        parser.parse_args(split_argv[0], namespace=self.args)  # Without command
+        parser.parse_args(split_argv[0], namespace=args)  # Without command
         for argv in split_argv[1:]:  # Commands
             n = argparse.Namespace()
-            setattr(self.args, argv[0], n)
+            setattr(args, argv[0], n)
             parser.parse_args(argv, namespace=n)
+        return args
 
-    def _print_header(self):
+    def _print_header(self, args):
         self.print1("======================================")
         self.print1(self.description)
         self.print1("======================================")
         self.print1("Args:")
-        for name, val in sorted(vars(self.args).items()):
+        for name, val in sorted(vars(args).items()):
             if name not in {'out', 'debug1', 'debug2'}:
-                var = getattr(self.args, name)
+                var = getattr(args, name)
                 if isinstance(var, argparse.Namespace):  # command
                     self.print1("- %s:" % name)
                     for n, v in sorted(vars(var).items()):
-                        if not hasattr(self.args, n):  # Ignore root arguments
+                        if not hasattr(args, n):  # Ignore root arguments
                             self.print1("  - %s: %s" % (n, v))
                 else:
                     self.print1("- %s: %s" % (name, val))

@@ -2,7 +2,6 @@
 
 import libspn as spn
 from enum import Enum
-import argparse
 
 
 class Dataset(Enum):
@@ -23,26 +22,28 @@ class SpnData(spn.App):
         ##########################
         # Read command
         ##########################
-        read_parser = commands.add_parser('read', help='read data from a dataset',
-                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        read_parser = commands.add_parser('read', app=self,
+                                          help='read data from a dataset')
         read_parser.add_argument('dataset', type=str,
                                  choices=[i.name.lower() for i in Dataset],
                                  help="dataset to use")
         read_parser.add_argument('path', type=str,
                                  help="path to the input data; "
                                  "a folder, a glob, or a coma-separated list of files")
-        read_parser.add_argument('--num_epochs', type=int, default='1',
+
+        data_params = read_parser.add_argument_group(title="data parameters")
+        data_params.add_argument('--num_epochs', type=int, default='1',
                                  help="number of epochs of produced data")
-        read_parser.add_argument('--batch_size', type=int, default='100',
+        data_params.add_argument('--batch_size', type=int, default='100',
                                  help="size of a batch when processing data")
-        read_parser.add_argument('--num_threads', type=int, default='1',
+        data_params.add_argument('--num_threads', type=int, default='1',
                                  help="number of threads enqueuing the data queue.")
-        read_parser.add_argument('--shuffle', action='store_true',
+        data_params.add_argument('--shuffle', action='store_true',
                                  help="shuffle the data every epoch")
-        read_parser.add_argument('--seed', type=int, default=None,
+        data_params.add_argument('--seed', type=int, default=None,
                                  help="seed used for shuffling")
 
-        image_params = read_parser.add_argument_group(title="images")
+        image_params = read_parser.add_argument_group(title="image data parameters")
         image_params.add_argument('--image-format', type=str, default='float',
                                   choices=[i.name.lower()
                                            for i in spn.ImageFormat],
@@ -52,7 +53,7 @@ class SpnData(spn.App):
         image_params.add_argument('--crop', type=int, default=0,
                                   help="crop image border pixels")
 
-        mnist_params = read_parser.add_argument_group(title="MNIST")
+        mnist_params = read_parser.add_argument_group(title="MNIST data parameters")
         mnist_params.add_argument('--mnist-subset', type=str, default='all',
                                   choices=[i.name.lower()
                                            for i in spn.MnistDataset.Subset],
@@ -64,8 +65,8 @@ class SpnData(spn.App):
         ##########################
         # Write command
         ##########################
-        write_parser = commands.add_parser('write', help='writes data using a writer',
-                                           formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        write_parser = commands.add_parser('write', app=self,
+                                           help='writes data using a writer')
         write_required = write_parser.add_argument_group('required arguments')
         write_required.add_argument('writer', type=str,
                                     choices=[i.name.lower() for i in Writer],
@@ -75,56 +76,66 @@ class SpnData(spn.App):
                                   "for images, might contain %%n for image number and "
                                   "%%l for image label")
 
-    def process_args(self):
-        if self.args.read is None:
-            self.error("read command must be used")
-        if self.args.read.crop < 0:
-            self.error("CROP cannot be negative")
-        if self.args.read.ratio < 1:
-            self.error("RATIO must be >=1")
-        self.args.read.dataset = Dataset[self.args.read.dataset.upper()]
-        self.args.read.image_format = spn.ImageFormat[self.args.read.image_format.upper()]
-        self.args.read.mnist_subset = spn.MnistDataset.Subset[self.args.read.mnist_subset.upper()]
-        if self.args.read.mnist_classes is not None:
+    def process_args(self, parser, args):
+        if args.read is None:
+            parser.error("read command must be used")
+
+        ##########################
+        # Read command
+        ##########################
+        # Positional
+        args.read.dataset = Dataset[args.read.dataset.upper()]
+        # Data
+        args.read.image_format = spn.ImageFormat[args.read.image_format.upper()]
+        if args.read.ratio < 1:
+            parser.error("RATIO must be >=1")
+        if args.read.crop < 0:
+            parser.error("CROP cannot be negative")
+        args.read.mnist_subset = spn.MnistDataset.Subset[args.read.mnist_subset.upper()]
+        if args.read.mnist_classes is not None:
             try:
-                self.args.read.mnist_classes = set([int(i) for i in
-                                                    self.args.read.mnist_classes.split(',')])
+                args.read.mnist_classes = set([int(i) for i in
+                                               args.read.mnist_classes.split(',')])
             except ValueError:
-                self.error("Incorrect mnist_classes '%s'" % self.args.read.mnist_classes)
-        if self.args.write is not None:
-            self.args.write.writer = Writer[self.args.write.writer.upper()]
+                parser.error("Incorrect mnist_classes '%s'" % args.read.mnist_classes)
 
-    def run(self):
+        ##########################
+        # Write command
+        ##########################
+        if args.write is not None:
+            args.write.writer = Writer[args.write.writer.upper()]
+
+    def run(self, args):
         # Create dataset
-        if self.args.read.dataset == Dataset.MNIST:
-            dataset = spn.MnistDataset(data_dir=self.args.read.path,
-                                       subset=self.args.read.mnist_subset,
-                                       format=self.args.read.image_format,
-                                       num_epochs=self.args.read.num_epochs,
-                                       batch_size=self.args.read.batch_size,
-                                       shuffle=self.args.read.shuffle,
-                                       ratio=self.args.read.ratio,
-                                       crop=self.args.read.crop,
-                                       num_threads=self.args.read.num_threads,
+        if args.read.dataset == Dataset.MNIST:
+            dataset = spn.MnistDataset(data_dir=args.read.path,
+                                       subset=args.read.mnist_subset,
+                                       format=args.read.image_format,
+                                       num_epochs=args.read.num_epochs,
+                                       batch_size=args.read.batch_size,
+                                       shuffle=args.read.shuffle,
+                                       ratio=args.read.ratio,
+                                       crop=args.read.crop,
+                                       num_threads=args.read.num_threads,
                                        allow_smaller_final_batch=True,
-                                       classes=self.args.read.mnist_classes,
-                                       seed=self.args.read.seed)
-        elif self.args.read.dataset == Dataset.IMAGE:
-            dataset = spn.ImageDataset(image_files=self.args.read.path,
-                                       format=self.args.read.image_format,
-                                       num_epochs=self.args.read.num_epochs,
-                                       batch_size=self.args.read.batch_size,
-                                       shuffle=self.args.read.shuffle,
-                                       ratio=self.args.read.ratio,
-                                       crop=self.args.read.crop,
-                                       num_threads=self.args.read.num_threads,
+                                       classes=args.read.mnist_classes,
+                                       seed=args.read.seed)
+        elif args.read.dataset == Dataset.IMAGE:
+            dataset = spn.ImageDataset(image_files=args.read.path,
+                                       format=args.read.image_format,
+                                       num_epochs=args.read.num_epochs,
+                                       batch_size=args.read.batch_size,
+                                       shuffle=args.read.shuffle,
+                                       ratio=args.read.ratio,
+                                       crop=args.read.crop,
+                                       num_threads=args.read.num_threads,
                                        allow_smaller_final_batch=True,
-                                       seed=self.args.read.seed)
+                                       seed=args.read.seed)
 
-        if self.args.write is not None:
+        if args.write is not None:
             # Create writer
-            if self.args.write.writer == Writer.IMAGE:
-                writer = spn.ImageDataWriter(self.args.write.path, dataset.shape,
+            if args.write.writer == Writer.IMAGE:
+                writer = spn.ImageDataWriter(args.write.path, dataset.shape,
                                              # All image formats besides BINARY
                                              # should already be normalized
                                              normalize=True)
