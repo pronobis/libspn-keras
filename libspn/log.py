@@ -22,10 +22,11 @@ To use in class methods::
 
     class Klass:
 
-        logger = get_logger()
+        __logger = get_logger()     # __ so that derived class can have
+        __debug1 = __logger.debug   # a different logger
 
-        def method():
-            Klass.logger.debug1("Debug message.")
+        def method(self):
+            self.__debug1("Debug message.")
 
 If expensive processing is required to calculate input for a debug message,
 it can be made conditional on the debug level as follows::

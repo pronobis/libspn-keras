@@ -37,8 +37,8 @@ class Dataset(ABC):
         seed (int): Optional. Seed used when shuffling.
     """
 
-    logger = get_logger()
-    info = logger.info
+    __logger = get_logger()
+    __info = __logger.info
 
     def __init__(self, num_epochs, batch_size, shuffle, shuffle_batch,
                  min_after_dequeue=None, num_threads=1,
@@ -183,6 +183,8 @@ class Dataset(ABC):
         Args:
             writer (DataWriter): The data writer to use.
         """
+        self.__info("Writing all data from %s to %s" %
+                    (type(self).__name__, type(writer).__name__))
         with tf.Graph().as_default():
             data = self.get_data()
             with session() as (sess, run):
@@ -190,7 +192,7 @@ class Dataset(ABC):
                 while run():
                     out = sess.run(data)
                     i += 1
-                    self.info("Batch %d" % i)
+                    self.__info("Writing batch %d" % i)
                     if not isinstance(out, list):  # Convert to list
                         out = [out]
                     writer.write(*out)
