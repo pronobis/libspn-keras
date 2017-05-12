@@ -41,8 +41,8 @@ class Sum(OpNode):
                                        op generation.
     """
 
-    logger = get_logger()
-    info = logger.info
+    __logger = get_logger()
+    __info = __logger.info
 
     def __init__(self, *values, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, name="Sum"):

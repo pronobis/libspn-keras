@@ -36,10 +36,10 @@ class DenseSPNGenerator:
                          similar cardinality (differing by max 1).
     """
 
-    logger = get_logger()
-    debug1 = logger.debug1
-    debug2 = logger.debug2
-    debug3 = logger.debug3
+    __logger = get_logger()
+    __debug1 = __logger.debug1
+    __debug2 = __logger.debug2
+    __debug3 = __logger.debug3
 
     class InputDist(Enum):
         """Determines how inputs sharing the same scope (for instance IVs for
@@ -115,15 +115,15 @@ class DenseSPNGenerator:
         Returns:
            Sum: Root node of the generated SPN.
         """
-        DenseSPNGenerator.debug1(
+        self.__debug1(
             "Generating dense SPN (num_decomps=%s, num_subsets=%s,"
             " num_mixtures=%s, input_dist=%s, num_input_mixtures=%s)",
             self.num_decomps, self.num_subsets,
             self.num_mixtures, self.input_dist, self.num_input_mixtures)
         inputs = [Input.as_input(i) for i in inputs]
         input_set = self.__generate_set(inputs)
-        DenseSPNGenerator.debug1("Found %s distinct input scopes",
-                                 len(input_set))
+        self.__debug1("Found %s distinct input scopes",
+                      len(input_set))
         root = Sum()
 
         # Subsets left to process
@@ -137,7 +137,7 @@ class DenseSPNGenerator:
         while subsets:
             # Process whole layer (all subsets at the same level)
             level = subsets[0].level
-            DenseSPNGenerator.debug1("Processing level %s", level)
+            self.__debug1("Processing level %s", level)
             while subsets and subsets[0].level == level:
                 subset = subsets.popleft()
                 new_subsets = self.__add_decompositions(subset)
@@ -200,24 +200,24 @@ class DenseSPNGenerator:
             requires further decomposition.
         """
         # Get subset partitions
-        DenseSPNGenerator.debug3("Decomposing subset:\n%s", subset_info.subset)
+        self.__debug3("Decomposing subset:\n%s", subset_info.subset)
         num_elems = len(subset_info.subset)
         num_subsubsets = min(num_elems, self.num_subsets)  # Requested num subsets
         partitions = utils.random_partitions(subset_info.subset, num_subsubsets,
                                              self.num_decomps,
                                              stirling=self.__stirling,
                                              balanced=self.balanced)
-        DenseSPNGenerator.debug2("Randomized %s decompositions of a subset"
-                                 " of %s elements into %s sets",
-                                 len(partitions), num_elems, num_subsubsets)
+        self.__debug2("Randomized %s decompositions of a subset"
+                      " of %s elements into %s sets",
+                      len(partitions), num_elems, num_subsubsets)
 
         # Generate nodes for each decomposition/partition
         subsubset_infos = []
         for part in partitions:
-            DenseSPNGenerator.debug2("Decomposition %s: into %s subsubsets of cardinality %s",
-                                     self.__decomp_id, len(part), [len(s) for s in part])
-            DenseSPNGenerator.debug3("Decomposition %s subsubsets:\n%s",
-                                     self.__decomp_id, part)
+            self.__debug2("Decomposition %s: into %s subsubsets of cardinality %s",
+                          self.__decomp_id, len(part), [len(s) for s in part])
+            self.__debug3("Decomposition %s subsubsets:\n%s",
+                          self.__decomp_id, part)
             # Handle each subsubset
             sums_id = 1
             prod_inputs = []

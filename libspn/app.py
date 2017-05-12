@@ -19,9 +19,8 @@ class App(ABC):
     The logic of the app should be placed in :func:`run`. To define command
     line arguments, override :func:`define_args` and :func:`process_args`.
 
-    To print inside the app, use either the logger with :func:`warning`,
-    :func:`info`, :func:`debug1` and :func:`debug2`, or color print
-    with :func:`print1` and :func:`print2`. Finally, one can simply use
+    To print inside the app, use either a logger defied in the app, or color
+    print with :func:`print1` and :func:`print2`. Finally, one can simply use
     the regular Python :func:`print`. To report a fatal error, use
     :func:`error`. All output (including exceptions) is saved to a file if
     ``--out`` is specified in the command line.
@@ -29,13 +28,6 @@ class App(ABC):
     Args:
         description (str): App description.
     """
-
-    # Logging from within the app
-    logger = log.get_logger()
-    info = logger.info
-    warning = logger.warning
-    debug1 = logger.debug1
-    debug2 = logger.debug2
 
     class StreamFork():
         """Forks a stream to another stream and a file."""

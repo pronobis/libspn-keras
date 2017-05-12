@@ -10,6 +10,7 @@ from libspn.data.dataset import Dataset
 from libspn.data.image import ImageShape, ImageFormat
 from libspn import conf
 from libspn import utils
+from libspn.log import get_logger
 import numpy as np
 import tensorflow as tf
 import os
@@ -45,6 +46,9 @@ class MnistDataset(Dataset):
                                will be provided.
         seed (int): Optional. Seed used when shuffling.
     """
+
+    __logger = get_logger()
+    __info = __logger.info
 
     class Subset(Enum):
         """Specifies what data is provided."""
@@ -176,6 +180,7 @@ class MnistDataset(Dataset):
 
     def load_data(self):
         """Load all data from MNIST data files."""
+        self.__info("Loading MNIST data")
         # Load data
         if (self._subset == MnistDataset.Subset.ALL or
                 self._subset == MnistDataset.Subset.TRAIN):

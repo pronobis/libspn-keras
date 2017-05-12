@@ -24,8 +24,8 @@ class Product(OpNode):
         name (str): Name of the node.
     """
 
-    logger = get_logger()
-    info = logger.info
+    __logger = get_logger()
+    __info = __logger.info
 
     def __init__(self, *values, name="Product"):
         self._values = []

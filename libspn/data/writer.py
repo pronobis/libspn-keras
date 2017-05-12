@@ -90,9 +90,9 @@ class ImageDataWriter(DataWriter):
         num_digits (int): Minimum number of digits of the image number.
     """
 
-    logger = get_logger()
-    debug1 = logger.debug1
-    is_debug1 = logger.is_debug1
+    __logger = get_logger()
+    __debug1 = __logger.debug1
+    __is_debug1 = __logger.is_debug1
 
     def __init__(self, path, shape, normalize=False, num_digits=4):
         self._path = os.path.expanduser(path)
@@ -119,11 +119,11 @@ class ImageDataWriter(DataWriter):
         if image_no is not None and not isinstance(image_no, int):
             raise ValueError("image_no must be integer")
 
-        if self.is_debug1():
-            self.debug1("Batch size:%s dtype:%s max_min:%s min_max:%s" %
-                        (images.shape[0], images.dtype,
-                         np.amax(np.amin(images, axis=1)),
-                         np.amin(np.amax(images, axis=1))))
+        if self.__is_debug1():
+            self.__debug1("Batch size:%s dtype:%s max_min:%s min_max:%s" %
+                          (images.shape[0], images.dtype,
+                           np.amax(np.amin(images, axis=1)),
+                           np.amin(np.amax(images, axis=1))))
 
         # Convert 1-image case to multi-image case
         if images.ndim == 1:
