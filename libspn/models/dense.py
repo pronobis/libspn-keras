@@ -75,7 +75,8 @@ class DenseModel(Model):
               stop_condition=0.0):
         self.__info("Adding EM learning ops")
         additive_smoothing_var = tf.Variable(additive_smoothing_value,
-                                             dtype=conf.dtype)
+                                             dtype=conf.dtype,
+                                             name="AdditiveSmoothing")
         em_learning = EMLearning(
             self._root, log=True,
             value_inference_type=value_inference_type,
@@ -87,7 +88,8 @@ class DenseModel(Model):
         accumulate_updates = em_learning.accumulate_updates()
         update_spn = em_learning.update_spn()
         train_likelihood = em_learning.value.values[self._root]
-        avg_train_likelihood = tf.reduce_mean(train_likelihood)
+        avg_train_likelihood = tf.reduce_mean(train_likelihood,
+                                              name="AverageTrainLikelihood")
         self.__info("Adding weight initialization ops")
         init_weights = initialize_weights(self._root)
 
