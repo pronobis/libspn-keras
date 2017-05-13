@@ -3,4 +3,4 @@
 mnist_dir="~/Data/mnist"
 
 mkdir -p ./mnist
-./spn-data -v read mnist $mnist_dir write image "./mnist/%n_%l.png"
+./spn-data -v read mnist $mnist_dir --ratio 1 --crop 4 --image-format binary write image "./mnist/%n_%l.png"
