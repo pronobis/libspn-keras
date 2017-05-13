@@ -60,8 +60,8 @@ class Dataset(ABC):
         self._min_after_dequeue = min_after_dequeue
         self._num_threads = num_threads
         self._allow_smaller_final_batch = allow_smaller_final_batch
-        if not isinstance(seed, int) or seed < 1:
-            raise ValueError("seed must be a positive integer")
+        if seed is not None and (not isinstance(seed, int) or seed < 1):
+            raise ValueError("seed must be None or a positive integer")
         self._seed = seed
         self._name_scope = None
 
@@ -97,6 +97,7 @@ class Dataset(ABC):
         Returns:
             A tensor or a list of tensors with the batch data.
         """
+        self.__info("Building dataset operations")
         with tf.name_scope("Dataset") as self._name_scope:
             raw_data = self.generate_data()
             proc_data = self.process_data(raw_data)
