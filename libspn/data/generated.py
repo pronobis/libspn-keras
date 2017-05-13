@@ -57,6 +57,7 @@ class GaussianMixtureDataset(Dataset):
     def __init__(self, components, num_samples, num_epochs, batch_size,
                  shuffle, num_threads=1, allow_smaller_final_batch=False,
                  num_vals=None, seed=None):
+        # TODO: Detect if the components have the same number of dimensions
         super().__init__(num_epochs=num_epochs, batch_size=batch_size,
                          shuffle=shuffle,
                          # We shuffle the samples in this class

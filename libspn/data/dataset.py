@@ -43,19 +43,25 @@ class Dataset(ABC):
     def __init__(self, num_epochs, batch_size, shuffle, shuffle_batch,
                  min_after_dequeue=None, num_threads=1,
                  allow_smaller_final_batch=False, seed=None):
+        if not isinstance(num_epochs, int) or num_epochs < 1:
+            raise ValueError("num_epochs must be a positive integer")
+        self._num_epochs = num_epochs
+        if not isinstance(batch_size, int) or batch_size < 1:
+            raise ValueError("batch_size must be a positive integer")
+        self._batch_size = batch_size
         if shuffle_batch and not shuffle:
             raise RuntimeError("Batch shuffling should not be enabled "
                                "when shuffle is False.")
         if shuffle_batch and min_after_dequeue is None:
             raise RuntimeError("min_after_dequeue must be set if batch "
                                "shuffling is enabled.")
-        self._num_epochs = num_epochs
-        self._batch_size = batch_size
         self._shuffle = shuffle
         self._shuffle_batch = shuffle_batch
         self._min_after_dequeue = min_after_dequeue
         self._num_threads = num_threads
         self._allow_smaller_final_batch = allow_smaller_final_batch
+        if not isinstance(seed, int) or seed < 1:
+            raise ValueError("seed must be a positive integer")
         self._seed = seed
         self._name_scope = None
 

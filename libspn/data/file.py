@@ -83,9 +83,9 @@ class CSVFileDataset(FileDataset):
 
     If ``num_labels>0``, the data is returned as a tuple of tensors
     ``(labels, samples)``, where ``labels`` is a tensor of shape
-    ``[batsh_size, num_labels]``, containing the first ``num_labels`` columns
-    and ``samples`` is a tensor ``[batsh_size, ?]`` containing the data samples.
-    If ``num_labels==0``, the data is retured as a single tensor ``samples``.
+    ``[batch_size, num_labels]``, containing the first ``num_labels`` columns
+    and ``samples`` is a tensor ``[batch_size, ?]`` containing the data samples.
+    If ``num_labels==0``, the data is returned as a single tensor ``samples``.
 
     This dataset can be overridden to customize the way the data is processed
     grouped and cast. For instance, to divide the batch into three tensors,
