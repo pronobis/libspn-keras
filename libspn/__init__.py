@@ -58,7 +58,7 @@ from libspn.data.writer import CSVDataWriter
 from libspn.data.writer import ImageDataWriter
 
 # Models
-from libspn.models.dense import DenseModel
+from libspn.models.discrete_dense import DiscreteDenseModel
 
 # Session
 from libspn.session import session
@@ -111,7 +111,7 @@ __all__ = [
     'IntGridDataset', 'MnistDataset', 'ImageDataset', 'ImageFormat',
     'ImageShape', 'DataWriter', 'CSVDataWriter', 'ImageDataWriter',
     # Models
-    'DenseModel',
+    'DiscreteDenseModel',
     # Session
     'session',
     # Visualization

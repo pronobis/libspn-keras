@@ -12,4 +12,12 @@ class Model(ABC):
     """An abstract class defining the interface of a model."""
 
     def __init__(self):
-        pass
+        self._root = None
+
+    @property
+    def root(self):
+        return self._root
+
+    @abstractmethod
+    def build():
+        """Builds the SPN graph of the model."""
