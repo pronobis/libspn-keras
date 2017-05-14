@@ -45,8 +45,16 @@ class ImageFormat(Enum):
     interval [0, 255]."""
 
     RGB_BINARY = 5
-    """Image data is 3 channels (rgb), of type uint8 with binary values
-    {0,1}."""
+    """Image data is 3 channels (rgb), of type uint8 with binary values {0,1}."""
+
+    @property
+    def num_vals(self):
+        """int: Number of possible values for discretized formats.  Returns
+        ``None`` for continuous values.
+        """
+        return (2 if self in {ImageFormat.BINARY or ImageFormat.RGB_BINARY}
+                else 255 if self in {ImageFormat.INT or ImageFormat.RGB_INT}
+                else None)
 
 
 class ImageDataset(FileDataset):
