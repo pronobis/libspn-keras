@@ -33,6 +33,10 @@ class SpnModel(spn.App):
                             help="model to build")
 
         model_params = parser.add_argument_group(title="model parameters")
+        model_params.add_argument('--num-classes', type=int, default=None,
+                                  help="number of data classes considered by the model; "
+                                  "if not given, inferred from the dataset when possible;"
+                                  "set to 1 to force 1-class model even for multi-class data")
         model_params.add_argument('--weight-init', type=str, default='random',
                                   choices=[i.name.lower() for i in WeightInit],
                                   help='type of weight initialization')
@@ -229,7 +233,7 @@ class SpnModel(spn.App):
     def _prepare_data(self, args):
         if args.train:
             if args.train.dataset == Dataset.MNIST:
-                self.train_set = spn.MnistDataset(
+                train_set = spn.MnistDataset(
                     data_dir=args.train.path,
                     subset=args.train.mnist_subset,
                     format=args.train.image_format,
@@ -242,9 +246,11 @@ class SpnModel(spn.App):
                     allow_smaller_final_batch=args.train.allow_smaller_batch,
                     classes=args.train.mnist_classes,
                     seed=args.train.seed)
-                self.train_samples, self.train_labels = self.train_set.get_data()
+                self.train_samples, self.train_labels = train_set.get_data()
+                self.train_num_vals = train_set.format.num_vals
+                self.train_num_classes = len(train_set.classes)
             elif args.train.dataset == Dataset.IMAGE:
-                self.train_set = spn.ImageDataset(
+                train_set = spn.ImageDataset(
                     image_files=args.train.path,
                     format=args.train.image_format,
                     num_epochs=args.train.num_epochs,
@@ -255,33 +261,35 @@ class SpnModel(spn.App):
                     num_threads=args.train.num_threads,
                     allow_smaller_final_batch=args.train.allow_smaller_batch,
                     seed=args.train.seed)
-                self.train_samples, self.train_labels = self.train_set.get_data()
+                self.train_samples, self.train_labels = train_set.get_data()
+                self.train_num_vals = train_set.format.num_vals
+                self.train_num_classes = None
             # For a dataset without labels, just set labels to None
         if args.test:
             if args.test.dataset == Dataset.MNIST:
-                self.test_set = spn.MnistDataset(data_dir=args.test.path,
-                                                 subset=args.test.mnist_subset,
-                                                 format=args.test.image_format,
-                                                 num_epochs=1,
-                                                 batch_size=args.test.batch_size,
-                                                 shuffle=False,
-                                                 ratio=args.test.ratio,
-                                                 crop=args.test.crop,
-                                                 num_threads=args.test.num_threads,
-                                                 allow_smaller_final_batch=True,
-                                                 classes=args.test.mnist_classes)
-                self.test_samples, self.test_labels = self.test_set.get_data()
+                test_set = spn.MnistDataset(data_dir=args.test.path,
+                                            subset=args.test.mnist_subset,
+                                            format=args.test.image_format,
+                                            num_epochs=1,
+                                            batch_size=args.test.batch_size,
+                                            shuffle=False,
+                                            ratio=args.test.ratio,
+                                            crop=args.test.crop,
+                                            num_threads=args.test.num_threads,
+                                            allow_smaller_final_batch=True,
+                                            classes=args.test.mnist_classes)
+                self.test_samples, self.test_labels = test_set.get_data()
             elif args.test.dataset == Dataset.IMAGE:
-                self.test_set = spn.ImageDataset(image_files=args.test.path,
-                                                 format=args.test.image_format,
-                                                 num_epochs=1,
-                                                 batch_size=args.test.batch_size,
-                                                 shuffle=False,
-                                                 ratio=args.test.ratio,
-                                                 crop=args.test.crop,
-                                                 num_threads=args.test.num_threads,
-                                                 allow_smaller_final_batch=True)
-                self.test_samples, self.test_labels = self.test_set.get_data()
+                test_set = spn.ImageDataset(image_files=args.test.path,
+                                            format=args.test.image_format,
+                                            num_epochs=1,
+                                            batch_size=args.test.batch_size,
+                                            shuffle=False,
+                                            ratio=args.test.ratio,
+                                            crop=args.test.crop,
+                                            num_threads=args.test.num_threads,
+                                            allow_smaller_final_batch=True)
+                self.test_samples, self.test_labels = test_set.get_data()
             # For a dataset without labels, just set labels to None
 
     def _load_model(self, args):
@@ -293,9 +301,16 @@ class SpnModel(spn.App):
             weight_init_value = 1
         elif args.build.weight_init == WeightInit.RANDOM:
             weight_init_value = spn.ValueType.RANDOM_UNIFORM(0, 1)
+        # Get final number of classes
+        num_classes = (args.build.num_classes
+                       if args.build.num_classes is not None
+                       else self.train_num_classes)
         # Build model
         if args.build.model == Model.DISCRETE_DENSE:
             self.model = spn.DiscreteDenseModel(
+                num_vars=int(self.train_samples.shape[1]),
+                num_vals=self.train_num_vals,
+                num_classes=num_classes,
                 num_decomps=args.build.dense_decomps,
                 num_subsets=args.build.dense_subsets,
                 num_mixtures=args.build.dense_mixtures,
@@ -326,7 +341,7 @@ class SpnModel(spn.App):
         pass
 
     def run(self, args):
-        self._prepare_data(args)
+        self._prepare_data(args)  # Done first, so that we get dimensions for build
         if args.build:
             self._build_model(args)
         elif args.load:
