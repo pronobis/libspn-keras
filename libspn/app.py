@@ -164,6 +164,19 @@ class App(ABC):
                   file=self._orig_stderr)
         sys.exit(1)
 
+    @staticmethod
+    def bool_arg(v):
+        """Enables easy parsing of Boolean command line arguments."""
+        t_vals = ('yes', 'true', 't', 'y', '1')
+        f_vals = ('no', 'false', 'f', 'n', '0')
+        if v.lower() in t_vals:
+            return True
+        elif v.lower() in f_vals:
+            return False
+        else:
+            raise argparse.ArgumentTypeError('boolean value expected (%s or %s).'
+                                             % (', '.join(t_vals), ', '.join(f_vals)))
+
     def _parse_args(self, parser, commands):
         """Parse arguments considering commands."""
         # Divide argv by commands

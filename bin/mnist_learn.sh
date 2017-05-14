@@ -15,8 +15,8 @@ image_format="binary"
             train em mnist "~/Data/mnist" \
             --num-epochs=100 \
             --batch-size=100 \
-            --allow_smaller_batch \
-            --shuffle \
+            --allow_smaller_batch=true \
+            --shuffle=true \
             --seed=100 \
             --image-format=$image_format \
             --ratio=$ratio \
