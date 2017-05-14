@@ -180,10 +180,10 @@ class MnistDataset(Dataset):
 
     def load_data(self):
         """Load all data from MNIST data files."""
-        self.__info("Loading MNIST data")
         # Load data
         if (self._subset == MnistDataset.Subset.ALL or
                 self._subset == MnistDataset.Subset.TRAIN):
+            self.__info("Loading MNIST training data")
             loaded = np.fromfile(os.path.join(self._data_dir, 'train-images-idx3-ubyte'),
                                  dtype=np.uint8)
             train_x = loaded[16:].reshape(
@@ -194,6 +194,7 @@ class MnistDataset(Dataset):
 
         if (self._subset == MnistDataset.Subset.ALL or
                 self._subset == MnistDataset.Subset.TEST):
+            self.__info("Loading MNIST test data")
             loaded = np.fromfile(os.path.join(self._data_dir, 't10k-images-idx3-ubyte'),
                                  dtype=np.uint8)
             test_x = loaded[16:].reshape((
