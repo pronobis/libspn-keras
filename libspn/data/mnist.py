@@ -108,7 +108,10 @@ class MnistDataset(Dataset):
                 not all(isinstance(i, int) and i >= 0 and i <= 9 for i in classes)):
             raise ValueError("Elements of classes must be integers in "
                              "interval [0, 9]")
-        self._classes = classes
+        if classes is None:
+            self._classes = None
+        else:
+            self._classes = sorted(classes)
         self._samples = None
         self._labels = None
         self._channels = 1
@@ -140,7 +143,7 @@ class MnistDataset(Dataset):
 
     @property
     def classes(self):
-        """list of int: List of classes provided by the dataset."""
+        """list of int: List of classes provided by the dataset (sorted)."""
         if self._classes is not None:
             return self._classes
         else:
