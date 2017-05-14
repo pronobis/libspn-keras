@@ -20,4 +20,4 @@ class Model(ABC):
 
     @abstractmethod
     def build():
-        """Builds the SPN graph of the model."""
+        """Build the SPN graph of the model."""
