@@ -17,7 +17,7 @@ class Learner(Enum):
     EM = 0
 
 
-class WeightInitType(Enum):
+class WeightInit(Enum):
     ONE = 1
     RANDOM = 2
 
@@ -34,7 +34,7 @@ class SpnModel(spn.App):
 
         model_params = parser.add_argument_group(title="model parameters")
         model_params.add_argument('--weight-init', type=str, default='random',
-                                  choices=[i.name.lower() for i in WeightInitType],
+                                  choices=[i.name.lower() for i in WeightInit],
                                   help='type of weight initialization')
         model_params.add_argument('--dense-decomps', type=int, default=1,
                                   help='dense generator: number of decompositions')
@@ -61,7 +61,8 @@ class SpnModel(spn.App):
                             help="training dataset to use")
         parser.add_argument('path', type=str,
                             help="path to the training data; "
-                            "a folder, a glob, or a coma-separated list of files")
+                            "a folder, a glob, or a coma-separated list of files; "
+                            "see specific dataset docs for details")
 
         data_params = parser.add_argument_group(title="data parameters")
         data_params.add_argument('--num-epochs', type=int, default='100',
@@ -116,7 +117,8 @@ class SpnModel(spn.App):
                             help="test dataset to use")
         parser.add_argument('path', type=str,
                             help="path to the test data; "
-                            "a folder, a glob, or a coma-separated list of files")
+                            "a folder, a glob, or a coma-separated list of files "
+                            "see specific dataset docs for details")
 
         data_params = parser.add_argument_group(title="data parameters")
         data_params.add_argument('--batch-size', type=int, default='100',
@@ -182,7 +184,7 @@ class SpnModel(spn.App):
         # Model
         args.build.dense_input_dist = spn.DenseSPNGenerator.InputDist[
             args.build.dense_input_dist.upper()]
-        args.build.weight_init = WeightInitType[args.build.weight_init.upper()]
+        args.build.weight_init = WeightInit[args.build.weight_init.upper()]
 
         ##########################
         # Train command
@@ -287,9 +289,9 @@ class SpnModel(spn.App):
 
     def _build_model(self, args):
         # Decode weight_init_value
-        if args.build.weight_init == WeightInitType.ONE:
+        if args.build.weight_init == WeightInit.ONE:
             weight_init_value = 1
-        elif args.build.weight_init == WeightInitType.RANDOM:
+        elif args.build.weight_init == WeightInit.RANDOM:
             weight_init_value = spn.ValueType.RANDOM_UNIFORM(0, 1)
         # Build model
         if args.build.model == Model.DISCRETE_DENSE:

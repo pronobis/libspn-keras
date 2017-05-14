@@ -65,7 +65,7 @@ from libspn.session import session
 
 # Visualization
 from libspn.visual.plot import plot_2d
-from libspn.visual.plot import image
+from libspn.visual.image import show_image
 from libspn.visual.tf_graph import display_tf_graph
 from libspn.visual.spn_graph import display_spn_graph
 
@@ -115,7 +115,7 @@ __all__ = [
     # Session
     'session',
     # Visualization
-    'plot_2d', 'image', 'display_tf_graph', 'display_spn_graph',
+    'plot_2d', 'show_image', 'display_tf_graph', 'display_spn_graph',
     # Logging
     'config_logger', 'get_logger', 'WARNING', 'INFO', 'DEBUG1', 'DEBUG2',
     # Custom ops, utils and config

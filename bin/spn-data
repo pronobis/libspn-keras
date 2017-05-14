@@ -2,6 +2,7 @@
 
 import libspn as spn
 from enum import Enum
+import matplotlib.pyplot as plt
 
 
 class Dataset(Enum):
@@ -15,23 +16,22 @@ class Writer(Enum):
 
 class SpnData(spn.App):
 
+    __logger = spn.get_logger()
+    __info = __logger.info
+
     def __init__(self):
         super().__init__("Data processing")
 
-    def define_args(self, parser, commands):
-        ##########################
-        # Read command
-        ##########################
-        read_parser = commands.add_parser('read', app=self,
-                                          help='read data from a dataset')
-        read_parser.add_argument('dataset', type=str,
-                                 choices=[i.name.lower() for i in Dataset],
-                                 help="dataset to use")
-        read_parser.add_argument('path', type=str,
-                                 help="path to the input data; "
-                                 "a folder, a glob, or a coma-separated list of files")
+    def _define_read_args(self, parser):
+        parser.add_argument('dataset', type=str,
+                            choices=[i.name.lower() for i in Dataset],
+                            help="dataset to use")
+        parser.add_argument('path', type=str,
+                            help="path to the input data; "
+                            "a folder, a glob, or a coma-separated list of files "
+                            "see specific dataset docs for details")
 
-        data_params = read_parser.add_argument_group(title="data parameters")
+        data_params = parser.add_argument_group(title="data parameters")
         data_params.add_argument('--num-epochs', type=int, default='1',
                                  help="number of epochs of produced data")
         data_params.add_argument('--batch-size', type=int, default='100',
@@ -43,41 +43,48 @@ class SpnData(spn.App):
         data_params.add_argument('--seed', type=int, default=None,
                                  help="seed used for shuffling")
 
-        image_params = read_parser.add_argument_group(title="image data parameters")
+        image_params = parser.add_argument_group(title="image data parameters")
         image_params.add_argument('--image-format', type=str, default='float',
-                                  choices=[i.name.lower()
-                                           for i in spn.ImageFormat],
+                                  choices=[i.name.lower() for i in spn.ImageFormat],
                                   help="image format")
         image_params.add_argument('--ratio', type=int, default=1,
                                   help="downsample images by the given ratio")
         image_params.add_argument('--crop', type=int, default=0,
                                   help="crop image border pixels")
 
-        mnist_params = read_parser.add_argument_group(title="MNIST data parameters")
+        mnist_params = parser.add_argument_group(title="MNIST data parameters")
         mnist_params.add_argument('--mnist-subset', type=str, default='all',
-                                  choices=[i.name.lower()
-                                           for i in spn.MnistDataset.Subset],
+                                  choices=[i.name.lower() for i in spn.MnistDataset.Subset],
                                   help="subset to use")
         mnist_params.add_argument('--mnist-classes', type=str, default=None,
                                   help="coma-separated list of digits; if specified, "
                                   "only the listed classes will be provided")
 
-        ##########################
-        # Write command
-        ##########################
-        write_parser = commands.add_parser('write', app=self,
-                                           help='writes data using a writer')
-        write_required = write_parser.add_argument_group('required arguments')
-        write_required.add_argument('writer', type=str,
-                                    choices=[i.name.lower() for i in Writer],
-                                    help="writer to use")
-        write_parser.add_argument('path', type=str,
-                                  help="a path to the output file(s); "
-                                  "for images, might contain %%n for image number and "
-                                  "%%l for image label")
+    def _define_write_args(self, parser):
+        parser.add_argument('writer', type=str,
+                            choices=[i.name.lower() for i in Writer],
+                            help="writer to use")
+        parser.add_argument('path', type=str,
+                            help="a path to the output file(s); "
+                            "for images, might contain %%n for image number and "
+                            "%%l for image label; see specific writer docs for details")
+
+    def _define_visualize_args(self, parser):
+        pass
+
+    def define_args(self, parser, commands):
+        self._define_read_args(
+            commands.add_parser('read', app=self,
+                                help='read data from a dataset'))
+        self._define_write_args(
+            commands.add_parser('write', app=self,
+                                help='write data using a writer'))
+        self._define_visualize_args(
+            commands.add_parser('visualize', app=self,
+                                help='visualize data'))
 
     def process_args(self, parser, args):
-        if args.read is None:
+        if not args.read:
             parser.error("read command must be used")
 
         ##########################
@@ -131,8 +138,8 @@ class SpnData(spn.App):
                                        num_threads=args.read.num_threads,
                                        allow_smaller_final_batch=True,
                                        seed=args.read.seed)
-
-        if args.write is not None:
+        # Write data
+        if args.write:
             # Create writer
             if args.write.writer == Writer.IMAGE:
                 writer = spn.ImageDataWriter(args.write.path, dataset.shape,
@@ -142,6 +149,46 @@ class SpnData(spn.App):
 
             # Write all
             dataset.write_all(writer)
+
+        # Visualize data (beta)
+        if args.visualize:
+            # Get data
+            data = dataset.get_data()
+
+            # Setup figure
+            plt.ion()
+            plt.show()
+            fig = plt.gcf()
+
+            # Setup event listening
+            def on_key(event):
+                if event.key == "escape":
+                    done[0] = True
+                pause[0] = False
+            fig.canvas.mpl_connect('key_press_event', on_key)
+
+            # Loop through images
+            done = [False]
+            batch_nr = 0
+            with spn.session() as (sess, run):
+                while run() and not done[0]:
+                    batch_nr += 1
+                    out = sess.run(data)
+                    self.__info("Displaying batch %i" % batch_nr)
+
+                    # Currently, we only visualize images
+                    for i in range(out[0].shape[0]):
+                        pause = [True]
+                        spn.show_image(out[0][i], shape=dataset.shape,
+                                       # All image formats besides BINARY
+                                       # should already be normalized
+                                       normalize=True)
+                        # Pause & clear
+                        while pause[0]:
+                            fig.canvas.get_tk_widget().update()  # process events
+                        plt.cla()
+                        if done[0]:
+                            break
 
 
 if __name__ == '__main__':
