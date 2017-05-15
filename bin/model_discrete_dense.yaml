@@ -1,6 +1,7 @@
 build:
   model: discrete_dense
   # Model params
+  multi-class: True
   weight-init: random
   dense-input-dist: raw
   dense-decomps: 1

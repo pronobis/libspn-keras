@@ -33,6 +33,8 @@ class SpnModel(spn.App):
                             help="model to build")
 
         model_params = parser.add_argument_group(title="model parameters")
+        model_params.add_argument('--multi-class', type=spn.App.bool_arg,
+                                  default=True, help="should multi-class model be built for multi-class data?")
         model_params.add_argument('--num-classes', type=int, default=None,
                                   help="number of data classes considered by the model; "
                                   "if not given, inferred from the dataset when possible;"
@@ -69,6 +71,9 @@ class SpnModel(spn.App):
                             "see specific dataset docs for details")
 
         data_params = parser.add_argument_group(title="data parameters")
+        data_params.add_argument('--classes', type=str, default=None,
+                                 help="coma-separated list of labels of classes to use; "
+                                 "if not provided, all classes will be used for some datasets")
         data_params.add_argument('--num-epochs', type=int, default=100,
                                  help="number of training epochs")
         data_params.add_argument('--batch-size', type=int, default=100,
@@ -96,9 +101,6 @@ class SpnModel(spn.App):
                                   choices=[i.name.lower()
                                            for i in spn.MnistDataset.Subset],
                                   help="subset to use")
-        mnist_params.add_argument('--mnist-classes', type=str, default=None,
-                                  help="coma-separated list of digits; if specified, "
-                                  "only the listed classes will be provided")
 
         learn_params = parser.add_argument_group(title="learning parameters")
         learn_params.add_argument('--value-inference', type=str, default='marginal',
@@ -125,6 +127,9 @@ class SpnModel(spn.App):
                             "see specific dataset docs for details")
 
         data_params = parser.add_argument_group(title="data parameters")
+        data_params.add_argument('--classes', type=str, default=None,
+                                 help="coma-separated list of labels of classes to use; "
+                                 "if not provided, all classes will be used for some datasets")
         data_params.add_argument('--batch-size', type=int, default=100,
                                  help="size of a batch used for training")
         data_params.add_argument('--num-threads', type=int, default=1,
@@ -143,9 +148,6 @@ class SpnModel(spn.App):
         mnist_params.add_argument('--mnist-subset', type=str, default='all',
                                   choices=[i.name.lower() for i in spn.MnistDataset.Subset],
                                   help="subset to use")
-        mnist_params.add_argument('--mnist-classes', type=str, default=None,
-                                  help="coma-separated list of digits; if specified, "
-                                  "only the listed classes will be provided")
 
     def _define_mpe_args(self, parser):
         pass
@@ -196,18 +198,15 @@ class SpnModel(spn.App):
         # Positional
         args.train.dataset = Dataset[args.train.dataset.upper()]
         # Data
+        if args.train.classes is not None:
+            args.train.classes = [i.strip() for i in
+                                  args.train.classes.split(',')]
         args.train.image_format = spn.ImageFormat[args.train.image_format.upper()]
         if args.train.ratio < 1:
             parser.error("RATIO must be >=1")
         if args.train.crop < 0:
             parser.error("CROP cannot be negative")
         args.train.mnist_subset = spn.MnistDataset.Subset[args.train.mnist_subset.upper()]
-        if args.train.mnist_classes is not None:
-            try:
-                args.train.mnist_classes = set([int(i) for i in
-                                                args.train.mnist_classes.split(',')])
-            except ValueError:
-                parser.error("Incorrect mnist_classes '%s'" % args.train.mnist_classes)
         # Learning
         args.train.value_inference = spn.InferenceType[args.train.value_inference.upper()]
 
@@ -217,18 +216,15 @@ class SpnModel(spn.App):
         # Positional
         args.test.dataset = Dataset[args.test.dataset.upper()]
         # Data
+        if args.test.classes is not None:
+            args.test.classes = [i.strip() for i in
+                                 args.test.classes.split(',')]
         args.test.image_format = spn.ImageFormat[args.test.image_format.upper()]
         if args.test.ratio < 1:
             parser.error("RATIO must be >=1")
         if args.test.crop < 0:
             parser.error("CROP cannot be negative")
         args.test.mnist_subset = spn.MnistDataset.Subset[args.test.mnist_subset.upper()]
-        if args.test.mnist_classes is not None:
-            try:
-                args.test.mnist_classes = set([int(i) for i in
-                                               args.test.mnist_classes.split(',')])
-            except ValueError:
-                parser.error("Incorrect mnist_classes '%s'" % args.test.mnist_classes)
 
     def _prepare_data(self, args):
         if args.train:
@@ -244,7 +240,7 @@ class SpnModel(spn.App):
                     crop=args.train.crop,
                     num_threads=args.train.num_threads,
                     allow_smaller_final_batch=args.train.allow_smaller_batch,
-                    classes=args.train.mnist_classes,
+                    classes=args.train.classes,
                     seed=args.train.seed)
                 self.train_samples, self.train_labels = train_set.get_data()
                 self.train_num_vals = train_set.format.num_vals
@@ -277,7 +273,7 @@ class SpnModel(spn.App):
                                             crop=args.test.crop,
                                             num_threads=args.test.num_threads,
                                             allow_smaller_final_batch=True,
-                                            classes=args.test.mnist_classes)
+                                            classes=args.test.classes)
                 self.test_samples, self.test_labels = test_set.get_data()
             elif args.test.dataset == Dataset.IMAGE:
                 test_set = spn.ImageDataset(image_files=args.test.path,

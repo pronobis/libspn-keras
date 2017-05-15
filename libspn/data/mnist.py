@@ -42,13 +42,14 @@ class MnistDataset(Dataset):
         allow_smaller_final_batch(bool): If ``False``, the last batch will be
                                          omitted if it has less elements than
                                          ``batch_size``.
-        classes (set of int): Optional. If specified, only the listed classes
+        classes (list of int): Optional. If specified, only the listed classes
                                will be provided.
         seed (int): Optional. Seed used when shuffling.
     """
 
     __logger = get_logger()
     __info = __logger.info
+    __debug1 = __logger.debug1
 
     class Subset(Enum):
         """Specifies what data is provided."""
@@ -102,16 +103,19 @@ class MnistDataset(Dataset):
         self._crop = crop
         self._width -= 2 * crop
         self._height -= 2 * crop
-        if classes is not None and not isinstance(classes, set):
-            raise ValueError("classes must be a set")
-        if (classes is not None and
-                not all(isinstance(i, int) and i >= 0 and i <= 9 for i in classes)):
-            raise ValueError("Elements of classes must be integers in "
-                             "interval [0, 9]")
-        if classes is None:
-            self._classes = None
-        else:
-            self._classes = sorted(classes)
+        if classes is not None:
+            if not isinstance(classes, list):
+                raise ValueError("classes must be a list")
+            try:
+                classes = [int(c) for c in classes]
+            except ValueError:
+                raise ValueError('classes must be convertible to int')
+            if not all(i >= 0 and i <= 9 for i in classes):
+                raise ValueError("Elements of classes must be integers in "
+                                 "interval [0, 9]")
+            if len(set(classes)) != len(classes):
+                raise ValueError('classes must contain unique elements')
+        self._classes = classes
         self._samples = None
         self._labels = None
         self._channels = 1
@@ -143,7 +147,7 @@ class MnistDataset(Dataset):
 
     @property
     def classes(self):
-        """list of int: List of classes provided by the dataset (sorted)."""
+        """list of int: List of classes provided by the dataset."""
         if self._classes is not None:
             return self._classes
         else:
@@ -223,7 +227,8 @@ class MnistDataset(Dataset):
         if self._classes is None:
             self._labels = labels
         else:
-            chosen = np.in1d(labels, list(self._classes))
+            self.__debug1("Selecting classes %s" % self._classes)
+            chosen = np.in1d(labels, self._classes)
             samples = samples[chosen]
             self._labels = labels[chosen]
 

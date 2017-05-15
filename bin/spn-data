@@ -32,6 +32,9 @@ class SpnData(spn.App):
                             "see specific dataset docs for details")
 
         data_params = parser.add_argument_group(title="data parameters")
+        data_params.add_argument('--classes', type=str, default=None,
+                                 help="coma-separated list of labels of classes to use; "
+                                 "if not provided, all classes will be used")
         data_params.add_argument('--num-epochs', type=int, default=1,
                                  help="number of epochs of produced data")
         data_params.add_argument('--batch-size', type=int, default=100,
@@ -56,9 +59,6 @@ class SpnData(spn.App):
         mnist_params.add_argument('--mnist-subset', type=str, default='all',
                                   choices=[i.name.lower() for i in spn.MnistDataset.Subset],
                                   help="subset to use")
-        mnist_params.add_argument('--mnist-classes', type=str, default=None,
-                                  help="coma-separated list of digits; if specified, "
-                                  "only the listed classes will be provided")
 
     def _define_write_args(self, parser):
         parser.add_argument('writer', type=str,
@@ -93,18 +93,15 @@ class SpnData(spn.App):
         # Positional
         args.read.dataset = Dataset[args.read.dataset.upper()]
         # Data
+        if args.read.classes is not None:
+            args.read.classes = [i.strip() for i in
+                                 args.read.classes.split(',')]
         args.read.image_format = spn.ImageFormat[args.read.image_format.upper()]
         if args.read.ratio < 1:
             parser.error("RATIO must be >=1")
         if args.read.crop < 0:
             parser.error("CROP cannot be negative")
         args.read.mnist_subset = spn.MnistDataset.Subset[args.read.mnist_subset.upper()]
-        if args.read.mnist_classes is not None:
-            try:
-                args.read.mnist_classes = set([int(i) for i in
-                                               args.read.mnist_classes.split(',')])
-            except ValueError:
-                parser.error("Incorrect mnist_classes '%s'" % args.read.mnist_classes)
 
         ##########################
         # Write command
@@ -125,7 +122,7 @@ class SpnData(spn.App):
                                        crop=args.read.crop,
                                        num_threads=args.read.num_threads,
                                        allow_smaller_final_batch=True,
-                                       classes=args.read.mnist_classes,
+                                       classes=args.read.classes,
                                        seed=args.read.seed)
         elif args.read.dataset == Dataset.IMAGE:
             dataset = spn.ImageDataset(image_files=args.read.path,
