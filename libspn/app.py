@@ -187,8 +187,8 @@ class App(ABC):
     @staticmethod
     def bool_arg(v):
         """Enables easy parsing of Boolean command line arguments."""
-        t_vals = ('yes', 'true', 't', 'y', '1')
-        f_vals = ('no', 'false', 'f', 'n', '0')
+        t_vals = ('yes', 'true', 't', 'y', 'on')
+        f_vals = ('no', 'false', 'f', 'n', 'off')
         if v.lower() in t_vals:
             return True
         elif v.lower() in f_vals:
