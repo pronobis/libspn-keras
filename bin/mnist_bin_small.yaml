@@ -1,0 +1,32 @@
+read:
+  dataset: &DATASET mnist
+  path: &PATH "~/Data/mnist"
+  # Image/MNIST params
+  image-format: &IMAGE_FORMAT binary
+  ratio: &RATIO 4
+  crop: &CROP 1
+
+train:
+  dataset: *DATASET
+  path: *PATH
+  # Data params
+  num-epochs: 100
+  batch-size: 100
+  allow_smaller_batch: true
+  shuffle: true
+  seed: 100
+  # Image/MNIST params
+  image-format: *IMAGE_FORMAT
+  ratio: *RATIO
+  crop: *CROP
+  mnist-subset: train
+
+test:
+  dataset: *DATASET
+  path: *PATH
+  batch-size: 100
+  # Image/MNIST params
+  image-format: *IMAGE_FORMAT
+  ratio: *RATIO
+  crop: *CROP
+  mnist-subset: test
