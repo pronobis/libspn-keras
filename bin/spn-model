@@ -69,13 +69,13 @@ class SpnModel(spn.App):
                             "see specific dataset docs for details")
 
         data_params = parser.add_argument_group(title="data parameters")
-        data_params.add_argument('--num-epochs', type=int, default='100',
+        data_params.add_argument('--num-epochs', type=int, default=100,
                                  help="number of training epochs")
-        data_params.add_argument('--batch-size', type=int, default='100',
+        data_params.add_argument('--batch-size', type=int, default=100,
                                  help="size of a batch used for training")
         data_params.add_argument('--allow_smaller_batch', type=spn.App.bool_arg,
                                  default=False, help="allow smaller final batch")
-        data_params.add_argument('--num-threads', type=int, default='1',
+        data_params.add_argument('--num-threads', type=int, default=1,
                                  help="number of threads enqueuing the data queue.")
         data_params.add_argument('--shuffle', type=spn.App.bool_arg, default=False,
                                  help="shuffle the data every epoch")
@@ -125,9 +125,9 @@ class SpnModel(spn.App):
                             "see specific dataset docs for details")
 
         data_params = parser.add_argument_group(title="data parameters")
-        data_params.add_argument('--batch-size', type=int, default='100',
+        data_params.add_argument('--batch-size', type=int, default=100,
                                  help="size of a batch used for training")
-        data_params.add_argument('--num-threads', type=int, default='1',
+        data_params.add_argument('--num-threads', type=int, default=1,
                                  help="number of threads enqueuing the data queue.")
 
         image_params = parser.add_argument_group(title="image data parameters")
