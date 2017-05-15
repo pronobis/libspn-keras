@@ -11,6 +11,19 @@ import argparse
 import sys
 import traceback
 import colorama as col
+import yaml
+import collections
+
+
+def update_dict(d, u):
+    """Update dictionary recursively."""
+    for k, v in u.items():
+        if isinstance(v, collections.Mapping):
+            r = update_dict(d.get(k, {}), v)
+            d[k] = r
+        else:
+            d[k] = u[k]
+    return d
 
 
 class App(ABC):
@@ -83,6 +96,9 @@ class App(ABC):
         parser._action_groups.append(parser_optional)
         self.define_args(parser, commands)
         other_params = parser.add_argument_group(title="other")
+        other_params.add_argument('-c', '--conf', action='append',
+                                  type=str, default=[],
+                                  help="read configuration from file")
         other_params.add_argument('-v', '--debug1', action='store_true',
                                   help="print log messages at level DEBUG1")
         other_params.add_argument('-vv', '--debug2', action='store_true',
@@ -90,6 +106,10 @@ class App(ABC):
         other_params.add_argument('-o', '--out', type=str,
                                   metavar='FILE',
                                   help="save output to FILE")
+        # Update defaults from config files
+        conf_files = self._parse_config_args(parser, commands)
+        self._read_config_files(parser, commands, conf_files)
+        # Parse all arguments
         args = self._parse_args(parser, commands)
         # Redirect copy of output to a file
         if args.out:
@@ -177,6 +197,19 @@ class App(ABC):
             raise argparse.ArgumentTypeError('boolean value expected (%s or %s).'
                                              % (', '.join(t_vals), ', '.join(f_vals)))
 
+    def _parse_config_args(self, parser, commands):
+        """Parse arguments responsible for specifying config files."""
+        # Divide argv by commands
+        split_argv = [[]]
+        for c in sys.argv[1:]:
+            if c in commands.choices:
+                split_argv.append([c])
+            else:
+                split_argv[-1].append(c)
+        # Parse
+        args, _ = parser.parse_known_args(split_argv[0])
+        return args.conf
+
     def _parse_args(self, parser, commands):
         """Parse arguments considering commands."""
         # Divide argv by commands
@@ -186,15 +219,18 @@ class App(ABC):
                 split_argv.append([c])
             else:
                 split_argv[-1].append(c)
-        # Initialize namespace
+        # Initialize final namespace
         args = argparse.Namespace()
         for c in commands.choices:
             setattr(args, c, None)
-        # Parse each command
-        parser.parse_args(split_argv[0], namespace=args)  # Without command
+        # Parse pre-command
+        parser.parse_args(split_argv[0], namespace=args)
+        # Parse commands
         for argv in split_argv[1:]:  # Commands
+            # Initialize namespace for the command
             n = argparse.Namespace()
             setattr(args, argv[0], n)
+            # Parse
             parser.parse_args(argv, namespace=n)
         return args
 
@@ -204,7 +240,7 @@ class App(ABC):
         self.print1("======================================")
         self.print1("Args:")
         for name, val in sorted(vars(args).items()):
-            if name not in {'out', 'debug1', 'debug2'}:
+            if name not in {'out', 'debug1', 'debug2', 'conf'}:
                 var = getattr(args, name)
                 if isinstance(var, argparse.Namespace):  # command
                     self.print1("- %s:" % name)
@@ -215,3 +251,40 @@ class App(ABC):
                     self.print1("- %s: %s" % (name, val))
 
         self.print1("======================================")
+
+    def _read_config_files(self, parser, commands, conf_files):
+        """Read config files and update defaults of arguments."""
+        def update_defaults(parser, key, value):
+            action = [a for a in parser._actions if a.dest == key]
+            if action:
+                a = action[0]
+                # Check value against choices
+                if a.choices and value not in a.choices:
+                    parser.error("invalid config value '%s' for key '%s' (choose from: %s)"
+                                 % (value, key, ', '.join(a.choices)))
+                # Update
+                a.default = value
+            else:
+                parser.error("invalid config key '%s'" % key)
+
+        # Load all config files
+        config = {}
+        for cfile in conf_files:
+            try:
+                with open(cfile, 'r') as stream:
+                    update_dict(config, yaml.load(stream))
+            except FileNotFoundError:
+                parser.error("config file '%s' not found" % cfile)
+        # Update defaults
+        for k1, v1 in config.items():
+            if isinstance(v1, dict):
+                # Subcommands
+                for subcmd_name, subcmd_parser in commands.choices.items():
+                    if subcmd_name == k1:
+                        # Subcommand arguments
+                        for k2, v2 in v1.items():
+                            update_defaults(subcmd_parser, k2, v2)
+            else:
+                # Arguments
+                update_defaults(parser, k1, v1)
+
