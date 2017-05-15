@@ -255,15 +255,17 @@ class App(ABC):
     def _read_config_files(self, parser, commands, conf_files):
         """Read config files and update defaults of arguments."""
         def update_defaults(parser, key, value):
-            action = [a for a in parser._actions if a.dest == key]
+            action = [a for a in parser._actions if a.dest == key.replace('-', '_')]
             if action:
                 a = action[0]
                 # Check value against choices
                 if a.choices and value not in a.choices:
                     parser.error("invalid config value '%s' for key '%s' (choose from: %s)"
                                  % (value, key, ', '.join(a.choices)))
-                # Update
+                # Update default
                 a.default = value
+                # Mark as not required
+                a.required = False
             else:
                 parser.error("invalid config key '%s'" % key)
 
