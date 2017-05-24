@@ -1,11 +1,11 @@
 read:
-  dataset: &DATASET mnist
-  path: &PATH "~/Data/mnist"
-  classes: &CLASSES 1,3,0
+  dataset: &DATASET image
+  path: &PATH "~/Data/celebA_Local/*.jpg"
+  classes: &CLASSES Null  # No class information for celebA
   # Image/MNIST params
   image-format: &IMAGE_FORMAT binary
-  ratio: &RATIO 4
-  crop: &CROP 1
+  ratio: &RATIO 2
+  crop: &CROP 0
 
 train:
   dataset: *DATASET
@@ -17,11 +17,10 @@ train:
   allow_smaller_batch: true
   shuffle: true
   seed: 100
-  # Image/MNIST params
+  # Image
   image-format: *IMAGE_FORMAT
   ratio: *RATIO
   crop: *CROP
-  mnist-subset: train
 
 test:
   dataset: *DATASET
@@ -29,8 +28,7 @@ test:
   # Data params
   classes: *CLASSES
   batch-size: 100
-  # Image/MNIST params
+  # Image
   image-format: *IMAGE_FORMAT
   ratio: *RATIO
   crop: *CROP
-  mnist-subset: test
