@@ -56,7 +56,9 @@ class ImageFormat(Enum):
 
 
 class ImageDataset(FileDataset):
-    """A dataset serving images loaded from image files.
+    """A dataset serving images loaded from image files. The images are always
+    normalized so that the values span the full range of values of the selected
+    format.
 
     The data is returned as a tuple of tensors ``(samples, labels)``, where
     ``samples`` has shape ``[batch_size, width*height*num_channels]`` and
