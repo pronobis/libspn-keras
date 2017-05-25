@@ -60,7 +60,7 @@ class FileDataset(Dataset):
                          seed=seed)
         self.__files = files
 
-    def _get_file_label_tensor(self):
+    def _get_file_label_tensors(self):
         """
         Serve filenames and labels for multiple epochs as a pair of tensors.
         Internally, this is implemented using a single queue, from which both a
