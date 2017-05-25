@@ -48,13 +48,13 @@ class TestImageDataset(unittest.TestCase):
                     if cbcb is None:
                         self.assertIs(bb, None)
                     else:
-                        self.assertAlmostEqual(bb.dtype, cbcb.dtype)
+                        self.assertEqual(bb.dtype, cbcb.dtype)
                         np.testing.assert_array_equal(bb, cbcb)
             else:
                 if cb is None:
                     self.assertIs(b, None)
                 else:
-                    self.assertAlmostEqual(b.dtype, cb.dtype)
+                    self.assertEqual(b.dtype, cb.dtype)
                     np.testing.assert_array_equal(b, cb)
 
     def test_image_dataset_pnggray_int_noproc_smaller(self):
@@ -221,6 +221,99 @@ class TestImageDataset(unittest.TestCase):
                         0., 1., 1., 1., 0.,
                         0., 1., 0., 1., 0.,
                         0., 1., 1., 0., 2 / 3]], dtype=np.float32),
+             np.array([b'B'], dtype=object)]]
+
+        self.generic_dataset_test(dataset, batches)
+
+    def test_image_dataset_pnggray_rgbint_noproc_smaller(self):
+        dataset = spn.ImageDataset(image_files=self.data_path("img_dir1/*-{*}.png"),
+                                   format=spn.ImageFormat.RGB_INT,
+                                   num_epochs=1, batch_size=2, shuffle=False,
+                                   ratio=1, crop=0,
+                                   allow_smaller_final_batch=True)
+        batches = [[
+            np.array(
+                [[0, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 0, 0, 0,     # A
+                  0, 0, 0, 255, 255, 255, 0, 0, 0, 255, 255, 255, 0, 0, 0,
+                  0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0,
+                  0, 0, 0, 255, 255, 255, 0, 0, 0, 255, 255, 255, 0, 0, 0,
+                  0, 0, 0, 255, 255, 255, 0, 0, 0, 255, 255, 255, 170, 170, 170],
+                 [0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0,   # C
+                    0, 0, 0, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 170, 170, 170]],
+                dtype=np.uint8),
+            np.array([b'A', b'C'], dtype=object)],
+            [np.array(
+                [[0, 0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0,   # B
+                  0, 0, 0, 255, 255, 255, 0, 0, 0, 255, 255, 255, 0, 0, 0,
+                  0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0,
+                  0, 0, 0, 255, 255, 255, 0, 0, 0, 255, 255, 255, 0, 0, 0,
+                  0, 0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0, 170, 170, 170]],
+                dtype=np.uint8),
+             np.array([b'B'], dtype=object)]]
+
+        self.generic_dataset_test(dataset, batches)
+
+    def test_image_dataset_pnggray_rgbbinary_noproc_smaller(self):
+        dataset = spn.ImageDataset(image_files=self.data_path("img_dir1/*-{*}.png"),
+                                   format=spn.ImageFormat.RGB_BINARY,
+                                   num_epochs=1, batch_size=2, shuffle=False,
+                                   ratio=1, crop=0,
+                                   allow_smaller_final_batch=True)
+        batches = [[
+            np.array(
+                [[0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0,     # A
+                  0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0,
+                  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+                  0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0,
+                  0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+                 [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0,   # C
+                    0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1]],
+                dtype=np.uint8),
+            np.array([b'A', b'C'], dtype=object)],
+            [np.array(
+                [[0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,   # B
+                  0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0,
+                  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+                  0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0,
+                  0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1]],
+                dtype=np.uint8),
+             np.array([b'B'], dtype=object)]]
+
+        self.generic_dataset_test(dataset, batches)
+
+    def test_image_dataset_pnggray_rgbfloat_noproc_smaller(self):
+        dataset = spn.ImageDataset(image_files=self.data_path("img_dir1/*-{*}.png"),
+                                   format=spn.ImageFormat.RGB_FLOAT,
+                                   num_epochs=1, batch_size=2, shuffle=False,
+                                   ratio=1, crop=0,
+                                   allow_smaller_final_batch=True)
+        batches = [[
+            np.array(
+                [[0., 0., 0., 0., 0., 0., 1., 1., 1., 0., 0., 0., 0., 0., 0.,   # A
+                  0., 0., 0., 1., 1., 1., 0., 0., 0., 1., 1., 1., 0., 0., 0.,
+                  0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 0., 0., 0.,
+                  0., 0., 0., 1., 1., 1., 0., 0., 0., 1., 1., 1., 0., 0., 0.,
+                  0., 0., 0., 1., 1., 1., 0., 0., 0., 1., 1., 1., 2 / 3, 2 / 3, 2 / 3],
+                 [0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 0., 0., 0.,   # C
+                    0., 0., 0., 1., 1., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                    0., 0., 0., 1., 1., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                    0., 0., 0., 1., 1., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                    0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 2 / 3, 2 / 3, 2 / 3]],
+                dtype=np.float32),
+            np.array([b'A', b'C'], dtype=object)],
+            [np.array(
+                [[0., 0., 0., 1., 1., 1., 1., 1., 1., 0., 0., 0., 0., 0., 0.,   # B
+                  0., 0., 0., 1., 1., 1., 0., 0., 0., 1., 1., 1., 0., 0., 0.,
+                  0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 0., 0., 0.,
+                  0., 0., 0., 1., 1., 1., 0., 0., 0., 1., 1., 1., 0., 0., 0.,
+                  0., 0., 0., 1., 1., 1., 1., 1., 1., 0., 0., 0., 2 / 3, 2 / 3, 2 / 3]],
+                dtype=np.float32),
              np.array([b'B'], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
