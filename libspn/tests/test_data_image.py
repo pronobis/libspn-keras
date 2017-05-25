@@ -557,7 +557,7 @@ class TestImageDataset(unittest.TestCase):
                         0, 255, 255, 0, 170]], dtype=np.uint8),
              np.array([b'B'], dtype=object)]]
 
-        self.generic_dataset_test(dataset, batches, tol=70)
+        self.generic_dataset_test(dataset, batches, tol=10)
 
     def test_image_dataset_jpggray_int_noproc_nosmaller(self):
         dataset = spn.ImageDataset(image_files=self.data_path("img_dir1/*-{*}.jpg"),
@@ -611,7 +611,7 @@ class TestImageDataset(unittest.TestCase):
                         0, 0, 255, 255, 170]], dtype=np.uint8),
              np.array([b'A', b'C'], dtype=object)]]
 
-        self.generic_dataset_test(dataset, batches, tol=70)
+        self.generic_dataset_test(dataset, batches, tol=10)
 
     def test_image_dataset_jpggray_binary_noproc_smaller(self):
         dataset = spn.ImageDataset(image_files=self.data_path("img_dir1/*-{*}.jpg"),
@@ -665,7 +665,7 @@ class TestImageDataset(unittest.TestCase):
                         0., 1., 1., 0., 2 / 3]], dtype=np.float32),
              np.array([b'B'], dtype=object)]]
 
-        self.generic_dataset_test(dataset, batches, tol=0.3)
+        self.generic_dataset_test(dataset, batches, tol=0.1)
 
     def test_image_dataset_jpggray_rgbint_noproc_smaller(self):
         dataset = spn.ImageDataset(image_files=self.data_path("img_dir1/*-{*}.jpg"),
@@ -696,7 +696,7 @@ class TestImageDataset(unittest.TestCase):
                 dtype=np.uint8),
              np.array([b'B'], dtype=object)]]
 
-        self.generic_dataset_test(dataset, batches, tol=70)
+        self.generic_dataset_test(dataset, batches, tol=10)
 
     def test_image_dataset_jpggray_rgbbinary_noproc_smaller(self):
         dataset = spn.ImageDataset(image_files=self.data_path("img_dir1/*-{*}.jpg"),
@@ -758,7 +758,7 @@ class TestImageDataset(unittest.TestCase):
                 dtype=np.float32),
              np.array([b'B'], dtype=object)]]
 
-        self.generic_dataset_test(dataset, batches, tol=0.3)
+        self.generic_dataset_test(dataset, batches, tol=0.1)
 
     def test_image_dataset_jpgrgb_int_noproc_smaller(self):
         dataset = spn.ImageDataset(image_files=self.data_path("img_dir2/*-{*}.jpg"),
@@ -785,7 +785,7 @@ class TestImageDataset(unittest.TestCase):
                         0, 255, 255, 0, 181]], dtype=np.uint8),
              np.array([b'B'], dtype=object)]]
 
-        self.generic_dataset_test(dataset, batches, tol=70)
+        self.generic_dataset_test(dataset, batches, tol=10)
 
     def test_image_dataset_jpgrgb_binary_noproc_smaller(self):
         dataset = spn.ImageDataset(image_files=self.data_path("img_dir2/*-{*}.jpg"),
@@ -839,7 +839,7 @@ class TestImageDataset(unittest.TestCase):
                         0., 1., 1., 0., 0.70870972]], dtype=np.float32),
              np.array([b'B'], dtype=object)]]
 
-        self.generic_dataset_test(dataset, batches, tol=0.3)
+        self.generic_dataset_test(dataset, batches, tol=0.1)
 
     def test_image_dataset_jpgrgb_rgbint_noproc_smaller(self):
         dataset = spn.ImageDataset(image_files=self.data_path("img_dir2/*-{*}.jpg"),
@@ -870,7 +870,7 @@ class TestImageDataset(unittest.TestCase):
                 dtype=np.uint8),
              np.array([b'B'], dtype=object)]]
 
-        self.generic_dataset_test(dataset, batches, tol=70)
+        self.generic_dataset_test(dataset, batches, tol=10)
 
     def test_image_dataset_jpgrgb_rgbbinary_noproc_smaller(self):
         dataset = spn.ImageDataset(image_files=self.data_path("img_dir2/*-{*}.jpg"),
@@ -932,7 +932,7 @@ class TestImageDataset(unittest.TestCase):
                 dtype=np.float32),
              np.array([b'B'], dtype=object)]]
 
-        self.generic_dataset_test(dataset, batches, tol=0.3)
+        self.generic_dataset_test(dataset, batches, tol=0.1)
 
 
 if __name__ == '__main__':
