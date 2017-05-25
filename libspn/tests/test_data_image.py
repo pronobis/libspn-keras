@@ -14,7 +14,7 @@ import numpy as np
 from context import libspn as spn
 
 
-class TestData(unittest.TestCase):
+class TestImageDataset(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -28,34 +28,34 @@ class TestData(unittest.TestCase):
     @staticmethod
     def data_path(p):
         if isinstance(p, list):
-            return [os.path.join(TestData.data_dir, i) for i in p]
+            return [os.path.join(TestImageDataset.data_dir, i) for i in p]
         else:
-            return os.path.join(TestData.data_dir, p)
+            return os.path.join(TestImageDataset.data_dir, p)
 
     def generic_dataset_test(self, dataset, correct_batches):
-        with self.subTest(dataset=dataset,
-                          correct_batches=correct_batches):
-            data = dataset.get_data()
-            batches = []
-            with spn.session() as (sess, run):
-                while run():
-                    out = sess.run(data)
-                    batches.append(out)
-            print(batches)
-            self.assertEqual(len(batches), len(correct_batches))
-            for b, cb in zip(batches, correct_batches):
-                if isinstance(b, list):
-                    self.assertEqual(len(b), len(cb))
-                    for bb, cbcb in zip(b, cb):
-                        if cbcb is None:
-                            self.assertIs(bb, None)
-                        else:
-                            np.testing.assert_array_equal(bb, cbcb)
-                else:
-                    if cb is None:
-                        self.assertIs(b, None)
+        data = dataset.get_data()
+        batches = []
+        with spn.session() as (sess, run):
+            while run():
+                out = sess.run(data)
+                batches.append(out)
+        print(batches)
+        self.assertEqual(len(batches), len(correct_batches))
+        for b, cb in zip(batches, correct_batches):
+            if isinstance(b, list):
+                self.assertEqual(len(b), len(cb))
+                for bb, cbcb in zip(b, cb):
+                    if cbcb is None:
+                        self.assertIs(bb, None)
                     else:
-                        np.testing.assert_array_equal(b, cb)
+                        self.assertAlmostEqual(bb.dtype, cbcb.dtype)
+                        np.testing.assert_array_equal(bb, cbcb)
+            else:
+                if cb is None:
+                    self.assertIs(b, None)
+                else:
+                    self.assertAlmostEqual(b.dtype, cb.dtype)
+                    np.testing.assert_array_equal(b, cb)
 
     def test_image_dataset_pnggray_int_noproc_smaller(self):
         dataset = spn.ImageDataset(image_files=self.data_path("img_dir1/*-{*}.png"),
@@ -194,6 +194,33 @@ class TestData(unittest.TestCase):
                         0, 1, 1, 1, 0,
                         0, 1, 0, 1, 0,
                         0, 1, 1, 0, 1]], dtype=np.uint8),
+             np.array([b'B'], dtype=object)]]
+
+        self.generic_dataset_test(dataset, batches)
+
+    def test_image_dataset_pnggray_float_noproc_smaller(self):
+        dataset = spn.ImageDataset(image_files=self.data_path("img_dir1/*-{*}.png"),
+                                   format=spn.ImageFormat.FLOAT,
+                                   num_epochs=1, batch_size=2, shuffle=False,
+                                   ratio=1, crop=0,
+                                   allow_smaller_final_batch=True)
+        batches = [
+            [np.array([[0., 0., 1., 0., 0.,     # A
+                        0., 1., 0., 1., 0.,
+                        0., 1., 1., 1., 0.,
+                        0., 1., 0., 1., 0.,
+                        0., 1., 0., 1., 2 / 3],
+                       [0., 0., 1., 1., 0.,   # C
+                        0., 1., 0., 0., 0.,
+                        0., 1., 0., 0., 0.,
+                        0., 1., 0., 0., 0.,
+                        0., 0., 1., 1., 2 / 3]], dtype=np.float32),
+             np.array([b'A', b'C'], dtype=object)],
+            [np.array([[0., 1., 1., 0., 0.,   # B
+                        0., 1., 0., 1., 0.,
+                        0., 1., 1., 1., 0.,
+                        0., 1., 0., 1., 0.,
+                        0., 1., 1., 0., 2 / 3]], dtype=np.float32),
              np.array([b'B'], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)

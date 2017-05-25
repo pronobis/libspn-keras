@@ -14,7 +14,7 @@ import tensorflow as tf
 from context import libspn as spn
 
 
-class TestData(unittest.TestCase):
+class TestFileDataset(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -28,9 +28,9 @@ class TestData(unittest.TestCase):
     @staticmethod
     def data_path(p):
         if isinstance(p, list):
-            return [os.path.join(TestData.data_dir, i) for i in p]
+            return [os.path.join(TestFileDataset.data_dir, i) for i in p]
         else:
-            return os.path.join(TestData.data_dir, p)
+            return os.path.join(TestFileDataset.data_dir, p)
 
     def test_get_files_labels(self):
         """Obtaining files/labels list from a specification in FileDataset"""
