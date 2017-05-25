@@ -934,6 +934,52 @@ class TestImageDataset(unittest.TestCase):
 
         self.generic_dataset_test(dataset, batches, tol=0.1)
 
+    def test_image_dataset_pnggray_int_crop_smaller(self):
+        dataset = spn.ImageDataset(image_files=self.data_path("img_dir1/*-{*}.png"),
+                                   format=spn.ImageFormat.INT,
+                                   num_epochs=1, batch_size=2, shuffle=False,
+                                   ratio=1, crop=1, accurate=True,
+                                   allow_smaller_final_batch=True)
+        batches = [
+            [np.array([[255, 0, 255,
+                        255, 255, 255,
+                        255, 0, 255],
+                       [255, 0, 0,
+                        255, 0, 0,
+                        255, 0, 0]], dtype=np.uint8),
+             np.array([b'A', b'C'], dtype=object)],
+            [np.array([[255, 0, 255,
+                        255, 255, 255,
+                        255, 0, 255]], dtype=np.uint8),
+             np.array([b'B'], dtype=object)]]
+
+        self.generic_dataset_test(dataset, batches)
+
+    def test_image_dataset_pngrgb_rgbint_crop_smaller(self):
+        dataset = spn.ImageDataset(image_files=self.data_path("img_dir2/*-{*}.png"),
+                                   format=spn.ImageFormat.RGB_INT,
+                                   num_epochs=1, batch_size=2, shuffle=False,
+                                   ratio=1, crop=1, accurate=True,
+                                   allow_smaller_final_batch=True)
+        batches = [[
+            np.array(
+                [[255, 0, 0, 0, 0, 0, 255, 0, 0,
+                  255, 0, 0, 255, 0, 0, 255, 0, 0,
+                  255, 0, 0, 0, 0, 0, 255, 0, 0],
+                 [255, 0, 0, 0, 0, 0, 0, 0, 0,
+                  255, 0, 0, 0, 0, 0, 0, 0, 0,
+                  255, 0, 0, 0, 0, 0, 0, 0, 0]],
+                dtype=np.uint8),
+            np.array([b'A', b'C'], dtype=object)],
+            [np.array(
+                [[255, 0, 0, 0, 0, 0, 255, 0, 0,
+                  255, 0, 0, 255, 0, 0, 255, 0, 0,
+                  255, 0, 0, 0, 0, 0, 255, 0, 0]],
+                dtype=np.uint8),
+             np.array([b'B'], dtype=object)]]
+
+        self.generic_dataset_test(dataset, batches)
+
 
 if __name__ == '__main__':
     unittest.main()
