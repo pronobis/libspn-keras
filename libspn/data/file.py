@@ -105,7 +105,7 @@ class FileDataset(Dataset):
                                               seed=self._seed)
 
     @staticmethod
-    def get_files_labels(files):
+    def _get_files_labels(files):
         """
         Convert the file specification to a list of files and labels. The files
         can be specified using a string containing a path to a file or a glob
