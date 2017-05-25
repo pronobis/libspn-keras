@@ -26,6 +26,78 @@ class TestData(unittest.TestCase):
     def tearDown(self):
         tf.reset_default_graph()
 
+    @staticmethod
+    def data_path(p):
+        if isinstance(p, list):
+            return [os.path.join(TestData.data_dir, i) for i in p]
+        else:
+            return os.path.join(TestData.data_dir, p)
+
+    def test_file_dataset_get_files_labels(self):
+        """Obtaining files/labels list from a specification in FileDataset"""
+        def run(paths, true_files, true_labels):
+            with self.subTest(paths=paths):
+                files, labels = spn.FileDataset._get_files_labels(
+                    self.data_path(paths))
+                self.assertEqual(files, self.data_path(true_files))
+                self.assertEqual(labels, true_labels)
+
+        # Single path without glob and label
+        run("img_dir1/img1-A.png",
+            ["img_dir1/img1-A.png"],
+            [''])
+
+        # Single path with glob and no label
+        run("img_dir*/img*-*.png",
+            ["img_dir1/img1-A.png",
+             "img_dir1/img2-C.png",
+             "img_dir1/img3-B.png",
+             "img_dir2/img1-A.png",
+             "img_dir2/img2-C.png",
+             "img_dir2/img3-B.png"],
+            ['', '', '', '', '', ''])
+
+        # Single path with a glob and a label
+        run("img_dir*/img*-{*}.png",
+            ["img_dir1/img1-A.png",
+             "img_dir1/img2-C.png",
+             "img_dir1/img3-B.png",
+             "img_dir2/img1-A.png",
+             "img_dir2/img2-C.png",
+             "img_dir2/img3-B.png"],
+            ['A', 'C', 'B', 'A', 'C', 'B'])
+
+        # Multiple paths without glob and label
+        # Tests if order of files is preserved
+        run(["img_dir2/img2-C.png",
+             "img_dir1/img1-A.png"],
+            ["img_dir2/img2-C.png",
+             "img_dir1/img1-A.png"],
+            ['', ''])
+
+        # Multiple paths with glob and no label
+        # Tests if order of file specs is preserved
+        run(["img_dir2/img*-*.png",
+             "img_dir1/img*-*.png"],
+            ["img_dir2/img1-A.png",
+             "img_dir2/img2-C.png",
+             "img_dir2/img3-B.png",
+             "img_dir1/img1-A.png",
+             "img_dir1/img2-C.png",
+             "img_dir1/img3-B.png"],
+            ['', '', '', '', '', ''])
+
+        # Multiple paths with a glob and a label
+        run(["img_dir2/img*-{*}.png",
+             "img_dir1/img*-{*}.png"],
+            ["img_dir2/img1-A.png",
+             "img_dir2/img2-C.png",
+             "img_dir2/img3-B.png",
+             "img_dir1/img1-A.png",
+             "img_dir1/img2-C.png",
+             "img_dir1/img3-B.png"],
+            ['A', 'C', 'B', 'A', 'C', 'B'])
+
     @patch.multiple(spn.FileDataset, __abstractmethods__=set())  # Make Dataset non-abstract
     def test_file_dataset_file_queue(self):
         """File queue of FileDataset"""
