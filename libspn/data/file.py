@@ -25,7 +25,8 @@ class FileDataset(Dataset):
               ``shuffle`` is set to ``True``. If a part of a path is wrapped in
               curly braces, it will be extracted as a label for the file. This
               works even for a glob, e.g. ``dir/{*}.jpg`` will use the filename
-              without the extension as the label.
+              without the extension as the label. For files without a label
+              specification, the returned label is an empty string.
         num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
         shuffle (bool): Shuffle data within each epoch.
@@ -113,7 +114,8 @@ class FileDataset(Dataset):
         is used, the files will be returned sorted. If a part of a path is
         wrapped in curly braces, it will be extracted as a label for the file.
         This works even for a glob, e.g. ``dir/{*}.jpg`` will use the filename
-        without the extension as the label.
+        without the extension as the label. If no label is specified for a file,
+        the returned label is an empty string.
 
         Args:
             files (str or list of str): File specification.

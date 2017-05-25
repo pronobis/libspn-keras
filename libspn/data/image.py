@@ -11,9 +11,7 @@ from libspn import conf
 from libspn import utils
 from enum import Enum
 from collections import namedtuple
-import glob
 import scipy
-import os
 
 
 ImageShape = namedtuple("ImageShape", ["height", "width", "channels"])
@@ -63,16 +61,17 @@ class ImageDataset(FileDataset):
     The data is returned as a tuple of tensors ``(samples, labels)``, where
     ``samples`` has shape ``[batch_size, width*height*num_channels]`` and
     contains flattened image data, and ``labels`` has shape ``[batch_size, 1]``
-    and contains image file names without extension.
+    and contains image labels if the file specification specifies labels. For
+    files without a label specification, the returned label is an empty string.
 
     Args:
-        image_files (str or list): A string containing a path to a file or a
-                                   glob matching multiple files, or a list of
-                                   paths to multiple files. Note that the order
-                                   of files, when using a glob is not
-                                   predictable (even with ``shuffle`` set to
-                                   ``False``), but will be constant across
-                                   epochs.
+        image_files (str or list of str): A string containing a path to a file
+              or a glob matching multiple files, or a list of paths to multiple
+              files. When glob is used, the files will be sorted, unless
+              ``shuffle`` is set to ``True``. If a part of a path is wrapped in
+              curly braces, it will be extracted as a label for the file. This
+              works even for a glob, e.g. ``dir/{*}.jpg`` will use the filename
+              without the extension as the label.
         format (ImageFormat): Image format.
         num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
