@@ -319,6 +319,33 @@ class TestData(unittest.TestCase):
 
         self.generic_dataset_test(dataset, batches)
 
+    def test_image_dataset_pnggray_binary_noproc_smaller(self):
+        dataset = spn.ImageDataset(image_files=self.data_path("img_dir1/*-{*}.png"),
+                                   format=spn.ImageFormat.BINARY,
+                                   num_epochs=1, batch_size=2, shuffle=False,
+                                   ratio=1, crop=0,
+                                   allow_smaller_final_batch=True)
+        batches = [
+            [np.array([[0, 0, 1, 0, 0,     # A
+                        0, 1, 0, 1, 0,
+                        0, 1, 1, 1, 0,
+                        0, 1, 0, 1, 0,
+                        0, 1, 0, 1, 1],
+                       [0, 0, 1, 1, 0,   # C
+                        0, 1, 0, 0, 0,
+                        0, 1, 0, 0, 0,
+                        0, 1, 0, 0, 0,
+                        0, 0, 1, 1, 1]], dtype=np.uint8),
+             np.array([b'A', b'C'], dtype=object)],
+            [np.array([[0, 1, 1, 0, 0,   # B
+                        0, 1, 0, 1, 0,
+                        0, 1, 1, 1, 0,
+                        0, 1, 0, 1, 0,
+                        0, 1, 1, 0, 1]], dtype=np.uint8),
+             np.array([b'B'], dtype=object)]]
+
+        self.generic_dataset_test(dataset, batches)
+
     def test_image_dataset_pngrgb_int_noproc_smaller(self):
         dataset = spn.ImageDataset(image_files=self.data_path("img_dir2/*-{*}.png"),
                                    format=spn.ImageFormat.INT,
