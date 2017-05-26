@@ -80,6 +80,8 @@ class ImageDataset(FileDataset):
         shuffle (bool): Shuffle data within each epoch.
         ratio (int): Downsample by the given ratio.
         crop (int): Crop that many border pixels (after downsampling).
+        accurate (bool): If `True`, uses more accurate but slower JPEG image
+                         decompression.
         num_threads (int): Number of threads enqueuing the example queue. If
                            larger than ``1``, the performance will be better,
                            but examples might not be in order even if ``shuffle``
@@ -91,8 +93,8 @@ class ImageDataset(FileDataset):
     """
 
     def __init__(self, image_files, format, num_epochs, batch_size, shuffle,
-                 ratio=1, crop=0, num_threads=1, allow_smaller_final_batch=False,
-                 seed=None):
+                 ratio=1, crop=0, accurate=False, num_threads=1,
+                 allow_smaller_final_batch=False, seed=None):
         super().__init__(image_files, num_epochs=num_epochs,
                          batch_size=batch_size, shuffle=shuffle,
                          # Since each image is in a separate file, and we
@@ -123,6 +125,9 @@ class ImageDataset(FileDataset):
         if crop < 0 or crop > (self._width // 2) or crop > (self._height // 2):
             raise ValueError("invalid value of crop")
         self._crop = crop
+        if not isinstance(accurate, bool):
+            raise ValueError("accurate must be a boolean")
+        self._accurate = accurate
         self._width -= 2 * crop
         self._height -= 2 * crop
         self._samples = None
@@ -165,20 +170,13 @@ class ImageDataset(FileDataset):
 
     @utils.docinherit(FileDataset)
     def generate_data(self):
-        file_queue = self._get_file_queue()
-        reader = tf.WholeFileReader()
-        fname, value = reader.read(file_queue)
-        # Decode image
-        image = tf.image.decode_image(value)
+        file, label = self._get_file_label_tensors()
+        value = tf.read_file(file)
+        image = self._decode_image(value, accurate=self._accurate)
         # Since decode_jpeg does not set the image shape, we need to set it manually
         # https://github.com/tensorflow/tensorflow/issues/521
         # https://stackoverflow.com/questions/34746777/why-do-i-get-valueerror-image-must-be-fully-defined-when-transforming-im
         image.set_shape((self._orig_height, self._orig_width, self._orig_channels))
-        # Parse label
-        label = tf.string_split([fname], delimiter=os.sep)
-        label = tf.sparse_tensor_to_dense(label, default_value='str')[0, -1]
-        label = tf.string_split([label], delimiter='.')
-        label = tf.sparse_tensor_to_dense(label, default_value='str')[0, 0]
         return image, label
 
     @utils.docinherit(FileDataset)
@@ -212,7 +210,7 @@ class ImageDataset(FileDataset):
         # Normalize
         image -= tf.reduce_min(image)
         image /= tf.reduce_max(image)
-        # Convert to format and normalize
+        # Convert to format
         if self._format in {ImageFormat.FLOAT, ImageFormat.RGB_FLOAT}:
             pass  # Already 1 channel float
         elif self._format in {ImageFormat.INT, ImageFormat.RGB_INT}:
@@ -228,9 +226,8 @@ class ImageDataset(FileDataset):
         since TensorFlow does not set static image shape."""
         try:
             if isinstance(image_files, str):
-                fname = glob.glob(os.path.expanduser(image_files))[0]
-            else:
-                fname = image_files[0]
+                image_files = [image_files]
+            fname = self._get_files_labels(image_files[0])[0][0]
         except IndexError:
             raise RuntimeError("Cannot guess original image shape since"
                                " a representative file is not found")
@@ -241,3 +238,23 @@ class ImageDataset(FileDataset):
             self._orig_channels = img.shape[2]
         else:
             self._orig_channels = 1
+
+    @staticmethod
+    def _decode_image(contents, accurate=False):
+        """
+        A convenience function decompressing both JPEG and PNG images, which also
+        allows setting JPEG decompression quality.
+        """
+        with tf.name_scope('decode_image'):
+            substr = tf.substr(contents, 0, 4)
+
+            def _png():
+                return tf.image.decode_png(contents)
+
+            def _jpeg():
+                return tf.image.decode_jpeg(
+                    contents,
+                    dct_method=("INTEGER_ACCURATE" if accurate else None))
+
+            is_jpeg = tf.equal(substr, b'\xff\xd8\xff\xe0', name='is_jpeg')
+            return tf.cond(is_jpeg, _jpeg, _png, name='cond_jpeg')
