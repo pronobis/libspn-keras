@@ -980,6 +980,109 @@ class TestImageDataset(unittest.TestCase):
 
         self.generic_dataset_test(dataset, batches)
 
+    def test_image_dataset_pnggray_int_ratio_smaller(self):
+        dataset = spn.ImageDataset(image_files=self.data_path("img_dir3/*-{*}.png"),
+                                   format=spn.ImageFormat.INT,
+                                   num_epochs=1, batch_size=2, shuffle=False,
+                                   ratio=2, crop=0, accurate=True,
+                                   allow_smaller_final_batch=True)
+        batches = [[np.array([[0, 0, 255, 0, 0,     # A
+                               0, 255, 0, 255, 0,
+                               0, 255, 255, 255, 0,
+                               0, 255, 0, 255, 0,
+                               0, 255, 0, 255, 170],
+                              [0, 0, 255, 255, 0,   # C
+                               0, 255, 0, 0, 0,
+                               0, 255, 0, 0, 0,
+                               0, 255, 0, 0, 0,
+                               0, 0, 255, 255, 170]], dtype=np.uint8),
+                    np.array([b'A', b'C'], dtype=object)],
+                   [np.array([[0, 255, 255, 0, 0,   # B
+                               0, 255, 0, 255, 0,
+                               0, 255, 255, 255, 0,
+                               0, 255, 0, 255, 0,
+                               0, 255, 255, 0, 170]], dtype=np.uint8),
+                    np.array([b'B'], dtype=object)]]
+
+        self.generic_dataset_test(dataset, batches)
+
+    def test_image_dataset_pngrgb_rgbint_ratio_smaller(self):
+        dataset = spn.ImageDataset(image_files=self.data_path("img_dir4/*-{*}.png"),
+                                   format=spn.ImageFormat.RGB_INT,
+                                   num_epochs=1, batch_size=2, shuffle=False,
+                                   ratio=2, crop=0, accurate=True,
+                                   allow_smaller_final_batch=True)
+        batches = [[
+            np.array(
+                [[0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0,     # A
+                  0, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0,
+                  0, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0,
+                  0, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0,
+                  0, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 0, 0, 42, 255],
+                 [0, 0, 0, 0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0,   # C
+                    0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 42, 255]],
+                dtype=np.uint8),
+            np.array([b'A', b'C'], dtype=object)],
+            [np.array(
+                [[0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0,   # B
+                  0, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0,
+                  0, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0,
+                  0, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0,
+                  0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 42, 255]],
+                dtype=np.uint8),
+             np.array([b'B'], dtype=object)]]
+
+        self.generic_dataset_test(dataset, batches)
+
+    def test_image_dataset_pnggray_int_ratiocrop_smaller(self):
+        dataset = spn.ImageDataset(image_files=self.data_path("img_dir3/*-{*}.png"),
+                                   format=spn.ImageFormat.INT,
+                                   num_epochs=1, batch_size=2, shuffle=False,
+                                   ratio=2, crop=1, accurate=True,
+                                   allow_smaller_final_batch=True)
+        batches = [
+            [np.array([[255, 0, 255,
+                        255, 255, 255,
+                        255, 0, 255],
+                       [255, 0, 0,
+                        255, 0, 0,
+                        255, 0, 0]], dtype=np.uint8),
+             np.array([b'A', b'C'], dtype=object)],
+            [np.array([[255, 0, 255,
+                        255, 255, 255,
+                        255, 0, 255]], dtype=np.uint8),
+             np.array([b'B'], dtype=object)]]
+
+        self.generic_dataset_test(dataset, batches)
+
+    def test_image_dataset_pngrgb_rgbint_ratiocrop_smaller(self):
+        dataset = spn.ImageDataset(image_files=self.data_path("img_dir4/*-{*}.png"),
+                                   format=spn.ImageFormat.RGB_INT,
+                                   num_epochs=1, batch_size=2, shuffle=False,
+                                   ratio=2, crop=1, accurate=True,
+                                   allow_smaller_final_batch=True)
+        batches = [[
+            np.array(
+                [[255, 0, 0, 0, 0, 0, 255, 0, 0,
+                  255, 0, 0, 255, 0, 0, 255, 0, 0,
+                  255, 0, 0, 0, 0, 0, 255, 0, 0],
+                 [255, 0, 0, 0, 0, 0, 0, 0, 0,
+                  255, 0, 0, 0, 0, 0, 0, 0, 0,
+                  255, 0, 0, 0, 0, 0, 0, 0, 0]],
+                dtype=np.uint8),
+            np.array([b'A', b'C'], dtype=object)],
+            [np.array(
+                [[255, 0, 0, 0, 0, 0, 255, 0, 0,
+                  255, 0, 0, 255, 0, 0, 255, 0, 0,
+                  255, 0, 0, 0, 0, 0, 255, 0, 0]],
+                dtype=np.uint8),
+             np.array([b'B'], dtype=object)]]
+
+        self.generic_dataset_test(dataset, batches)
+
 
 if __name__ == '__main__':
     unittest.main()
