@@ -29,73 +29,6 @@ class TestDataWriter(tf.test.TestCase):
         else:
             return os.path.join(TestDataWriter.data_dir, p)
 
-    def test_write_all_single_tensor(self):
-        path = self.data_path("out_test_write_all_single_tensor.csv")
-
-        # Read&write
-        dataset = spn.CSVFileDataset(self.data_path("data_int1.csv"),
-                                     num_epochs=2,
-                                     batch_size=4,
-                                     shuffle=False,
-                                     num_labels=0,
-                                     defaults=[[101], [102], [103], [104], [105]],
-                                     min_after_dequeue=1000,
-                                     num_threads=1,
-                                     allow_smaller_final_batch=True)
-        writer = spn.CSVDataWriter(path)
-        data1 = dataset.read_all()
-        dataset.write_all(writer)
-
-        # Read again
-        dataset = spn.CSVFileDataset(path,
-                                     num_epochs=1,
-                                     batch_size=4,
-                                     shuffle=False,
-                                     num_labels=0,
-                                     defaults=[[201], [202], [203], [204], [205]],
-                                     min_after_dequeue=1000,
-                                     num_threads=1,
-                                     allow_smaller_final_batch=True)
-        data2 = dataset.read_all()
-
-        # Compare
-        np.testing.assert_array_equal(data1, data2)
-
-    def test_write_all_tensor_list(self):
-        path = self.data_path("out_test_write_all_tensor_list.csv")
-
-        # Read&write
-        dataset = spn.CSVFileDataset(self.data_path("data_int1.csv"),
-                                     num_epochs=2,
-                                     batch_size=4,
-                                     shuffle=False,
-                                     num_labels=2,
-                                     defaults=[[101], [102], [103.0],
-                                               [104.0], [105.0]],
-                                     min_after_dequeue=1000,
-                                     num_threads=1,
-                                     allow_smaller_final_batch=True)
-        writer = spn.CSVDataWriter(path)
-        data1 = dataset.read_all()
-        dataset.write_all(writer)
-
-        # Read again
-        dataset = spn.CSVFileDataset(path,
-                                     num_epochs=1,
-                                     batch_size=4,
-                                     shuffle=False,
-                                     num_labels=2,
-                                     defaults=[[201], [202], [203.0],
-                                               [204.0], [205.0]],
-                                     min_after_dequeue=1000,
-                                     num_threads=1,
-                                     allow_smaller_final_batch=True)
-        data2 = dataset.read_all()
-
-        # Compare
-        np.testing.assert_array_equal(data1[0], data2[0])
-        np.testing.assert_array_almost_equal(data1[1], data2[1])
-
     def test_csv_data_writer(self):
         # Write
         path = self.data_path("out_test_csv_data_writer.csv")
@@ -106,8 +39,8 @@ class TestDataWriter(tf.test.TestCase):
                          [1 / 3, 1 / 4],
                          [1 / 5, 1 / 6],
                          [1 / 7, 1 / 8]])
-        writer.write(arr1, arr2)
-        writer.write(arr1, arr2)
+        writer.write(arr2, arr1)
+        writer.write(arr2, arr1)
 
         # Read
         dataset = spn.CSVFileDataset(path,
@@ -122,12 +55,77 @@ class TestDataWriter(tf.test.TestCase):
         data = dataset.read_all()
 
         # Compare
-        np.testing.assert_array_equal(np.concatenate((arr1, arr1)),
-                                      data[0].flatten())
         np.testing.assert_array_almost_equal(np.concatenate((arr2, arr2)),
-                                             data[1])
+                                             data[0])
+        np.testing.assert_array_equal(np.concatenate((arr1, arr1)),
+                                      data[1].flatten())
 
-    def test_image_gray_float_image_gray_write_all(self):
+    def test_csv_csv_writeall_singletensor(self):
+        # Read&write
+        dataset1 = spn.CSVFileDataset(self.data_path("data_int1.csv"),
+                                      num_epochs=2,
+                                      batch_size=4,
+                                      shuffle=False,
+                                      num_labels=0,
+                                      defaults=[[101], [102], [103], [104], [105]],
+                                      min_after_dequeue=1000,
+                                      num_threads=1,
+                                      allow_smaller_final_batch=True)
+        path = self.data_path("out_test_csv_csv_writeall_singletensor.csv")
+        writer = spn.CSVDataWriter(path)
+        data1 = dataset1.read_all()
+        dataset1.write_all(writer)
+
+        # Read again
+        dataset2 = spn.CSVFileDataset(path,
+                                      num_epochs=1,
+                                      batch_size=4,
+                                      shuffle=False,
+                                      num_labels=0,
+                                      defaults=[[201], [202], [203], [204], [205]],
+                                      min_after_dequeue=1000,
+                                      num_threads=1,
+                                      allow_smaller_final_batch=True)
+        data2 = dataset2.read_all()
+
+        # Compare
+        np.testing.assert_array_equal(data1, data2)
+
+    def test_csv_csv_writeall_tensorlist(self):
+        # Read&write
+        dataset1 = spn.CSVFileDataset(self.data_path("data_int1.csv"),
+                                      num_epochs=2,
+                                      batch_size=4,
+                                      shuffle=False,
+                                      num_labels=2,
+                                      defaults=[[101], [102], [103.0],
+                                                [104.0], [105.0]],
+                                      min_after_dequeue=1000,
+                                      num_threads=1,
+                                      allow_smaller_final_batch=True)
+        path = self.data_path("out_test_csv_csv_writeall_tensorlist.csv")
+        writer = spn.CSVDataWriter(path)
+        data1 = dataset1.read_all()
+        dataset1.write_all(writer)
+
+        # Read again
+        dataset2 = spn.CSVFileDataset(path,
+                                      num_epochs=1,
+                                      batch_size=4,
+                                      shuffle=False,
+                                      num_labels=2,
+                                      defaults=[[201], [202], [203.0],
+                                                [204.0], [205.0]],
+                                      min_after_dequeue=1000,
+                                      num_threads=1,
+                                      allow_smaller_final_batch=True)
+        data2 = dataset2.read_all()
+
+        # Compare
+        np.testing.assert_array_almost_equal(data1[0], data2[0])
+        np.testing.assert_array_equal(data1[1], data2[1])
+
+    def test_image_gray_float_image_gray_writeall(self):
         # Read and write
         dataset1 = spn.ImageDataset(
             image_files=self.data_path("img_dir1/*-{*}.png"),
@@ -158,7 +156,7 @@ class TestDataWriter(tf.test.TestCase):
         np.testing.assert_allclose(data1[0], data2[0])
         np.testing.assert_array_equal(data1[1], data2[1])
 
-    def test_image_rgb_rgbfloat_image_rgb_write_all(self):
+    def test_image_rgb_rgbfloat_image_rgb_writeall(self):
         # Read and write
         dataset1 = spn.ImageDataset(
             image_files=self.data_path("img_dir2/*-{*}.png"),
@@ -189,7 +187,7 @@ class TestDataWriter(tf.test.TestCase):
         np.testing.assert_allclose(data1[0], data2[0], atol=0.002)
         np.testing.assert_array_equal(data1[1], data2[1])
 
-    def test_image_gray_int_image_gray_write_all(self):
+    def test_image_gray_int_image_gray_writeall(self):
         # Read and write
         dataset1 = spn.ImageDataset(
             image_files=self.data_path("img_dir1/*-{*}.png"),
@@ -220,7 +218,7 @@ class TestDataWriter(tf.test.TestCase):
         np.testing.assert_array_equal(data1[0], data2[0])
         np.testing.assert_array_equal(data1[1], data2[1])
 
-    def test_image_rgb_rgbint_image_rgb_write_all(self):
+    def test_image_rgb_rgbint_image_rgb_writeall(self):
         # Read and write
         dataset1 = spn.ImageDataset(
             image_files=self.data_path("img_dir2/*-{*}.png"),
@@ -251,7 +249,7 @@ class TestDataWriter(tf.test.TestCase):
         np.testing.assert_array_equal(data1[0], data2[0])
         np.testing.assert_array_equal(data1[1], data2[1])
 
-    def test_image_gray_float_csv_write_all(self):
+    def test_image_gray_float_csv_writeall(self):
         # Read and write
         dataset1 = spn.ImageDataset(
             image_files=self.data_path("img_dir1/*-{*}.png"),
@@ -260,14 +258,14 @@ class TestDataWriter(tf.test.TestCase):
             ratio=1, crop=0, accurate=True,
             allow_smaller_final_batch=True)
         writer = spn.CSVDataWriter(
-            path=self.data_path("out_test_image_gray_float_csv_write_all.csv"))
+            path=self.data_path("out_test_image_gray_float_csv_writeall.csv"))
 
         data1 = dataset1.read_all()
         dataset1.write_all(writer)
 
         # Re-read
         dataset2 = spn.CSVFileDataset(
-            files=self.data_path("out_test_image_gray_float_csv_write_all.csv"),
+            files=self.data_path("out_test_image_gray_float_csv_writeall.csv"),
             num_epochs=1,
             batch_size=2,
             shuffle=False,
