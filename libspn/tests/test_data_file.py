@@ -17,12 +17,10 @@ class TestFileDataset(tf.test.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super(TestFileDataset, cls).setUpClass()
         cls.data_dir = os.path.realpath(os.path.join(os.getcwd(),
                                                      os.path.dirname(__file__),
                                                      "data"))
-
-    def tearDown(self):
-        tf.reset_default_graph()
 
     @staticmethod
     def data_path(p):

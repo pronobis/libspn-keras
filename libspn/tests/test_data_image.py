@@ -17,6 +17,7 @@ class TestImageDataset(tf.test.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super(TestImageDataset, cls).setUpClass()
         cls.data_dir = os.path.realpath(os.path.join(os.getcwd(),
                                                      os.path.dirname(__file__),
                                                      "data"))

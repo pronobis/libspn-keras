@@ -7,62 +7,65 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
-from unittest.mock import patch
 import os
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
 
 
-class TestData(unittest.TestCase):
+class TestDataset(tf.test.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super(TestDataset, cls).setUpClass()
         cls.data_dir = os.path.realpath(os.path.join(os.getcwd(),
                                                      os.path.dirname(__file__),
                                                      "data"))
 
-    def tearDown(self):
-        tf.reset_default_graph()
-
     @staticmethod
     def data_path(p):
         if isinstance(p, list):
-            return [os.path.join(TestData.data_dir, i) for i in p]
+            return [os.path.join(TestDataset.data_dir, i) for i in p]
         else:
-            return os.path.join(TestData.data_dir, p)
+            return os.path.join(TestDataset.data_dir, p)
 
-    def generic_dataset_test(self, dataset, correct_batches):
-        with self.subTest(dataset=dataset,
-                          correct_batches=correct_batches):
-            data = dataset.get_data()
-            batches = []
-            with spn.session() as (sess, run):
-                while run():
-                    out = sess.run(data)
-                    batches.append(out)
-            print(batches)
-            self.assertEqual(len(batches), len(correct_batches))
-            for b, cb in zip(batches, correct_batches):
-                if isinstance(b, list):
-                    self.assertEqual(len(b), len(cb))
-                    for bb, cbcb in zip(b, cb):
-                        if cbcb is None:
-                            self.assertIs(bb, None)
-                        else:
-                            np.testing.assert_array_equal(bb, cbcb)
-                else:
-                    if cb is None:
-                        self.assertIs(b, None)
+    def generic_dataset_test(self, dataset, correct_batches, tol=0.0):
+        data = dataset.get_data()
+        batches = []
+        with spn.session() as (sess, run):
+            while run():
+                out = sess.run(data)
+                batches.append(out)
+        self.assertEqual(len(batches), len(correct_batches))
+        for b, cb in zip(batches, correct_batches):
+            if isinstance(b, list):
+                self.assertEqual(len(b), len(cb))
+                for bb, cbcb in zip(b, cb):
+                    if cbcb is None:
+                        self.assertIs(bb, None)
                     else:
-                        np.testing.assert_array_equal(b, cb)
+                        self.assertEqual(bb.dtype, cbcb.dtype)
+                        if (issubclass(bb.dtype.type, np.floating) or
+                                issubclass(bb.dtype.type, np.integer)):
+                            np.testing.assert_allclose(bb, cbcb, atol=tol)
+                        else:
+                            np.testing.assert_equal(bb, cbcb)
+            else:
+                if cb is None:
+                    self.assertIs(b, None)
+                else:
+                    self.assertEqual(b.dtype, cb.dtype)
+                    if (issubclass(b.dtype.type, np.floating) or
+                            issubclass(b.dtype.type, np.integer)):
+                        np.testing.assert_allclose(b, cb, atol=tol)
+                    else:
+                        np.testing.assert_equal(b, cb)
 
     def test_unlabeled_csv_file_dataset_without_final_batch(self):
         """Batch generation (without smaller final batch) for CSV file
         without labels"""
         # Note: shuffling is NOT tested
-        dataset = spn.CSVFileDataset([os.path.join(TestData.data_dir, p)
+        dataset = spn.CSVFileDataset([os.path.join(TestDataset.data_dir, p)
                                       for p in ["data_int1.csv", "data_int2.csv"]],
                                      num_epochs=2,
                                      batch_size=3,
@@ -96,7 +99,7 @@ class TestData(unittest.TestCase):
         """Batch generation (without smaller final batch) for CSV file
         with labels"""
         # Note: shuffling is NOT tested
-        dataset = spn.CSVFileDataset([os.path.join(TestData.data_dir, p)
+        dataset = spn.CSVFileDataset([os.path.join(TestDataset.data_dir, p)
                                       for p in ["data_int1.csv", "data_int2.csv"]],
                                      num_epochs=2,
                                      batch_size=3,
@@ -131,7 +134,7 @@ class TestData(unittest.TestCase):
     def test_labeled_csv_file_dataset_int(self):
         """Batch generation for CSV file with integer data and 2 labels"""
         # Note: shuffling is NOT tested
-        dataset = spn.CSVFileDataset([os.path.join(TestData.data_dir, p)
+        dataset = spn.CSVFileDataset([os.path.join(TestDataset.data_dir, p)
                                       for p in ["data_int1.csv", "data_int2.csv"]],
                                      num_epochs=2,
                                      batch_size=3,
@@ -186,7 +189,7 @@ class TestData(unittest.TestCase):
     def test_labeled_csv_file_dataset_float(self):
         """Batch generation for CSV file with float data and 2 labels"""
         # Note: shuffling is NOT tested
-        dataset = spn.CSVFileDataset(os.path.join(TestData.data_dir,
+        dataset = spn.CSVFileDataset(os.path.join(TestDataset.data_dir,
                                                   "data_mix.csv"),
                                      num_epochs=2,
                                      batch_size=3,
@@ -228,7 +231,7 @@ class TestData(unittest.TestCase):
                 return [data[0], tf.stack(data[1:3]), tf.stack(data[3:])]
 
         # Note: shuffling is NOT tested
-        dataset = CustomCSVFileDataset(os.path.join(TestData.data_dir,
+        dataset = CustomCSVFileDataset(os.path.join(TestDataset.data_dir,
                                                     "data_mix.csv"),
                                        num_epochs=2,
                                        batch_size=3,
@@ -486,7 +489,7 @@ class TestData(unittest.TestCase):
 
     def test_read_all_labeled_csv_file_dataset(self):
         """Test read_all for CSV file with 2 labels."""
-        dataset = spn.CSVFileDataset([os.path.join(TestData.data_dir, p)
+        dataset = spn.CSVFileDataset([os.path.join(TestDataset.data_dir, p)
                                       for p in ["data_int1.csv", "data_int2.csv"]],
                                      num_epochs=2,
                                      batch_size=3,
@@ -571,10 +574,10 @@ class TestData(unittest.TestCase):
                                                       [2, 2]], dtype=np.int32))
 
     def test_write_all_single_tensor(self):
-        path = os.path.join(TestData.data_dir, "out_test_write_all_single_tensor.csv")
+        path = os.path.join(TestDataset.data_dir, "out_test_write_all_single_tensor.csv")
 
         # Read&write
-        dataset = spn.CSVFileDataset(os.path.join(TestData.data_dir, "data_int1.csv"),
+        dataset = spn.CSVFileDataset(os.path.join(TestDataset.data_dir, "data_int1.csv"),
                                      num_epochs=2,
                                      batch_size=4,
                                      shuffle=False,
@@ -603,10 +606,10 @@ class TestData(unittest.TestCase):
         np.testing.assert_array_equal(data1, data2)
 
     def test_write_all_tensor_list(self):
-        path = os.path.join(TestData.data_dir, "out_test_write_all_tensor_list.csv")
+        path = os.path.join(TestDataset.data_dir, "out_test_write_all_tensor_list.csv")
 
         # Read&write
-        dataset = spn.CSVFileDataset(os.path.join(TestData.data_dir, "data_int1.csv"),
+        dataset = spn.CSVFileDataset(os.path.join(TestDataset.data_dir, "data_int1.csv"),
                                      num_epochs=2,
                                      batch_size=4,
                                      shuffle=False,
@@ -639,7 +642,7 @@ class TestData(unittest.TestCase):
 
     def test_csv_data_writer(self):
         # Write
-        path = os.path.join(TestData.data_dir, "out_test_csv_data_writer.csv")
+        path = os.path.join(TestDataset.data_dir, "out_test_csv_data_writer.csv")
         writer = spn.CSVDataWriter(path)
 
         arr1 = np.array([1, 2, 3, 4])
@@ -670,4 +673,4 @@ class TestData(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()
