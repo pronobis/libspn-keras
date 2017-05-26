@@ -60,29 +60,6 @@ class Ops:
 
         return spn.initialize_weights(root), value_op
 
-    def sums(inputs, indices, ivs, num_sums, inf_type, log=True, output=None):
-        if indices is None:
-            inputs = [inputs]
-        else:
-            inputs = [(inputs, indices)]
-
-        # Generate a single Sums node, modeling 'num_sums' sum nodes within,
-        # connecting it to inputs and ivs
-        s = spn.Sums(*inputs, num_sums=num_sums, ivs=ivs)
-        # Generate weights of the Sums node
-        s.generate_weights()
-
-        # Connect the Sums nodes to a single root Sum node and generate its weights
-        root = spn.Sum(s)
-        root.generate_weights()
-
-        if log:
-            value_op = root.get_log_value(inference_type=inf_type)
-        else:
-            value_op = root.get_value(inference_type=inf_type)
-
-        return spn.initialize_weights(root), value_op
-
     def parallel_sums(inputs, indices, ivs, num_sums, inf_type, log=True, output=None):
         if indices is None:
             inputs = [inputs]
