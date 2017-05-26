@@ -127,6 +127,130 @@ class TestDataWriter(tf.test.TestCase):
         np.testing.assert_array_almost_equal(np.concatenate((arr2, arr2)),
                                              data[1])
 
+    def test_image_gray_float_image_gray_write_all(self):
+        # Read and write
+        dataset1 = spn.ImageDataset(
+            image_files=self.data_path("img_dir1/*-{*}.png"),
+            format=spn.ImageFormat.FLOAT,
+            num_epochs=1, batch_size=2, shuffle=False,
+            ratio=1, crop=0, accurate=True,
+            allow_smaller_final_batch=True)
+        writer = spn.ImageDataWriter(
+            path=self.data_path("out_img1/img%n-%l.png"),
+            shape=dataset1.shape,
+            normalize=False,
+            num_digits=1)
+
+        os.makedirs(self.data_path("out_img1"), exist_ok=True)
+        data1 = dataset1.read_all()
+        dataset1.write_all(writer)
+
+        # Re-read
+        dataset1 = spn.ImageDataset(
+            image_files=self.data_path("out_img1/*-{*}.png"),
+            format=spn.ImageFormat.FLOAT,
+            num_epochs=1, batch_size=2, shuffle=False,
+            ratio=1, crop=0, accurate=True,
+            allow_smaller_final_batch=True)
+        data2 = dataset1.read_all()
+
+        # Compare
+        np.testing.assert_allclose(data1[0], data2[0])
+        np.testing.assert_array_equal(data1[1], data2[1])
+
+    def test_image_rgb_rgbfloat_image_rgb_write_all(self):
+        # Read and write
+        dataset1 = spn.ImageDataset(
+            image_files=self.data_path("img_dir2/*-{*}.png"),
+            format=spn.ImageFormat.RGB_FLOAT,
+            num_epochs=1, batch_size=2, shuffle=False,
+            ratio=1, crop=0, accurate=True,
+            allow_smaller_final_batch=True)
+        writer = spn.ImageDataWriter(
+            path=self.data_path("out_img2/img%n-%l.png"),
+            shape=dataset1.shape,
+            normalize=False,
+            num_digits=1)
+
+        os.makedirs(self.data_path("out_img2"), exist_ok=True)
+        data1 = dataset1.read_all()
+        dataset1.write_all(writer)
+
+        # Re-read
+        dataset1 = spn.ImageDataset(
+            image_files=self.data_path("out_img2/*-{*}.png"),
+            format=spn.ImageFormat.RGB_FLOAT,
+            num_epochs=1, batch_size=2, shuffle=False,
+            ratio=1, crop=0, accurate=True,
+            allow_smaller_final_batch=True)
+        data2 = dataset1.read_all()
+
+        # Compare
+        np.testing.assert_allclose(data1[0], data2[0], atol=0.002)
+        np.testing.assert_array_equal(data1[1], data2[1])
+
+    def test_image_gray_int_image_gray_write_all(self):
+        # Read and write
+        dataset1 = spn.ImageDataset(
+            image_files=self.data_path("img_dir1/*-{*}.png"),
+            format=spn.ImageFormat.INT,
+            num_epochs=1, batch_size=2, shuffle=False,
+            ratio=1, crop=0, accurate=True,
+            allow_smaller_final_batch=True)
+        writer = spn.ImageDataWriter(
+            path=self.data_path("out_img1/img%n-%l.png"),
+            shape=dataset1.shape,
+            normalize=False,
+            num_digits=1)
+
+        os.makedirs(self.data_path("out_img1"), exist_ok=True)
+        data1 = dataset1.read_all()
+        dataset1.write_all(writer)
+
+        # Re-read
+        dataset1 = spn.ImageDataset(
+            image_files=self.data_path("out_img1/*-{*}.png"),
+            format=spn.ImageFormat.INT,
+            num_epochs=1, batch_size=2, shuffle=False,
+            ratio=1, crop=0, accurate=True,
+            allow_smaller_final_batch=True)
+        data2 = dataset1.read_all()
+
+        # Compare
+        np.testing.assert_array_equal(data1[0], data2[0])
+        np.testing.assert_array_equal(data1[1], data2[1])
+
+    def test_image_rgb_rgbint_image_rgb_write_all(self):
+        # Read and write
+        dataset1 = spn.ImageDataset(
+            image_files=self.data_path("img_dir2/*-{*}.png"),
+            format=spn.ImageFormat.RGB_INT,
+            num_epochs=1, batch_size=2, shuffle=False,
+            ratio=1, crop=0, accurate=True,
+            allow_smaller_final_batch=True)
+        writer = spn.ImageDataWriter(
+            path=self.data_path("out_img2/img%n-%l.png"),
+            shape=dataset1.shape,
+            normalize=False,
+            num_digits=1)
+
+        os.makedirs(self.data_path("out_img2"), exist_ok=True)
+        data1 = dataset1.read_all()
+        dataset1.write_all(writer)
+
+        # Re-read
+        dataset1 = spn.ImageDataset(
+            image_files=self.data_path("out_img2/*-{*}.png"),
+            format=spn.ImageFormat.RGB_INT,
+            num_epochs=1, batch_size=2, shuffle=False,
+            ratio=1, crop=0, accurate=True,
+            allow_smaller_final_batch=True)
+        data2 = dataset1.read_all()
+
+        # Compare
+        np.testing.assert_array_equal(data1[0], data2[0])
+        np.testing.assert_array_equal(data1[1], data2[1])
+
 
 if __name__ == '__main__':
     tf.test.main()
