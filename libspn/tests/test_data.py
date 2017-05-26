@@ -65,8 +65,8 @@ class TestDataset(tf.test.TestCase):
         """Batch generation (without smaller final batch) for CSV file
         without labels"""
         # Note: shuffling is NOT tested
-        dataset = spn.CSVFileDataset([os.path.join(TestDataset.data_dir, p)
-                                      for p in ["data_int1.csv", "data_int2.csv"]],
+        dataset = spn.CSVFileDataset(self.data_path(["data_int1.csv",
+                                                     "data_int2.csv"]),
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
@@ -99,8 +99,8 @@ class TestDataset(tf.test.TestCase):
         """Batch generation (without smaller final batch) for CSV file
         with labels"""
         # Note: shuffling is NOT tested
-        dataset = spn.CSVFileDataset([os.path.join(TestDataset.data_dir, p)
-                                      for p in ["data_int1.csv", "data_int2.csv"]],
+        dataset = spn.CSVFileDataset(self.data_path(["data_int1.csv",
+                                                     "data_int2.csv"]),
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
@@ -134,8 +134,8 @@ class TestDataset(tf.test.TestCase):
     def test_labeled_csv_file_dataset_int(self):
         """Batch generation for CSV file with integer data and 2 labels"""
         # Note: shuffling is NOT tested
-        dataset = spn.CSVFileDataset([os.path.join(TestDataset.data_dir, p)
-                                      for p in ["data_int1.csv", "data_int2.csv"]],
+        dataset = spn.CSVFileDataset(self.data_path(["data_int1.csv",
+                                                     "data_int2.csv"]),
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
@@ -189,8 +189,7 @@ class TestDataset(tf.test.TestCase):
     def test_labeled_csv_file_dataset_float(self):
         """Batch generation for CSV file with float data and 2 labels"""
         # Note: shuffling is NOT tested
-        dataset = spn.CSVFileDataset(os.path.join(TestDataset.data_dir,
-                                                  "data_mix.csv"),
+        dataset = spn.CSVFileDataset(self.data_path("data_mix.csv"),
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
@@ -231,8 +230,7 @@ class TestDataset(tf.test.TestCase):
                 return [data[0], tf.stack(data[1:3]), tf.stack(data[3:])]
 
         # Note: shuffling is NOT tested
-        dataset = CustomCSVFileDataset(os.path.join(TestDataset.data_dir,
-                                                    "data_mix.csv"),
+        dataset = CustomCSVFileDataset(self.data_path("data_mix.csv"),
                                        num_epochs=2,
                                        batch_size=3,
                                        shuffle=False,
@@ -489,8 +487,8 @@ class TestDataset(tf.test.TestCase):
 
     def test_read_all_labeled_csv_file_dataset(self):
         """Test read_all for CSV file with 2 labels."""
-        dataset = spn.CSVFileDataset([os.path.join(TestDataset.data_dir, p)
-                                      for p in ["data_int1.csv", "data_int2.csv"]],
+        dataset = spn.CSVFileDataset(self.data_path(["data_int1.csv",
+                                                     "data_int2.csv"]),
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
@@ -574,10 +572,10 @@ class TestDataset(tf.test.TestCase):
                                                       [2, 2]], dtype=np.int32))
 
     def test_write_all_single_tensor(self):
-        path = os.path.join(TestDataset.data_dir, "out_test_write_all_single_tensor.csv")
+        path = self.data_path("out_test_write_all_single_tensor.csv")
 
         # Read&write
-        dataset = spn.CSVFileDataset(os.path.join(TestDataset.data_dir, "data_int1.csv"),
+        dataset = spn.CSVFileDataset(self.data_path("data_int1.csv"),
                                      num_epochs=2,
                                      batch_size=4,
                                      shuffle=False,
@@ -606,10 +604,10 @@ class TestDataset(tf.test.TestCase):
         np.testing.assert_array_equal(data1, data2)
 
     def test_write_all_tensor_list(self):
-        path = os.path.join(TestDataset.data_dir, "out_test_write_all_tensor_list.csv")
+        path = self.data_path("out_test_write_all_tensor_list.csv")
 
         # Read&write
-        dataset = spn.CSVFileDataset(os.path.join(TestDataset.data_dir, "data_int1.csv"),
+        dataset = spn.CSVFileDataset(self.data_path("data_int1.csv"),
                                      num_epochs=2,
                                      batch_size=4,
                                      shuffle=False,
@@ -642,7 +640,7 @@ class TestDataset(tf.test.TestCase):
 
     def test_csv_data_writer(self):
         # Write
-        path = os.path.join(TestDataset.data_dir, "out_test_csv_data_writer.csv")
+        path = self.data_path("out_test_csv_data_writer.csv")
         writer = spn.CSVDataWriter(path)
 
         arr1 = np.array([1, 2, 3, 4])
