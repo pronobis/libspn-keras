@@ -13,11 +13,11 @@ import numpy as np
 from context import libspn as spn
 
 
-class TestDataset(tf.test.TestCase):
+class TestCSVFileDataset(tf.test.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        super(TestDataset, cls).setUpClass()
+        super(TestCSVFileDataset, cls).setUpClass()
         cls.data_dir = os.path.realpath(os.path.join(os.getcwd(),
                                                      os.path.dirname(__file__),
                                                      "data"))
@@ -25,9 +25,9 @@ class TestDataset(tf.test.TestCase):
     @staticmethod
     def data_path(p):
         if isinstance(p, list):
-            return [os.path.join(TestDataset.data_dir, i) for i in p]
+            return [os.path.join(TestCSVFileDataset.data_dir, i) for i in p]
         else:
-            return os.path.join(TestDataset.data_dir, p)
+            return os.path.join(TestCSVFileDataset.data_dir, p)
 
     def generic_dataset_test(self, dataset, correct_batches, tol=0.0):
         data = dataset.get_data()

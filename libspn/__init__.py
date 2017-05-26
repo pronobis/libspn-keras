@@ -46,7 +46,7 @@ from libspn.learning.gd import GDLearning
 # Data
 from libspn.data.dataset import Dataset
 from libspn.data.file import FileDataset
-from libspn.data.file import CSVFileDataset
+from libspn.data.csv import CSVFileDataset
 from libspn.data.generated import GaussianMixtureDataset
 from libspn.data.generated import IntGridDataset
 from libspn.data.mnist import MnistDataset
