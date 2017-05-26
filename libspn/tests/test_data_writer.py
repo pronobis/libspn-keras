@@ -146,13 +146,13 @@ class TestDataWriter(tf.test.TestCase):
         dataset1.write_all(writer)
 
         # Re-read
-        dataset1 = spn.ImageDataset(
+        dataset2 = spn.ImageDataset(
             image_files=self.data_path("out_img1/*-{*}.png"),
             format=spn.ImageFormat.FLOAT,
             num_epochs=1, batch_size=2, shuffle=False,
             ratio=1, crop=0, accurate=True,
             allow_smaller_final_batch=True)
-        data2 = dataset1.read_all()
+        data2 = dataset2.read_all()
 
         # Compare
         np.testing.assert_allclose(data1[0], data2[0])
@@ -177,13 +177,13 @@ class TestDataWriter(tf.test.TestCase):
         dataset1.write_all(writer)
 
         # Re-read
-        dataset1 = spn.ImageDataset(
+        dataset2 = spn.ImageDataset(
             image_files=self.data_path("out_img2/*-{*}.png"),
             format=spn.ImageFormat.RGB_FLOAT,
             num_epochs=1, batch_size=2, shuffle=False,
             ratio=1, crop=0, accurate=True,
             allow_smaller_final_batch=True)
-        data2 = dataset1.read_all()
+        data2 = dataset2.read_all()
 
         # Compare
         np.testing.assert_allclose(data1[0], data2[0], atol=0.002)
@@ -208,13 +208,13 @@ class TestDataWriter(tf.test.TestCase):
         dataset1.write_all(writer)
 
         # Re-read
-        dataset1 = spn.ImageDataset(
+        dataset2 = spn.ImageDataset(
             image_files=self.data_path("out_img1/*-{*}.png"),
             format=spn.ImageFormat.INT,
             num_epochs=1, batch_size=2, shuffle=False,
             ratio=1, crop=0, accurate=True,
             allow_smaller_final_batch=True)
-        data2 = dataset1.read_all()
+        data2 = dataset2.read_all()
 
         # Compare
         np.testing.assert_array_equal(data1[0], data2[0])
@@ -239,16 +239,46 @@ class TestDataWriter(tf.test.TestCase):
         dataset1.write_all(writer)
 
         # Re-read
-        dataset1 = spn.ImageDataset(
+        dataset2 = spn.ImageDataset(
             image_files=self.data_path("out_img2/*-{*}.png"),
             format=spn.ImageFormat.RGB_INT,
             num_epochs=1, batch_size=2, shuffle=False,
             ratio=1, crop=0, accurate=True,
             allow_smaller_final_batch=True)
-        data2 = dataset1.read_all()
+        data2 = dataset2.read_all()
 
         # Compare
         np.testing.assert_array_equal(data1[0], data2[0])
+        np.testing.assert_array_equal(data1[1], data2[1])
+
+    def test_image_gray_float_csv_write_all(self):
+        # Read and write
+        dataset1 = spn.ImageDataset(
+            image_files=self.data_path("img_dir1/*-{*}.png"),
+            format=spn.ImageFormat.FLOAT,
+            num_epochs=1, batch_size=2, shuffle=False,
+            ratio=1, crop=0, accurate=True,
+            allow_smaller_final_batch=True)
+        writer = spn.CSVDataWriter(
+            path=self.data_path("out_test_image_gray_float_csv_write_all.csv"))
+
+        data1 = dataset1.read_all()
+        dataset1.write_all(writer)
+
+        # Re-read
+        dataset2 = spn.CSVFileDataset(
+            files=self.data_path("out_test_image_gray_float_csv_write_all.csv"),
+            num_epochs=1,
+            batch_size=2,
+            shuffle=False,
+            num_labels=1,
+            defaults=[[b'']] + [[1.0] for _ in range(25)],
+            allow_smaller_final_batch=True)
+        data2 = dataset2.read_all()
+        print(data2)
+
+        # Compare
+        np.testing.assert_allclose(data1[0], data2[0])
         np.testing.assert_array_equal(data1[1], data2[1])
 
 

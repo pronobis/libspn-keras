@@ -17,8 +17,8 @@ class CSVFileDataset(FileDataset):
     returned in a separate tensor. The labels should be stored in the first
     ``num_labels`` columns of the CSV file.
 
-    If ``num_labels>0``, the data is returned as a tuple of tensors ``(labels,
-    samples)``, where ``labels`` is a tensor of shape ``[batch_size,
+    If ``num_labels>0``, the data is returned as a tuple of tensors ``(samples,
+    labels)``, where ``labels`` is a tensor of shape ``[batch_size,
     num_labels]``, containing the first ``num_labels`` columns and ``samples``
     is a tensor ``[batch_size, ?]`` containing the data samples. If
     ``num_labels==0``, the data is returned as a single tensor ``samples``.
@@ -90,7 +90,7 @@ class CSVFileDataset(FileDataset):
     @utils.docinherit(Dataset)
     def process_data(self, data):
         if self._num_labels > 0:
-            return [tf.stack(data[0:self._num_labels]),
-                    tf.stack(data[self._num_labels:])]
+            return [tf.stack(data[self._num_labels:]),
+                    tf.stack(data[0:self._num_labels])]
         else:
             return [tf.stack(data)]
