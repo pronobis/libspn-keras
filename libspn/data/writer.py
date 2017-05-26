@@ -50,13 +50,15 @@ class CSVDataWriter(DataWriter):
 
     def write(self, data, labels=None):
         """
-        Write data in one or multiple arrays with optional labels. The first
-        call to write erases any existing file, while all subsequent calls will
-        append to the same file.
+        Write data in one or multiple arrays with optional labels. The labels will
+        be saved as the first columns of the CSV file. The first call to write
+        erases any existing file, while all subsequent calls will append to the
+        same file.
 
         Args:
-            data (array or list of arrays): An array or a list of arrays with
-                the data to write.
+            data (array or list of arrays): A 1D or 2D array or a list of 1D or
+                2D arrays with the data to write.
+            labels (array): A 1D or 2D array with the labels.
         """
         # Put a single array into a list and check input
         if isinstance(data, np.ndarray):
@@ -140,10 +142,12 @@ class ImageDataWriter(DataWriter):
         Write image data to file(s). `images` can be either a single image
 
         Args:
-            images (array): An array containing a single image or multiple
-                            images of the given shape.
-            labels (value or array): A value or array of values used to label
-                                     the image or images given.
+            images (array): A 1D array containing a single image or a 2D array
+                            containing multiple images of the given shape.
+            labels (value or array): For a single image, a value or a
+                single-element 1D or 2D array containing a label for the image.
+                For multiple images, a 1D or 2D array containing labels for the
+                images.
             image_no (int): Optional. Number of the first image to write.
                             If not given, the number of the last written image
                             is incremented and used.
@@ -155,8 +159,6 @@ class ImageDataWriter(DataWriter):
             raise ValueError("images must be of int or float dtype")
         if image_no is not None and not isinstance(image_no, int):
             raise ValueError("image_no must be integer")
-        if labels is not None and not isinstance(labels, np.ndarray):
-            raise ValueError("labels must be an array")
 
         if self.__is_debug1():
             self.__debug1("Batch size:%s dtype:%s max_min:%s min_max:%s" %
@@ -168,7 +170,24 @@ class ImageDataWriter(DataWriter):
         if images.ndim == 1:
             images = images.reshape([1, -1])
             if labels is not None:
-                labels = [labels]
+                if isinstance(labels, np.ndarray):
+                    if labels.ndim == 1:
+                        labels = labels.reshape([1, -1])
+                    elif labels.ndim != 2:
+                        raise ValueError("labels array must be 1 or 2 dimensional")
+                else:
+                    labels = np.array([[labels]])
+        elif images.ndim == 2:
+            if labels is not None:
+                if isinstance(labels, np.ndarray):
+                    if labels.ndim == 1:
+                        labels = labels.reshape([1, -1])
+                    elif labels.ndim != 2:
+                        raise ValueError("labels array must be 1 or 2 dimensional")
+                else:
+                    raise ValueError("labels must be an array")
+        else:
+            raise ValueError("images array must be 1 or 2 dimensional")
         # Set image number
         if image_no is not None:
             self._image_no = image_no
@@ -184,7 +203,7 @@ class ImageDataWriter(DataWriter):
                 path = path.replace(
                     '%n', ("%0" + str(self._num_digits) + "d") % (self._image_no))
             if labels is not None and '%l' in path:
-                label = labels[i]
+                label = labels[i, 0]
                 if isinstance(label, bytes):
                     label = label.decode("utf-8")
                 else:

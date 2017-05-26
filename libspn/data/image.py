@@ -178,7 +178,8 @@ class ImageDataset(FileDataset):
         # https://github.com/tensorflow/tensorflow/issues/521
         # https://stackoverflow.com/questions/34746777/why-do-i-get-valueerror-image-must-be-fully-defined-when-transforming-im
         image.set_shape((self._orig_height, self._orig_width, self._orig_channels))
-        return image, label
+        # Labels are reshaped so that in the batch they are of 2D shape (batch, 1)
+        return image, tf.reshape(label, shape=(1,))
 
     @utils.docinherit(FileDataset)
     def process_data(self, data):

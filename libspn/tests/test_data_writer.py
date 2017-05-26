@@ -275,7 +275,6 @@ class TestDataWriter(tf.test.TestCase):
             defaults=[[b'']] + [[1.0] for _ in range(25)],
             allow_smaller_final_batch=True)
         data2 = dataset2.read_all()
-        print(data2)
 
         # Compare
         np.testing.assert_allclose(data1[0], data2[0])
