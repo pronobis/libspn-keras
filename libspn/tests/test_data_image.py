@@ -7,23 +7,19 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
 import os
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
 
 
-class TestImageDataset(unittest.TestCase):
+class TestImageDataset(tf.test.TestCase):
 
     @classmethod
     def setUpClass(cls):
         cls.data_dir = os.path.realpath(os.path.join(os.getcwd(),
                                                      os.path.dirname(__file__),
                                                      "data"))
-
-    def tearDown(self):
-        tf.reset_default_graph()
 
     @staticmethod
     def data_path(p):
@@ -1085,4 +1081,4 @@ class TestImageDataset(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()

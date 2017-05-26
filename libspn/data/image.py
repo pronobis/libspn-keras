@@ -12,6 +12,7 @@ from libspn import utils
 from enum import Enum
 from collections import namedtuple
 import scipy
+import PIL
 
 
 ImageShape = namedtuple("ImageShape", ["height", "width", "channels"])
@@ -231,7 +232,14 @@ class ImageDataset(FileDataset):
         except IndexError:
             raise RuntimeError("Cannot guess original image shape since"
                                " a representative file is not found")
-        img = scipy.misc.imread(fname)
+        # Instead of
+        # img = scipy.misc.imread(fname)
+        # we use this to workaround a bug:
+        # https://github.com/python-pillow/Pillow/issues/835
+        # https://github.com/scikit-learn/scikit-learn/issues/3410
+        with open(fname, 'rb') as img_file:
+            with PIL.Image.open(img_file) as img_img:
+                img = scipy.misc.fromimage(img_img)
         self._orig_height = img.shape[0]
         self._orig_width = img.shape[1]
         if len(img.shape) == 3:
