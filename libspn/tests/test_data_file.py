@@ -7,14 +7,13 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
 from unittest.mock import patch
 import os
 import tensorflow as tf
 from context import libspn as spn
 
 
-class TestFileDataset(unittest.TestCase):
+class TestFileDataset(tf.test.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -53,8 +52,14 @@ class TestFileDataset(unittest.TestCase):
              "img_dir1/img3-B.png",
              "img_dir2/img1-A.png",
              "img_dir2/img2-C.png",
-             "img_dir2/img3-B.png"],
-            ['', '', '', '', '', ''])
+             "img_dir2/img3-B.png",
+             "img_dir3/img1-A.png",
+             "img_dir3/img2-C.png",
+             "img_dir3/img3-B.png",
+             "img_dir4/img1-A.png",
+             "img_dir4/img2-C.png",
+             "img_dir4/img3-B.png"],
+            ['', '', '', '', '', '', '', '', '', '', '', ''])
 
         # Single path with a glob and a label
         run("img_dir*/img*-{*}.png",
@@ -63,8 +68,14 @@ class TestFileDataset(unittest.TestCase):
              "img_dir1/img3-B.png",
              "img_dir2/img1-A.png",
              "img_dir2/img2-C.png",
-             "img_dir2/img3-B.png"],
-            ['A', 'C', 'B', 'A', 'C', 'B'])
+             "img_dir2/img3-B.png",
+             "img_dir3/img1-A.png",
+             "img_dir3/img2-C.png",
+             "img_dir3/img3-B.png",
+             "img_dir4/img1-A.png",
+             "img_dir4/img2-C.png",
+             "img_dir4/img3-B.png"],
+            ['A', 'C', 'B', 'A', 'C', 'B', 'A', 'C', 'B', 'A', 'C', 'B'])
 
         # Multiple paths without glob and label
         # Tests if order of files is preserved
@@ -135,8 +146,14 @@ class TestFileDataset(unittest.TestCase):
              "img_dir1/img3-B.png",
              "img_dir2/img1-A.png",
              "img_dir2/img2-C.png",
-             "img_dir2/img3-B.png"],
-            ['', '', '', '', '', ''])
+             "img_dir2/img3-B.png",
+             "img_dir3/img1-A.png",
+             "img_dir3/img2-C.png",
+             "img_dir3/img3-B.png",
+             "img_dir4/img1-A.png",
+             "img_dir4/img2-C.png",
+             "img_dir4/img3-B.png"],
+            ['', '', '', '', '', '', '', '', '', '', '', ''])
 
         # Single path with a glob and a label
         run("img_dir*/img*-{*}.png",
@@ -145,8 +162,14 @@ class TestFileDataset(unittest.TestCase):
              "img_dir1/img3-B.png",
              "img_dir2/img1-A.png",
              "img_dir2/img2-C.png",
-             "img_dir2/img3-B.png"],
-            ['A', 'C', 'B', 'A', 'C', 'B'])
+             "img_dir2/img3-B.png",
+             "img_dir3/img1-A.png",
+             "img_dir3/img2-C.png",
+             "img_dir3/img3-B.png",
+             "img_dir4/img1-A.png",
+             "img_dir4/img2-C.png",
+             "img_dir4/img3-B.png"],
+            ['A', 'C', 'B', 'A', 'C', 'B', 'A', 'C', 'B', 'A', 'C', 'B'])
 
         # Multiple paths without glob and label
         # Tests if order of files is preserved
@@ -181,4 +204,4 @@ class TestFileDataset(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()
