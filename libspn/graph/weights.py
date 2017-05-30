@@ -137,9 +137,9 @@ class Weights(ParamNode):
     def _compute_hard_em_update(self, counts):
         # TODO: Need a better way to determing rank of counts'
         if self.num_sums == 1:
-            return tf.reduce_sum(counts, axis=-2, keep_dims=True)
+            return tf.reduce_sum(counts, axis=0, keep_dims=True)
         else:
-            return counts
+            return tf.reduce_sum(counts, axis=0, keep_dims=False)
 
 
 def assign_weights(root, value, name=None):

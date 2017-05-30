@@ -346,23 +346,23 @@ class ParallelSums(OpNode):
             values_weighted = tf.expand_dims(values, axis=-2) + weight_tensor
             return tf.reduce_max(values_weighted, axis=-1)
 
+
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
                                  ivs_value, *value_values):
         # Propagate the counts to the max value
         max_indices = tf.argmax(values_weighted, dimension=-1)
-        max_counts = tf.one_hot(max_indices, values_weighted.get_shape()[-1]) * tf.stack(
-            tf.split(counts, self._num_sums, 1))
+        max_counts = tf.one_hot(max_indices, values_weighted.get_shape()[-1]) * \
+                     tf.expand_dims(counts, axis=-1)
         # Sum up max counts between individual sum nodes
-        max_counts_summed = tf.reduce_sum(max_counts, 0)
+        max_counts_summed = tf.reduce_sum(max_counts, 1)
         # Split the max counts to value inputs
         _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
         max_counts_split = tf.split(max_counts_summed, value_sizes, 1)
-        # Sum up max counts batch-wise as counts of Weights
-        max_counts_weights = tf.reduce_sum(max_counts, axis=-2, keep_dims=False)
         return self._scatter_to_input_tensors(
-            (max_counts_weights, weight_value),  # Weights
+            (max_counts, weight_value),  # Weights
             (max_counts_summed, ivs_value),  # IVs
             *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
+
 
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
                           add_random=None, use_unweighted=False):
@@ -370,37 +370,48 @@ class ParallelSums(OpNode):
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
         if self._ivs:
-            # IVs tensor shape = [Batch, (num_sums * num_vals)]
-            # First, split the IVs tensor into 'num_sums' smaller tensors.
-            # Then pack the split tensors together such that the new shape
-            # of IVs = [num_sums, Batch, num_vals]
-            ivs_value = tf.stack(tf.split(ivs_value, self._num_sums, 1))
-        values_selected = values * ivs_value if self._ivs else tf.tile(
-            tf.expand_dims(values, 0), [self._num_sums, 1, 1])
-        values_weighted = values_selected * tf.expand_dims(weight_value, axis=-2)
+            # IVs tensor shape = (Batch X (num_sums * num_vals))
+            # reshape it to (num_sums X Batch X num_feat)
+            reshape = (-1, self._num_sums, tf.shape(values)[1])
+            ivs_value = tf.reshape(ivs_value, shape=reshape)
+            values_weighted = tf.expand_dims(values, axis=1) * \
+                              (ivs_value * weight_value)
+        else:
+            values_weighted = tf.expand_dims(values, axis=-2) * weight_value
         return self._compute_mpe_path_common(
              values_weighted, counts, weight_value, ivs_value, *value_values)
+
 
     def _compute_log_mpe_path(self, counts, weight_value, ivs_value, *value_values,
                               add_random=None, use_unweighted=False):
         # Get weighted, IV selected values
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
-        values_selected = values + ivs_value if self._ivs else tf.tile(
-          tf.expand_dims(values, 0), [self._num_sums, 1, 1])
+        if self._ivs:
+            # IVs tensor shape = (Batch X (num_sums * num_vals))
+            # reshape it to (num_sums X Batch X num_feat)
+            reshape = (-1, self._num_sums, tf.shape(values)[1])
+            ivs_value = tf.reshape(ivs_value, shape=reshape)
 
-        # WARN USING UNWEIGHTED VALUE
-        if not use_unweighted or any(v.node.is_var for v in self._values):
-            values_weighted = values_selected + tf.expand_dims(weight_value, axis=-2)
+            # WARN USING UNWEIGHTED VALUE
+            if not use_unweighted or any(v.node.is_var for v in self._values):
+                values_weighted = tf.expand_dims(values, axis=1) + \
+                                  (ivs_value + weight_value)
+            else:
+                # / USING UNWEIGHTED VALUE
+                values_weighted = tf.expand_dims(values, axis=1) + ivs_value
         else:
-            values_weighted = values_selected
-
-        # / USING UNWEIGHTED VALUE
+            # WARN USING UNWEIGHTED VALUE
+            if not use_unweighted or any(v.node.is_var for v in self._values):
+                values_weighted = tf.expand_dims(values, axis=-2) + weight_value
+            else:
+                # / USING UNWEIGHTED VALUE
+                values_weighted = tf.expand_dims(values, axis=-2)
 
         # WARN ADDING RANDOM NUMBERS
         if add_random is not None:
             values_weighted = tf.add(values_weighted, tf.random_uniform(
-                shape=(tf.shape(values_weighted)[1],
+                shape=(tf.shape(values_weighted)[0], 1,
                        int(values_weighted.get_shape()[2])),
                 minval=0, maxval=add_random,
                 dtype=conf.dtype))
