@@ -31,8 +31,9 @@ class TestImageDataset(tf.test.TestCase):
 
     def generic_dataset_test(self, dataset, correct_batches, tol=0.0):
         data = dataset.get_data()
-        # Check if size of the sample is set
-        self.assertIsNotNone(data[0].shape[1].value)
+        # Check if batch size is set
+        for d in data:
+            self.assertIsNotNone(d.shape[1].value)
         # Check values
         batches = []
         with spn.session() as (sess, run):
