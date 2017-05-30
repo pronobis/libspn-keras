@@ -81,7 +81,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
                         0, 0, 255, 255, 170]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0, 255, 255, 0, 0,   # B
                         0, 255, 0, 255, 0,
                         0, 255, 255, 255, 0,
@@ -92,7 +92,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 255, 255, 0,
                         0, 255, 0, 255, 0,
                         0, 255, 0, 255, 170]], dtype=np.uint8),
-             np.array([b'B', b'A'], dtype=object)],
+             np.array([[b'B'], [b'A']], dtype=object)],
             [np.array([[0, 0, 255, 255, 0,   # C
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
@@ -103,7 +103,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 255, 255, 0,
                         0, 255, 0, 255, 0,
                         0, 255, 255, 0, 170]], dtype=np.uint8),
-             np.array([b'C', b'B'], dtype=object)],
+             np.array([[b'C'], [b'B']], dtype=object)],
             [np.array([[0, 0, 255, 0, 0,     # A
                         0, 255, 0, 255, 0,
                         0, 255, 255, 255, 0,
@@ -114,13 +114,13 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
                         0, 0, 255, 255, 170]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0, 255, 255, 0, 0,   # B
                         0, 255, 0, 255, 0,
                         0, 255, 255, 255, 0,
                         0, 255, 0, 255, 0,
                         0, 255, 255, 0, 170]], dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -141,7 +141,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
                         0, 0, 255, 255, 170]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0, 255, 255, 0, 0,   # B
                         0, 255, 0, 255, 0,
                         0, 255, 255, 255, 0,
@@ -152,7 +152,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 255, 255, 0,
                         0, 255, 0, 255, 0,
                         0, 255, 0, 255, 170]], dtype=np.uint8),
-             np.array([b'B', b'A'], dtype=object)],
+             np.array([[b'B'], [b'A']], dtype=object)],
             [np.array([[0, 0, 255, 255, 0,   # C
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
@@ -163,7 +163,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 255, 255, 0,
                         0, 255, 0, 255, 0,
                         0, 255, 255, 0, 170]], dtype=np.uint8),
-             np.array([b'C', b'B'], dtype=object)],
+             np.array([[b'C'], [b'B']], dtype=object)],
             [np.array([[0, 0, 255, 0, 0,     # A
                         0, 255, 0, 255, 0,
                         0, 255, 255, 255, 0,
@@ -174,7 +174,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
                         0, 0, 255, 255, 170]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)]]
+             np.array([[b'A'], [b'C']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -195,13 +195,13 @@ class TestImageDataset(tf.test.TestCase):
                         0, 1, 0, 0, 0,
                         0, 1, 0, 0, 0,
                         0, 0, 1, 1, 1]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0, 1, 1, 0, 0,   # B
                         0, 1, 0, 1, 0,
                         0, 1, 1, 1, 0,
                         0, 1, 0, 1, 0,
                         0, 1, 1, 0, 1]], dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -222,13 +222,13 @@ class TestImageDataset(tf.test.TestCase):
                         0., 1., 0., 0., 0.,
                         0., 1., 0., 0., 0.,
                         0., 0., 1., 1., 2 / 3]], dtype=np.float32),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0., 1., 1., 0., 0.,   # B
                         0., 1., 0., 1., 0.,
                         0., 1., 1., 1., 0.,
                         0., 1., 0., 1., 0.,
                         0., 1., 1., 0., 2 / 3]], dtype=np.float32),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -251,7 +251,7 @@ class TestImageDataset(tf.test.TestCase):
                     0, 0, 0, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 170, 170, 170]],
                 dtype=np.uint8),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0, 0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0,   # B
                   0, 0, 0, 255, 255, 255, 0, 0, 0, 255, 255, 255, 0, 0, 0,
@@ -259,7 +259,7 @@ class TestImageDataset(tf.test.TestCase):
                   0, 0, 0, 255, 255, 255, 0, 0, 0, 255, 255, 255, 0, 0, 0,
                   0, 0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0, 170, 170, 170]],
                 dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -282,7 +282,7 @@ class TestImageDataset(tf.test.TestCase):
                     0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1]],
                 dtype=np.uint8),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,   # B
                   0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0,
@@ -290,7 +290,7 @@ class TestImageDataset(tf.test.TestCase):
                   0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0,
                   0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1]],
                 dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -313,7 +313,7 @@ class TestImageDataset(tf.test.TestCase):
                     0., 0., 0., 1., 1., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
                     0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 2 / 3, 2 / 3, 2 / 3]],
                 dtype=np.float32),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0., 0., 0., 1., 1., 1., 1., 1., 1., 0., 0., 0., 0., 0., 0.,   # B
                   0., 0., 0., 1., 1., 1., 0., 0., 0., 1., 1., 1., 0., 0., 0.,
@@ -321,7 +321,7 @@ class TestImageDataset(tf.test.TestCase):
                   0., 0., 0., 1., 1., 1., 0., 0., 0., 1., 1., 1., 0., 0., 0.,
                   0., 0., 0., 1., 1., 1., 1., 1., 1., 0., 0., 0., 2 / 3, 2 / 3, 2 / 3]],
                 dtype=np.float32),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -342,13 +342,13 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
                         0, 0, 255, 255, 181]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0, 255, 255, 0, 0,   # B
                         0, 255, 0, 255, 0,
                         0, 255, 255, 255, 0,
                         0, 255, 0, 255, 0,
                         0, 255, 255, 0, 181]], dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -369,13 +369,13 @@ class TestImageDataset(tf.test.TestCase):
                         0, 1, 0, 0, 0,
                         0, 1, 0, 0, 0,
                         0, 0, 1, 1, 1]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0, 1, 1, 0, 0,   # B
                         0, 1, 0, 1, 0,
                         0, 1, 1, 1, 0,
                         0, 1, 0, 1, 0,
                         0, 1, 1, 0, 1]], dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -396,13 +396,13 @@ class TestImageDataset(tf.test.TestCase):
                         0., 1., 0., 0., 0.,
                         0., 1., 0., 0., 0.,
                         0., 0., 1., 1., 0.70870972]], dtype=np.float32),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0., 1., 1., 0., 0.,   # B
                         0., 1., 0., 1., 0.,
                         0., 1., 1., 1., 0.,
                         0., 1., 0., 1., 0.,
                         0., 1., 1., 0., 0.70870972]], dtype=np.float32),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -425,7 +425,7 @@ class TestImageDataset(tf.test.TestCase):
                     0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 42, 255]],
                 dtype=np.uint8),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0,   # B
                   0, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0,
@@ -433,7 +433,7 @@ class TestImageDataset(tf.test.TestCase):
                   0, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0,
                   0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 42, 255]],
                 dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -456,7 +456,7 @@ class TestImageDataset(tf.test.TestCase):
                     0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1]],
                 dtype=np.uint8),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,   # B
                   0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
@@ -464,7 +464,7 @@ class TestImageDataset(tf.test.TestCase):
                   0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
                   0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1]],
                 dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -487,7 +487,7 @@ class TestImageDataset(tf.test.TestCase):
                     0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
                     0., 0., 0., 0., 0., 0., 1., 0., 0., 1., 0., 0., 0., 1 / 6, 1.]],
                 dtype=np.float32),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0., 0., 0., 1., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0.,   # B
                   0., 0., 0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.,
@@ -495,7 +495,7 @@ class TestImageDataset(tf.test.TestCase):
                   0., 0., 0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.,
                   0., 0., 0., 1., 0., 0., 1., 0., 0., 0., 0., 0., 0., 1 / 6, 1.]],
                 dtype=np.float32),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -516,7 +516,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
                         0, 0, 255, 255, 170]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0, 255, 255, 0, 0,   # B
                         0, 255, 0, 255, 0,
                         0, 255, 255, 255, 0,
@@ -527,7 +527,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 255, 255, 0,
                         0, 255, 0, 255, 0,
                         0, 255, 0, 255, 170]], dtype=np.uint8),
-             np.array([b'B', b'A'], dtype=object)],
+             np.array([[b'B'], [b'A']], dtype=object)],
             [np.array([[0, 0, 255, 255, 0,   # C
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
@@ -538,7 +538,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 255, 255, 0,
                         0, 255, 0, 255, 0,
                         0, 255, 255, 0, 170]], dtype=np.uint8),
-             np.array([b'C', b'B'], dtype=object)],
+             np.array([[b'C'], [b'B']], dtype=object)],
             [np.array([[0, 0, 255, 0, 0,     # A
                         0, 255, 0, 255, 0,
                         0, 255, 255, 255, 0,
@@ -549,13 +549,13 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
                         0, 0, 255, 255, 170]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0, 255, 255, 0, 0,   # B
                         0, 255, 0, 255, 0,
                         0, 255, 255, 255, 0,
                         0, 255, 0, 255, 0,
                         0, 255, 255, 0, 170]], dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches, tol=10)
 
@@ -576,7 +576,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
                         0, 0, 255, 255, 170]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0, 255, 255, 0, 0,   # B
                         0, 255, 0, 255, 0,
                         0, 255, 255, 255, 0,
@@ -587,7 +587,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 255, 255, 0,
                         0, 255, 0, 255, 0,
                         0, 255, 0, 255, 170]], dtype=np.uint8),
-             np.array([b'B', b'A'], dtype=object)],
+             np.array([[b'B'], [b'A']], dtype=object)],
             [np.array([[0, 0, 255, 255, 0,   # C
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
@@ -598,7 +598,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 255, 255, 0,
                         0, 255, 0, 255, 0,
                         0, 255, 255, 0, 170]], dtype=np.uint8),
-             np.array([b'C', b'B'], dtype=object)],
+             np.array([[b'C'], [b'B']], dtype=object)],
             [np.array([[0, 0, 255, 0, 0,     # A
                         0, 255, 0, 255, 0,
                         0, 255, 255, 255, 0,
@@ -609,7 +609,7 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
                         0, 0, 255, 255, 170]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)]]
+             np.array([[b'A'], [b'C']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches, tol=10)
 
@@ -630,13 +630,13 @@ class TestImageDataset(tf.test.TestCase):
                         0, 1, 0, 0, 0,
                         0, 1, 0, 0, 0,
                         0, 0, 1, 1, 1]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0, 1, 1, 0, 0,   # B
                         0, 1, 0, 1, 0,
                         0, 1, 1, 1, 0,
                         0, 1, 0, 1, 0,
                         0, 1, 1, 0, 1]], dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -657,13 +657,13 @@ class TestImageDataset(tf.test.TestCase):
                         0., 1., 0., 0., 0.,
                         0., 1., 0., 0., 0.,
                         0., 0., 1., 1., 2 / 3]], dtype=np.float32),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0., 1., 1., 0., 0.,   # B
                         0., 1., 0., 1., 0.,
                         0., 1., 1., 1., 0.,
                         0., 1., 0., 1., 0.,
                         0., 1., 1., 0., 2 / 3]], dtype=np.float32),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches, tol=0.1)
 
@@ -686,7 +686,7 @@ class TestImageDataset(tf.test.TestCase):
                     0, 0, 0, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 170, 170, 170]],
                 dtype=np.uint8),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0, 0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0,   # B
                   0, 0, 0, 255, 255, 255, 0, 0, 0, 255, 255, 255, 0, 0, 0,
@@ -694,7 +694,7 @@ class TestImageDataset(tf.test.TestCase):
                   0, 0, 0, 255, 255, 255, 0, 0, 0, 255, 255, 255, 0, 0, 0,
                   0, 0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0, 170, 170, 170]],
                 dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches, tol=10)
 
@@ -717,7 +717,7 @@ class TestImageDataset(tf.test.TestCase):
                     0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1]],
                 dtype=np.uint8),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,   # B
                   0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0,
@@ -725,7 +725,7 @@ class TestImageDataset(tf.test.TestCase):
                   0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0,
                   0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1]],
                 dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -748,7 +748,7 @@ class TestImageDataset(tf.test.TestCase):
                     0., 0., 0., 1., 1., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
                     0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 2 / 3, 2 / 3, 2 / 3]],
                 dtype=np.float32),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0., 0., 0., 1., 1., 1., 1., 1., 1., 0., 0., 0., 0., 0., 0.,   # B
                   0., 0., 0., 1., 1., 1., 0., 0., 0., 1., 1., 1., 0., 0., 0.,
@@ -756,7 +756,7 @@ class TestImageDataset(tf.test.TestCase):
                   0., 0., 0., 1., 1., 1., 0., 0., 0., 1., 1., 1., 0., 0., 0.,
                   0., 0., 0., 1., 1., 1., 1., 1., 1., 0., 0., 0., 2 / 3, 2 / 3, 2 / 3]],
                 dtype=np.float32),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches, tol=0.1)
 
@@ -777,13 +777,13 @@ class TestImageDataset(tf.test.TestCase):
                         0, 255, 0, 0, 0,
                         0, 255, 0, 0, 0,
                         0, 0, 255, 255, 181]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0, 255, 255, 0, 0,   # B
                         0, 255, 0, 255, 0,
                         0, 255, 255, 255, 0,
                         0, 255, 0, 255, 0,
                         0, 255, 255, 0, 181]], dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches, tol=10)
 
@@ -804,13 +804,13 @@ class TestImageDataset(tf.test.TestCase):
                         0, 1, 0, 0, 0,
                         0, 1, 0, 0, 0,
                         0, 0, 1, 1, 1]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0, 1, 1, 0, 0,   # B
                         0, 1, 0, 1, 0,
                         0, 1, 1, 1, 0,
                         0, 1, 0, 1, 0,
                         0, 1, 1, 0, 1]], dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -831,13 +831,13 @@ class TestImageDataset(tf.test.TestCase):
                         0., 1., 0., 0., 0.,
                         0., 1., 0., 0., 0.,
                         0., 0., 1., 1., 0.70870972]], dtype=np.float32),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[0., 1., 1., 0., 0.,   # B
                         0., 1., 0., 1., 0.,
                         0., 1., 1., 1., 0.,
                         0., 1., 0., 1., 0.,
                         0., 1., 1., 0., 0.70870972]], dtype=np.float32),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches, tol=0.1)
 
@@ -860,7 +860,7 @@ class TestImageDataset(tf.test.TestCase):
                     0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 42, 255]],
                 dtype=np.uint8),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0,   # B
                   0, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0,
@@ -868,7 +868,7 @@ class TestImageDataset(tf.test.TestCase):
                   0, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0,
                   0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 42, 255]],
                 dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches, tol=10)
 
@@ -891,7 +891,7 @@ class TestImageDataset(tf.test.TestCase):
                     0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1]],
                 dtype=np.uint8),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,   # B
                   0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
@@ -899,7 +899,7 @@ class TestImageDataset(tf.test.TestCase):
                   0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
                   0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1]],
                 dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -922,7 +922,7 @@ class TestImageDataset(tf.test.TestCase):
                     0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
                     0., 0., 0., 0., 0., 0., 1., 0., 0., 1., 0., 0., 0., 1 / 6, 1.]],
                 dtype=np.float32),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0., 0., 0., 1., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0.,   # B
                   0., 0., 0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.,
@@ -930,7 +930,7 @@ class TestImageDataset(tf.test.TestCase):
                   0., 0., 0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.,
                   0., 0., 0., 1., 0., 0., 1., 0., 0., 0., 0., 0., 0., 1 / 6, 1.]],
                 dtype=np.float32),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches, tol=0.1)
 
@@ -947,11 +947,11 @@ class TestImageDataset(tf.test.TestCase):
                        [255, 0, 0,
                         255, 0, 0,
                         255, 0, 0]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[255, 0, 255,
                         255, 255, 255,
                         255, 0, 255]], dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -970,13 +970,13 @@ class TestImageDataset(tf.test.TestCase):
                   255, 0, 0, 0, 0, 0, 0, 0, 0,
                   255, 0, 0, 0, 0, 0, 0, 0, 0]],
                 dtype=np.uint8),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[255, 0, 0, 0, 0, 0, 255, 0, 0,
                   255, 0, 0, 255, 0, 0, 255, 0, 0,
                   255, 0, 0, 0, 0, 0, 255, 0, 0]],
                 dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -996,13 +996,13 @@ class TestImageDataset(tf.test.TestCase):
                                0, 255, 0, 0, 0,
                                0, 255, 0, 0, 0,
                                0, 0, 255, 255, 170]], dtype=np.uint8),
-                    np.array([b'A', b'C'], dtype=object)],
+                    np.array([[b'A'], [b'C']], dtype=object)],
                    [np.array([[0, 255, 255, 0, 0,   # B
                                0, 255, 0, 255, 0,
                                0, 255, 255, 255, 0,
                                0, 255, 0, 255, 0,
                                0, 255, 255, 0, 170]], dtype=np.uint8),
-                    np.array([b'B'], dtype=object)]]
+                    np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -1025,7 +1025,7 @@ class TestImageDataset(tf.test.TestCase):
                     0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 42, 255]],
                 dtype=np.uint8),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0,   # B
                   0, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0,
@@ -1033,7 +1033,7 @@ class TestImageDataset(tf.test.TestCase):
                   0, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0,
                   0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 42, 255]],
                 dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -1050,11 +1050,11 @@ class TestImageDataset(tf.test.TestCase):
                        [255, 0, 0,
                         255, 0, 0,
                         255, 0, 0]], dtype=np.uint8),
-             np.array([b'A', b'C'], dtype=object)],
+             np.array([[b'A'], [b'C']], dtype=object)],
             [np.array([[255, 0, 255,
                         255, 255, 255,
                         255, 0, 255]], dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
@@ -1073,13 +1073,13 @@ class TestImageDataset(tf.test.TestCase):
                   255, 0, 0, 0, 0, 0, 0, 0, 0,
                   255, 0, 0, 0, 0, 0, 0, 0, 0]],
                 dtype=np.uint8),
-            np.array([b'A', b'C'], dtype=object)],
+            np.array([[b'A'], [b'C']], dtype=object)],
             [np.array(
                 [[255, 0, 0, 0, 0, 0, 255, 0, 0,
                   255, 0, 0, 255, 0, 0, 255, 0, 0,
                   255, 0, 0, 0, 0, 0, 255, 0, 0]],
                 dtype=np.uint8),
-             np.array([b'B'], dtype=object)]]
+             np.array([[b'B']], dtype=object)]]
 
         self.generic_dataset_test(dataset, batches)
 
