@@ -315,7 +315,7 @@ class ParallelSums(OpNode):
             values_weighted = tf.expand_dims(values, axis=1) + (ivs_tensor +
                                                                 weight_tensor)
         else:
-            values_weighted = tf.expand_dims(values, axis=-2) + weight_tensor
+            values_weighted = tf.expand_dims(values, axis=1) + weight_tensor
         return utils.reduce_log_sum_3D(values_weighted, transpose=False)
 
 
@@ -330,8 +330,8 @@ class ParallelSums(OpNode):
             values_weighted = tf.expand_dims(values, axis=1) * (ivs_tensor *
                                                                 weight_tensor)
         else:
-            values_weighted = tf.expand_dims(values, axis=-2) * weight_tensor
-        return tf.reduce_max(values_weighted, axis=-1)
+            values_weighted = tf.expand_dims(values, axis=1) * weight_tensor
+        return tf.reduce_max(values_weighted, axis=2)
 
 
     def _compute_log_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
@@ -345,16 +345,16 @@ class ParallelSums(OpNode):
             values_weighted = tf.expand_dims(values, axis=1) + (ivs_tensor +
                                                                 weight_tensor)
         else:
-            values_weighted = tf.expand_dims(values, axis=-2) + weight_tensor
-        return tf.reduce_max(values_weighted, axis=-1)
+            values_weighted = tf.expand_dims(values, axis=1) + weight_tensor
+        return tf.reduce_max(values_weighted, axis=2)
 
 
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
                                  ivs_value, *value_values):
         # Propagate the counts to the max value
-        max_indices = tf.argmax(values_weighted, dimension=-1)
-        max_counts = tf.one_hot(max_indices, values_weighted.get_shape()[-1]) * \
-                     tf.expand_dims(counts, axis=-1)
+        max_indices = tf.argmax(values_weighted, dimension=2)
+        max_counts = tf.one_hot(max_indices, values_weighted.get_shape()[2]) * \
+                     tf.expand_dims(counts, axis=2)
         # Sum up max counts between individual sum nodes
         max_counts_summed = tf.reduce_sum(max_counts, 1)
         # Split the max counts to value inputs
@@ -379,7 +379,7 @@ class ParallelSums(OpNode):
             values_weighted = tf.expand_dims(values, axis=1) * (ivs_value *
                                                                 weight_value)
         else:
-            values_weighted = tf.expand_dims(values, axis=-2) * weight_value
+            values_weighted = tf.expand_dims(values, axis=1) * weight_value
         return self._compute_mpe_path_common(
              values_weighted, counts, weight_value, ivs_value, *value_values)
 
@@ -406,10 +406,10 @@ class ParallelSums(OpNode):
         else:
             # WARN USING UNWEIGHTED VALUE
             if not use_unweighted or any(v.node.is_var for v in self._values):
-                values_weighted = tf.expand_dims(values, axis=-2) + weight_value
+                values_weighted = tf.expand_dims(values, axis=1) + weight_value
             else:
                 # / USING UNWEIGHTED VALUE
-                values_weighted = tf.expand_dims(values, axis=-2)
+                values_weighted = tf.expand_dims(values, axis=1)
 
         # WARN ADDING RANDOM NUMBERS
         if add_random is not None:
