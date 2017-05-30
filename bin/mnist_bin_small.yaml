@@ -1,6 +1,5 @@
 read:
   dataset: &DATASET mnist
-  path: &PATH "~/Data/mnist"
   classes: &CLASSES 1,3,0
   # Image/MNIST params
   image-format: &IMAGE_FORMAT binary
