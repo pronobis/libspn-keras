@@ -31,7 +31,7 @@ class TestCSVFileDataset(tf.test.TestCase):
 
     def generic_dataset_test(self, dataset, correct_batches, tol=0.0):
         data = dataset.get_data()
-        # Check if batch size is set
+        # Check if sample size is set
         if type(data) is tf.Tensor:
             self.assertIsNotNone(data.shape[1].value)
         else:

@@ -69,7 +69,7 @@ class TestMNISTDataset(tf.test.TestCase):
 
     def generic_dataset_test(self, dataset):
         data = dataset.get_data()
-        # Check if batch size is set
+        # Check if sample size is set
         for d in data:
             self.assertIsNotNone(d.shape[1].value)
         # Check values
