@@ -1,7 +1,7 @@
 read:
   dataset: &DATASET image
   path: &PATH "~/Data/celebA_Local/*.jpg"
-  classes: &CLASSES Null  # No class information for celebA
+  classes: &CLASSES null  # No class information for celebA
   # Image/MNIST params
   image-format: &IMAGE_FORMAT binary
   ratio: &RATIO 2
