@@ -1,0 +1,45 @@
+Params:
+- num_a_rows=1000
+- num_a_cols=30
+- num_b_rows=5
+- num_ops=200
+- num_runs=10
+- dtype=<dtype: 'float32'>
+
+Running tests:
+--> reduction: on_gpu=False, a_shape=(1000, 30), b_shape=(5, 30)
+--> reduction: on_gpu=True, a_shape=(1000, 30), b_shape=(5, 30)
+--> matmul: on_gpu=False, a_shape=(1000, 30), b_shape=(5, 30)
+--> matmul: on_gpu=True, a_shape=(1000, 30), b_shape=(5, 30)
+--> reduction_by_matmul: on_gpu=False, a_shape=(1000, 30), b_shape=(5, 30)
+--> reduction_by_matmul: on_gpu=True, a_shape=(1000, 30), b_shape=(5, 30)
+--> reduction: on_gpu=False, a_shape=(1000, 30), b_shape=(1000, 5, 30)
+--> reduction: on_gpu=True, a_shape=(1000, 30), b_shape=(1000, 5, 30)
+--> matmul: on_gpu=False, a_shape=(1000, 30), b_shape=(1000, 5, 30)
+--> matmul: on_gpu=True, a_shape=(1000, 30), b_shape=(1000, 5, 30)
+--> reduction_by_matmul: on_gpu=False, a_shape=(1000, 30), b_shape=(1000, 5, 30)
+--> reduction_by_matmul: on_gpu=True, a_shape=(1000, 30), b_shape=(1000, 5, 30)
+
+-----------------------
+case1_2d (simulate multiplication with weights)
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         matmul:   801      395.82           62.75           9.87       True
+      reduction:  1601      653.87          873.65         730.03       True
+reduction_by_matmul:  3601     2001.92         1035.67         693.43       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         matmul:   801      403.89          312.84           2.94       True
+      reduction:  1601      871.17          302.87           5.04       True
+reduction_by_matmul:  3601     1932.02          635.61         326.46       True
+
+-----------------------
+case2_3d (simulate multiplication with IVs)
+-----------------------
+CPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         matmul:  1401      671.59          145.37          43.96       True
+      reduction:  1601      745.22          705.82         608.87       True
+reduction_by_matmul:  3601     1823.34         1057.04         718.17       True
+GPU          op:  size  setup_time  first_run_time  rest_run_time    correct
+         matmul:  1401      721.24          435.34         322.89       True
+      reduction:  1601      756.37           99.17           5.51       True
+reduction_by_matmul:  3601     1639.80          620.17         325.28       True
