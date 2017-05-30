@@ -31,6 +31,13 @@ class TestCSVFileDataset(tf.test.TestCase):
 
     def generic_dataset_test(self, dataset, correct_batches, tol=0.0):
         data = dataset.get_data()
+        # Check if batch size is set
+        if type(data) is tf.Tensor:
+            self.assertIsNotNone(data.shape[1].value)
+        else:
+            for d in data:
+                self.assertIsNotNone(d.shape[1].value)
+        # Check values
         batches = []
         with spn.session() as (sess, run):
             while run():
@@ -184,6 +191,71 @@ class TestCSVFileDataset(tf.test.TestCase):
                               [46, 47]], dtype=np.int32),
                     np.array([[43, 104, 45],
                               [48, 104, 50]], dtype=np.int32)]]
+        # Since we changed the order of data in CSVFileDataset,
+        # we also change the order in batches
+        for b in batches:
+            b[1], b[0] = b[0], b[1]
+
+        self.generic_dataset_test(dataset, batches)
+
+    def test_labeled_csv_file_dataset_int_onelabel(self):
+        """Batch generation for CSV file with integer data and 1 label"""
+        # Note: shuffling is NOT tested
+        dataset = spn.CSVFileDataset(self.data_path(["data_int1.csv",
+                                                     "data_int2.csv"]),
+                                     num_epochs=2,
+                                     batch_size=3,
+                                     shuffle=False,
+                                     num_labels=1,
+                                     defaults=[[101], [102], [103], [104], [105]],
+                                     min_after_dequeue=1000,
+                                     num_threads=1,
+                                     allow_smaller_final_batch=True)
+        batches = [[np.array([[1],
+                              [6],
+                              [11]], dtype=np.int32),
+                    np.array([[2, 3, 4, 5],
+                              [102, 8, 9, 10],
+                              [12, 103, 14, 15]], dtype=np.int32)],
+                   [np.array([[16],
+                              [21],
+                              [26]], dtype=np.int32),
+                    np.array([[102, 18, 19, 20],
+                              [22, 103, 24, 25],
+                              [27, 28, 104, 30]], dtype=np.int32)],
+                   [np.array([[31],
+                              [36],
+                              [41]], dtype=np.int32),
+                    np.array([[32, 33, 104, 35],
+                              [37, 38, 104, 40],
+                              [42, 43, 104, 45]], dtype=np.int32)],
+                   [np.array([[46],
+                              [1],
+                              [6]], dtype=np.int32),
+                    np.array([[47, 48, 104, 50],
+                              [2, 3, 4, 5],
+                              [102, 8, 9, 10]], dtype=np.int32)],
+                   [np.array([[11],
+                              [16],
+                              [21]], dtype=np.int32),
+                    np.array([[12, 103, 14, 15],
+                              [102, 18, 19, 20],
+                              [22, 103, 24, 25]], dtype=np.int32)],
+                   [np.array([[26],
+                              [31],
+                              [36]], dtype=np.int32),
+                    np.array([[27, 28, 104, 30],
+                              [32, 33, 104, 35],
+                              [37, 38, 104, 40]], dtype=np.int32)],
+                   [np.array([[41],
+                              [46]], dtype=np.int32),
+                    np.array([[42, 43, 104, 45],
+                              [47, 48, 104, 50]], dtype=np.int32)]]
+        # Since we changed the order of data in CSVFileDataset,
+        # we also change the order in batches
+        for b in batches:
+            b[1], b[0] = b[0], b[1]
+
         self.generic_dataset_test(dataset, batches)
 
     def test_labeled_csv_file_dataset_float(self):
@@ -219,6 +291,11 @@ class TestCSVFileDataset(tf.test.TestCase):
                               [18., 19., 20.]], dtype=np.float32)],
                    [np.array([[21., 22.]], dtype=np.float32),
                     np.array([[103., 24., 25.]], dtype=np.float32)]]
+        # Since we changed the order of data in CSVFileDataset,
+        # we also change the order in batches
+        for b in batches:
+            b[1], b[0] = b[0], b[1]
+
         self.generic_dataset_test(dataset, batches)
 
     def test_custom_csv_file_dataset(self):
@@ -227,7 +304,7 @@ class TestCSVFileDataset(tf.test.TestCase):
             """Our custom dataset."""
 
             def process_data(self, data):
-                return [data[0], tf.stack(data[1:3]), tf.stack(data[3:])]
+                return [tf.stack(data[0:1]), tf.stack(data[1:3]), tf.stack(data[3:])]
 
         # Note: shuffling is NOT tested
         dataset = CustomCSVFileDataset(self.data_path("data_mix.csv"),
@@ -240,29 +317,28 @@ class TestCSVFileDataset(tf.test.TestCase):
                                        min_after_dequeue=1000,
                                        num_threads=1,
                                        allow_smaller_final_batch=True)
-        batches = [[np.array([1., 6., 11.], dtype=np.float32),
+        batches = [[np.array([[1.], [6.], [11.]], dtype=np.float32),
                     np.array([[2, 3],
                               [102, 8],
                               [12, 103]], dtype=np.int32),
                     np.array([[4., 5.],
                               [104., 10.],
                               [104., 15.]], dtype=np.float32)],
-                   [np.array([16., 21., 1.], dtype=np.float32),
+                   [np.array([[16.], [21.], [1.]], dtype=np.float32),
                     np.array([[102, 18],
                               [22, 103],
                               [2, 3]], dtype=np.int32),
                     np.array([[19., 20.],
                               [24., 25.],
                               [4., 5.]], dtype=np.float32)],
-                   [np.array([6., 11., 16.], dtype=np.float32),
+                   [np.array([[6.], [11.], [16.]], dtype=np.float32),
                     np.array([[102, 8],
                               [12, 103],
                               [102, 18]], dtype=np.int32),
                     np.array([[104., 10.],
-                              [104.,
-                               15.],
+                              [104., 15.],
                               [19., 20.]], dtype=np.float32)],
-                   [np.array([21.], dtype=np.float32),
+                   [np.array([[21.]], dtype=np.float32),
                     np.array([[22, 103]], dtype=np.int32),
                     np.array([[24., 25.]], dtype=np.float32)]]
         self.generic_dataset_test(dataset, batches)
@@ -282,27 +358,6 @@ class TestCSVFileDataset(tf.test.TestCase):
         data = dataset.read_all()
         self.assertEqual(len(data), 2)
         np.testing.assert_array_equal(data[0],
-                                      np.array([[1, 2],
-                                                [6, 102],
-                                                [11, 12],
-                                                [16, 102],
-                                                [21, 22],
-                                                [26, 27],
-                                                [31, 32],
-                                                [36, 37],
-                                                [41, 42],
-                                                [46, 47],
-                                                [1, 2],
-                                                [6, 102],
-                                                [11, 12],
-                                                [16, 102],
-                                                [21, 22],
-                                                [26, 27],
-                                                [31, 32],
-                                                [36, 37],
-                                                [41, 42],
-                                                [46, 47]], dtype=np.int32))
-        np.testing.assert_array_equal(data[1],
                                       np.array([[3, 4, 5],
                                                 [8, 9, 10],
                                                 [103, 14, 15],
@@ -323,6 +378,27 @@ class TestCSVFileDataset(tf.test.TestCase):
                                                 [38, 104, 40],
                                                 [43, 104, 45],
                                                 [48, 104, 50]], dtype=np.int32))
+        np.testing.assert_array_equal(data[1],
+                                      np.array([[1, 2],
+                                                [6, 102],
+                                                [11, 12],
+                                                [16, 102],
+                                                [21, 22],
+                                                [26, 27],
+                                                [31, 32],
+                                                [36, 37],
+                                                [41, 42],
+                                                [46, 47],
+                                                [1, 2],
+                                                [6, 102],
+                                                [11, 12],
+                                                [16, 102],
+                                                [21, 22],
+                                                [26, 27],
+                                                [31, 32],
+                                                [36, 37],
+                                                [41, 42],
+                                                [46, 47]], dtype=np.int32))
 
 
 if __name__ == '__main__':
