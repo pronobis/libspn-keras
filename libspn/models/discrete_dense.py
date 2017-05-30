@@ -59,10 +59,10 @@ class DiscreteDenseModel(Model):
             raise ValueError("num_vars must be an integer")
         self._num_vars = num_vars
         if not isinstance(num_vals, int):
-            raise ValueError("num_vars must be an integer")
+            raise ValueError("num_vals must be an integer")
         self._num_vals = num_vals
         if not isinstance(num_classes, int):
-            raise ValueError("num_vars must be an integer")
+            raise ValueError("num_classes must be an integer")
         self._num_classes = num_classes
         self._num_decomps = num_decomps
         self._num_subsets = num_subsets

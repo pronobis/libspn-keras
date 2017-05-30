@@ -65,10 +65,11 @@ class SpnModel(spn.App):
         parser.add_argument('dataset', type=str,
                             choices=[i.name.lower() for i in Dataset],
                             help="training dataset to use")
-        parser.add_argument('path', type=str,
+        parser.add_argument('path', type=str, nargs='?',
                             help="path to the training data; "
-                            "a folder, a glob, or a coma-separated list of files; "
-                            "see specific dataset docs for details")
+                            "a folder, a glob, or a coma-separated list of files "
+                            "see specific dataset docs for details; no path is "
+                            "needed for MNIST")
 
         data_params = parser.add_argument_group(title="data parameters")
         data_params.add_argument('--classes', type=str, default=None,
@@ -121,10 +122,11 @@ class SpnModel(spn.App):
         parser.add_argument('dataset', type=str,
                             choices=[i.name.lower() for i in Dataset],
                             help="test dataset to use")
-        parser.add_argument('path', type=str,
+        parser.add_argument('path', type=str, nargs='?',
                             help="path to the test data; "
                             "a folder, a glob, or a coma-separated list of files "
-                            "see specific dataset docs for details")
+                            "see specific dataset docs for details; no path is "
+                            "needed for MNIST")
 
         data_params = parser.add_argument_group(title="data parameters")
         data_params.add_argument('--classes', type=str, default=None,
@@ -197,6 +199,8 @@ class SpnModel(spn.App):
         ##########################
         # Positional
         args.train.dataset = Dataset[args.train.dataset.upper()]
+        if args.train.dataset is not Dataset.MNIST and args.train.path is None:
+            parser.error("PATH is needed for this dataset")
         # Data
         if args.train.classes is not None:
             args.train.classes = [i.strip() for i in
@@ -215,6 +219,8 @@ class SpnModel(spn.App):
         ##########################
         # Positional
         args.test.dataset = Dataset[args.test.dataset.upper()]
+        if args.test.dataset is not Dataset.MNIST and args.test.path is None:
+            parser.error("PATH is needed for this dataset")
         # Data
         if args.test.classes is not None:
             args.test.classes = [i.strip() for i in
