@@ -74,7 +74,7 @@ def gather_cols(params, indices, name=None):
             raise ValueError("'indices' must be 1D")
         if indices.size < 1:
             raise ValueError("'indices' cannot be empty")
-        if not issubclass(indices.dtype.type, np.integer):
+        if not np.issubdtype(indices.dtype, np.integer):
             raise ValueError("'indices' must be integer, not %s"
                              % indices.dtype)
         if np.any((indices < 0) | (indices >= param_size)):
@@ -153,7 +153,7 @@ def scatter_cols(params, indices, num_out_cols, name=None):
         if indices.size != param_size:
             raise ValueError("Sizes of 'indices' and the indexed dimension of "
                              "'params' must be the same")
-        if not issubclass(indices.dtype.type, np.integer):
+        if not np.issubdtype(indices.dtype, np.integer):
             raise ValueError("'indices' must be integer, not %s"
                              % indices.dtype)
         if np.any((indices < 0) | (indices >= num_out_cols)):

@@ -45,8 +45,8 @@ class TestCSVFileDataset(tf.test.TestCase):
                         self.assertIs(bb, None)
                     else:
                         self.assertEqual(bb.dtype, cbcb.dtype)
-                        if (issubclass(bb.dtype.type, np.floating) or
-                                issubclass(bb.dtype.type, np.integer)):
+                        if (np.issubdtype(bb.dtype, np.floating) or
+                                np.issubdtype(bb.dtype, np.integer)):
                             np.testing.assert_allclose(bb, cbcb, atol=tol)
                         else:
                             np.testing.assert_equal(bb, cbcb)
@@ -55,8 +55,8 @@ class TestCSVFileDataset(tf.test.TestCase):
                     self.assertIs(b, None)
                 else:
                     self.assertEqual(b.dtype, cb.dtype)
-                    if (issubclass(b.dtype.type, np.floating) or
-                            issubclass(b.dtype.type, np.integer)):
+                    if (np.issubdtype(b.dtype, np.floating) or
+                            np.issubdtype(b.dtype, np.integer)):
                         np.testing.assert_allclose(b, cb, atol=tol)
                     else:
                         np.testing.assert_equal(b, cb)

@@ -23,8 +23,8 @@ def show_image(image, shape, normalize=False):
     """
     if not isinstance(shape, ImageShape):
         raise ValueError("shape must be ImageShape")
-    if not (issubclass(image.dtype.type, np.integer) or
-            issubclass(image.dtype.type, np.floating)):
+    if not (np.issubdtype(image.dtype, np.integer) or
+            np.issubdtype(image.dtype, np.floating)):
         raise ValueError("image must be of int or float dtype")
 
     if shape[2] == 1:  # imshow wants single channel as MxN
@@ -35,10 +35,10 @@ def show_image(image, shape, normalize=False):
         vmin = None
         vmax = None  # imshow will normalize
     else:
-        if issubclass(image.dtype.type, np.integer):
+        if np.issubdtype(image.dtype, np.integer):
             vmin = 0
             vmax = 255
-        elif issubclass(image.dtype.type, np.floating):
+        elif np.issubdtype(image.dtype, np.floating):
             vmin = 0.0
             vmax = 1.0
     plt.imshow(image, cmap=cmap, interpolation='none',

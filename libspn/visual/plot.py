@@ -47,7 +47,7 @@ def plot_2d(x, y, labels=None, probs=None, jitter=True):
 
     # Jitter points if data is categorical
     jitter_radius = 0.25
-    if jitter and issubclass(x.dtype.type, np.integer):
+    if jitter and np.issubdtype(x.dtype, np.integer):
         x = x.astype(float)
         x += np.random.uniform(-jitter_radius, jitter_radius, x.size)
         y = y.astype(float)

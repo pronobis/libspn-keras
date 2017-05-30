@@ -56,12 +56,12 @@ class TestDataGenerated(tf.test.TestCase):
         self.assertTupleEqual(batch2[2].shape, (90, ))
 
         # Data type
-        self.assertTrue(issubclass(batch1[0].dtype.type, np.float))
-        self.assertTrue(issubclass(batch2[0].dtype.type, np.float))
-        self.assertTrue(issubclass(batch1[1].dtype.type, np.integer))
-        self.assertTrue(issubclass(batch2[1].dtype.type, np.integer))
-        self.assertTrue(issubclass(batch1[2].dtype.type, np.float))
-        self.assertTrue(issubclass(batch2[2].dtype.type, np.float))
+        self.assertTrue(np.issubdtype(batch1[0].dtype, np.floating))
+        self.assertTrue(np.issubdtype(batch2[0].dtype, np.floating))
+        self.assertTrue(np.issubdtype(batch1[1].dtype, np.integer))
+        self.assertTrue(np.issubdtype(batch2[1].dtype, np.integer))
+        self.assertTrue(np.issubdtype(batch1[2].dtype, np.floating))
+        self.assertTrue(np.issubdtype(batch2[2].dtype, np.floating))
 
         # Are the overlapping parts of the two batches identical?
         np.testing.assert_array_equal(batch1[0][:80], batch2[0][10:])
@@ -120,15 +120,15 @@ class TestDataGenerated(tf.test.TestCase):
         self.assertTupleEqual(batch3[2].shape, (20, ))
 
         # Data type
-        self.assertTrue(issubclass(batch1[0].dtype.type, np.float))
-        self.assertTrue(issubclass(batch2[0].dtype.type, np.float))
-        self.assertTrue(issubclass(batch3[0].dtype.type, np.float))
-        self.assertTrue(issubclass(batch1[1].dtype.type, np.integer))
-        self.assertTrue(issubclass(batch2[1].dtype.type, np.integer))
-        self.assertTrue(issubclass(batch3[1].dtype.type, np.integer))
-        self.assertTrue(issubclass(batch1[2].dtype.type, np.float))
-        self.assertTrue(issubclass(batch2[2].dtype.type, np.float))
-        self.assertTrue(issubclass(batch3[2].dtype.type, np.float))
+        self.assertTrue(np.issubdtype(batch1[0].dtype, np.floating))
+        self.assertTrue(np.issubdtype(batch2[0].dtype, np.floating))
+        self.assertTrue(np.issubdtype(batch3[0].dtype, np.floating))
+        self.assertTrue(np.issubdtype(batch1[1].dtype, np.integer))
+        self.assertTrue(np.issubdtype(batch2[1].dtype, np.integer))
+        self.assertTrue(np.issubdtype(batch3[1].dtype, np.integer))
+        self.assertTrue(np.issubdtype(batch1[2].dtype, np.floating))
+        self.assertTrue(np.issubdtype(batch2[2].dtype, np.floating))
+        self.assertTrue(np.issubdtype(batch3[2].dtype, np.floating))
 
         # Are the overlapping parts of the batches identical?
         np.testing.assert_array_equal(batch1[0][:80], batch2[0][10:])
@@ -197,15 +197,15 @@ class TestDataGenerated(tf.test.TestCase):
         self.assertTupleEqual(batch3[2].shape, (20, ))
 
         # Data type
-        self.assertTrue(issubclass(batch1[0].dtype.type, np.integer))
-        self.assertTrue(issubclass(batch2[0].dtype.type, np.integer))
-        self.assertTrue(issubclass(batch3[0].dtype.type, np.integer))
-        self.assertTrue(issubclass(batch1[1].dtype.type, np.integer))
-        self.assertTrue(issubclass(batch2[1].dtype.type, np.integer))
-        self.assertTrue(issubclass(batch3[1].dtype.type, np.integer))
-        self.assertTrue(issubclass(batch1[2].dtype.type, np.float))
-        self.assertTrue(issubclass(batch2[2].dtype.type, np.float))
-        self.assertTrue(issubclass(batch3[2].dtype.type, np.float))
+        self.assertTrue(np.issubdtype(batch1[0].dtype, np.integer))
+        self.assertTrue(np.issubdtype(batch2[0].dtype, np.integer))
+        self.assertTrue(np.issubdtype(batch3[0].dtype, np.integer))
+        self.assertTrue(np.issubdtype(batch1[1].dtype, np.integer))
+        self.assertTrue(np.issubdtype(batch2[1].dtype, np.integer))
+        self.assertTrue(np.issubdtype(batch3[1].dtype, np.integer))
+        self.assertTrue(np.issubdtype(batch1[2].dtype, np.floating))
+        self.assertTrue(np.issubdtype(batch2[2].dtype, np.floating))
+        self.assertTrue(np.issubdtype(batch3[2].dtype, np.floating))
 
         # Are the overlapping parts of the batches identical?
         np.testing.assert_array_equal(batch1[0][:80], batch2[0][10:])

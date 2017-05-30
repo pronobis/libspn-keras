@@ -154,8 +154,8 @@ class ImageDataWriter(DataWriter):
         """
         if not isinstance(images, np.ndarray):
             raise ValueError("images must be an array")
-        if not (issubclass(images.dtype.type, np.integer) or
-                issubclass(images.dtype.type, np.floating)):
+        if not (np.issubdtype(images.dtype, np.integer) or
+                np.issubdtype(images.dtype, np.floating)):
             raise ValueError("images must be of int or float dtype")
         if image_no is not None and not isinstance(image_no, int):
             raise ValueError("image_no must be integer")
@@ -212,10 +212,10 @@ class ImageDataWriter(DataWriter):
             # Normalize?
             # imsave normalizes float images, but not uint8 images
             if self._normalize:
-                if issubclass(images.dtype.type, np.integer):
+                if np.issubdtype(images.dtype, np.integer):
                     images = images.astype(np.float32)
             else:
-                if issubclass(images.dtype.type, np.floating):
+                if np.issubdtype(images.dtype, np.floating):
                     images *= 255.0
                 images = images.astype(np.uint8)  # Convert also int32/64 to 8
             # Save
