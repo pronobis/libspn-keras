@@ -277,7 +277,6 @@ class MNISTDataset(Dataset):
             rows = _read32(bytestream)
             cols = _read32(bytestream)
             buf = bytestream.read(rows * cols * num_images)
-            print(num_images)
             data = np.frombuffer(buf, dtype=np.uint8)
             data = data.reshape(num_images, rows, cols)
             return data
