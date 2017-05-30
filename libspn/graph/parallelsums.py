@@ -24,12 +24,14 @@ from itertools import cycle
 
 
 class ParallelSums(OpNode):
-    """A node representing multiple parallel-sums (which share the same input) in an SPN.
+    """A node representing multiple parallel-sums (which share the same input)
+            in an SPN.
 
     Args:
         *values (input_like): Inputs providing input values to this node.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (input_like): Input providing numbe of sums modeled by this single sums node.
+        num_sums (input_like): Input providing numbe of sums modeled by this
+            single sums node.
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
@@ -53,7 +55,8 @@ class ParallelSums(OpNode):
     def __init__(self, *values, num_sums=1, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, name="ParallelSums"):
         if not num_sums > 0:
-            raise StructureError("In %s num_sums: %s need to be > 0" % self, num_sums)
+            raise StructureError("In %s num_sums: %s need to be > 0" % self,
+                                  num_sums)
 
         super().__init__(inference_type, name)
 
@@ -219,7 +222,8 @@ class ParallelSums(OpNode):
         num_values = sum(len(v.indices) if v.indices is not None
                          else v.node.get_out_size()
                          for v in self._values)
-        ivs = IVs(feed=feed, num_vars=self._num_sums, num_vals=num_values, name=name)
+        ivs = IVs(feed=feed, num_vars=self._num_sums, num_vals=num_values,
+                  name=name)
         self.set_ivs(ivs)
         return ivs
 
@@ -291,7 +295,7 @@ class ParallelSums(OpNode):
         if self._ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
             # reshape it to (num_sums X Batch X num_feat)
-            reshape = (-1, self._num_sums, tf.shape(values)[1])
+            reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
             values_selected_weighted = tf.expand_dims(values, axis=1) * \
                                        (ivs_tensor * weight_tensor)
@@ -306,10 +310,10 @@ class ParallelSums(OpNode):
         if self._ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
             # reshape it to (num_sums X Batch X num_feat)
-            reshape = (-1, self._num_sums, tf.shape(values)[1])
+            reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
-            values_weighted = tf.expand_dims(values, axis=1) + \
-                              (ivs_tensor + weight_tensor)
+            values_weighted = tf.expand_dims(values, axis=1) + (ivs_tensor +
+                                                                weight_tensor)
         else:
             values_weighted = tf.expand_dims(values, axis=-2) + weight_tensor
         return utils.reduce_log_sum_3D(values_weighted, transpose=False)
@@ -321,14 +325,13 @@ class ParallelSums(OpNode):
         if self._ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
             # reshape it to (num_sums X Batch X num_feat)
-            reshape = (-1, self._num_sums, tf.shape(values)[1])
+            reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
-            values_selected_weighted = tf.expand_dims(values, axis=1) * \
-                                       (ivs_tensor * weight_tensor)
-            return tf.reduce_max(values_selected_weighted, axis=2)
+            values_weighted = tf.expand_dims(values, axis=1) * (ivs_tensor *
+                                                                weight_tensor)
         else:
             values_weighted = tf.expand_dims(values, axis=-2) * weight_tensor
-            return tf.reduce_max(values_weighted, axis=-1)
+        return tf.reduce_max(values_weighted, axis=-1)
 
 
     def _compute_log_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
@@ -337,14 +340,13 @@ class ParallelSums(OpNode):
         if self._ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
             # reshape it to (num_sums X Batch X num_feat)
-            reshape = (-1, self._num_sums, tf.shape(values)[1])
+            reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
-            values_selected_weighted = tf.expand_dims(values, axis=1) + \
-                                       (ivs_tensor + weight_tensor)
-            return tf.reduce_max(values_selected_weighted, axis=2)
+            values_weighted = tf.expand_dims(values, axis=1) + (ivs_tensor +
+                                                                weight_tensor)
         else:
             values_weighted = tf.expand_dims(values, axis=-2) + weight_tensor
-            return tf.reduce_max(values_weighted, axis=-1)
+        return tf.reduce_max(values_weighted, axis=-1)
 
 
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
@@ -372,31 +374,32 @@ class ParallelSums(OpNode):
         if self._ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
             # reshape it to (num_sums X Batch X num_feat)
-            reshape = (-1, self._num_sums, tf.shape(values)[1])
+            reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_value = tf.reshape(ivs_value, shape=reshape)
-            values_weighted = tf.expand_dims(values, axis=1) * \
-                              (ivs_value * weight_value)
+            values_weighted = tf.expand_dims(values, axis=1) * (ivs_value *
+                                                                weight_value)
         else:
             values_weighted = tf.expand_dims(values, axis=-2) * weight_value
         return self._compute_mpe_path_common(
              values_weighted, counts, weight_value, ivs_value, *value_values)
 
 
-    def _compute_log_mpe_path(self, counts, weight_value, ivs_value, *value_values,
-                              add_random=None, use_unweighted=False):
+    def _compute_log_mpe_path(self, counts, weight_value, ivs_value,
+                              *value_values, add_random=None,
+                              use_unweighted=False):
         # Get weighted, IV selected values
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
         if self._ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
             # reshape it to (num_sums X Batch X num_feat)
-            reshape = (-1, self._num_sums, tf.shape(values)[1])
+            reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_value = tf.reshape(ivs_value, shape=reshape)
 
             # WARN USING UNWEIGHTED VALUE
             if not use_unweighted or any(v.node.is_var for v in self._values):
-                values_weighted = tf.expand_dims(values, axis=1) + \
-                                  (ivs_value + weight_value)
+                values_weighted = tf.expand_dims(values, axis=1) + (ivs_value +
+                                                                    weight_value)
             else:
                 # / USING UNWEIGHTED VALUE
                 values_weighted = tf.expand_dims(values, axis=1) + ivs_value
