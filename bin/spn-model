@@ -14,7 +14,8 @@ class Model(Enum):
 
 
 class Learner(Enum):
-    EM = 0
+    EM_SUP = 0
+    EM_UNSUP = 1
 
 
 class WeightInit(Enum):
@@ -33,12 +34,9 @@ class SpnModel(spn.App):
                             help="model to build")
 
         model_params = parser.add_argument_group(title="model parameters")
-        model_params.add_argument('--multi-class', type=spn.App.bool_arg,
-                                  default=True, help="should multi-class model be built for multi-class data?")
         model_params.add_argument('--num-classes', type=int, default=None,
-                                  help="number of data classes considered by the model; "
-                                  "if not given, inferred from the dataset when possible;"
-                                  "set to 1 to force 1-class model even for multi-class data")
+                                  help="number of classes assumed by the model; "
+                                  "set to 1 to use a 1-class model")
         model_params.add_argument('--weight-init', type=str, default='random',
                                   choices=[i.name.lower() for i in WeightInit],
                                   help='type of weight initialization')
@@ -236,7 +234,6 @@ class SpnModel(spn.App):
         if args.train:
             if args.train.dataset == Dataset.MNIST:
                 train_set = spn.MNISTDataset(
-                    data_dir=args.train.path,
                     subset=args.train.mnist_subset,
                     format=args.train.image_format,
                     num_epochs=args.train.num_epochs,
@@ -271,8 +268,7 @@ class SpnModel(spn.App):
             # For a dataset without labels, just set labels to None
         if args.test:
             if args.test.dataset == Dataset.MNIST:
-                test_set = spn.MNISTDataset(data_dir=args.test.path,
-                                            subset=args.test.mnist_subset,
+                test_set = spn.MNISTDataset(subset=args.test.mnist_subset,
                                             format=args.test.image_format,
                                             num_epochs=1,
                                             batch_size=args.test.batch_size,
@@ -293,7 +289,7 @@ class SpnModel(spn.App):
                                             crop=args.test.crop,
                                             num_threads=args.test.num_threads,
                                             allow_smaller_final_batch=True
-                                            # classes = args.train.classes
+                                            # classes = args.test.classes
                                             )
                 self.test_samples, self.test_labels = test_set.get_data()
             # For a dataset without labels, just set labels to None
@@ -323,6 +319,7 @@ class SpnModel(spn.App):
 
     def _train_model(self, args):
         pass
+        # TODO: Distinguish between em_sup and em_unsup
         # TODO: train, test etc., feed appropriate data through feed_dict
         # model.learn(value_inference_type=args.learn.value_inference,
         #             init_accum_value=args.learn.init_accum,
