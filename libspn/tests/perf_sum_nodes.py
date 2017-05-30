@@ -179,12 +179,6 @@ class PerformanceTest:
             weight = 1.0 / input_size
             input_slice = inputs
             ivs_slice = ivs
-        elif op_fun is Ops.sums:
-            input_size = int(inputs.shape[1] / self.num_sums)
-            weight = 1.0 / input_size
-            input_slice = np.split(inputs, self.num_sums, axis=1)[0]
-            if ivs is not None:
-                ivs_slice = np.split(ivs, self.num_sums, axis=1)[0]
         elif op_fun is Ops.parallel_sums:
             weight = 1.0 / input_size
             input_slice = inputs
@@ -233,9 +227,6 @@ class PerformanceTest:
             else:
                 if op_fun is Ops.sum:
                     ivs_pl = spn.IVs(num_vars=1, num_vals=input_size)
-                elif op_fun is Ops.sums:
-                    ivs_pl = spn.IVs(num_vars=self.num_sums,
-                                         num_vals=int(input_size / self.num_sums))
                 elif op_fun is Ops.parallel_sums:
                     ivs_pl = spn.IVs(num_vars=self.num_sums, num_vals=input_size)
             # Create ops
