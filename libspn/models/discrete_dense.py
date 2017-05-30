@@ -24,13 +24,13 @@ class DiscreteDenseModel(Model):
     """Basic dense SPN model operating on discrete data. If `num_classes` is
     greater than 1, a multi-class model is created by generating multiple
     parallel dense models (one for each class) and combining them with a sum
-    node with an explicit latent variable.
+    node with an explicit latent class variable.
 
     Args:
         num_vars (int): Number of discrete random variables representing data
                         samples.
         num_vals (int): Number of values of each random variable.
-        num_classes (int): Number of data classes considered by the model.
+        num_classes (int): Number of classes assumed by the model.
         num_decomps (int): Number of decompositions at each level of dense SPN.
         num_subsets (int): Number of variable sub-sets for each decomposition.
         num_mixtures (int): Number of mixtures (sums) for each variable subset.
