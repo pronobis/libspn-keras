@@ -9,7 +9,6 @@ read:
 
 train:
   dataset: *DATASET
-  path: *PATH
   # Data params
   classes: *CLASSES
   num-epochs: 100
@@ -25,7 +24,6 @@ train:
 
 test:
   dataset: *DATASET
-  path: *PATH
   # Data params
   classes: *CLASSES
   batch-size: 100
