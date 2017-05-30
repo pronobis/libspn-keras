@@ -26,10 +26,11 @@ class SpnData(spn.App):
         parser.add_argument('dataset', type=str,
                             choices=[i.name.lower() for i in Dataset],
                             help="dataset to use")
-        parser.add_argument('path', type=str,
+        parser.add_argument('path', type=str, nargs='?',
                             help="path to the input data; "
                             "a folder, a glob, or a coma-separated list of files "
-                            "see specific dataset docs for details")
+                            "see specific dataset docs for details; no path is "
+                            "needed for MNIST")
 
         data_params = parser.add_argument_group(title="data parameters")
         data_params.add_argument('--classes', type=str, default=None,
@@ -92,6 +93,8 @@ class SpnData(spn.App):
         ##########################
         # Positional
         args.read.dataset = Dataset[args.read.dataset.upper()]
+        if args.read.dataset is Dataset.MNIST and args.read.path is None:
+            parser.error("PATH is needed for this dataset")
         # Data
         if args.read.classes is not None:
             args.read.classes = [i.strip() for i in
@@ -112,8 +115,7 @@ class SpnData(spn.App):
     def run(self, args):
         # Create dataset
         if args.read.dataset == Dataset.MNIST:
-            dataset = spn.MnistDataset(data_dir=args.read.path,
-                                       subset=args.read.mnist_subset,
+            dataset = spn.MnistDataset(subset=args.read.mnist_subset,
                                        format=args.read.image_format,
                                        num_epochs=args.read.num_epochs,
                                        batch_size=args.read.batch_size,
