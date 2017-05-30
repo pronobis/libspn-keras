@@ -49,7 +49,7 @@ from libspn.data.file import FileDataset
 from libspn.data.csv import CSVFileDataset
 from libspn.data.generated import GaussianMixtureDataset
 from libspn.data.generated import IntGridDataset
-from libspn.data.mnist import MnistDataset
+from libspn.data.mnist import MNISTDataset
 from libspn.data.image import ImageDataset
 from libspn.data.image import ImageFormat
 from libspn.data.image import ImageShape
@@ -108,7 +108,7 @@ __all__ = [
     'EMLearning', 'GDLearning',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
-    'IntGridDataset', 'MnistDataset', 'ImageDataset', 'ImageFormat',
+    'IntGridDataset', 'MNISTDataset', 'ImageDataset', 'ImageFormat',
     'ImageShape', 'DataWriter', 'CSVDataWriter', 'ImageDataWriter',
     # Models
     'DiscreteDenseModel',

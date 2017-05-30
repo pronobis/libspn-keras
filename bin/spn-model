@@ -99,7 +99,7 @@ class SpnModel(spn.App):
         mnist_params = parser.add_argument_group(title="MNIST data parameters")
         mnist_params.add_argument('--mnist-subset', type=str, default='all',
                                   choices=[i.name.lower()
-                                           for i in spn.MnistDataset.Subset],
+                                           for i in spn.MNISTDataset.Subset],
                                   help="subset to use")
 
         learn_params = parser.add_argument_group(title="learning parameters")
@@ -146,7 +146,7 @@ class SpnModel(spn.App):
 
         mnist_params = parser.add_argument_group(title="MNIST data parameters")
         mnist_params.add_argument('--mnist-subset', type=str, default='all',
-                                  choices=[i.name.lower() for i in spn.MnistDataset.Subset],
+                                  choices=[i.name.lower() for i in spn.MNISTDataset.Subset],
                                   help="subset to use")
 
     def _define_mpe_args(self, parser):
@@ -206,7 +206,7 @@ class SpnModel(spn.App):
             parser.error("RATIO must be >=1")
         if args.train.crop < 0:
             parser.error("CROP cannot be negative")
-        args.train.mnist_subset = spn.MnistDataset.Subset[args.train.mnist_subset.upper()]
+        args.train.mnist_subset = spn.MNISTDataset.Subset[args.train.mnist_subset.upper()]
         # Learning
         args.train.value_inference = spn.InferenceType[args.train.value_inference.upper()]
 
@@ -224,12 +224,12 @@ class SpnModel(spn.App):
             parser.error("RATIO must be >=1")
         if args.test.crop < 0:
             parser.error("CROP cannot be negative")
-        args.test.mnist_subset = spn.MnistDataset.Subset[args.test.mnist_subset.upper()]
+        args.test.mnist_subset = spn.MNISTDataset.Subset[args.test.mnist_subset.upper()]
 
     def _prepare_data(self, args):
         if args.train:
             if args.train.dataset == Dataset.MNIST:
-                train_set = spn.MnistDataset(
+                train_set = spn.MNISTDataset(
                     data_dir=args.train.path,
                     subset=args.train.mnist_subset,
                     format=args.train.image_format,
@@ -265,7 +265,7 @@ class SpnModel(spn.App):
             # For a dataset without labels, just set labels to None
         if args.test:
             if args.test.dataset == Dataset.MNIST:
-                test_set = spn.MnistDataset(data_dir=args.test.path,
+                test_set = spn.MNISTDataset(data_dir=args.test.path,
                                             subset=args.test.mnist_subset,
                                             format=args.test.image_format,
                                             num_epochs=1,

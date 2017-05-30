@@ -24,7 +24,7 @@ def _read32(bytestream):
     return np.frombuffer(bytestream.read(4), dtype=dt)[0]
 
 
-class MnistDataset(Dataset):
+class MNISTDataset(Dataset):
     """A dataset providing MNIST data with various types of processing applied.
 
     The data is returned as a tuple of tensors ``(samples, labels)``, where
@@ -81,7 +81,7 @@ class MnistDataset(Dataset):
                          seed=seed)
         self._orig_width = 28
         self._orig_height = 28
-        if subset not in MnistDataset.Subset:
+        if subset not in MNISTDataset.Subset:
             raise ValueError("Incorrect subset: %s" % subset)
         self._subset = subset
         if format not in {ImageFormat.FLOAT, ImageFormat.INT, ImageFormat.BINARY}:
@@ -191,28 +191,28 @@ class MnistDataset(Dataset):
     def load_data(self):
         """Load all data from MNIST data files."""
         # Load data
-        if (self._subset == MnistDataset.Subset.ALL or
-                self._subset == MnistDataset.Subset.TRAIN):
+        if (self._subset == MNISTDataset.Subset.ALL or
+                self._subset == MNISTDataset.Subset.TRAIN):
             self.__info("Loading MNIST training data")
             train_x = self._load_images('train-images-idx3-ubyte.gz')
             train_y = self._load_labels('train-labels-idx1-ubyte.gz')
 
-        if (self._subset == MnistDataset.Subset.ALL or
-                self._subset == MnistDataset.Subset.TEST):
+        if (self._subset == MNISTDataset.Subset.ALL or
+                self._subset == MNISTDataset.Subset.TEST):
             self.__info("Loading MNIST test data")
             test_x = self._load_images('t10k-images-idx3-ubyte.gz')
             test_y = self._load_labels('t10k-labels-idx1-ubyte.gz')
 
         # Collect
-        if self._subset == MnistDataset.Subset.TRAIN:
+        if self._subset == MNISTDataset.Subset.TRAIN:
             samples = train_x
             labels = train_y
-        elif self._subset == MnistDataset.Subset.TEST:
+        elif self._subset == MNISTDataset.Subset.TEST:
             for i in range(test_x.shape[0]):
                 test_x
             samples = test_x
             labels = test_y
-        elif self._subset == MnistDataset.Subset.ALL:
+        elif self._subset == MNISTDataset.Subset.ALL:
             samples = np.concatenate([train_x, test_x])
             labels = np.concatenate([train_y, test_y])
 

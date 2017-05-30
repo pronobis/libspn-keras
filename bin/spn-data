@@ -58,7 +58,7 @@ class SpnData(spn.App):
 
         mnist_params = parser.add_argument_group(title="MNIST data parameters")
         mnist_params.add_argument('--mnist-subset', type=str, default='all',
-                                  choices=[i.name.lower() for i in spn.MnistDataset.Subset],
+                                  choices=[i.name.lower() for i in spn.MNISTDataset.Subset],
                                   help="subset to use")
 
     def _define_write_args(self, parser):
@@ -104,7 +104,7 @@ class SpnData(spn.App):
             parser.error("RATIO must be >=1")
         if args.read.crop < 0:
             parser.error("CROP cannot be negative")
-        args.read.mnist_subset = spn.MnistDataset.Subset[args.read.mnist_subset.upper()]
+        args.read.mnist_subset = spn.MNISTDataset.Subset[args.read.mnist_subset.upper()]
 
         ##########################
         # Write command
@@ -115,7 +115,7 @@ class SpnData(spn.App):
     def run(self, args):
         # Create dataset
         if args.read.dataset == Dataset.MNIST:
-            dataset = spn.MnistDataset(subset=args.read.mnist_subset,
+            dataset = spn.MNISTDataset(subset=args.read.mnist_subset,
                                        format=args.read.image_format,
                                        num_epochs=args.read.num_epochs,
                                        batch_size=args.read.batch_size,
