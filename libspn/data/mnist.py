@@ -16,6 +16,12 @@ import tensorflow as tf
 import os
 from enum import Enum
 import scipy
+import gzip
+
+
+def _read32(bytestream):
+    dt = np.dtype(np.uint32).newbyteorder('>')
+    return np.frombuffer(bytestream.read(4), dtype=dt)[0]
 
 
 class MnistDataset(Dataset):
@@ -27,7 +33,6 @@ class MnistDataset(Dataset):
     contains integer labels representing the digits in the images.
 
     Args:
-        data_dir (str): Path to the folder containing the MNIST dataset.
         subset (Subset): Determines what data to provide.
         format (ImageFormat): Image format.
         num_epochs (int): Number of epochs of produced data.
@@ -63,7 +68,7 @@ class MnistDataset(Dataset):
         TEST = 2
         """Provide only test samples."""
 
-    def __init__(self, data_dir, subset, format, num_epochs, batch_size,
+    def __init__(self, subset, format, num_epochs, batch_size,
                  shuffle, ratio=1, crop=0, num_threads=1,
                  allow_smaller_final_batch=False, classes=None, seed=None):
         super().__init__(num_epochs=num_epochs, batch_size=batch_size,
@@ -76,12 +81,6 @@ class MnistDataset(Dataset):
                          seed=seed)
         self._orig_width = 28
         self._orig_height = 28
-        if not isinstance(data_dir, str):
-            raise ValueError("data_dir must be a string")
-        data_dir = os.path.expanduser(data_dir)
-        if not os.path.isdir(data_dir):
-            raise RuntimeError("data_dir must point to an existing directory")
-        self._data_dir = data_dir
         if subset not in MnistDataset.Subset:
             raise ValueError("Incorrect subset: %s" % subset)
         self._subset = subset
@@ -119,6 +118,10 @@ class MnistDataset(Dataset):
         self._samples = None
         self._labels = None
         self._channels = 1
+        # Get data dir
+        self._data_dir = os.path.realpath(os.path.join(
+            os.getcwd(), os.path.dirname(__file__),
+            os.pardir, os.pardir, 'data', 'mnist'))
 
     @property
     def orig_height(self):
@@ -191,24 +194,14 @@ class MnistDataset(Dataset):
         if (self._subset == MnistDataset.Subset.ALL or
                 self._subset == MnistDataset.Subset.TRAIN):
             self.__info("Loading MNIST training data")
-            loaded = np.fromfile(os.path.join(self._data_dir, 'train-images-idx3-ubyte'),
-                                 dtype=np.uint8)
-            train_x = loaded[16:].reshape(
-                (60000, self._orig_height, self._orig_width))
-            loaded = np.fromfile(os.path.join(self._data_dir, 'train-labels-idx1-ubyte'),
-                                 dtype=np.uint8)
-            train_y = loaded[8:].reshape((60000)).astype(np.int)
+            train_x = self._load_images('train-images-idx3-ubyte.gz')
+            train_y = self._load_labels('train-labels-idx1-ubyte.gz')
 
         if (self._subset == MnistDataset.Subset.ALL or
                 self._subset == MnistDataset.Subset.TEST):
             self.__info("Loading MNIST test data")
-            loaded = np.fromfile(os.path.join(self._data_dir, 't10k-images-idx3-ubyte'),
-                                 dtype=np.uint8)
-            test_x = loaded[16:].reshape((
-                10000, self._orig_height, self._orig_width))
-            loaded = np.fromfile(os.path.join(self._data_dir, 't10k-labels-idx1-ubyte'),
-                                 dtype=np.uint8)
-            test_y = loaded[8:].reshape((10000)).astype(np.int)
+            test_x = self._load_images('t10k-images-idx3-ubyte.gz')
+            test_y = self._load_labels('t10k-labels-idx1-ubyte.gz')
 
         # Collect
         if self._subset == MnistDataset.Subset.TRAIN:
@@ -262,3 +255,51 @@ class MnistDataset(Dataset):
             self._samples = np.rint(samples * 255.0).astype(np.uint8)
         elif self._format == ImageFormat.BINARY:
             self._samples = (samples > 0.5).astype(np.uint8)
+
+    def _load_images(self, filename):
+        """Extract MNIST images from a file. Stolen from TensorFlow.
+
+        Args:
+            filename (str): Filename of the labels file to load.
+
+        Returns:
+            array: A 3D uint8 numpy array [num, height, width].
+
+        Raises:
+            ValueError: If the bytestream does not start with 2051.
+        """
+        with gzip.GzipFile(os.path.join(self._data_dir, filename)) as bytestream:
+            magic = _read32(bytestream)
+            if magic != 2051:
+                raise ValueError('Invalid magic number %d in MNIST image file: %s' %
+                                 (magic, filename))
+            num_images = _read32(bytestream)
+            rows = _read32(bytestream)
+            cols = _read32(bytestream)
+            buf = bytestream.read(rows * cols * num_images)
+            print(num_images)
+            data = np.frombuffer(buf, dtype=np.uint8)
+            data = data.reshape(num_images, rows, cols)
+            return data
+
+    def _load_labels(self, filename):
+        """Extract MNIST labels from a file. Stolen from TensorFlow.
+
+        Args:
+            filename (str): Filename of the labels file to load.
+
+        Returns:
+            array: a 2D int numpy array [num, 1].
+
+        Raises:
+            ValueError: If the bystream doesn't start with 2049.
+        """
+        with gzip.GzipFile(os.path.join(self._data_dir, filename)) as bytestream:
+            magic = _read32(bytestream)
+            if magic != 2049:
+                raise ValueError('Invalid magic number %d in MNIST label file: %s' %
+                                 (magic, filename))
+            num_items = _read32(bytestream)
+            buf = bytestream.read(num_items)
+            labels = np.frombuffer(buf, dtype=np.uint8)
+            return labels.reshape((-1, 1)).astype(np.int)
