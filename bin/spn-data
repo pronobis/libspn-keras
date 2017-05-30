@@ -93,7 +93,7 @@ class SpnData(spn.App):
         ##########################
         # Positional
         args.read.dataset = Dataset[args.read.dataset.upper()]
-        if args.read.dataset is Dataset.MNIST and args.read.path is None:
+        if args.read.dataset is not Dataset.MNIST and args.read.path is None:
             parser.error("PATH is needed for this dataset")
         # Data
         if args.read.classes is not None:
