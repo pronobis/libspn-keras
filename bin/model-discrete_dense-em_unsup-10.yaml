@@ -1,7 +1,7 @@
 build:
   model: discrete_dense
   # Model params
-  multi-class: True
+  num-classes: 10
   weight-init: random
   dense-input-dist: raw
   dense-decomps: 1
@@ -10,7 +10,7 @@ build:
   dense-input-mixtures: 2
 
 train:
-  learner: em
+  learner: em_unsup
   # Learning params
   value-inference: marginal
   init-accum: 20
