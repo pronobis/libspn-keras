@@ -90,12 +90,14 @@ class ImageDataset(FileDataset):
         allow_smaller_final_batch(bool): If ``False``, the last batch will be
                                          omitted if it has less elements than
                                          ``batch_size``.
+        classes (list of int): Optional. If specified, only images with labels
+                               listed here will be provided.
         seed (int): Optional. Seed used when shuffling.
     """
 
     def __init__(self, image_files, format, num_epochs, batch_size, shuffle,
                  ratio=1, crop=0, accurate=False, num_threads=1,
-                 allow_smaller_final_batch=False, seed=None):
+                 allow_smaller_final_batch=False, classes=None, seed=None):
         super().__init__(image_files, num_epochs=num_epochs,
                          batch_size=batch_size, shuffle=shuffle,
                          # Since each image is in a separate file, and we
@@ -103,8 +105,9 @@ class ImageDataset(FileDataset):
                          shuffle_batch=False, min_after_dequeue=None,
                          num_threads=num_threads,
                          allow_smaller_final_batch=allow_smaller_final_batch,
+                         classes=classes,
                          seed=seed)
-        self._guess_orig_shape(image_files)
+        self._guess_orig_shape()
         if format not in ImageFormat:
             raise ValueError("Incorrect format: %s" % format)
         self._format = format
@@ -223,13 +226,11 @@ class ImageDataset(FileDataset):
         image = tf.reshape(image, [-1])
         return [image, label]
 
-    def _guess_orig_shape(self, image_files):
+    def _guess_orig_shape(self):
         """A trick to guess original image shape from one of the given images
         since TensorFlow does not set static image shape."""
         try:
-            if isinstance(image_files, str):
-                image_files = [image_files]
-            fname = self._get_files_labels(image_files[0])[0][0]
+            fname = self._get_files_labels()[0][0]
         except IndexError:
             raise RuntimeError("Cannot guess original image shape since"
                                " a representative file is not found")

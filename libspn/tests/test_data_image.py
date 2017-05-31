@@ -1084,6 +1084,50 @@ class TestImageDataset(tf.test.TestCase):
 
         self.generic_dataset_test(dataset, batches)
 
+    def test_pnggray_int_noproc_smaller_classes(self):
+        dataset = spn.ImageDataset(image_files=self.data_path("img_dir1/*-{*}.png"),
+                                   format=spn.ImageFormat.INT,
+                                   num_epochs=3, batch_size=2, shuffle=False,
+                                   ratio=1, crop=0, accurate=True,
+                                   allow_smaller_final_batch=True,
+                                   classes=['C', 'B'])
+        batches = [
+            [np.array([[0, 0, 255, 255, 0,   # C
+                        0, 255, 0, 0, 0,
+                        0, 255, 0, 0, 0,
+                        0, 255, 0, 0, 0,
+                        0, 0, 255, 255, 170],
+                       [0, 255, 255, 0, 0,   # B
+                        0, 255, 0, 255, 0,
+                        0, 255, 255, 255, 0,
+                        0, 255, 0, 255, 0,
+                        0, 255, 255, 0, 170]], dtype=np.uint8),
+             np.array([[b'C'], [b'B']], dtype=object)],
+            [np.array([[0, 0, 255, 255, 0,   # C
+                        0, 255, 0, 0, 0,
+                        0, 255, 0, 0, 0,
+                        0, 255, 0, 0, 0,
+                        0, 0, 255, 255, 170],
+                       [0, 255, 255, 0, 0,   # B
+                        0, 255, 0, 255, 0,
+                        0, 255, 255, 255, 0,
+                        0, 255, 0, 255, 0,
+                        0, 255, 255, 0, 170]], dtype=np.uint8),
+             np.array([[b'C'], [b'B']], dtype=object)],
+            [np.array([[0, 0, 255, 255, 0,   # C
+                        0, 255, 0, 0, 0,
+                        0, 255, 0, 0, 0,
+                        0, 255, 0, 0, 0,
+                        0, 0, 255, 255, 170],
+                       [0, 255, 255, 0, 0,   # B
+                        0, 255, 0, 255, 0,
+                        0, 255, 255, 255, 0,
+                        0, 255, 0, 255, 0,
+                        0, 255, 255, 0, 170]], dtype=np.uint8),
+             np.array([[b'C'], [b'B']], dtype=object)]]
+
+        self.generic_dataset_test(dataset, batches)
+
 
 if __name__ == '__main__':
     tf.test.main()
