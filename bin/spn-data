@@ -55,6 +55,8 @@ class SpnData(spn.App):
                                   help="downsample images by the given ratio")
         image_params.add_argument('--crop', type=int, default=0,
                                   help="crop image border pixels")
+        image_params.add_argument('--accurate', type=spn.App.bool_arg, default=True,
+                                  help="more accurate JPEG decompression")
 
         mnist_params = parser.add_argument_group(title="MNIST data parameters")
         mnist_params.add_argument('--mnist-subset', type=str, default='all',
@@ -134,6 +136,7 @@ class SpnData(spn.App):
                                        shuffle=args.read.shuffle,
                                        ratio=args.read.ratio,
                                        crop=args.read.crop,
+                                       accurate=args.read.accurate,
                                        num_threads=args.read.num_threads,
                                        allow_smaller_final_batch=True,
                                        classes=args.read.classes,

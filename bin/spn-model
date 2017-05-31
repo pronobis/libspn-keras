@@ -94,6 +94,8 @@ class SpnModel(spn.App):
                                   help="downsample images by the given ratio")
         image_params.add_argument('--crop', type=int, default=0,
                                   help="crop image border pixels")
+        image_params.add_argument('--accurate', type=spn.App.bool_arg, default=True,
+                                  help="more accurate JPEG decompression")
 
         mnist_params = parser.add_argument_group(title="MNIST data parameters")
         mnist_params.add_argument('--mnist-subset', type=str, default='all',
@@ -143,6 +145,8 @@ class SpnModel(spn.App):
                                   help="downsample images by the given ratio")
         image_params.add_argument('--crop', type=int, default=0,
                                   help="crop image border pixels")
+        image_params.add_argument('--accurate', type=spn.App.bool_arg, default=True,
+                                  help="more accurate JPEG decompression")
 
         mnist_params = parser.add_argument_group(title="MNIST data parameters")
         mnist_params.add_argument('--mnist-subset', type=str, default='all',
@@ -257,9 +261,10 @@ class SpnModel(spn.App):
                     shuffle=args.train.shuffle,
                     ratio=args.train.ratio,
                     crop=args.train.crop,
+                    accurate=args.train.accurate,
                     num_threads=args.train.num_threads,
                     allow_smaller_final_batch=args.train.allow_smaller_batch,
-                    # classes = args.train.classes,
+                    classes=args.train.classes,
                     seed=args.train.seed)
                 self.train_samples, self.train_labels = train_set.get_data()
                 self.train_num_vals = train_set.format.num_vals
@@ -287,9 +292,10 @@ class SpnModel(spn.App):
                                             shuffle=False,
                                             ratio=args.test.ratio,
                                             crop=args.test.crop,
+                                            accurate=args.test.accurate,
                                             num_threads=args.test.num_threads,
-                                            allow_smaller_final_batch=True
-                                            # classes = args.test.classes
+                                            allow_smaller_final_batch=True,
+                                            classes=args.test.classes
                                             )
                 self.test_samples, self.test_labels = test_set.get_data()
             # For a dataset without labels, just set labels to None
