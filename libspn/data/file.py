@@ -44,12 +44,14 @@ class FileDataset(Dataset):
         allow_smaller_final_batch(bool): If ``False``, the last batch will be
                                          omitted if it has less elements than
                                          ``batch_size``.
+        classes (list of int): Optional. If specified, only files with labels
+                               listed here will be provided.
         seed (int): Optional. Seed used when shuffling.
     """
 
     def __init__(self, files, num_epochs, batch_size, shuffle,
                  shuffle_batch, min_after_dequeue=None, num_threads=1,
-                 allow_smaller_final_batch=False, seed=None):
+                 allow_smaller_final_batch=False, classes=None, seed=None):
         if not isinstance(files, str) and not isinstance(files, list):
             raise ValueError("file_name is neither a string or a list of strings")
         super().__init__(num_epochs=num_epochs, batch_size=batch_size,
@@ -58,7 +60,23 @@ class FileDataset(Dataset):
                          num_threads=num_threads,
                          allow_smaller_final_batch=allow_smaller_final_batch,
                          seed=seed)
-        self.__files = files
+        self._files = files
+        if classes is not None:
+            if not isinstance(classes, list):
+                raise ValueError("classes must be a list")
+            try:
+                classes = [str(c) for c in classes]
+            except ValueError:
+                raise ValueError('classes must be convertible to string')
+            if len(set(classes)) != len(classes):
+                raise ValueError('classes must contain unique elements')
+        self._classes = classes
+
+    @property
+    def classes(self):
+        """list of str: List of labels of classes provided by the dataset.
+        If `None`, all classes are provided."""
+        return self._classes
 
     def _get_file_label_tensors(self):
         """
@@ -74,7 +92,7 @@ class FileDataset(Dataset):
             - filename (Tensor): A tensor containing the filename.
             - label (Tensor): A tensor containing the label.
         """
-        files, labels = FileDataset._get_files_labels(self.__files)
+        files, labels = self._get_files_labels()
         # Since files is a variable holding all the files, and since
         # input_producer shuffles all input data before passing it to
         # the queue, all files will always be shuffled independently
@@ -94,7 +112,7 @@ class FileDataset(Dataset):
         Returns:
             FIFOQueue: A queue serving file names.
         """
-        files, _ = FileDataset._get_files_labels(self.__files)
+        files, _ = self._get_files_labels()
         # Since fnames is a variable holding all the files, and since
         # input_producer shuffles all input data before passing it to
         # the queue, all files will always be shuffled independently
@@ -104,8 +122,7 @@ class FileDataset(Dataset):
                                               shuffle=self._shuffle,
                                               seed=self._seed)
 
-    @staticmethod
-    def _get_files_labels(files):
+    def _get_files_labels(self):
         """
         Convert the file specification to a list of files and labels. The files
         can be specified using a string containing a path to a file or a glob
@@ -116,9 +133,6 @@ class FileDataset(Dataset):
         without the extension as the label. If no label is specified for a file,
         the returned label is an empty string.
 
-        Args:
-            files (str or list of str): File specification.
-
         Returns:
             tuple: A 2-element tuple containing:
 
@@ -128,6 +142,7 @@ class FileDataset(Dataset):
               empty string for that file.
         """
         # Convert single path to a list
+        files = self._files
         if isinstance(files, str):
             files = [files]
         all_files = []
@@ -141,14 +156,13 @@ class FileDataset(Dataset):
             f_re = f_re.replace('\{', '(?P<label>').replace('\}', ')')
             f_re = re.compile(f_re)
             # Extract labels
-            f_labels = [None] * len(f_files)
             for i, j in enumerate(f_files):
                 try:
-                    f_labels[i] = re.search(f_re, j).group('label')
+                    label = re.search(f_re, j).group('label')
                 except IndexError:
-                    f_labels[i] = ''
-            # Append to all
-            all_files += f_files
-            all_labels += f_labels
+                    label = ''
+                if self._classes is None or label in self._classes:
+                    all_files.append(j)
+                    all_labels.append(label)
 
         return all_files, all_labels
