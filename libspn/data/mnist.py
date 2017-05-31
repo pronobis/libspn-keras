@@ -110,7 +110,7 @@ class MNISTDataset(Dataset):
             except ValueError:
                 raise ValueError('classes must be convertible to int')
             if not all(i >= 0 and i <= 9 for i in classes):
-                raise ValueError("Elements of classes must be integers in "
+                raise ValueError("elements of classes must be digits in the "
                                  "interval [0, 9]")
             if len(set(classes)) != len(classes):
                 raise ValueError('classes must contain unique elements')
