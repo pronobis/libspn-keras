@@ -136,6 +136,7 @@ class SpnData(spn.App):
                                        crop=args.read.crop,
                                        num_threads=args.read.num_threads,
                                        allow_smaller_final_batch=True,
+                                       classes=args.read.classes,
                                        seed=args.read.seed)
         # Write data
         if args.write:
