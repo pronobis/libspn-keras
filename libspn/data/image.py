@@ -19,37 +19,39 @@ ImageShape = namedtuple("ImageShape", ["height", "width", "channels"])
 
 
 class ImageFormat(Enum):
-    """Specifies the format of the image data. The convention employed in
-    TensorFlow is used, where float images use the interval [0, 1] and
-    integer images use the interval [0, MAX_VAL]."""
+    """Specifies the format of the image data.
+
+    The convention employed in TensorFlow is used, where float images use the
+    interval ``[0, 1]`` and integer images use the interval ``[0, MAX_VAL]``.
+    """
 
     FLOAT = 0
     """Image data is 1 channel (intensity), of type spn.conf.dtype, with values
-    in the interval [0, 1]."""
+    in the interval ``[0, 1]``."""
 
     INT = 1
     """Image data is 1 channel (intensity), of type uint8 with values in the
-    interval [0, 255]."""
+    interval ``[0, 255]``."""
 
     BINARY = 2
-    """Image data is 1 channel (intensity), of type uint8 with binary values
-    {0,1}."""
+    """Image data is 1 channel (intensity), of type uint8 with binary values ``{0,1}``."""
 
     RGB_FLOAT = 3
     """Image data is 3 channels (rgb), of type spn.conf.dtype, with values in
-    the interval [0, 1]."""
+    the interval ``[0, 1]``."""
 
     RGB_INT = 4
     """Image data is 3 channels (rgb), of type uint8 with values in the
-    interval [0, 255]."""
+    interval ``[0, 255]``."""
 
     RGB_BINARY = 5
-    """Image data is 3 channels (rgb), of type uint8 with binary values {0,1}."""
+    """Image data is 3 channels (rgb), of type uint8 with binary values ``{0,1}``."""
 
     @property
     def num_vals(self):
-        """int: Number of possible values for discretized formats.  Returns
-        ``None`` for continuous values.
+        """int: Number of possible values for discretized formats.
+
+        Returns ``None`` for continuous values.
         """
         return (2 if self in {ImageFormat.BINARY, ImageFormat.RGB_BINARY}
                 else 255 if self in {ImageFormat.INT, ImageFormat.RGB_INT}
