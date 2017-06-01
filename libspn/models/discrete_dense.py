@@ -11,12 +11,6 @@ from libspn.graph.ivs import IVs
 from libspn.generation.dense import DenseSPNGenerator
 from libspn.utils.math import ValueType
 from libspn.generation.weights import generate_weights
-from libspn import conf
-from libspn.learning.em import EMLearning
-from libspn.graph.weights import initialize_weights
-from libspn.inference.type import InferenceType
-import tensorflow as tf
-from libspn import utils
 
 
 class DiscreteDenseModel(Model):
@@ -68,12 +62,12 @@ class DiscreteDenseModel(Model):
         self._class_ivs = None
 
     @property
-    def sample_ivs():
+    def sample_ivs(self):
         """IVs: IVs with input data sample."""
-        return self._class_ivs
+        return self._sample_ivs
 
     @property
-    def class_ivs():
+    def class_ivs(self):
         """IVs: Class indicator variables."""
         return self._class_ivs
 
@@ -102,55 +96,40 @@ class DiscreteDenseModel(Model):
         Returns:
            Sum: Root node of the generated model.
         """
-        if not isinstance(num_vars, int):
-            raise ValueError("num_vars must be an integer")
-        if not isinstance(num_vals, int):
-            raise ValueError("num_vals must be an integer")
-
+        if not sample_inputs:
+            if not isinstance(num_vars, int) or num_vars < 1:
+                raise ValueError("num_vars must be an integer > 0")
+            if not isinstance(num_vals, int) or num_vals < 1:
+                raise ValueError("num_vals must be an integer > 0")
         if self._num_classes > 1:
             self.__info("Building a discrete dense model with %d classes" %
                         self._num_classes)
         else:
             self.__info("Building a 1-class discrete dense model")
 
-        # Create inputs if not given
-        if inputs is None:
-            inputs = [IVs(num_vars=self._num_vars, num_vals=self._num_vals)]
-        self._inputs = inputs
-
-        # Create class IVs if needed
-        if self._num_classes > 1:
-
-            # # TODO: Check if data is of type int
-
-            # Get data from dataset
-        data = dataset.get_data()
-        if isinstance(data, list):
-            samples = data[0]
-        else:
-            samples = data
-
-        # Get number of variables
-        num_vars = int(samples.shape[1])
-        num_vals = 2
-
-        # IVs
-        self._ivs = IVs(num_vars=num_vars, num_vals=num_vals)
+        # Create IVs if inputs not given
+        if not sample_inputs:
+            self._sample_ivs = IVs(num_vars=self._num_vars,
+                                   num_vals=self._num_vals)
+            sample_inputs = [self._sample_ivs]
+        if self._num_classes > 1 and class_input is None:
+            self._class_ivs = IVs(num_vars=1, num_vals=self._num_classes)
+            class_input = self._class_ivs
 
         # Generate structure
-        dense_gen = DenseSPNGenerator(num_decomps=num_decomps,
-                                      num_subsets=num_subsets,
-                                      num_mixtures=num_mixtures,
-                                      input_dist=input_dist,
-                                      num_input_mixtures=num_input_mixtures,
+        dense_gen = DenseSPNGenerator(num_decomps=self._num_decomps,
+                                      num_subsets=self._num_subsets,
+                                      num_mixtures=self._num_mixtures,
+                                      input_dist=self._input_dist,
+                                      num_input_mixtures=self._num_input_mixtures,
                                       balanced=True)
         self._root = dense_gen.generate(self._ivs)
         if self.__is_debug1():
-            self.__debug1("SPN graph with %d nodes" % self._root.get_num_nodes())
+            self.__debug1("SPN graph has %d nodes" % self._root.get_num_nodes())
 
         # Generate weights
-        self.__debug1("Generating weights")
-        generate_weights(self._root, init_value=weight_init_value)
+        self.__debug1("Generating weight nodes")
+        generate_weights(self._root, init_value=self._weight_init_value)
         if self.__is_debug1():
-            self.__debug1("SPN graph with %d nodes and %d TF ops" % (
+            self.__debug1("SPN graph has %d nodes and %d TF ops" % (
                 self._root.get_num_nodes(), self._root.get_tf_graph_size()))
