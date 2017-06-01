@@ -63,8 +63,8 @@ class ImageFormat(Enum):
                 else 1)
 
 
-class ImageDataset(FileDataset):
-    """A dataset serving images loaded from image files. The images are always
+class ImageDatasetBase(FileDataset):
+    """Base class for image datasets served from files. The images are always
     normalized so that the values span the full range of values of the selected
     format.
 
@@ -82,14 +82,21 @@ class ImageDataset(FileDataset):
               curly braces, it will be extracted as a label for the file. This
               works even for a glob, e.g. ``dir/{*}.jpg`` will use the filename
               without the extension as the label.
+        orig_height (int): Height of the original images.
+        orig_width (int): Width of the original images.
+        orig_num_channels (int): Number of channels of the original images.
         format (ImageFormat): Image format.
         num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
         shuffle (bool): Shuffle data within each epoch.
+        shuffle_batch (bool): Shuffle data when generating batches.
+        min_after_dequeue (int): Min number of elements in the data queue after
+                                 each dequeue. This is the minimum number of
+                                 elements from which the shuffled batch will
+                                 be drawn. Relevant only if ``shuffle_batch``
+                                 is ``True``.
         ratio (int): Downsample by the given ratio.
         crop (int): Crop that many border pixels (after downsampling).
-        accurate (bool): If `True`, uses more accurate but slower JPEG image
-                         decompression.
         num_threads (int): Number of threads enqueuing the example queue. If
                            larger than ``1``, the performance will be better,
                            but examples might not be in order even if ``shuffle``
@@ -102,19 +109,28 @@ class ImageDataset(FileDataset):
         seed (int): Optional. Seed used when shuffling.
     """
 
-    def __init__(self, image_files, format, num_epochs, batch_size, shuffle,
-                 ratio=1, crop=0, accurate=False, num_threads=1,
-                 allow_smaller_final_batch=False, classes=None, seed=None):
+    def __init__(self, image_files, orig_height, orig_width, orig_num_channels,
+                 format, num_epochs, batch_size, shuffle,
+                 shuffle_batch, min_after_dequeue=None, ratio=1, crop=0,
+                 num_threads=1, allow_smaller_final_batch=False, classes=None,
+                 seed=None):
         super().__init__(image_files, num_epochs=num_epochs,
                          batch_size=batch_size, shuffle=shuffle,
-                         # Since each image is in a separate file, and we
-                         # shuffle all files, we do not need batch shuffling
-                         shuffle_batch=False, min_after_dequeue=None,
+                         shuffle_batch=shuffle_batch,
+                         min_after_dequeue=min_after_dequeue,
                          num_threads=num_threads,
                          allow_smaller_final_batch=allow_smaller_final_batch,
                          classes=classes,
                          seed=seed)
-        self._guess_orig_shape()
+        if not isinstance(orig_height, int) or orig_height <= 0:
+            raise ValueError("orig_height must be an integer > 0")
+        self._orig_height = orig_height
+        if not isinstance(orig_width, int) or orig_width <= 0:
+            raise ValueError("orig_width must be an integer > 0")
+        self._orig_width = orig_width
+        if not isinstance(orig_num_channels, int) or orig_num_channels <= 0:
+            raise ValueError("orig_num_channels must be an integer > 0")
+        self._orig_num_channels = orig_num_channels
         if format not in ImageFormat:
             raise ValueError("Incorrect format: %s" % format)
         self._format = format
@@ -133,9 +149,6 @@ class ImageDataset(FileDataset):
         if crop < 0 or crop > (self._width // 2) or crop > (self._height // 2):
             raise ValueError("invalid value of crop")
         self._crop = crop
-        if not isinstance(accurate, bool):
-            raise ValueError("accurate must be a boolean")
-        self._accurate = accurate
         self._width -= 2 * crop
         self._height -= 2 * crop
         self._samples = None
@@ -175,18 +188,6 @@ class ImageDataset(FileDataset):
     def shape(self):
         """Shape of the image data samples."""
         return ImageShape(self._height, self._width, self._num_channels)
-
-    @utils.docinherit(FileDataset)
-    def generate_data(self):
-        file, label = self._get_file_label_tensors()
-        value = tf.read_file(file)
-        image = self._decode_image(value, accurate=self._accurate)
-        # Since decode_jpeg does not set the image shape, we need to set it manually
-        # https://github.com/tensorflow/tensorflow/issues/521
-        # https://stackoverflow.com/questions/34746777/why-do-i-get-valueerror-image-must-be-fully-defined-when-transforming-im
-        image.set_shape((self._orig_height, self._orig_width, self._orig_num_channels))
-        # Labels are reshaped so that in the batch they are of 2D shape (batch, 1)
-        return image, tf.reshape(label, shape=(1,))
 
     @utils.docinherit(FileDataset)
     def process_data(self, data):
@@ -230,11 +231,86 @@ class ImageDataset(FileDataset):
         image = tf.reshape(image, [-1])
         return [image, label]
 
-    def _guess_orig_shape(self):
+
+class ImageDataset(ImageDatasetBase):
+    """A dataset serving images loaded from image files. The images are always
+    normalized so that the values span the full range of values of the selected
+    format.
+
+    The data is returned as a tuple of tensors ``(samples, labels)``, where
+    ``samples`` has shape ``[batch_size, width*height*num_channels]`` and
+    contains flattened image data, and ``labels`` has shape ``[batch_size, 1]``
+    and contains image labels if the file specification specifies labels. For
+    files without a label specification, the returned label is an empty string.
+
+    Args:
+        image_files (str or list of str): A string containing a path to a file
+              or a glob matching multiple files, or a list of paths to multiple
+              files. When glob is used, the files will be sorted, unless
+              ``shuffle`` is set to ``True``. If a part of a path is wrapped in
+              curly braces, it will be extracted as a label for the file. This
+              works even for a glob, e.g. ``dir/{*}.jpg`` will use the filename
+              without the extension as the label.
+        format (ImageFormat): Image format.
+        num_epochs (int): Number of epochs of produced data.
+        batch_size (int): Size of a single batch.
+        shuffle (bool): Shuffle data within each epoch.
+        ratio (int): Downsample by the given ratio.
+        crop (int): Crop that many border pixels (after downsampling).
+        accurate (bool): If `True`, uses more accurate but slower JPEG image
+                         decompression.
+        num_threads (int): Number of threads enqueuing the example queue. If
+                           larger than ``1``, the performance will be better,
+                           but examples might not be in order even if ``shuffle``
+                           is ``False``.
+        allow_smaller_final_batch(bool): If ``False``, the last batch will be
+                                         omitted if it has less elements than
+                                         ``batch_size``.
+        classes (list of int): Optional. If specified, only images with labels
+                               listed here will be provided.
+        seed (int): Optional. Seed used when shuffling.
+    """
+
+    def __init__(self, image_files, format, num_epochs, batch_size, shuffle,
+                 ratio=1, crop=0, accurate=False, num_threads=1,
+                 allow_smaller_final_batch=False, classes=None, seed=None):
+        oh, ow, onc = self._guess_orig_shape(image_files, classes)
+        super().__init__(image_files,
+                         orig_height=oh, orig_width=ow, orig_num_channels=onc,
+                         format=format, num_epochs=num_epochs,
+                         batch_size=batch_size, shuffle=shuffle,
+                         # Since each image is in a separate file, and we
+                         # shuffle all files, we do not need batch shuffling
+                         shuffle_batch=False, min_after_dequeue=None,
+                         ratio=ratio, crop=crop,
+                         num_threads=num_threads,
+                         allow_smaller_final_batch=allow_smaller_final_batch,
+                         classes=classes,
+                         seed=seed)
+        if not isinstance(accurate, bool):
+            raise ValueError("accurate must be a boolean")
+        self._accurate = accurate
+
+    @utils.docinherit(FileDataset)
+    def generate_data(self):
+        file, label = self._get_file_label_tensors()
+        value = tf.read_file(file)
+        image = self._decode_image(value, accurate=self._accurate)
+        # Since decode_jpeg does not set the image shape, we need to set it manually
+        # https://github.com/tensorflow/tensorflow/issues/521
+        # https://stackoverflow.com/questions/34746777/why-do-i-get-valueerror-image-must-be-fully-defined-when-transforming-im
+        image.set_shape((self._orig_height, self._orig_width, self._orig_num_channels))
+        # Labels are reshaped so that in the batch they are of 2D shape (batch, 1)
+        return image, tf.reshape(label, shape=(1,))
+
+    @staticmethod
+    def _guess_orig_shape(image_files, classes):
         """A trick to guess original image shape from one of the given images
         since TensorFlow does not set static image shape."""
+        if isinstance(image_files, str):
+            image_files = [image_files]
         try:
-            fname = self._get_files_labels()[0][0]
+            fname = FileDataset._get_files_labels(image_files[0], classes)[0][0]
         except IndexError:
             raise RuntimeError("Cannot guess original image shape since"
                                " a representative file is not found")
@@ -246,12 +322,13 @@ class ImageDataset(FileDataset):
         with open(fname, 'rb') as img_file:
             with PIL.Image.open(img_file) as img_img:
                 img = scipy.misc.fromimage(img_img)
-        self._orig_height = img.shape[0]
-        self._orig_width = img.shape[1]
+        orig_height = img.shape[0]
+        orig_width = img.shape[1]
         if len(img.shape) == 3:
-            self._orig_num_channels = img.shape[2]
+            orig_num_channels = img.shape[2]
         else:
-            self._orig_num_channels = 1
+            orig_num_channels = 1
+        return orig_height, orig_width, orig_num_channels
 
     @staticmethod
     def _decode_image(contents, accurate=False):

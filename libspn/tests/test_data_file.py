@@ -29,17 +29,12 @@ class TestFileDataset(tf.test.TestCase):
         else:
             return os.path.join(TestFileDataset.data_dir, p)
 
-    @patch.multiple(spn.FileDataset, __abstractmethods__=set())  # Make Dataset non-abstract
     def test_get_files_labels(self):
         """Obtaining files/labels list from a specification in FileDataset"""
         def run(paths, true_files, true_labels):
             with self.subTest(paths=paths):
-                dataset = spn.FileDataset(files=self.data_path(paths),
-                                          num_epochs=1,
-                                          batch_size=1,
-                                          shuffle=False,
-                                          shuffle_batch=False)
-                files, labels = dataset._get_files_labels()
+                files, labels = spn.FileDataset._get_files_labels(
+                    self.data_path(paths))
                 self.assertEqual(files, self.data_path(true_files))
                 self.assertEqual(labels, true_labels)
 
@@ -111,19 +106,13 @@ class TestFileDataset(tf.test.TestCase):
              'img_dir1/img3-B.png'],
             ['A', 'C', 'B', 'A', 'C', 'B'])
 
-    @patch.multiple(spn.FileDataset, __abstractmethods__=set())  # Make Dataset non-abstract
     def test_get_files_labels_classes(self):
         """Obtaining files/labels list from a specification in FileDataset
         for specific class labels."""
         def run(paths, classes, true_files, true_labels):
             with self.subTest(paths=paths, classes=classes):
-                dataset = spn.FileDataset(files=self.data_path(paths),
-                                          num_epochs=1,
-                                          batch_size=1,
-                                          shuffle=False,
-                                          shuffle_batch=False,
-                                          classes=classes)
-                files, labels = dataset._get_files_labels()
+                files, labels = spn.FileDataset._get_files_labels(
+                    self.data_path(paths), classes)
                 self.assertEqual(files, self.data_path(true_files))
                 self.assertEqual(labels, true_labels)
 

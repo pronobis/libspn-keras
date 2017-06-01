@@ -53,7 +53,7 @@ class FileDataset(Dataset):
                  shuffle_batch, min_after_dequeue=None, num_threads=1,
                  allow_smaller_final_batch=False, classes=None, seed=None):
         if not isinstance(files, str) and not isinstance(files, list):
-            raise ValueError("file_name is neither a string or a list of strings")
+            raise ValueError("file_name is neither a string nor a list of strings")
         super().__init__(num_epochs=num_epochs, batch_size=batch_size,
                          shuffle=shuffle, shuffle_batch=shuffle_batch,
                          min_after_dequeue=min_after_dequeue,
@@ -92,7 +92,7 @@ class FileDataset(Dataset):
             - filename (Tensor): A tensor containing the filename.
             - label (Tensor): A tensor containing the label.
         """
-        files, labels = self._get_files_labels()
+        files, labels = self._get_files_labels(self._files, self._classes)
         # Since files is a variable holding all the files, and since
         # input_producer shuffles all input data before passing it to
         # the queue, all files will always be shuffled independently
@@ -112,7 +112,7 @@ class FileDataset(Dataset):
         Returns:
             FIFOQueue: A queue serving file names.
         """
-        files, _ = self._get_files_labels()
+        files, _ = self._get_files_labels(self._files, self._classes)
         # Since fnames is a variable holding all the files, and since
         # input_producer shuffles all input data before passing it to
         # the queue, all files will always be shuffled independently
@@ -122,7 +122,8 @@ class FileDataset(Dataset):
                                               shuffle=self._shuffle,
                                               seed=self._seed)
 
-    def _get_files_labels(self):
+    @staticmethod
+    def _get_files_labels(files, classes=None):
         """
         Convert the file specification to a list of files and labels. The files
         can be specified using a string containing a path to a file or a glob
@@ -133,6 +134,11 @@ class FileDataset(Dataset):
         without the extension as the label. If no label is specified for a file,
         the returned label is an empty string.
 
+        Args:
+            files (str or list of str): File specification.
+            classes (list of int): Optional. If specified, only files with labels
+                                   listed here will be provided.
+
         Returns:
             tuple: A 2-element tuple containing:
 
@@ -142,7 +148,6 @@ class FileDataset(Dataset):
               empty string for that file.
         """
         # Convert single path to a list
-        files = self._files
         if isinstance(files, str):
             files = [files]
         all_files = []
@@ -162,7 +167,7 @@ class FileDataset(Dataset):
                     label = re.search(f_re, j).group('label')
                 except IndexError:
                     label = ''
-                if self._classes is None or label in self._classes:
+                if classes is None or label in classes:
                     all_files.append(j)
                     all_labels.append(label)
 
