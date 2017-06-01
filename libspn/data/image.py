@@ -90,13 +90,13 @@ class ImageDatasetBase(FileDataset):
         batch_size (int): Size of a single batch.
         shuffle (bool): Shuffle data within each epoch.
         shuffle_batch (bool): Shuffle data when generating batches.
+        ratio (int): Downsample by the given ratio.
+        crop (int): Crop that many border pixels (after downsampling).
         min_after_dequeue (int): Min number of elements in the data queue after
                                  each dequeue. This is the minimum number of
                                  elements from which the shuffled batch will
                                  be drawn. Relevant only if ``shuffle_batch``
                                  is ``True``.
-        ratio (int): Downsample by the given ratio.
-        crop (int): Crop that many border pixels (after downsampling).
         num_threads (int): Number of threads enqueuing the example queue. If
                            larger than ``1``, the performance will be better,
                            but examples might not be in order even if ``shuffle``
@@ -111,7 +111,7 @@ class ImageDatasetBase(FileDataset):
 
     def __init__(self, image_files, orig_height, orig_width, orig_num_channels,
                  format, num_epochs, batch_size, shuffle,
-                 shuffle_batch, min_after_dequeue=None, ratio=1, crop=0,
+                 shuffle_batch, ratio=1, crop=0, min_after_dequeue=None,
                  num_threads=1, allow_smaller_final_batch=False, classes=None,
                  seed=None):
         super().__init__(image_files, num_epochs=num_epochs,
@@ -151,8 +151,6 @@ class ImageDatasetBase(FileDataset):
         self._crop = crop
         self._width -= 2 * crop
         self._height -= 2 * crop
-        self._samples = None
-        self._labels = None
 
     @property
     def orig_height(self):
