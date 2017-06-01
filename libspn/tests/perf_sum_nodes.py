@@ -14,6 +14,8 @@ import time
 import argparse
 import colorama as col
 import sys
+from tensorflow.python.client import timeline
+import os
 col.init()
 
 red = col.Fore.RED
@@ -141,7 +143,8 @@ class TestResults:
 class PerformanceTest:
 
     def __init__(self, num_input_rows, num_input_cols, num_sums, num_ops,
-                 num_runs,  without_cpu, without_gpu, log_devs, file):
+                 num_runs,  without_cpu, without_gpu, log_devs, profile,
+                 profiles_dir, file):
         self.num_input_rows = num_input_rows
         self.num_input_cols = num_input_cols
         self.num_sums = num_sums
@@ -150,7 +153,10 @@ class PerformanceTest:
         self.without_cpu = without_cpu
         self.without_gpu = without_gpu
         self.log_devs = log_devs
+        self.profile = profile
+        self.profiles_dir = profiles_dir
         self.file = file
+        self.test_failed = False
 
         print1("Params:", file)
         print1("- num_input_rows=%s" % num_input_rows, file)
@@ -268,6 +274,28 @@ class PerformanceTest:
                                                                if log else true_out))
                 except AssertionError:
                     output_correct = False
+                    self.test_failed = True
+
+            if self.profile:
+                # Add additional options to trace the session execution
+                options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                run_metadata = tf.RunMetadata()
+
+                out = sess.run(ops, feed_dict=feed, options=options,
+                               run_metadata=run_metadata)
+
+                # Create the Timeline object, and write it to a json file
+                fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+                chrome_trace = fetched_timeline.generate_chrome_trace_format()
+                if not os.path.exists(self.profiles_dir):
+                    os.makedirs(self.profiles_dir)
+                with open('%s/timeline_value_%s_%s_%s.json' % (self.profiles_dir,
+                          op_name, ("GPU" if on_gpu else "CPU"), (("MPE-LOG"
+                          if log else "MPE") if inf_type == spn.InferenceType.MPE
+                          else ("MARGINAL-LOG" if log else "MARGINAL"))), 'w') \
+                      as f:
+                    f.write(chrome_trace)
+
         # Return stats
         return OpTestResult(op_name, on_gpu, graph_size, ("No" if indices is None else "Yes"),
                             ("No" if ivs is None else "Yes"), setup_time,
@@ -356,6 +384,9 @@ class PerformanceTest:
         for res in results:
             res.print(self.file)
 
+        if self.test_failed:
+            print("\n ATLEAST ONE TEST FAILED!")
+
 
 def main():
 
@@ -376,6 +407,10 @@ def main():
                         help="Do not run CPU tests")
     parser.add_argument('--without-gpu', action='store_true',
                         help="Do not run GPU tests")
+    parser.add_argument('--profile', default=False, action='store_true',
+                        help="Run test one more time and profile")
+    parser.add_argument('--profiles-dir', default='profiles', type=str,
+                        help="Run test one more time and profile")
     parser.add_argument('--save-to', default='', type=str,
                         help="Save results to file")
     args = parser.parse_args()
@@ -389,7 +424,7 @@ def main():
         t = PerformanceTest(args.num_input_rows, args.num_input_cols,
                             args.num_sums, args.num_ops, args.num_runs,
                             args.without_cpu, args.without_gpu, args.log_devices,
-                            f)
+                            args.profile, args.profiles_dir, f)
         t.run()
     finally:
         if f is not None:
