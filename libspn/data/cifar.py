@@ -101,6 +101,8 @@ class CIFAR10Dataset(ImageDatasetBase):
 
     @utils.docinherit(Dataset)
     def generate_data(self):
+        if self._classes is not None:
+            raise NotImplementedError("class filtering is not implemented for CIFAR10Dataset")
         file_queue = self._get_file_queue()
         # Every record consists of a label and an image
         num_bytes = (1 +  # Label, 2 for CIFAR-100
@@ -112,7 +114,9 @@ class CIFAR10Dataset(ImageDatasetBase):
         key, value = reader.read(file_queue)
         record = tf.decode_raw(value, tf.uint8)
         # Get label (initial byte)
-        label = tf.strided_slice(record, [0], [1])
+        label = tf.cast(tf.strided_slice(record, [0], [1]), tf.int32)
+        # Get label string
+        label = tf.gather(CIFAR10Dataset.labels, label)
         # Get image (depth major, unit8)
         image = tf.reshape(tf.strided_slice(record, [1], [num_bytes]),
                            [self._orig_num_channels, self._orig_height,

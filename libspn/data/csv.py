@@ -82,6 +82,8 @@ class CSVFileDataset(FileDataset):
 
     @utils.docinherit(Dataset)
     def generate_data(self):
+        if self._classes is not None:
+            raise NotImplementedError("class filtering is not implemented for CSVDataset")
         file_queue = self._get_file_queue()
         reader = tf.TextLineReader()
         key, value = reader.read(file_queue)
