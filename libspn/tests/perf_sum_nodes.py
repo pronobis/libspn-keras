@@ -276,7 +276,7 @@ class PerformanceTest:
                     output_correct = False
                     self.test_failed = True
 
-            if self.profile:
+            if all([self.profile, indices is not None, ivs is not None]):
                 # Add additional options to trace the session execution
                 options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                 run_metadata = tf.RunMetadata()
