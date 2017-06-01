@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 class Dataset(Enum):
     IMAGE = 0
     MNIST = 1
+    CIFAR10 = 2
 
 
 class Writer(Enum):
@@ -141,6 +142,18 @@ class SpnData(spn.App):
                                        allow_smaller_final_batch=True,
                                        classes=args.read.classes,
                                        seed=args.read.seed)
+        elif args.read.dataset == Dataset.CIFAR10:
+            dataset = spn.CIFAR10Dataset(data_dir=args.read.path,
+                                         format=args.read.image_format,
+                                         num_epochs=args.read.num_epochs,
+                                         batch_size=args.read.batch_size,
+                                         shuffle=args.read.shuffle,
+                                         ratio=args.read.ratio,
+                                         crop=args.read.crop,
+                                         num_threads=args.read.num_threads,
+                                         allow_smaller_final_batch=True,
+                                         classes=args.read.classes,
+                                         seed=args.read.seed)
         # Write data
         if args.write:
             # Create writer

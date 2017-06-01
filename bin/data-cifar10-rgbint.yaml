@@ -1,10 +1,9 @@
 read:
-  dataset: &DATASET image
-  path: &PATH
-    - "../libspn/tests/data/img_dir1/img*-{*}.jpg"
-  classes: &CLASSES C,A
-  # Image/MNIST params
-  image-format: &IMAGE_FORMAT int
+  dataset: &DATASET cifar10
+  path: &PATH "~/Data/cifar-10_Local"
+  classes: &CLASSES null
+  # Image params
+  image-format: &IMAGE_FORMAT rgb_int
   ratio: &RATIO 1
   crop: &CROP 0
 
@@ -14,7 +13,7 @@ train:
   # Data params
   classes: *CLASSES
   num-epochs: 100
-  batch-size: 10
+  batch-size: 100
   allow_smaller_batch: true
   shuffle: true
   seed: 100
@@ -28,7 +27,7 @@ test:
   path: *PATH
   # Data params
   classes: *CLASSES
-  batch-size: 10
+  batch-size: 100
   # Image params
   image-format: *IMAGE_FORMAT
   ratio: *RATIO

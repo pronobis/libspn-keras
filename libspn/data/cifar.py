@@ -6,7 +6,7 @@
 # ------------------------------------------------------------------------
 
 from libspn.data.dataset import Dataset
-from libspn.data.image import ImageDatasetBase, ImageShape, ImageFormat
+from libspn.data.image import ImageDatasetBase
 from libspn import utils
 import tensorflow as tf
 import os
@@ -46,7 +46,7 @@ class CIFAR10Dataset(ImageDatasetBase):
         seed (int): Optional. Seed used when shuffling.
     """
 
-    labels = {'airplane',
+    labels = ['airplane',
               'automobile',
               'bird',
               'cat',
@@ -55,7 +55,7 @@ class CIFAR10Dataset(ImageDatasetBase):
               'frog',
               'horse',
               'ship',
-              'truck'}
+              'truck']
 
     def __init__(self, data_dir, format, num_epochs, batch_size,
                  shuffle, ratio=1, crop=0, min_after_dequeue=None,
@@ -77,4 +77,23 @@ class CIFAR10Dataset(ImageDatasetBase):
 
     @utils.docinherit(Dataset)
     def generate_data(self):
-        pass
+        file_queue = self._get_file_queue()
+        # Every record consists of a label and an image
+        num_bytes = (1 +  # Label, 2 for CIFAR-100
+                     self._orig_height * self._orig_width *
+                     self._orig_num_channels)
+        # Reader
+        reader = tf.FixedLengthRecordReader(record_bytes=num_bytes)
+        # Read uint8 record
+        key, value = reader.read(file_queue)
+        record = tf.decode_raw(value, tf.uint8)
+        # Get label (initial byte)
+        label = tf.strided_slice(record, [0], [1])
+        # Get image (depth major, unit8)
+        image = tf.reshape(tf.strided_slice(record, [1], [num_bytes]),
+                           [self._orig_num_channels, self._orig_height,
+                            self._orig_width])
+        # Transpose to [height, width, depth]
+        image = tf.transpose(image, [1, 2, 0])
+        # Labels are reshaped so that in the batch they are of 2D shape (batch, 1)
+        return image, tf.reshape(label, shape=(1,))
