@@ -45,6 +45,10 @@ class SpnData(spn.App):
                                  help="number of threads enqueuing the data queue.")
         data_params.add_argument('--shuffle', type=spn.App.bool_arg, default=False,
                                  help="shuffle the data every epoch")
+        data_params.add_argument('--min-after-dequeue', type=int, default=None,
+                                 help="min number of elements in the data queue "
+                                 "after each dequeue used for shuffling; not used "
+                                 "for image or mnist datasets")
         data_params.add_argument('--seed', type=int, default=None,
                                  help="seed used for shuffling")
 
@@ -158,6 +162,7 @@ class SpnData(spn.App):
                                          shuffle=args.read.shuffle,
                                          ratio=args.read.ratio,
                                          crop=args.read.crop,
+                                         min_after_dequque=args.read.min_after_dequque,
                                          num_threads=args.read.num_threads,
                                          allow_smaller_final_batch=True,
                                          classes=args.read.classes,

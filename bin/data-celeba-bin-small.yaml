@@ -2,6 +2,8 @@ read:
   dataset: &DATASET image
   path: &PATH "~/Data/celebA_Local/*.jpg"
   classes: &CLASSES null  # No class information for celebA
+  # Data params
+  shuffle: false
   # Image params
   image-format: &IMAGE_FORMAT binary
   ratio: &RATIO 2
@@ -15,7 +17,7 @@ train:
   classes: *CLASSES
   num-epochs: 100
   batch-size: 100
-  allow_smaller_batch: true
+  allow-smaller-batch: true
   shuffle: true
   seed: 100
   # Image params

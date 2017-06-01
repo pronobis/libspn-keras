@@ -1,6 +1,8 @@
 read:
   dataset: &DATASET mnist
   classes: &CLASSES 3,0,1
+  # Data params
+  shuffle: false
   # Image/MNIST params
   image-format: &IMAGE_FORMAT binary
   ratio: &RATIO 4
@@ -13,7 +15,7 @@ train:
   classes: *CLASSES
   num-epochs: 100
   batch-size: 100
-  allow_smaller_batch: true
+  allow-smaller-batch: true
   shuffle: true
   seed: 100
   # Image/MNIST params

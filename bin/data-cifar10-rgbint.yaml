@@ -2,6 +2,8 @@ read:
   dataset: &DATASET cifar10
   path: &PATH "~/Data/cifar-10_Local"
   classes: &CLASSES null
+  # Data params
+  shuffle: false
   # Image/CIFAR params
   image-format: &IMAGE_FORMAT rgb_int
   ratio: &RATIO 1
@@ -15,8 +17,9 @@ train:
   classes: *CLASSES
   num-epochs: 100
   batch-size: 100
-  allow_smaller_batch: true
+  allow-smaller-batch: true
   shuffle: true
+  min-after-dequeue: 50000
   seed: 100
   # Image/CIFAR params
   image-format: *IMAGE_FORMAT

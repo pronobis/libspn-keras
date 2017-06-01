@@ -3,6 +3,8 @@ read:
   path: &PATH
     - "../libspn/tests/data/img_dir1/img*-{*}.jpg"
   classes: &CLASSES C,A
+  # Data params
+  shuffle: false
   # Image/MNIST params
   image-format: &IMAGE_FORMAT int
   ratio: &RATIO 1
@@ -15,7 +17,7 @@ train:
   classes: *CLASSES
   num-epochs: 100
   batch-size: 10
-  allow_smaller_batch: true
+  allow-smaller-batch: true
   shuffle: true
   seed: 100
   # Image params
