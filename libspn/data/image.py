@@ -88,6 +88,7 @@ class ImageDatasetBase(FileDataset):
         orig_width (int): Width of the original images.
         orig_num_channels (int): Number of channels of the original images.
         format (ImageFormat): Image format.
+        num_labels (int): Number of labels for each image.
         num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
         shuffle (bool): Shuffle data within each epoch.
@@ -112,18 +113,10 @@ class ImageDatasetBase(FileDataset):
     """
 
     def __init__(self, image_files, orig_height, orig_width, orig_num_channels,
-                 format, num_epochs, batch_size, shuffle,
+                 format, num_labels, num_epochs, batch_size, shuffle,
                  shuffle_batch, ratio=1, crop=0, min_after_dequeue=None,
                  num_threads=1, allow_smaller_final_batch=False, classes=None,
                  seed=None):
-        super().__init__(image_files, num_epochs=num_epochs,
-                         batch_size=batch_size, shuffle=shuffle,
-                         shuffle_batch=shuffle_batch,
-                         min_after_dequeue=min_after_dequeue,
-                         num_threads=num_threads,
-                         allow_smaller_final_batch=allow_smaller_final_batch,
-                         classes=classes,
-                         seed=seed)
         if not isinstance(orig_height, int) or orig_height <= 0:
             raise ValueError("orig_height must be an integer > 0")
         self._orig_height = orig_height
@@ -153,6 +146,19 @@ class ImageDatasetBase(FileDataset):
         self._crop = crop
         self._width -= 2 * crop
         self._height -= 2 * crop
+        super().__init__(image_files,
+                         num_vars=(self._height * self._width * self._num_channels),
+                         num_vals=format.num_vals,
+                         num_labels=num_labels,
+                         num_epochs=num_epochs,
+                         batch_size=batch_size,
+                         shuffle=shuffle,
+                         shuffle_batch=shuffle_batch,
+                         min_after_dequeue=min_after_dequeue,
+                         num_threads=num_threads,
+                         allow_smaller_final_batch=allow_smaller_final_batch,
+                         classes=classes,
+                         seed=seed)
 
     @property
     def orig_height(self):
@@ -275,9 +281,10 @@ class ImageDataset(ImageDatasetBase):
                  ratio=1, crop=0, accurate=False, num_threads=1,
                  allow_smaller_final_batch=False, classes=None, seed=None):
         oh, ow, onc = self._guess_orig_shape(image_files, classes)
-        super().__init__(image_files,
-                         orig_height=oh, orig_width=ow, orig_num_channels=onc,
-                         format=format, num_epochs=num_epochs,
+        super().__init__(image_files, orig_height=oh, orig_width=ow,
+                         orig_num_channels=onc, format=format,
+                         num_labels=1,  # Each image has a label, may be empty
+                         num_epochs=num_epochs,
                          batch_size=batch_size, shuffle=shuffle,
                          # Since each image is in a separate file, and we
                          # shuffle all files, we do not need batch shuffling

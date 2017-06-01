@@ -182,6 +182,8 @@ class TestFileDataset(tf.test.TestCase):
         def run(paths, true_files, true_labels):
             with self.subTest(paths=paths):
                 dataset = spn.FileDataset(self.data_path(paths),
+                                          num_vars=1, num_vals=1,
+                                          num_labels=1,  # Not relevant here
                                           num_epochs=1, batch_size=1,
                                           shuffle=False, shuffle_batch=False)
                 fqueue = dataset._get_file_queue()

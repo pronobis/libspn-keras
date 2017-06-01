@@ -44,11 +44,12 @@ class TestDataWriter(tf.test.TestCase):
 
         # Read
         dataset = spn.CSVFileDataset(path,
+                                     num_vals=[None] * 2,
+                                     defaults=[[1], [1.0], [1.0]],
                                      num_epochs=1,
                                      batch_size=10,
                                      shuffle=False,
                                      num_labels=1,
-                                     defaults=[[1], [1.0], [1.0]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
                                      allow_smaller_final_batch=True)
@@ -63,11 +64,12 @@ class TestDataWriter(tf.test.TestCase):
     def test_csv_csv_writeall_singletensor(self):
         # Read&write
         dataset1 = spn.CSVFileDataset(self.data_path("data_int1.csv"),
+                                      num_vals=[255] * 5,
+                                      defaults=[[101], [102], [103], [104], [105]],
                                       num_epochs=2,
                                       batch_size=4,
                                       shuffle=False,
                                       num_labels=0,
-                                      defaults=[[101], [102], [103], [104], [105]],
                                       min_after_dequeue=1000,
                                       num_threads=1,
                                       allow_smaller_final_batch=True)
@@ -78,11 +80,12 @@ class TestDataWriter(tf.test.TestCase):
 
         # Read again
         dataset2 = spn.CSVFileDataset(path,
+                                      num_vals=[255] * 5,
+                                      defaults=[[201], [202], [203], [204], [205]],
                                       num_epochs=1,
                                       batch_size=4,
                                       shuffle=False,
                                       num_labels=0,
-                                      defaults=[[201], [202], [203], [204], [205]],
                                       min_after_dequeue=1000,
                                       num_threads=1,
                                       allow_smaller_final_batch=True)
@@ -94,12 +97,13 @@ class TestDataWriter(tf.test.TestCase):
     def test_csv_csv_writeall_tensorlist(self):
         # Read&write
         dataset1 = spn.CSVFileDataset(self.data_path("data_int1.csv"),
+                                      num_vals=[None] * 3,
+                                      defaults=[[101], [102], [103.0],
+                                                [104.0], [105.0]],
                                       num_epochs=2,
                                       batch_size=4,
                                       shuffle=False,
                                       num_labels=2,
-                                      defaults=[[101], [102], [103.0],
-                                                [104.0], [105.0]],
                                       min_after_dequeue=1000,
                                       num_threads=1,
                                       allow_smaller_final_batch=True)
@@ -110,12 +114,13 @@ class TestDataWriter(tf.test.TestCase):
 
         # Read again
         dataset2 = spn.CSVFileDataset(path,
+                                      num_vals=[None] * 3,
+                                      defaults=[[201], [202], [203.0],
+                                                [204.0], [205.0]],
                                       num_epochs=1,
                                       batch_size=4,
                                       shuffle=False,
                                       num_labels=2,
-                                      defaults=[[201], [202], [203.0],
-                                                [204.0], [205.0]],
                                       min_after_dequeue=1000,
                                       num_threads=1,
                                       allow_smaller_final_batch=True)
@@ -266,11 +271,12 @@ class TestDataWriter(tf.test.TestCase):
         # Re-read
         dataset2 = spn.CSVFileDataset(
             files=self.data_path("out_test_image_gray_float_csv_writeall.csv"),
+            num_vals=[None] * 25,
+            defaults=[[b'']] + [[1.0] for _ in range(25)],
             num_epochs=1,
             batch_size=2,
             shuffle=False,
             num_labels=1,
-            defaults=[[b'']] + [[1.0] for _ in range(25)],
             allow_smaller_final_batch=True)
         data2 = dataset2.read_all()
 

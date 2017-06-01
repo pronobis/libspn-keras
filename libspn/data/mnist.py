@@ -71,14 +71,6 @@ class MNISTDataset(Dataset):
     def __init__(self, subset, format, num_epochs, batch_size,
                  shuffle, ratio=1, crop=0, num_threads=1,
                  allow_smaller_final_batch=False, classes=None, seed=None):
-        super().__init__(num_epochs=num_epochs, batch_size=batch_size,
-                         shuffle=shuffle,
-                         # We shuffle the samples in this class
-                         # so batch shuffling is not needed
-                         shuffle_batch=False, min_after_dequeue=None,
-                         num_threads=num_threads,
-                         allow_smaller_final_batch=allow_smaller_final_batch,
-                         seed=seed)
         self._orig_width = 28
         self._orig_height = 28
         if subset not in MNISTDataset.Subset:
@@ -102,6 +94,18 @@ class MNISTDataset(Dataset):
         self._crop = crop
         self._width -= 2 * crop
         self._height -= 2 * crop
+        self._num_channels = 1
+        super().__init__(num_vars=(self._height * self._width * self._num_channels),
+                         num_vals=format.num_vals,
+                         num_labels=1,
+                         num_epochs=num_epochs, batch_size=batch_size,
+                         shuffle=shuffle,
+                         # We shuffle the samples in this class
+                         # so batch shuffling is not needed
+                         shuffle_batch=False, min_after_dequeue=None,
+                         num_threads=num_threads,
+                         allow_smaller_final_batch=allow_smaller_final_batch,
+                         seed=seed)
         if classes is not None:
             if not isinstance(classes, list):
                 raise ValueError("classes must be a list")
@@ -117,7 +121,6 @@ class MNISTDataset(Dataset):
         self._classes = classes
         self._samples = None
         self._labels = None
-        self._num_channels = 1
         # Get data dir
         self._data_dir = os.path.realpath(os.path.join(
             os.getcwd(), os.path.dirname(__file__),

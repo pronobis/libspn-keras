@@ -42,14 +42,18 @@ class CSVFileDataset(FileDataset):
                              matching multiple files, or a list of paths to
                              multiple files. When glob is used, the files will
                              be sorted, unless ``shuffle`` is set to ``True``.
+        num_vals (int or list of int): Number of values of each variable. Can be
+            a single value or a list of values for each of ``num_vars``. Use
+            ``None``, to indicate that a variable is continuous, in the range
+            ``[0, 1]``.
+        defaults (list of Tensor): A list of tensors, one tensor per column of
+                                   the input record, with a default value for
+                                   that column.
         num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
         shuffle (bool): Shuffle data within each epoch.
         num_labels (int): The number of columns considered labels. If set to
                           ``0``, no labels are returned.
-        defaults (list of Tensor): A list of tensors, one tensor per column of
-                                   the input record, with a default value for
-                                   that column.
         min_after_dequeue (int): Min number of elements in the data queue after
                                  each dequeue. This is the minimum number of
                                  elements from which the shuffled batch will
@@ -67,18 +71,31 @@ class CSVFileDataset(FileDataset):
         seed (int): Optional. Seed used when shuffling.
     """
 
-    def __init__(self, files, num_epochs, batch_size, shuffle,
-                 num_labels=0, defaults=None,
+    def __init__(self, files, num_vals, defaults,
+                 num_epochs, batch_size, shuffle, num_labels=0,
                  min_after_dequeue=None, num_threads=1,
                  allow_smaller_final_batch=False, seed=None):
-        super().__init__(files=files, num_epochs=num_epochs, batch_size=batch_size,
+        if not isinstance(defaults, list):
+            raise ValueError("defaults must be a list of Tensors")
+        self._defaults = defaults
+        super().__init__(files=files, num_vars=len(defaults) - num_labels,
+                         num_vals=num_vals, num_labels=num_labels,
+                         num_epochs=num_epochs, batch_size=batch_size,
                          shuffle=shuffle, shuffle_batch=shuffle,
                          min_after_dequeue=min_after_dequeue,
                          num_threads=num_threads,
                          allow_smaller_final_batch=allow_smaller_final_batch,
                          seed=seed)
-        self._num_labels = num_labels
-        self._defaults = defaults
+        # After num_vals are already checked by base class
+        for n, d in zip(num_vals, defaults[num_labels:]):
+            if ((n is None and
+                 ((isinstance(d, tf.Tensor) and not d.dtype.is_floating) or
+                  (not isinstance(d[0], float)))) or
+                (n is not None and
+                 ((isinstance(d, tf.Tensor) and not d.dtype.is_integer) or
+                  (not isinstance(d[0], int) or d[0] >= n)))):
+                raise ValueError("num_val '%s' is not compatible with default '%s'"
+                                 % (n, d))
 
     @utils.docinherit(Dataset)
     def generate_data(self):

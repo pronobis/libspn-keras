@@ -87,7 +87,8 @@ class CIFAR10Dataset(ImageDatasetBase):
         super().__init__(image_files=[os.path.join(data_dir, i)
                                       for i in image_files],
                          orig_height=32, orig_width=32, orig_num_channels=3,
-                         format=format, num_epochs=num_epochs,
+                         format=format, num_labels=1,
+                         num_epochs=num_epochs,
                          batch_size=batch_size, shuffle=shuffle,
                          shuffle_batch=shuffle,
                          min_after_dequeue=min_after_dequeue,

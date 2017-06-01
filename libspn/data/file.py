@@ -14,8 +14,7 @@ import re
 
 
 class FileDataset(Dataset):
-    """
-    An abstract class for a dataset stored in a file.
+    """An abstract class for a dataset stored in a file.
 
     Args:
         files (str or list of str): A string containing a path to a file or a
@@ -26,6 +25,12 @@ class FileDataset(Dataset):
               works even for a glob, e.g. ``dir/{*}.jpg`` will use the filename
               without the extension as the label. For files without a label
               specification, the returned label is an empty string.
+        num_vars (int): Number of variables in each data sample.
+        num_vals (int or list of int): Number of values of each variable. Can be
+            a single value or a list of values for each of ``num_vars``. Use
+            ``None``, to indicate that a variable is continuous, in the range
+            ``[0, 1]``.
+        num_labels (int): Number of labels for each data sample.
         num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
         shuffle (bool): Shuffle data within each epoch.
@@ -49,12 +54,15 @@ class FileDataset(Dataset):
         seed (int): Optional. Seed used when shuffling.
     """
 
-    def __init__(self, files, num_epochs, batch_size, shuffle,
+    def __init__(self, files, num_vars, num_vals, num_labels,
+                 num_epochs, batch_size, shuffle,
                  shuffle_batch, min_after_dequeue=None, num_threads=1,
                  allow_smaller_final_batch=False, classes=None, seed=None):
         if not isinstance(files, str) and not isinstance(files, list):
             raise ValueError("file_name is neither a string nor a list of strings")
-        super().__init__(num_epochs=num_epochs, batch_size=batch_size,
+        super().__init__(num_vars=num_vars, num_vals=num_vals,
+                         num_labels=num_labels,
+                         num_epochs=num_epochs, batch_size=batch_size,
                          shuffle=shuffle, shuffle_batch=shuffle_batch,
                          min_after_dequeue=min_after_dequeue,
                          num_threads=num_threads,
@@ -75,12 +83,13 @@ class FileDataset(Dataset):
     @property
     def classes(self):
         """list of str: List of labels of classes provided by the dataset.
+
         If `None`, all classes are provided."""
         return self._classes
 
     def _get_file_label_tensors(self):
-        """
-        Serve filenames and labels for multiple epochs as a pair of tensors.
+        """Serve filenames and labels for multiple epochs as a pair of tensors.
+
         Internally, this is implemented using a single queue, from which both a
         filename and a label are dequeued. The filename can be fed to a function
         that reads the file, but it cannot be used with a `Reader` which
@@ -103,11 +112,12 @@ class FileDataset(Dataset):
                                              seed=self._seed)
 
     def _get_file_queue(self):
-        """
-        Build a queue serving file names for multiple epochs. This method can be
-        used in combination with a `Reader` to read multiple data samples from
-        each file. In such case, the labels are assumed to be stored inside the
-        file and extracting them is the responsibility of the reader.
+        """Build a queue serving file names for multiple epochs.
+
+        This method can be used in combination with a `Reader` to read multiple
+        data samples from each file. In such case, the labels are assumed to be
+        stored inside the file and extracting them is the responsibility of the
+        reader.
 
         Returns:
             FIFOQueue: A queue serving file names.
@@ -124,15 +134,15 @@ class FileDataset(Dataset):
 
     @staticmethod
     def _get_files_labels(files, classes=None):
-        """
-        Convert the file specification to a list of files and labels. The files
-        can be specified using a string containing a path to a file or a glob
-        matching multiple files, or a list of paths to multiple files. When glob
-        is used, the files will be returned sorted. If a part of a path is
-        wrapped in curly braces, it will be extracted as a label for the file.
-        This works even for a glob, e.g. ``dir/{*}.jpg`` will use the filename
-        without the extension as the label. If no label is specified for a file,
-        the returned label is an empty string.
+        """Convert the file specification to a list of files and labels.
+
+        The files can be specified using a string containing a path to a file or
+        a glob matching multiple files, or a list of paths to multiple files.
+        When glob is used, the files will be returned sorted. If a part of a
+        path is wrapped in curly braces, it will be extracted as a label for the
+        file. This works even for a glob, e.g. ``dir/{*}.jpg`` will use the
+        filename without the extension as the label. If no label is specified
+        for a file, the returned label is an empty string.
 
         Args:
             files (str or list of str): File specification.

@@ -74,11 +74,12 @@ class TestCSVFileDataset(tf.test.TestCase):
         # Note: shuffling is NOT tested
         dataset = spn.CSVFileDataset(self.data_path(["data_int1.csv",
                                                      "data_int2.csv"]),
+                                     num_vals=[255] * 5,
+                                     defaults=[[101], [102], [103], [104], [105]],
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
                                      num_labels=0,
-                                     defaults=[[101], [102], [103], [104], [105]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
                                      allow_smaller_final_batch=False)
@@ -108,11 +109,12 @@ class TestCSVFileDataset(tf.test.TestCase):
         # Note: shuffling is NOT tested
         dataset = spn.CSVFileDataset(self.data_path(["data_int1.csv",
                                                      "data_int2.csv"]),
+                                     num_vals=[255] * 5,
+                                     defaults=[[101], [102], [103], [104], [105]],
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
                                      num_labels=0,
-                                     defaults=[[101], [102], [103], [104], [105]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
                                      allow_smaller_final_batch=True)
@@ -143,11 +145,12 @@ class TestCSVFileDataset(tf.test.TestCase):
         # Note: shuffling is NOT tested
         dataset = spn.CSVFileDataset(self.data_path(["data_int1.csv",
                                                      "data_int2.csv"]),
+                                     num_vals=[255] * 3,
+                                     defaults=[[101], [102], [103], [104], [105]],
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
                                      num_labels=2,
-                                     defaults=[[101], [102], [103], [104], [105]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
                                      allow_smaller_final_batch=True)
@@ -203,11 +206,12 @@ class TestCSVFileDataset(tf.test.TestCase):
         # Note: shuffling is NOT tested
         dataset = spn.CSVFileDataset(self.data_path(["data_int1.csv",
                                                      "data_int2.csv"]),
+                                     num_vals=[255] * 4,
+                                     defaults=[[101], [102], [103], [104], [105]],
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
                                      num_labels=1,
-                                     defaults=[[101], [102], [103], [104], [105]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
                                      allow_smaller_final_batch=True)
@@ -262,12 +266,13 @@ class TestCSVFileDataset(tf.test.TestCase):
         """Batch generation for CSV file with float data and 2 labels"""
         # Note: shuffling is NOT tested
         dataset = spn.CSVFileDataset(self.data_path("data_mix.csv"),
+                                     num_vals=[None] * 3,
+                                     defaults=[[101.0], [102.0], [103.0],
+                                               [104.0], [105.0]],
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
                                      num_labels=2,
-                                     defaults=[[101.0], [102.0], [103.0],
-                                               [104.0], [105.0]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
                                      allow_smaller_final_batch=True)
@@ -308,12 +313,13 @@ class TestCSVFileDataset(tf.test.TestCase):
 
         # Note: shuffling is NOT tested
         dataset = CustomCSVFileDataset(self.data_path("data_mix.csv"),
+                                       num_vals=[255, None, None],
+                                       defaults=[[101.0], [102], [103],
+                                                 [104.0], [105.0]],
                                        num_epochs=2,
                                        batch_size=3,
                                        shuffle=False,
                                        num_labels=2,
-                                       defaults=[[101.0], [102], [103],
-                                                 [104.0], [105.0]],
                                        min_after_dequeue=1000,
                                        num_threads=1,
                                        allow_smaller_final_batch=True)
@@ -347,11 +353,12 @@ class TestCSVFileDataset(tf.test.TestCase):
         """Test read_all for CSV file with 2 labels."""
         dataset = spn.CSVFileDataset(self.data_path(["data_int1.csv",
                                                      "data_int2.csv"]),
+                                     num_vals=[255] * 3,
+                                     defaults=[[101], [102], [103], [104], [105]],
                                      num_epochs=2,
                                      batch_size=3,
                                      shuffle=False,
                                      num_labels=2,
-                                     defaults=[[101], [102], [103], [104], [105]],
                                      min_after_dequeue=1000,
                                      num_threads=1,
                                      allow_smaller_final_batch=True)

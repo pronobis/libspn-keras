@@ -16,6 +16,12 @@ class Dataset(ABC):
     """An abstract class defining the interface of a dataset.
 
     Args:
+        num_vars (int): Number of variables in each data sample.
+        num_vals (int or list of int): Number of values of each variable. Can be
+            a single value or a list of values for each of ``num_vars``. Use
+            ``None``, to indicate that a variable is continuous, in the range
+            ``[0, 1]``.
+        num_labels (int): Number of labels for each data sample.
         num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
         shuffle (bool): Shuffle data within each epoch.
@@ -40,9 +46,28 @@ class Dataset(ABC):
     __logger = get_logger()
     __info = __logger.info
 
-    def __init__(self, num_epochs, batch_size, shuffle, shuffle_batch,
+    def __init__(self, num_vars, num_vals, num_labels,
+                 num_epochs, batch_size, shuffle, shuffle_batch,
                  min_after_dequeue=None, num_threads=1,
                  allow_smaller_final_batch=False, seed=None):
+        if not isinstance(num_vars, int) or num_vars < 1:
+            raise ValueError("num_vars must be a positive integer")
+        self._num_vars = num_vars
+        if isinstance(num_vals, list):
+            if len(num_vals) != num_vars:
+                raise ValueError("num_vals must have num_vars elements")
+            if any((i is not None) and (not isinstance(i, int) or i < 1)
+                   for i in num_vals):
+                raise ValueError("num_vals values must be a positive integers or None")
+            self._num_vals = num_vals
+        else:
+            if ((num_vals is not None) and (not isinstance(num_vals, int) or
+                                            num_vals < 1)):
+                raise ValueError("num_vals must be a positive integer or None")
+            self._num_vals = [num_vals] * num_vars
+        if not isinstance(num_labels, int) or num_labels < 0:
+            raise ValueError("num_labels must be an integer >= 0")
+        self._num_labels = num_labels
         if not isinstance(num_epochs, int) or num_epochs < 1:
             raise ValueError("num_epochs must be a positive integer")
         self._num_epochs = num_epochs
@@ -64,6 +89,25 @@ class Dataset(ABC):
             raise ValueError("seed must be None or a positive integer")
         self._seed = seed
         self._name_scope = None
+
+    @property
+    def num_vars(self):
+        """int: Number of variables in each data sample."""
+        return self._num_vars
+
+    @property
+    def num_vals(self):
+        """list of int: Number of values of each variable.
+
+        Value ``None`` indicates that a variable is continuous, in the range
+        ``[0, 1]``.
+        """
+        return self._num_vals
+
+    @property
+    def num_labels(self):
+        """int: Number of labels for each data sample."""
+        return self._num_labels
 
     @property
     def num_epochs(self):
