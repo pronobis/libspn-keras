@@ -245,8 +245,8 @@ class Sum(OpNode):
         # Check sum for completeness wrt values
         first_scope = flat_value_scopes[0]
         if any(s != first_scope for s in flat_value_scopes[1:]):
-            Sum.info("%s is not complete with input value scopes %s",
-                     self, flat_value_scopes)
+            self.__info("%s is not complete with input value scopes %s",
+                        self, flat_value_scopes)
             return None
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
 
