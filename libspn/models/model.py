@@ -13,15 +13,10 @@ class Model(ABC):
 
     def __init__(self):
         self._root = None
-        self._inputs = None
 
     def root(self):
         """OpNode: Root node of the model."""
         return self._root
-
-    def inputs(self):
-        """VarNode or list of VarNode: Input node(s) of the model."""
-        return self._inputs
 
     @abstractmethod
     def build():

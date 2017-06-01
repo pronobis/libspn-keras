@@ -50,18 +50,12 @@ class DiscreteDenseModel(Model):
     __debug1 = __logger.debug1
     __is_debug1 = __logger.is_debug1
 
-    def __init__(self, num_vars, num_vals, num_classes,
+    def __init__(self, num_classes,
                  num_decomps, num_subsets, num_mixtures,
                  input_dist=DenseSPNGenerator.InputDist.MIXTURE,
                  num_input_mixtures=None,
                  weight_init_value=ValueType.RANDOM_UNIFORM(0, 1)):
         super().__init__()
-        if not isinstance(num_vars, int):
-            raise ValueError("num_vars must be an integer")
-        self._num_vars = num_vars
-        if not isinstance(num_vals, int):
-            raise ValueError("num_vals must be an integer")
-        self._num_vals = num_vals
         if not isinstance(num_classes, int):
             raise ValueError("num_classes must be an integer")
         self._num_classes = num_classes
@@ -71,52 +65,65 @@ class DiscreteDenseModel(Model):
         self._input_dist = input_dist
         self._num_input_mixtures = num_input_mixtures
         self._weight_init_value = weight_init_value
-        self._ivs = None
+        self._class_ivs = None
 
-    def build(self, *inputs, class_ivs=None, dataset=None):
+    @property
+    def sample_ivs():
+        """IVs: IVs with input data sample."""
+        return self._class_ivs
+
+    @property
+    def class_ivs():
+        """IVs: Class indicator variables."""
+        return self._class_ivs
+
+    def build(self, *sample_inputs, class_input=None, num_vars=None, num_vals=None):
         """Build the SPN graph of the model.
 
-        The model can be built on top of any ``inputs``. Otherwise, if no inputs
-        are provided, the model will internally crate an IVs node to represent
-        the inputs. Similarly, if ``class_ivs`` is provided, it is used as a
-        source of indicators of the root sum node combining sub-SPNs modeling
-        partic ular classes. Othewise, an internal IVs node is created for this
+        The model can be built on top of any ``sample_inputs``. Otherwise, if no
+        sample inputs are provided, the model will internally crate a single IVs
+        node to represent the input data samples. In such case, ``num_vars`` and
+        ``num_vals`` must be specified.
+
+        Similarly, if ``class_input`` is provided, it is used as a source of
+        class indicators of the root sum node combining sub-SPNs modeling
+        particular classes. Otherwise, an internal IVs node is created for this
         purpose.
 
-        Furthermore, if ``dataset`` is provided, it will be connected to the
-        inputs of the model automatically.
-
         Args:
-            inputs (input_like): Optional. Inputs to the model.
-            class_ivs (input_like): Optional. Inputs providing class indicators.
-            dataset (Dataset): Optional. Dataset providing data to the model.
+            *sample_inputs (input_like): Optional. Inputs to the model
+                                         providing data samples.
+            class_input (input_like): Optional. Input providing class indicators.
+            num_vars (int): Optional. Number of input variables of the model.
+                            Must only be provided if ``inputs`` are not given.
+            num_vals (int): Optional. Number of values of each input variable.
+                            Must only be provided if ``inputs`` are not given.
 
         Returns:
            Sum: Root node of the generated model.
         """
-        self.__info("Building discrete dense model with %d classes for "
-                    "%d variables with %d values" %
-                    (self._num_classes, self._num_vars, self._num_vals))
+        if not isinstance(num_vars, int):
+            raise ValueError("num_vars must be an integer")
+        if not isinstance(num_vals, int):
+            raise ValueError("num_vals must be an integer")
 
-        # Get data from dataset
-        samples = None
-        labels = None
-        if dataset is not None:
-            data = dataset.get_data()
-            if isinstance(data, list):
-                samples, labels = data
-            else:
-                samples = data
+        if self._num_classes > 1:
+            self.__info("Building a discrete dense model with %d classes" %
+                        self._num_classes)
+        else:
+            self.__info("Building a 1-class discrete dense model")
 
         # Create inputs if not given
         if inputs is None:
-            inputs = [IVs(feed=samples,
-                          num_vars=self._num_vars,
-                          num_vals=self._num_vals)]
+            inputs = [IVs(num_vars=self._num_vars, num_vals=self._num_vals)]
+        self._inputs = inputs
 
-        # # TODO: Check if data is of type int
+        # Create class IVs if needed
+        if self._num_classes > 1:
 
-        # Get data from dataset
+            # # TODO: Check if data is of type int
+
+            # Get data from dataset
         data = dataset.get_data()
         if isinstance(data, list):
             samples = data[0]
