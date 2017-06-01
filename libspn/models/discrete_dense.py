@@ -21,10 +21,11 @@ from libspn import utils
 
 class DiscreteDenseModel(Model):
 
-    """Basic dense SPN model operating on discrete data. If `num_classes` is
-    greater than 1, a multi-class model is created by generating multiple
-    parallel dense models (one for each class) and combining them with a sum
-    node with an explicit latent class variable.
+    """Basic dense SPN model operating on discrete data.
+
+    If `num_classes` is greater than 1, a multi-class model is created by
+    generating multiple parallel dense models (one for each class) and combining
+    them with a sum node with an explicit latent class variable.
 
     Args:
         num_vars (int): Number of discrete random variables representing data
@@ -72,113 +73,77 @@ class DiscreteDenseModel(Model):
         self._weight_init_value = weight_init_value
         self._ivs = None
 
-    @utils.docinherit(Model)
-    def build(self):
+    def build(self, *inputs, class_ivs=None, dataset=None):
+        """Build the SPN graph of the model.
+
+        The model can be built on top of any ``inputs``. Otherwise, if no inputs
+        are provided, the model will internally crate an IVs node to represent
+        the inputs. Similarly, if ``class_ivs`` is provided, it is used as a
+        source of indicators of the root sum node combining sub-SPNs modeling
+        partic ular classes. Othewise, an internal IVs node is created for this
+        purpose.
+
+        Furthermore, if ``dataset`` is provided, it will be connected to the
+        inputs of the model automatically.
+
+        Args:
+            inputs (input_like): Optional. Inputs to the model.
+            class_ivs (input_like): Optional. Inputs providing class indicators.
+            dataset (Dataset): Optional. Dataset providing data to the model.
+
+        Returns:
+           Sum: Root node of the generated model.
+        """
         self.__info("Building discrete dense model with %d classes for "
                     "%d variables with %d values" %
                     (self._num_classes, self._num_vars, self._num_vals))
-        pass
+
+        # Get data from dataset
+        samples = None
+        labels = None
+        if dataset is not None:
+            data = dataset.get_data()
+            if isinstance(data, list):
+                samples, labels = data
+            else:
+                samples = data
+
+        # Create inputs if not given
+        if inputs is None:
+            inputs = [IVs(feed=samples,
+                          num_vars=self._num_vars,
+                          num_vals=self._num_vals)]
+
         # # TODO: Check if data is of type int
 
-        # # Get data from dataset
-        # data = dataset.get_data()
-        # if isinstance(data, list):
-        #     samples = data[0]
-        # else:
-        #     samples = data
+        # Get data from dataset
+        data = dataset.get_data()
+        if isinstance(data, list):
+            samples = data[0]
+        else:
+            samples = data
 
-        # # Get number of variables
-        # num_vars = int(samples.shape[1])
-        # num_vals = 2
+        # Get number of variables
+        num_vars = int(samples.shape[1])
+        num_vals = 2
 
-        # # IVs
-        # self._ivs = IVs(num_vars=num_vars, num_vals=num_vals)
+        # IVs
+        self._ivs = IVs(num_vars=num_vars, num_vals=num_vals)
 
-        # # Generate structure
-        # dense_gen = DenseSPNGenerator(num_decomps=num_decomps,
-        #                               num_subsets=num_subsets,
-        #                               num_mixtures=num_mixtures,
-        #                               input_dist=input_dist,
-        #                               num_input_mixtures=num_input_mixtures,
-        #                               balanced=True)
-        # self._root = dense_gen.generate(self._ivs)
-        # if self.__is_debug1():
-        #     self.__debug1("SPN graph with %d nodes" % self._root.get_num_nodes())
+        # Generate structure
+        dense_gen = DenseSPNGenerator(num_decomps=num_decomps,
+                                      num_subsets=num_subsets,
+                                      num_mixtures=num_mixtures,
+                                      input_dist=input_dist,
+                                      num_input_mixtures=num_input_mixtures,
+                                      balanced=True)
+        self._root = dense_gen.generate(self._ivs)
+        if self.__is_debug1():
+            self.__debug1("SPN graph with %d nodes" % self._root.get_num_nodes())
 
-        # # Generate weights
-        # self.__debug1("Generating weights")
-        # generate_weights(self._root, init_value=weight_init_value)
-        # if self.__is_debug1():
-        #     self.__debug1("SPN graph with %d nodes and %d TF ops" % (
-        #         self._root.get_num_nodes(), self._root.get_tf_graph_size()))
-
-        # def learn(self, value_inference_type=InferenceType.MARGINAL,
-        #           init_accum_value=20, additive_smoothing_value=0.0,
-        #           additive_smoothing_decay=0.2, additive_smoothing_min=0.0,
-        #           stop_condition=0.0):
-        #     self.__info("Adding EM learning ops")
-        #     additive_smoothing_var = tf.Variable(additive_smoothing_value,
-        #                                          dtype=conf.dtype,
-        #                                          name="AdditiveSmoothing")
-        #     em_learning = EMLearning(
-        #         self._root, log=True,
-        #         value_inference_type=value_inference_type,
-        #         additive_smoothing=additive_smoothing_var,
-        #         add_random=None,
-        #         initial_accum_value=init_accum_value,
-        #         use_unweighted=True)
-        #     reset_accumulators = em_learning.reset_accumulators()
-        #     accumulate_updates = em_learning.accumulate_updates()
-        #     update_spn = em_learning.update_spn()
-        #     train_likelihood = em_learning.value.values[self._root]
-        #     avg_train_likelihood = tf.reduce_mean(train_likelihood,
-        #                                           name="AverageTrainLikelihood")
-        #     self.__info("Adding weight initialization ops")
-        #     init_weights = initialize_weights(self._root)
-
-        #     self.__info("Initializing")
-        #     self._sess.run(init_weights)
-        #     self._sess.run(reset_accumulators)
-
-        #     # self.__info("Learning")
-        #     # num_batches = 1
-        #     # batch_size = self._data.training_scans.shape[0] // num_batches
-        #     # prev_likelihood = 100
-        #     # likelihood = 0
-        #     # epoch = 0
-        #     # # Print weights
-        #     # print(self._sess.run(self._root.weights.node.variable))
-        #     # print(self._sess.run(self._em_learning.root_accum()))
-
-        #     # while abs(prev_likelihood - likelihood) > stop_condition:
-        #     #     prev_likelihood = likelihood
-        #     #     likelihoods = []
-        #     #     for batch in range(num_batches):
-        #     #         start = (batch) * batch_size
-        #     #         stop = (batch + 1) * batch_size
-        #     #         print("- EPOCH", epoch, "BATCH", batch, "SAMPLES", start, stop)
-        #     #         # Adjust smoothing
-        #     #         ads = max(np.exp(-epoch * additive_smoothing_decay) *
-        #     #                   self._additive_smoothing_value,
-        #     #                   additive_smoothing_min)
-        #     #         self._sess.run(self._additive_smoothing_var.assign(ads))
-        #     #         print("  Smoothing: ", self._sess.run(self._additive_smoothing_var))
-        #     #         # Run accumulate_updates
-        #     #         train_likelihoods_arr, avg_train_likelihood_val, _, = \
-        #     #             self._sess.run([self._train_likelihood,
-        #     #                             self._avg_train_likelihood,
-        #     #                             self._accumulate_updates],
-        #     #                            feed_dict={self._ivs:
-        #     #                                       self._data.training_scans[start:stop]})
-        #     #         # Print avg likelihood of this batch data on previous batch weights
-        #     #         print("  Avg likelihood (this batch data on previous weights): %s" %
-        #     #               (avg_train_likelihood_val))
-        #     #         likelihoods.append(avg_train_likelihood_val)
-        #     #         # Update weights
-        #     #         self._sess.run(self._update_spn)
-        #     #         # Print weights
-        #     #         print(self._sess.run(self._root.weights.node.variable))
-        #     #         print(self._sess.run(self._em_learning.root_accum()))
-        #     #     likelihood = sum(likelihoods) / len(likelihoods)
-        #     #     print("- Batch avg likelihood: %s" % (likelihood))
-        #     #     epoch += 1
+        # Generate weights
+        self.__debug1("Generating weights")
+        generate_weights(self._root, init_value=weight_init_value)
+        if self.__is_debug1():
+            self.__debug1("SPN graph with %d nodes and %d TF ops" % (
+                self._root.get_num_nodes(), self._root.get_tf_graph_size()))
