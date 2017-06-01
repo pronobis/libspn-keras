@@ -148,9 +148,10 @@ class FileDataset(Dataset):
         all_files = []
         all_labels = []
         for f in files:
+            f = os.path.expanduser(f)
             # Get files matching a glob
             f_clean = f.replace('{', '').replace('}', '')
-            f_files = sorted(glob.glob(os.path.expanduser(f_clean)))
+            f_files = sorted(glob.glob(f_clean))
             # Get regexp for extracting labels
             f_re = fnmatch.translate(f)
             f_re = f_re.replace('\{', '(?P<label>').replace('\}', ')')
