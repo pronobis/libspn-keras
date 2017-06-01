@@ -162,7 +162,7 @@ class SpnData(spn.App):
                                          shuffle=args.read.shuffle,
                                          ratio=args.read.ratio,
                                          crop=args.read.crop,
-                                         min_after_dequque=args.read.min_after_dequque,
+                                         min_after_dequeue=args.read.min_after_dequeue,
                                          num_threads=args.read.num_threads,
                                          allow_smaller_final_batch=True,
                                          classes=args.read.classes,
