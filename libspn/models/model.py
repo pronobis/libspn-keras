@@ -5,7 +5,7 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 
 
 class Model(ABC):
@@ -13,10 +13,15 @@ class Model(ABC):
 
     def __init__(self):
         self._root = None
+        self._inputs = None
 
-    @property
     def root(self):
+        """OpNode: Root node of the model."""
         return self._root
+
+    def inputs(self):
+        """VarNode or list of VarNode: Input node(s) of the model."""
+        return self._inputs
 
     @abstractmethod
     def build():
