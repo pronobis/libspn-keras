@@ -97,11 +97,16 @@ class SpnModel(spn.App):
         image_params.add_argument('--accurate', type=spn.App.bool_arg, default=True,
                                   help="more accurate JPEG decompression")
 
-        mnist_params = parser.add_argument_group(title="MNIST data parameters")
-        mnist_params.add_argument('--mnist-subset', type=str, default='all',
-                                  choices=[i.name.lower()
-                                           for i in spn.MNISTDataset.Subset],
-                                  help="subset to use")
+        mnist_cifar_params = parser.add_argument_group(
+            title="MNIST/CIFAR data parameters")
+        mnist_cifar_params.add_argument('--mnist-subset', type=str, default='all',
+                                        choices=[i.name.lower()
+                                                 for i in spn.MNISTDataset.Subset],
+                                        help="subset to use")
+        mnist_cifar_params.add_argument('--cifar-subset', type=str, default='all',
+                                        choices=[i.name.lower()
+                                                 for i in spn.CIFAR10Dataset.Subset],
+                                        help="subset to use")
 
         learn_params = parser.add_argument_group(title="learning parameters")
         learn_params.add_argument('--value-inference', type=str, default='marginal',
@@ -148,10 +153,16 @@ class SpnModel(spn.App):
         image_params.add_argument('--accurate', type=spn.App.bool_arg, default=True,
                                   help="more accurate JPEG decompression")
 
-        mnist_params = parser.add_argument_group(title="MNIST data parameters")
-        mnist_params.add_argument('--mnist-subset', type=str, default='all',
-                                  choices=[i.name.lower() for i in spn.MNISTDataset.Subset],
-                                  help="subset to use")
+        mnist_cifar_params = parser.add_argument_group(
+            title="MNIST/CIFAR data parameters")
+        mnist_cifar_params.add_argument('--mnist-subset', type=str, default='all',
+                                        choices=[i.name.lower()
+                                                 for i in spn.MNISTDataset.Subset],
+                                        help="subset to use")
+        mnist_cifar_params.add_argument('--cifar-subset', type=str, default='all',
+                                        choices=[i.name.lower()
+                                                 for i in spn.CIFAR10Dataset.Subset],
+                                        help="subset to use")
 
     def _define_mpe_args(self, parser):
         pass
@@ -213,6 +224,7 @@ class SpnModel(spn.App):
         if args.train.crop < 0:
             parser.error("CROP cannot be negative")
         args.train.mnist_subset = spn.MNISTDataset.Subset[args.train.mnist_subset.upper()]
+        args.read.cifar_subset = spn.CIFAR10Dataset.Subset[args.read.cifar_subset.upper()]
         # Learning
         args.train.value_inference = spn.InferenceType[args.train.value_inference.upper()]
 
@@ -233,6 +245,7 @@ class SpnModel(spn.App):
         if args.test.crop < 0:
             parser.error("CROP cannot be negative")
         args.test.mnist_subset = spn.MNISTDataset.Subset[args.test.mnist_subset.upper()]
+        args.read.cifar_subset = spn.CIFAR10Dataset.Subset[args.read.cifar_subset.upper()]
 
     def _prepare_data(self, args):
         if args.train:

@@ -10,6 +10,7 @@ from libspn.data.image import ImageDatasetBase
 from libspn import utils
 import tensorflow as tf
 import os
+from enum import Enum
 
 
 class CIFAR10Dataset(ImageDatasetBase):
@@ -22,6 +23,7 @@ class CIFAR10Dataset(ImageDatasetBase):
 
     Args:
         data_dir (str): Path to the directory with the data.
+        subset (Subset): Determines what data to provide.
         format (ImageFormat): Image format.
         num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
@@ -57,11 +59,33 @@ class CIFAR10Dataset(ImageDatasetBase):
               'ship',
               'truck']
 
-    def __init__(self, data_dir, format, num_epochs, batch_size,
+    class Subset(Enum):
+        """Specifies what data is provided."""
+
+        ALL = 0
+        """Provide all data as one dataset combined of training and test samples."""
+
+        TRAIN = 1
+        """Provide only training samples"""
+
+        TEST = 2
+        """Provide only test samples."""
+
+    def __init__(self, data_dir, subset, format, num_epochs, batch_size,
                  shuffle, ratio=1, crop=0, min_after_dequeue=None,
                  num_threads=1, allow_smaller_final_batch=False,
                  classes=None, seed=None):
-        super().__init__(os.path.join(data_dir, 'data_batch*.bin'),
+        # Pick files depending on subset
+        if subset not in CIFAR10Dataset.Subset:
+            raise ValueError("Incorrect subset: %s" % subset)
+        if subset is CIFAR10Dataset.Subset.ALL:
+            image_files = ['data_batch*.bin', 'test_batch.bin']
+        elif subset is CIFAR10Dataset.Subset.TRAIN:
+            image_files = ['data_batch*.bin']
+        elif subset is CIFAR10Dataset.Subset.TEST:
+            image_files = ['test_batch.bin']
+        super().__init__(image_files=[os.path.join(data_dir, i)
+                                      for i in image_files],
                          orig_height=32, orig_width=32, orig_num_channels=3,
                          format=format, num_epochs=num_epochs,
                          batch_size=batch_size, shuffle=shuffle,

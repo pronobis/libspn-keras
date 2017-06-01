@@ -2,10 +2,11 @@ read:
   dataset: &DATASET cifar10
   path: &PATH "~/Data/cifar-10_Local"
   classes: &CLASSES null
-  # Image params
+  # Image/CIFAR params
   image-format: &IMAGE_FORMAT rgb_int
   ratio: &RATIO 1
   crop: &CROP 0
+  cifar-subset: all
 
 train:
   dataset: *DATASET
@@ -17,10 +18,11 @@ train:
   allow_smaller_batch: true
   shuffle: true
   seed: 100
-  # Image params
+  # Image/CIFAR params
   image-format: *IMAGE_FORMAT
   ratio: *RATIO
   crop: *CROP
+  cifar-subset: train
 
 test:
   dataset: *DATASET
@@ -28,7 +30,8 @@ test:
   # Data params
   classes: *CLASSES
   batch-size: 100
-  # Image params
+  # Image/CIFAR params
   image-format: *IMAGE_FORMAT
   ratio: *RATIO
   crop: *CROP
+  cifar-subset: test
