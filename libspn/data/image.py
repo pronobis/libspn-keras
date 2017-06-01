@@ -51,9 +51,16 @@ class ImageFormat(Enum):
         """int: Number of possible values for discretized formats.  Returns
         ``None`` for continuous values.
         """
-        return (2 if self in {ImageFormat.BINARY or ImageFormat.RGB_BINARY}
-                else 255 if self in {ImageFormat.INT or ImageFormat.RGB_INT}
+        return (2 if self in {ImageFormat.BINARY, ImageFormat.RGB_BINARY}
+                else 255 if self in {ImageFormat.INT, ImageFormat.RGB_INT}
                 else None)
+
+    @property
+    def num_channels(self):
+        """int: Number of channels for the format."""
+        return (3 if self in {ImageFormat.RGB_FLOAT, ImageFormat.RGB_INT,
+                              ImageFormat.RGB_BINARY}
+                else 1)
 
 
 class ImageDataset(FileDataset):
@@ -111,10 +118,7 @@ class ImageDataset(FileDataset):
         if format not in ImageFormat:
             raise ValueError("Incorrect format: %s" % format)
         self._format = format
-        self._channels = (3 if format in {ImageFormat.RGB_FLOAT,
-                                          ImageFormat.RGB_INT,
-                                          ImageFormat.RGB_BINARY}
-                          else 1)
+        self._num_channels = format.num_channels
         if not isinstance(ratio, int):
             raise ValueError("ratio must be an integer")
         if self._orig_width % ratio or self._orig_height % ratio:
@@ -148,9 +152,9 @@ class ImageDataset(FileDataset):
         return self._orig_width
 
     @property
-    def orig_channels(self):
+    def orig_num_channels(self):
         """int: Number of channels of the original images."""
-        return self._orig_channels
+        return self._orig_num_channels
 
     @property
     def format(self):
@@ -170,7 +174,7 @@ class ImageDataset(FileDataset):
     @property
     def shape(self):
         """Shape of the image data samples."""
-        return ImageShape(self._height, self._width, self._channels)
+        return ImageShape(self._height, self._width, self._num_channels)
 
     @utils.docinherit(FileDataset)
     def generate_data(self):
@@ -180,7 +184,7 @@ class ImageDataset(FileDataset):
         # Since decode_jpeg does not set the image shape, we need to set it manually
         # https://github.com/tensorflow/tensorflow/issues/521
         # https://stackoverflow.com/questions/34746777/why-do-i-get-valueerror-image-must-be-fully-defined-when-transforming-im
-        image.set_shape((self._orig_height, self._orig_width, self._orig_channels))
+        image.set_shape((self._orig_height, self._orig_width, self._orig_num_channels))
         # Labels are reshaped so that in the batch they are of 2D shape (batch, 1)
         return image, tf.reshape(label, shape=(1,))
 
@@ -206,11 +210,11 @@ class ImageDataset(FileDataset):
         # Convert color spaces
         if (self._format in {ImageFormat.FLOAT, ImageFormat.INT,
                              ImageFormat.BINARY}
-                and self._orig_channels > 1):
+                and self._orig_num_channels > 1):
             image = tf.image.rgb_to_grayscale(image)
         elif (self._format in {ImageFormat.RGB_FLOAT, ImageFormat.RGB_INT,
                                ImageFormat.RGB_BINARY}
-              and self._orig_channels == 1):
+              and self._orig_num_channels == 1):
             image = tf.image.grayscale_to_rgb(image)
         # Normalize
         image -= tf.reduce_min(image)
@@ -245,9 +249,9 @@ class ImageDataset(FileDataset):
         self._orig_height = img.shape[0]
         self._orig_width = img.shape[1]
         if len(img.shape) == 3:
-            self._orig_channels = img.shape[2]
+            self._orig_num_channels = img.shape[2]
         else:
-            self._orig_channels = 1
+            self._orig_num_channels = 1
 
     @staticmethod
     def _decode_image(contents, accurate=False):

@@ -117,7 +117,7 @@ class MNISTDataset(Dataset):
         self._classes = classes
         self._samples = None
         self._labels = None
-        self._channels = 1
+        self._num_channels = 1
         # Get data dir
         self._data_dir = os.path.realpath(os.path.join(
             os.getcwd(), os.path.dirname(__file__),
@@ -169,7 +169,7 @@ class MNISTDataset(Dataset):
     @property
     def shape(self):
         """Shape of the image data samples."""
-        return ImageShape(self._height, self._width, self._channels)
+        return ImageShape(self._height, self._width, self._num_channels)
 
     @utils.docinherit(Dataset)
     def generate_data(self):

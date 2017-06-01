@@ -365,7 +365,6 @@ class TestMNISTDataset(tf.test.TestCase):
                                    allow_smaller_final_batch=True,
                                    classes=None)
         img, label = self.generic_dataset_test(dataset)
-        print(repr(img))
 
         true_img = np.array(
             [[11, 4, 2, 7, 9, 9, 9, 9, 10, 11, 13, 93, 110,
