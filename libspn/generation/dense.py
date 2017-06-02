@@ -107,13 +107,15 @@ class DenseSPNGenerator:
         # Stirling numbers and ratios for partition sampling
         self.__stirling = utils.Stirling()
 
-    def generate(self, *inputs, seed=None):
+    def generate(self, *inputs, rnd=None):
         """Generate the SPN.
 
         Args:
             inputs (input_like): Inputs to the generated SPN.
-            seed (int): Seed used to initialize the random generator. Re-using
-                        seed will result in generating identical dense structure.
+            rnd (Random): Optional. A custom instance of a random number generator
+                          ``random.Random`` that will be used instead of the
+                          default global instance. This permits using a generator
+                          with a custom state independent of the global one.
 
         Returns:
            Sum: Root node of the generated SPN.
@@ -127,11 +129,6 @@ class DenseSPNGenerator:
         input_set = self.__generate_set(inputs)
         self.__debug1("Found %s distinct input scopes",
                       len(input_set))
-
-        # Generate custom random generator
-        rnd = None
-        if seed is not None:
-            rnd = random.Random(seed)
 
         # Create root
         root = Sum()
@@ -204,7 +201,8 @@ class DenseSPNGenerator:
 
         Args:
             subset_info(SubsetInfo): Info about the subset being decomposed.
-            rnd (Random): A custom instance of random generator or ``None``.
+            rnd (Random): A custom instance of a random number generator or
+                          ``None`` if default global instance should be used.
 
         Returns:
             list of SubsetInfo: Info about each new generated subset, which

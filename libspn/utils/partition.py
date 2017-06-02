@@ -274,10 +274,10 @@ def random_partition(input_set: list, num_subsets: int,
                              caching/re-using computed Stirling numbers and
                              ratios. If set to ``None``, one will be created
                              internally.
-        rnd (Random): Optional. A custom instance of random.Random that will
-                      be used instead of the default global instance. This
-                      permits using a generator with a state independent of
-                      the global one.
+        rnd (Random): Optional. A custom instance of a random number generator
+                      ``random.Random`` that will be used instead of the
+                      default global instance. This permits using a generator
+                      with a custom state independent of the global one.
 
     Returns:
         list of set: A list of ``num_subsets`` subsets, where each subset is a
@@ -368,10 +368,10 @@ def random_partitions_by_sampling(input_set: list, num_subsets: int,
                              caching/re-using computed Stirling numbers and
                              ratios. If set to ``None``, one will be created
                              internally.
-        rnd (Random): Optional. A custom instance of random.Random that will
-                      be used instead of the default global instance. This
-                      permits using a generator with a state independent of
-                      the global one.
+        rnd (Random): Optional. A custom instance of a random number generator
+                      ``random.Random`` that will be used instead of the
+                      default global instance. This permits using a generator
+                      with a custom state independent of the global one.
 
     Returns:
         list of list of set: A list of ``num_partitions`` partitions, where each
@@ -524,10 +524,10 @@ def random_partitions_by_enumeration(input_set: list, num_subsets: int,
                               subset of all partitions.
         balanced (bool): If true, return only partitions consisting of subsets
                          with similar cardinality (differing by max 1).
-        rnd (Random): Optional. A custom instance of random.Random that will
-                      be used instead of the default global instance. This
-                      permits using a generator with a state independent of
-                      the global one.
+        rnd (Random): Optional. A custom instance of a random number generator
+                      ``random.Random`` that will be used instead of the
+                      default global instance. This permits using a generator
+                      with a custom state independent of the global one.
 
     Returns:
         list of list of set: A list of ``num_partitions`` partitions, where each
@@ -609,10 +609,10 @@ def random_partitions(input_set: list, num_subsets: int, num_partitions: int,
                              caching/re-using computed Stirling numbers and
                              ratios. If set to ``None``, one will be created
                              internally.
-        rnd (Random): Optional. A custom instance of random.Random that will
-                      be used instead of the default global instance. This
-                      permits using a generator with a state independent of
-                      the global one.
+        rnd (Random): Optional. A custom instance of a random number generator
+                      ``random.Random`` that will be used instead of the
+                      default global instance. This permits using a generator
+                      with a custom state independent of the global one.
 
     Returns:
         list of list of set: A list of ``num_partitions`` partitions, where each

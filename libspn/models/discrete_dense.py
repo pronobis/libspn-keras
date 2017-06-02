@@ -71,7 +71,8 @@ class DiscreteDenseModel(Model):
         """IVs: Class indicator variables."""
         return self._class_ivs
 
-    def build(self, *sample_inputs, class_input=None, num_vars=None, num_vals=None):
+    def build(self, *sample_inputs, class_input=None, num_vars=None,
+              num_vals=None, seed=None):
         """Build the SPN graph of the model.
 
         The model can be built on top of any ``sample_inputs``. Otherwise, if no
@@ -92,6 +93,7 @@ class DiscreteDenseModel(Model):
                             Must only be provided if ``inputs`` are not given.
             num_vals (int): Optional. Number of values of each input variable.
                             Must only be provided if ``inputs`` are not given.
+            seed (int): Optional. Seed used for the dense SPN generator.
 
         Returns:
            Sum: Root node of the generated model.
