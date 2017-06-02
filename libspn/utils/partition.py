@@ -247,7 +247,8 @@ class Stirling:
 
 
 def random_partition(input_set: list, num_subsets: int,
-                     stirling: Stirling = None):
+                     stirling: Stirling = None,
+                     rnd: random.Random = None):
     """Sample uniformly a random `partition of a set
     <https://en.wikipedia.org/wiki/Partition_of_a_set>`_.
 
@@ -273,6 +274,10 @@ def random_partition(input_set: list, num_subsets: int,
                              caching/re-using computed Stirling numbers and
                              ratios. If set to ``None``, one will be created
                              internally.
+        rnd (Random): Optional. A custom instance of random.Random that will
+                      be used instead of the default global instance. This
+                      permits using a generator with a state independent of
+                      the global one.
 
     Returns:
         list of set: A list of ``num_subsets`` subsets, where each subset is a
@@ -293,8 +298,13 @@ def random_partition(input_set: list, num_subsets: int,
         raise ValueError("Number of subsets larger than set elements")
     if stirling is None:
         stirling = Stirling()
-    if type(stirling) is not Stirling:
-        raise TypeError("Type of argument stirling is not Stirling")
+    if not isinstance(stirling, Stirling):
+        raise TypeError("stirling must be of type Stirling")
+    if rnd is None:
+        rnd = random._inst
+    else:
+        if not isinstance(rnd, random.Random):
+            raise TypeError("rnd must be of type Random")
     # Initialize
     subsets = [set() for i in range(num_subsets)]
     DECISION_SINGLETON = 1  # Make the element a singleton
@@ -309,7 +319,7 @@ def random_partition(input_set: list, num_subsets: int,
         else:
             # n = i+1, k = num_subsets
             p_singleton = 1 - num_subsets / stirling.ratio[i, num_subsets]
-        if random.random() < p_singleton:
+        if rnd.random() < p_singleton:
             # The last element will be a singleton
             decisions[i] = DECISION_SINGLETON
             num_subsets -= 1
@@ -326,15 +336,16 @@ def random_partition(input_set: list, num_subsets: int,
             s = s + 1
         else:
             # Add to one of existing subsets
-            sel_subset = random.randrange(s)
+            sel_subset = rnd.randrange(s)
             subsets[sel_subset].add(input_set[i])
     return subsets
 
 
 def random_partitions_by_sampling(input_set: list, num_subsets: int,
                                   num_partitions: int,
+                                  balanced: bool=False,
                                   stirling: Stirling=None,
-                                  balanced: bool=False):
+                                  rnd: random.Random = None):
     """Generate a random sub-set of all `partitions of a set
     <https://en.wikipedia.org/wiki/Partition_of_a_set>`_ using repeated
     sampling.
@@ -351,12 +362,16 @@ def random_partitions_by_sampling(input_set: list, num_subsets: int,
         num_subsets (int): Number of subsets in each partition of the input set.
         num_partitions (int): Number of partitions in the generated random
                               subset of all partitions.
+        balanced (bool): If true, return only partitions consisting of subsets
+                         with similar cardinality (differing by max 1).
         stirling (Stirling): An instance of the :class:`Stirling` class for
                              caching/re-using computed Stirling numbers and
                              ratios. If set to ``None``, one will be created
                              internally.
-        balanced (bool): If true, return only partitions consisting of subsets
-                         with similar cardinality (differing by max 1).
+        rnd (Random): Optional. A custom instance of random.Random that will
+                      be used instead of the default global instance. This
+                      permits using a generator with a state independent of
+                      the global one.
 
     Returns:
         list of list of set: A list of ``num_partitions`` partitions, where each
@@ -374,8 +389,8 @@ def random_partitions_by_sampling(input_set: list, num_subsets: int,
     n = len(input_set)
     if stirling is None:
         stirling = Stirling()
-    if type(stirling) is not Stirling:
-        raise TypeError("Type of argument stirling is not Stirling")
+    if not isinstance(stirling, Stirling):
+        raise TypeError("stirling must be of type Stirling")
     if num_partitions <= 0:
         raise ValueError("Number of partitions <=0")
     if num_partitions > np.iinfo(int).max:
@@ -391,7 +406,8 @@ def random_partitions_by_sampling(input_set: list, num_subsets: int,
     partitions = [None] * num_partitions
     p = 0
     while p < num_partitions:
-        part = random_partition(input_set, num_subsets, stirling)
+        part = random_partition(input_set=input_set, num_subsets=num_subsets,
+                                stirling=stirling, rnd=rnd)
         if balanced:
             sizes = [len(s) for s in part]
             max_size = max(sizes)
@@ -490,7 +506,8 @@ def all_partitions(input_set: list, num_subsets: int):
 
 def random_partitions_by_enumeration(input_set: list, num_subsets: int,
                                      num_partitions: int,
-                                     balanced: bool=False):
+                                     balanced: bool=False,
+                                     rnd: random.Random = None):
     """Generate a random sub-set of all `partitions of a set
     <https://en.wikipedia.org/wiki/Partition_of_a_set>`_ by first enumerating
     all partitions in lexicographic order.
@@ -507,6 +524,10 @@ def random_partitions_by_enumeration(input_set: list, num_subsets: int,
                               subset of all partitions.
         balanced (bool): If true, return only partitions consisting of subsets
                          with similar cardinality (differing by max 1).
+        rnd (Random): Optional. A custom instance of random.Random that will
+                      be used instead of the default global instance. This
+                      permits using a generator with a state independent of
+                      the global one.
 
     Returns:
         list of list of set: A list of ``num_partitions`` partitions, where each
@@ -526,6 +547,11 @@ def random_partitions_by_enumeration(input_set: list, num_subsets: int,
         raise ValueError("Number of partitions <=0")
     if num_partitions > np.iinfo(int).max:
         raise ValueError("More partitions requested than max int")
+    if rnd is None:
+        rnd = random._inst
+    else:
+        if not isinstance(rnd, random.Random):
+            raise TypeError("rnd must be of type Random")
     # Get partitions
     partitions = all_partitions(input_set, num_subsets)
     # Check number of partitions requested
@@ -551,12 +577,13 @@ def random_partitions_by_enumeration(input_set: list, num_subsets: int,
     # Shuffle partitions
     # WARNING: shuffle won't generate all possible permutations!
     #          See shuffle docs!
-    random.shuffle(partitions)
+    rnd.shuffle(partitions)
     return partitions[:num_partitions]
 
 
 def random_partitions(input_set: list, num_subsets: int, num_partitions: int,
-                      stirling: Stirling = None, balanced: bool=False):
+                      balanced: bool=False, stirling: Stirling = None,
+                      rnd: random.Random = None):
     """Generate a random sub-set of all `partitions of a set
     <https://en.wikipedia.org/wiki/Partition_of_a_set>`_ using either repeated
     sampling or enumeration of all partitions, depending on the relation of
@@ -576,12 +603,16 @@ def random_partitions(input_set: list, num_subsets: int, num_partitions: int,
         num_subsets (int): Number of subsets in each partition of the input set.
         num_partitions (int): Number of partitions in the generated random
                               subset of all partitions.
+        balanced (bool): If true, return only partitions consisting of subsets
+                         with similar cardinality (differing by max 1).
         stirling (Stirling): An instance of the :class:`Stirling` class for
                              caching/re-using computed Stirling numbers and
                              ratios. If set to ``None``, one will be created
                              internally.
-        balanced (bool): If true, return only partitions consisting of subsets
-                         with similar cardinality (differing by max 1).
+        rnd (Random): Optional. A custom instance of random.Random that will
+                      be used instead of the default global instance. This
+                      permits using a generator with a state independent of
+                      the global one.
 
     Returns:
         list of list of set: A list of ``num_partitions`` partitions, where each
@@ -599,8 +630,8 @@ def random_partitions(input_set: list, num_subsets: int, num_partitions: int,
     n = len(input_set)
     if stirling is None:
         stirling = Stirling()
-    if type(stirling) is not Stirling:
-        raise TypeError("Type of argument stirling is not Stirling")
+    if not isinstance(stirling, Stirling):
+        raise TypeError("stirling must be of type Stirling")
     if num_partitions <= 0:
         raise ValueError("Number of partitions <=0")
     if num_partitions > np.iinfo(int).max:
@@ -618,13 +649,16 @@ def random_partitions(input_set: list, num_subsets: int, num_partitions: int,
             return random_partitions_by_sampling(input_set, num_subsets,
                                                  num_partitions,
                                                  stirling=stirling,
-                                                 balanced=balanced)
+                                                 balanced=balanced,
+                                                 rnd=rnd)
         else:
             return random_partitions_by_enumeration(input_set, num_subsets,
                                                     num_partitions,
-                                                    balanced=balanced)
+                                                    balanced=balanced,
+                                                    rnd=rnd)
     else:
         return random_partitions_by_sampling(input_set, num_subsets,
                                              num_partitions,
                                              stirling=stirling,
-                                             balanced=balanced)
+                                             balanced=balanced,
+                                             rnd=rnd)
