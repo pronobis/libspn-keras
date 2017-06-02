@@ -18,7 +18,7 @@ spn.config_logger(spn.DEBUG2)
 
 class TestModels(tf.test.TestCase):
 
-    def generic_model_test(self, name, root, sample_ivs, write_log):
+    def generic_model_test(self, name, root, sample_ivs, class_ivs, write_log):
         # Generating weight initializers
         init = spn.initialize_weights(root)
 
@@ -43,9 +43,18 @@ class TestModels(tf.test.TestCase):
             # Initializing weights
             init.run()
             # Computing all values
-            feed = np.array(list(itertools.product(range(2), repeat=6)))
-            out = sess.run(v, feed_dict={sample_ivs: feed})
-            out_log = sess.run(tf.exp(v_log), feed_dict={sample_ivs: feed})
+            feed_samples = list(itertools.product(range(2), repeat=6))
+            if class_ivs is not None:
+                feed_class = np.array([i for i in range(class_ivs.num_vals)
+                                       for _ in range(len(feed_samples))]).reshape(-1, 1)
+                feed_samples = np.array(feed_samples * class_ivs.num_vals)
+                feed_dict = {sample_ivs: feed_samples, class_ivs: feed_class}
+            else:
+                feed_samples = np.array(feed_samples)
+                feed_dict = {sample_ivs: feed_samples}
+            out = sess.run(v, feed_dict=feed_dict)
+            out_log = sess.run(tf.exp(v_log), feed_dict=feed_dict)
+
             # Test if partition function is 1.0
             self.assertAlmostEqual(out.sum(), 1.0, places=6)
             self.assertAlmostEqual(out_log.sum(), 1.0, places=6)
@@ -61,7 +70,7 @@ class TestModels(tf.test.TestCase):
             weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
         root = model.build(num_vars=6, num_vals=2)
         self.generic_model_test("1class",
-                                root, model.sample_ivs,
+                                root, model.sample_ivs, None,
                                 write_log=True)
 
     def test_discretedense_3class(self):
@@ -75,7 +84,7 @@ class TestModels(tf.test.TestCase):
             weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
         root = model.build(num_vars=6, num_vals=2)
         self.generic_model_test("3class",
-                                root, model.sample_ivs,
+                                root, model.sample_ivs, model.class_ivs,
                                 write_log=True)
 
 
