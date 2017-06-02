@@ -34,6 +34,16 @@ class IVs(VarNode):
         self._num_vals = num_vals
         super().__init__(feed, name)
 
+    @property
+    def num_vars(self):
+        """int: Number of random variables of the IVs."""
+        return self._num_vars
+
+    @property
+    def num_vals(self):
+        """int: Number of values of each random variable."""
+        return self._num_vals
+
     def serialize(self):
         data = super().serialize()
         data['num_vars'] = self._num_vars
