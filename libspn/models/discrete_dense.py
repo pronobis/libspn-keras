@@ -133,9 +133,10 @@ class DiscreteDenseModel(Model):
                                       balanced=True)
         rnd = random.Random(seed)
         if self._num_classes == 1:
+            # One-class
             self._root = dense_gen.generate(*sample_inputs, rnd=rnd)
         else:
-            # Create sub-SPNs
+            # Multi-class: create sub-SPNs
             sub_spns = []
             for c in range(self._num_classes):
                 rnd_copy = random.Random()
