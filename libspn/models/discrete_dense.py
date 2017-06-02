@@ -11,6 +11,9 @@ from libspn.graph.ivs import IVs
 from libspn.generation.dense import DenseSPNGenerator
 from libspn.utils.math import ValueType
 from libspn.generation.weights import generate_weights
+from libspn.graph.sum import Sum
+import random
+import tensorflow as tf
 
 
 class DiscreteDenseModel(Model):
@@ -43,6 +46,8 @@ class DiscreteDenseModel(Model):
     __info = __logger.info
     __debug1 = __logger.debug1
     __is_debug1 = __logger.is_debug1
+    __debug2 = __logger.debug2
+    __is_debug2 = __logger.is_debug2
 
     def __init__(self, num_classes,
                  num_decomps, num_subsets, num_mixtures,
@@ -111,10 +116,12 @@ class DiscreteDenseModel(Model):
 
         # Create IVs if inputs not given
         if not sample_inputs:
-            self._sample_ivs = IVs(num_vars=num_vars, num_vals=num_vals)
+            self._sample_ivs = IVs(num_vars=num_vars, num_vals=num_vals,
+                                   name="SampleIVs")
             sample_inputs = [self._sample_ivs]
         if self._num_classes > 1 and class_input is None:
-            self._class_ivs = IVs(num_vars=1, num_vals=self._num_classes)
+            self._class_ivs = IVs(num_vars=1, num_vals=self._num_classes,
+                                  name="ClassIVs")
             class_input = self._class_ivs
 
         # Generate structure
@@ -124,7 +131,24 @@ class DiscreteDenseModel(Model):
                                       input_dist=self._input_dist,
                                       num_input_mixtures=self._num_input_mixtures,
                                       balanced=True)
-        self._root = dense_gen.generate(*sample_inputs)
+        rnd = random.Random(seed)
+        if self._num_classes == 1:
+            self._root = dense_gen.generate(*sample_inputs, rnd=rnd)
+        else:
+            # Create sub-SPNs
+            sub_spns = []
+            for c in range(self._num_classes):
+                rnd_copy = random.Random()
+                rnd_copy.setstate(rnd.getstate())
+                with tf.name_scope("Class%d" % c):
+                    sub_root = dense_gen.generate(*sample_inputs, rnd=rnd_copy)
+                if self.__is_debug1():
+                    self.__debug1("sub-SPN %d has %d nodes" %
+                                  (c, sub_root.get_num_nodes()))
+                sub_spns.append(sub_root)
+            # Create root
+            self._root = Sum(*sub_spns, ivs=class_input)
+
         if self.__is_debug1():
             self.__debug1("SPN graph has %d nodes" % self._root.get_num_nodes())
 
