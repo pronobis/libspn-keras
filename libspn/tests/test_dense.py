@@ -14,8 +14,6 @@ import tensorflow as tf
 import numpy as np
 from context import libspn as spn
 
-logger = spn.get_logger()
-
 
 class TestDenseSPNGenerator(unittest.TestCase):
 
@@ -88,28 +86,28 @@ class TestDenseSPNGenerator(unittest.TestCase):
                                     input_dist=input_dist,
                                     num_input_mixtures=num_input_mixtures)
 
-        logger.info("Generating SPN...")
+        # Generating SPN
         root = gen.generate(v1, v2)
 
-        logger.info("Generating random weights...")
+        # Generating random weights
         with tf.name_scope("Weights"):
             spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM())
 
-        logger.info("Generating weight initializers...")
+        # Generating weight initializers
         init = spn.initialize_weights(root)
 
-        logger.info("Testing validity...")
+        # Testing validity
         self.assertTrue(root.is_valid())
 
-        logger.info("Generating value ops...")
+        # Generating value ops
         v = root.get_value()
         v_log = root.get_log_value()
 
-        logger.info("Creating session...")
+        # Creating session
         with tf.Session() as sess:
-            logger.info("Initializing weights...")
+            # Initializing weights
             init.run()
-            logger.info("Computing all values...")
+            # Computing all values
             feed = np.array(list(itertools.product(range(2), repeat=6)))
             feed_v1 = feed[:, :3]
             feed_v2 = feed[:, 3:]
@@ -118,10 +116,8 @@ class TestDenseSPNGenerator(unittest.TestCase):
             # Test if partition function is 1.0
             self.assertAlmostEqual(out.sum(), 1.0, places=6)
             self.assertAlmostEqual(out_log.sum(), 1.0, places=6)
-            logger.info("Partition function: normal: %.10f, log: %.10f" %
-                        (out.sum(), out_log.sum()))
             if write_log:
-                logger.info("Writing log...")
+                # Writing log
                 writer = tf.train.SummaryWriter(
                     os.path.realpath(os.path.join(
                         os.getcwd(), os.path.dirname(__file__),

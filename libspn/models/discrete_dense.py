@@ -111,8 +111,7 @@ class DiscreteDenseModel(Model):
 
         # Create IVs if inputs not given
         if not sample_inputs:
-            self._sample_ivs = IVs(num_vars=self._num_vars,
-                                   num_vals=self._num_vals)
+            self._sample_ivs = IVs(num_vars=num_vars, num_vals=num_vals)
             sample_inputs = [self._sample_ivs]
         if self._num_classes > 1 and class_input is None:
             self._class_ivs = IVs(num_vars=1, num_vals=self._num_classes)
@@ -125,13 +124,15 @@ class DiscreteDenseModel(Model):
                                       input_dist=self._input_dist,
                                       num_input_mixtures=self._num_input_mixtures,
                                       balanced=True)
-        self._root = dense_gen.generate(self._ivs)
+        self._root = dense_gen.generate(*sample_inputs)
         if self.__is_debug1():
             self.__debug1("SPN graph has %d nodes" % self._root.get_num_nodes())
 
-        # Generate weights
+        # Generate weight nodes
         self.__debug1("Generating weight nodes")
         generate_weights(self._root, init_value=self._weight_init_value)
         if self.__is_debug1():
             self.__debug1("SPN graph has %d nodes and %d TF ops" % (
                 self._root.get_num_nodes(), self._root.get_tf_graph_size()))
+
+        return self._root
