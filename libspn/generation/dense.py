@@ -14,6 +14,7 @@ from libspn.graph.product import Product
 from libspn.log import get_logger
 from libspn.exceptions import StructureError
 import tensorflow as tf
+import random
 
 
 class DenseSPNGenerator:
@@ -106,11 +107,13 @@ class DenseSPNGenerator:
         # Stirling numbers and ratios for partition sampling
         self.__stirling = utils.Stirling()
 
-    def generate(self, *inputs):
+    def generate(self, *inputs, seed=None):
         """Generate the SPN.
 
         Args:
             inputs (input_like): Inputs to the generated SPN.
+            seed (int): Seed used to initialize the random generator. Re-using
+                        seed will result in generating identical dense structure.
 
         Returns:
            Sum: Root node of the generated SPN.
@@ -124,6 +127,13 @@ class DenseSPNGenerator:
         input_set = self.__generate_set(inputs)
         self.__debug1("Found %s distinct input scopes",
                       len(input_set))
+
+        # Generate custom random generator
+        rnd = None
+        if seed is not None:
+            rnd = random.Random(seed)
+
+        # Create root
         root = Sum()
 
         # Subsets left to process
@@ -140,7 +150,7 @@ class DenseSPNGenerator:
             self.__debug1("Processing level %s", level)
             while subsets and subsets[0].level == level:
                 subset = subsets.popleft()
-                new_subsets = self.__add_decompositions(subset)
+                new_subsets = self.__add_decompositions(subset, rnd)
                 for s in new_subsets:
                     subsets.append(s)
 
@@ -187,13 +197,14 @@ class DenseSPNGenerator:
         # Sorting might improve performance due to branch prediction
         return [tuple(sorted(i)) for i in scope_dict.values()]
 
-    def __add_decompositions(self, subset_info: SubsetInfo):
+    def __add_decompositions(self, subset_info: SubsetInfo, rnd: random.Random):
         """Add nodes for a single subset, i.e. an instance of ``num_decomps``
         decompositions of ``subset`` into ``num_subsets`` sub-subsets with
         ``num_mixures`` mixtures per sub-subset.
 
         Args:
             subset_info(SubsetInfo): Info about the subset being decomposed.
+            rnd (Random): A custom instance of random generator or ``None``.
 
         Returns:
             list of SubsetInfo: Info about each new generated subset, which
@@ -205,8 +216,9 @@ class DenseSPNGenerator:
         num_subsubsets = min(num_elems, self.num_subsets)  # Requested num subsets
         partitions = utils.random_partitions(subset_info.subset, num_subsubsets,
                                              self.num_decomps,
-                                             stirling=self.__stirling,
-                                             balanced=self.balanced)
+                                             balanced=self.balanced,
+                                             rnd=rnd,
+                                             stirling=self.__stirling)
         self.__debug2("Randomized %s decompositions of a subset"
                       " of %s elements into %s sets",
                       len(partitions), num_elems, num_subsubsets)
