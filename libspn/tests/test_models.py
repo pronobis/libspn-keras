@@ -59,7 +59,7 @@ class TestModels(tf.test.TestCase):
             self.assertAlmostEqual(out.sum(), 1.0, places=6)
             self.assertAlmostEqual(out_log.sum(), 1.0, places=6)
 
-    def test_discretedense_1class(self):
+    def test_discretedense_1class_internalivs(self):
         model = spn.DiscreteDenseModel(
             num_classes=1,
             num_decomps=2,
@@ -73,7 +73,7 @@ class TestModels(tf.test.TestCase):
                                 root, model.sample_ivs, None,
                                 write_log=True)
 
-    def test_discretedense_3class(self):
+    def test_discretedense_3class_internalivs(self):
         model = spn.DiscreteDenseModel(
             num_classes=3,
             num_decomps=2,
@@ -85,6 +85,37 @@ class TestModels(tf.test.TestCase):
         root = model.build(num_vars=6, num_vals=2)
         self.generic_model_test("3class",
                                 root, model.sample_ivs, model.class_ivs,
+                                write_log=True)
+
+    def test_discretedense_1class_externalivs(self):
+        model = spn.DiscreteDenseModel(
+            num_classes=1,
+            num_decomps=2,
+            num_subsets=3,
+            num_mixtures=2,
+            input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
+            num_input_mixtures=None,
+            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+        sample_ivs = spn.IVs(num_vars=6, num_vals=2)
+        root = model.build(sample_ivs)
+        self.generic_model_test("1class",
+                                root, sample_ivs, None,
+                                write_log=True)
+
+    def test_discretedense_3class_externalivs(self):
+        model = spn.DiscreteDenseModel(
+            num_classes=3,
+            num_decomps=2,
+            num_subsets=3,
+            num_mixtures=2,
+            input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
+            num_input_mixtures=None,
+            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+        sample_ivs = spn.IVs(num_vars=6, num_vals=2)
+        class_ivs = spn.IVs(num_vars=1, num_vals=3)
+        root = model.build(sample_ivs, class_input=class_ivs)
+        self.generic_model_test("3class",
+                                root, sample_ivs, class_ivs,
                                 write_log=True)
 
 
