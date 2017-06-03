@@ -56,7 +56,7 @@ class SpnModel(spn.App):
 
     def _define_load_args(self, parser):
         parser.add_argument('path', type=str,
-                            help="path to the model")
+                            help="path to the model file")
 
     def _define_train_args(self, parser):
         parser.add_argument('learner', type=str,
@@ -174,7 +174,8 @@ class SpnModel(spn.App):
         pass
 
     def _define_save_args(self, parser):
-        pass
+        parser.add_argument('path', type=str,
+                            help="path to the model file")
 
     def define_args(self, parser, commands):
         self._define_load_args(
@@ -339,7 +340,8 @@ class SpnModel(spn.App):
                     classes=args.test.classes)
 
     def _load_model(self, args):
-        pass
+        loader = spn.JSONLoader(args.load.path)
+        self.root = loader.load()
 
     def _build_model(self, args):
         # Decode weight_init_value
@@ -350,7 +352,7 @@ class SpnModel(spn.App):
 
         # Build model
         if args.build.model == Model.DISCRETE_DENSE:
-            self.model = spn.DiscreteDenseModel(
+            model = spn.DiscreteDenseModel(
                 num_classes=args.build.num_classes,
                 num_decomps=args.build.dense_decomps,
                 num_subsets=args.build.dense_subsets,
@@ -358,11 +360,14 @@ class SpnModel(spn.App):
                 input_dist=args.build.dense_input_dist,
                 num_input_mixtures=args.build.dense_input_mixtures,
                 weight_init_value=weight_init_value)
-            self.model.build(num_vars=self.train_set.num_vars,
-                             num_vals=self.train_set.num_vals,
-                             seed=args.build.dense_seed)
+            model.build(num_vars=self.train_set.num_vars,
+                        num_vals=self.train_set.num_vals,
+                        seed=args.build.dense_seed)
+            self.root = model.root
+            self.sample_ivs = model.sample_ivs
+            self.class_ivs = model.class_ivs
 
-    def _train_model(self, args):
+    def _train_model(self, args, sess):
         pass
         # num_vars=int(self.train_samples.shape[1]),
         # num_vals=self.train_num_vals,
@@ -381,24 +386,34 @@ class SpnModel(spn.App):
         # writer = tf.summary.FileWriter("./logs", self._root.tf_graph)
         # writer.flush()
 
-    def _test_model(self, args):
-        pass
+    def _save_model(self, args, sess):
+        saver = spn.JSONSaver(args.save.path)
+        saver.save(self.root)
 
-    def _save_model(self, args):
+    def _test_model(self, args, sess):
         pass
 
     def run(self, args):
-        self._prepare_data(args)  # We use dataset info in _build_model
+        # Prepare data first, we use dataset info in _build_model
+        self._prepare_data(args)
+
+        # Get model
         if args.build:
             self._build_model(args)
         elif args.load:
             self._load_model(args)
-        if args.train:
-            self._train_model(args)
-        if args.test:
-            self._test_model(args)
-        if args.save:
-            self._save_model(args)
+
+        # Run tasks in session
+        with spn.session() as (sess, run):
+            if args.train:
+                self._train_model(args, sess)
+            if args.save:
+                self._save_model(args, sess)
+            if args.test:
+                self._test_model(args, sess)
+
+        # All done
+        self.print2("Done!")
 
 
 if __name__ == '__main__':

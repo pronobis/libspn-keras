@@ -218,6 +218,8 @@ class SpnData(spn.App):
                         plt.cla()
                         if done[0]:
                             break
+        # All done
+        self.print2("Done!")
 
 
 if __name__ == '__main__':

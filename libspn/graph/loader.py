@@ -8,6 +8,7 @@
 from abc import ABC, abstractmethod
 from libspn import utils
 from libspn.graph.node import OpNode
+from libspn.log import get_logger
 
 
 class Loader(ABC):
@@ -51,11 +52,15 @@ class JSONLoader(Loader):
         path (str): Full path to the file.
     """
 
+    __logger = get_logger()
+    __info = __logger.info
+
     def __init__(self, path):
         super().__init__(path)
 
     @utils.docinherit(Loader)
     def load(self):
+        self.__info("Loading SPN graph from file '%s'" % self._path)
         data = utils.json_load(self._path)
         # Deserialize all nodes
         node_datas = data['nodes']

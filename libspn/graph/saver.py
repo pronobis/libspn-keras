@@ -8,6 +8,7 @@
 from abc import ABC, abstractmethod
 from libspn import utils
 from libspn.graph.algorithms import traverse_graph
+from libspn.log import get_logger
 
 
 class Saver(ABC):
@@ -37,6 +38,9 @@ class JSONSaver(Saver):
         path (str): Full path to the file.
     """
 
+    __logger = get_logger()
+    __info = __logger.info
+
     def __init__(self, path, pretty=False):
         super().__init__(path)
         self._pretty = pretty
@@ -51,6 +55,9 @@ class JSONSaver(Saver):
             # decoding since they do not use the __type__ data field.
             data['node_type'] = utils.type2str(type(node))
             node_datas.append(data)
+
+        self.__info("Saving SPN graph rooted in '%s' to file '%s'"
+                    % (root, self._path))
 
         # Serialize all nodes
         traverse_graph(root, fun=fun, skip_params=False)
