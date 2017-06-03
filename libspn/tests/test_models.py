@@ -13,7 +13,7 @@ import numpy as np
 import itertools
 import os
 
-spn.config_logger(spn.DEBUG2)
+# spn.config_logger(spn.DEBUG2)
 
 
 class TestModels(tf.test.TestCase):

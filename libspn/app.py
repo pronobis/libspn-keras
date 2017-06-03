@@ -289,4 +289,3 @@ class App(ABC):
             else:
                 # Arguments
                 update_defaults(parser, k1, v1)
-

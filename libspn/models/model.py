@@ -14,10 +14,15 @@ class Model(ABC):
     def __init__(self):
         self._root = None
 
+    @property
     def root(self):
         """OpNode: Root node of the model."""
         return self._root
 
     @abstractmethod
     def build():
-        """Build the SPN graph of the model."""
+        """Build the SPN graph of the model.
+
+        Returns:
+           Node: Root node of the generated model.
+        """

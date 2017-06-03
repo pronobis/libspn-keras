@@ -32,7 +32,6 @@ from libspn.graph.algorithms import traverse_graph
 from libspn.generation.dense import DenseSPNGenerator
 from libspn.generation.weights import WeightsGenerator
 from libspn.generation.weights import generate_weights
-from libspn.generation.test import TestSPNGenerator
 
 # Inference and learning
 from libspn.inference.type import InferenceType
@@ -61,6 +60,7 @@ from libspn.data.writer import ImageDataWriter
 
 # Models
 from libspn.models.discrete_dense import DiscreteDenseModel
+from libspn.models.test import Poon11NaiveMixtureModel
 
 # Session
 from libspn.session import session
@@ -103,7 +103,7 @@ __all__ = [
     'compute_graph_up', 'compute_graph_up_down',
     'traverse_graph',
     # Generators
-    'DenseSPNGenerator', 'WeightsGenerator', 'TestSPNGenerator',
+    'DenseSPNGenerator', 'WeightsGenerator',
     'generate_weights',
     # Inference and learning
     'InferenceType', 'Value', 'LogValue', 'MPEPath', 'MPEState',
@@ -114,7 +114,7 @@ __all__ = [
     'ImageDataset', 'MNISTDataset', 'CIFAR10Dataset',
     'DataWriter', 'CSVDataWriter', 'ImageDataWriter',
     # Models
-    'DiscreteDenseModel',
+    'DiscreteDenseModel', 'Poon11NaiveMixtureModel',
     # Session
     'session',
     # Visualization
