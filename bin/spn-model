@@ -34,7 +34,7 @@ class SpnModel(spn.App):
                             help="model to build")
 
         model_params = parser.add_argument_group(title="model parameters")
-        model_params.add_argument('--num-classes', type=int, default=None,
+        model_params.add_argument('--num-classes', type=int, default=1,
                                   help="number of classes assumed by the model; "
                                   "set to 1 to use a 1-class model")
         model_params.add_argument('--weight-init', type=str, default='random',
@@ -51,6 +51,8 @@ class SpnModel(spn.App):
                                   help='dense generator: type of input distributions')
         model_params.add_argument('--dense-input-mixtures', type=int, default=3,
                                   help='dense generator: number of input mixtures')
+        model_params.add_argument('--dense-seed', type=int, default=None,
+                                  help='seed used to generate the random structure')
 
     def _define_load_args(self, parser):
         parser.add_argument('path', type=str,
@@ -86,7 +88,7 @@ class SpnModel(spn.App):
         data_params.add_argument('--min-after-dequeue', type=int, default=None,
                                  help="min number of elements in the data queue "
                                  "after each dequeue used for shuffling; not used "
-                                 "for image or mnist datasets")
+                                 "for image or MNIST datasets")
         data_params.add_argument('--seed', type=int, default=None,
                                  help="seed used for shuffling")
 
@@ -228,7 +230,7 @@ class SpnModel(spn.App):
         if args.train.crop < 0:
             parser.error("CROP cannot be negative")
         args.train.mnist_subset = spn.MNISTDataset.Subset[args.train.mnist_subset.upper()]
-        args.read.cifar_subset = spn.CIFAR10Dataset.Subset[args.read.cifar_subset.upper()]
+        args.train.cifar_subset = spn.CIFAR10Dataset.Subset[args.train.cifar_subset.upper()]
         # Learning
         args.train.value_inference = spn.InferenceType[args.train.value_inference.upper()]
 
@@ -249,12 +251,12 @@ class SpnModel(spn.App):
         if args.test.crop < 0:
             parser.error("CROP cannot be negative")
         args.test.mnist_subset = spn.MNISTDataset.Subset[args.test.mnist_subset.upper()]
-        args.read.cifar_subset = spn.CIFAR10Dataset.Subset[args.read.cifar_subset.upper()]
+        args.test.cifar_subset = spn.CIFAR10Dataset.Subset[args.test.cifar_subset.upper()]
 
     def _prepare_data(self, args):
         if args.train:
             if args.train.dataset == Dataset.MNIST:
-                train_set = spn.MNISTDataset(
+                self.train_set = spn.MNISTDataset(
                     subset=args.train.mnist_subset,
                     format=args.train.image_format,
                     num_epochs=args.train.num_epochs,
@@ -266,11 +268,8 @@ class SpnModel(spn.App):
                     allow_smaller_final_batch=args.train.allow_smaller_batch,
                     classes=args.train.classes,
                     seed=args.train.seed)
-                self.train_samples, self.train_labels = train_set.get_data()
-                self.train_num_vals = train_set.format.num_vals
-                self.train_num_classes = len(train_set.classes)  # Gets default from MNIST
             elif args.train.dataset == Dataset.IMAGE:
-                train_set = spn.ImageDataset(
+                self.train_set = spn.ImageDataset(
                     image_files=args.train.path,
                     format=args.train.image_format,
                     num_epochs=args.train.num_epochs,
@@ -283,39 +282,61 @@ class SpnModel(spn.App):
                     allow_smaller_final_batch=args.train.allow_smaller_batch,
                     classes=args.train.classes,
                     seed=args.train.seed)
-                self.train_samples, self.train_labels = train_set.get_data()
-                self.train_num_vals = train_set.format.num_vals
-                self.train_num_classes = (len(args.train.classes)  # Get from cmd line
-                                          if args.train.classes else None)
-            # For a dataset without labels, just set labels to None
+            elif args.train.dataset == Dataset.CIFAR10:
+                self.train_set = spn.CIFAR10Dataset(
+                    data_dir=args.train.path,
+                    subset=args.train.cifar_subset,
+                    format=args.train.image_format,
+                    num_epochs=args.train.num_epochs,
+                    batch_size=args.train.batch_size,
+                    shuffle=args.train.shuffle,
+                    ratio=args.train.ratio,
+                    crop=args.train.crop,
+                    min_after_dequeue=args.train.min_after_dequeue,
+                    num_threads=args.train.num_threads,
+                    allow_smaller_final_batch=args.train.allow_smaller_batch,
+                    classes=args.train.classes,
+                    seed=args.train.seed)
+
         if args.test:
             if args.test.dataset == Dataset.MNIST:
-                test_set = spn.MNISTDataset(subset=args.test.mnist_subset,
-                                            format=args.test.image_format,
-                                            num_epochs=1,
-                                            batch_size=args.test.batch_size,
-                                            shuffle=False,
-                                            ratio=args.test.ratio,
-                                            crop=args.test.crop,
-                                            num_threads=args.test.num_threads,
-                                            allow_smaller_final_batch=True,
-                                            classes=args.test.classes)
-                self.test_samples, self.test_labels = test_set.get_data()
+                self.test_set = spn.MNISTDataset(
+                    subset=args.test.mnist_subset,
+                    format=args.test.image_format,
+                    num_epochs=1,
+                    batch_size=args.test.batch_size,
+                    shuffle=False,
+                    ratio=args.test.ratio,
+                    crop=args.test.crop,
+                    num_threads=args.test.num_threads,
+                    allow_smaller_final_batch=True,
+                    classes=args.test.classes)
             elif args.test.dataset == Dataset.IMAGE:
-                test_set = spn.ImageDataset(image_files=args.test.path,
-                                            format=args.test.image_format,
-                                            num_epochs=1,
-                                            batch_size=args.test.batch_size,
-                                            shuffle=False,
-                                            ratio=args.test.ratio,
-                                            crop=args.test.crop,
-                                            accurate=args.test.accurate,
-                                            num_threads=args.test.num_threads,
-                                            allow_smaller_final_batch=True,
-                                            classes=args.test.classes
-                                            )
-                self.test_samples, self.test_labels = test_set.get_data()
-            # For a dataset without labels, just set labels to None
+                self.test_set = spn.ImageDataset(
+                    image_files=args.test.path,
+                    format=args.test.image_format,
+                    num_epochs=1,
+                    batch_size=args.test.batch_size,
+                    shuffle=False,
+                    ratio=args.test.ratio,
+                    crop=args.test.crop,
+                    accurate=args.test.accurate,
+                    num_threads=args.test.num_threads,
+                    allow_smaller_final_batch=True,
+                    classes=args.test.classes)
+            elif args.test.dataset == Dataset.CIFAR10:
+                self.test_set = spn.CIFAR10Dataset(
+                    data_dir=args.test.path,
+                    subset=args.test.cifar_subset,
+                    format=args.test.image_format,
+                    num_epochs=1,
+                    batch_size=args.test.batch_size,
+                    shuffle=False,
+                    ratio=args.test.ratio,
+                    crop=args.test.crop,
+                    num_threads=args.test.num_threads,
+                    allow_smaller_final_batch=True,
+                    classes=args.test.classes)
 
     def _load_model(self, args):
         pass
@@ -326,22 +347,26 @@ class SpnModel(spn.App):
             weight_init_value = 1
         elif args.build.weight_init == WeightInit.RANDOM:
             weight_init_value = spn.ValueType.RANDOM_UNIFORM(0, 1)
+
         # Build model
         if args.build.model == Model.DISCRETE_DENSE:
             self.model = spn.DiscreteDenseModel(
-                num_vars=int(self.train_samples.shape[1]),
-                num_vals=self.train_num_vals,
-                num_classes=self.train_num_classes,
+                num_classes=args.build.num_classes,
                 num_decomps=args.build.dense_decomps,
                 num_subsets=args.build.dense_subsets,
                 num_mixtures=args.build.dense_mixtures,
                 input_dist=args.build.dense_input_dist,
                 num_input_mixtures=args.build.dense_input_mixtures,
                 weight_init_value=weight_init_value)
-            self.model.build()
+            self.model.build(num_vars=self.train_set.num_vars,
+                             num_vals=self.train_set.num_vals,
+                             seed=args.build.dense_seed)
 
     def _train_model(self, args):
         pass
+        # num_vars=int(self.train_samples.shape[1]),
+        # num_vals=self.train_num_vals,
+
         # TODO: Distinguish between em_sup and em_unsup
         # TODO: train, test etc., feed appropriate data through feed_dict
         # model.learn(value_inference_type=args.learn.value_inference,
@@ -363,7 +388,7 @@ class SpnModel(spn.App):
         pass
 
     def run(self, args):
-        self._prepare_data(args)  # Done first, so that we get dimensions for build
+        self._prepare_data(args)  # We use dataset info in _build_model
         if args.build:
             self._build_model(args)
         elif args.load:

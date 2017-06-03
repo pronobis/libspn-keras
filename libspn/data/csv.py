@@ -43,9 +43,9 @@ class CSVFileDataset(FileDataset):
                              multiple files. When glob is used, the files will
                              be sorted, unless ``shuffle`` is set to ``True``.
         num_vals (int or list of int): Number of values of each variable. Can be
-            a single value or a list of values for each of ``num_vars``. Use
-            ``None``, to indicate that a variable is continuous, in the range
-            ``[0, 1]``.
+            a single value or a list of values, one for each of ``num_vars``
+            variables. Use ``None``, to indicate that a variable is continuous,
+            in the range ``[0, 1]``.
         defaults (list of Tensor): A list of tensors, one tensor per column of
                                    the input record, with a default value for
                                    that column.

@@ -94,16 +94,22 @@ class DiscreteDenseModel(Model):
             *sample_inputs (input_like): Optional. Inputs to the model
                                          providing data samples.
             class_input (input_like): Optional. Input providing class indicators.
-            num_vars (int): Optional. Number of input variables of the model.
-                            Must only be provided if ``inputs`` are not given.
-            num_vals (int): Optional. Number of values of each input variable.
-                            Must only be provided if ``inputs`` are not given.
+            num_vars (int): Optional. Number of variables in each sample. Must
+                            only be provided if ``sample_inputs`` are not given.
+            num_vals (int or list of int): Optional. Number of values of each
+                variable. Can be a single value or a list of values, one for
+                each of ``num_vars`` variables. Must only be provided if
+                ``sample_inputs`` are not given.
             seed (int): Optional. Seed used for the dense SPN generator.
 
         Returns:
            Sum: Root node of the generated model.
         """
         if not sample_inputs:
+            if num_vars is None:
+                raise ValueError("num_vars must be given when sample_inputs are not")
+            if num_vals is None:
+                raise ValueError("num_vals must be given when sample_inputs are not")
             if not isinstance(num_vars, int) or num_vars < 1:
                 raise ValueError("num_vars must be an integer > 0")
             if not isinstance(num_vals, int) or num_vals < 1:

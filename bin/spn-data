@@ -48,7 +48,7 @@ class SpnData(spn.App):
         data_params.add_argument('--min-after-dequeue', type=int, default=None,
                                  help="min number of elements in the data queue "
                                  "after each dequeue used for shuffling; not used "
-                                 "for image or mnist datasets")
+                                 "for image or MNIST datasets")
         data_params.add_argument('--seed', type=int, default=None,
                                  help="seed used for shuffling")
 

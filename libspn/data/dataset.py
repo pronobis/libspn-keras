@@ -18,9 +18,9 @@ class Dataset(ABC):
     Args:
         num_vars (int): Number of variables in each data sample.
         num_vals (int or list of int): Number of values of each variable. Can be
-            a single value or a list of values for each of ``num_vars``. Use
-            ``None``, to indicate that a variable is continuous, in the range
-            ``[0, 1]``.
+            a single value or a list of values, one for each of ``num_vars``
+            variables. Use ``None``, to indicate that a variable is continuous,
+            in the range ``[0, 1]``.
         num_labels (int): Number of labels for each data sample.
         num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
@@ -59,12 +59,16 @@ class Dataset(ABC):
             if any((i is not None) and (not isinstance(i, int) or i < 1)
                    for i in num_vals):
                 raise ValueError("num_vals values must be a positive integers or None")
-            self._num_vals = num_vals
+            # If all elements are the same, just convert to int
+            if num_vals.count(num_vals[0]) == len(num_vals):
+                self._num_vals = num_vals[0]
+            else:
+                self._num_vals = num_vals
         else:
             if ((num_vals is not None) and (not isinstance(num_vals, int) or
                                             num_vals < 1)):
                 raise ValueError("num_vals must be a positive integer or None")
-            self._num_vals = [num_vals] * num_vars
+            self._num_vals = num_vals
         if not isinstance(num_labels, int) or num_labels < 0:
             raise ValueError("num_labels must be an integer >= 0")
         self._num_labels = num_labels
@@ -97,10 +101,15 @@ class Dataset(ABC):
 
     @property
     def num_vals(self):
-        """list of int: Number of values of each variable.
+        """int or list of int: Number of values of each variable.
 
-        Value ``None`` indicates that a variable is continuous, in the range
-        ``[0, 1]``.
+        If each variable has the same number of values, the value is returned as
+        a single integer or ``None``. If the values differ, a list of lenght
+        ``num_vars`` is returned, where each value represents the number of
+        values for a single variable.
+
+        Value can be either an integer or ``None`` indicating that a variable is
+        continuous, in the range ``[0, 1]``.
         """
         return self._num_vals
 

@@ -27,9 +27,9 @@ class FileDataset(Dataset):
               specification, the returned label is an empty string.
         num_vars (int): Number of variables in each data sample.
         num_vals (int or list of int): Number of values of each variable. Can be
-            a single value or a list of values for each of ``num_vars``. Use
-            ``None``, to indicate that a variable is continuous, in the range
-            ``[0, 1]``.
+            a single value or a list of values, one for each of ``num_vars``
+            variables. Use ``None``, to indicate that a variable is continuous,
+            in the range ``[0, 1]``.
         num_labels (int): Number of labels for each data sample.
         num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.

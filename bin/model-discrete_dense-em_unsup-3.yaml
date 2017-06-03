@@ -8,6 +8,7 @@ build:
   dense-subsets: 2
   dense-mixtures: 4
   dense-input-mixtures: 2
+  dense-seed: null
 
 train:
   learner: em_unsup
