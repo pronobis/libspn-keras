@@ -221,8 +221,7 @@ class Node(ABC):
 
     @abstractmethod
     def deserialize(self, data):
-        """Initialize this node with the ``data`` dictionary during
-        deserialization.
+        """Initialize this node with the ``data`` dict during deserialization.
 
         Args:
             data (dict): Dictionary with all the data to be deserialized.
