@@ -12,7 +12,7 @@ import numpy as np
 from context import libspn as spn
 
 
-class TestNodesProduct(tf.test.TestCase):
+class TestGraphProduct(tf.test.TestCase):
 
     def test_compute_value(self):
         """Calculating value of Product"""

@@ -12,7 +12,7 @@ import numpy as np
 from context import libspn as spn
 
 
-class TestNodesContVars(tf.test.TestCase):
+class TestGraphContVars(tf.test.TestCase):
 
     def test_contvars_value_feed_dict(self):
         """Calculating value of ContVars based on inputs provided using feed_dict"""

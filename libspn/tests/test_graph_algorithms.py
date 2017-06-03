@@ -7,15 +7,11 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
 from context import libspn as spn
 import tensorflow as tf
 
 
-class TestGraphAlgorithms(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
+class TestGraphAlgorithms(tf.test.TestCase):
 
     def assertListAlmostEqual(self, list1, list2):
         self.assertEqual(len(list1), len(list2))
@@ -324,4 +320,4 @@ class TestGraphAlgorithms(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()

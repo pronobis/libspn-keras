@@ -12,7 +12,7 @@ import numpy as np
 from context import libspn as spn
 
 
-class TestNodesConcat(tf.test.TestCase):
+class TestGraphConcat(tf.test.TestCase):
 
     def test_value(self):
         """Calculating value of Concat"""

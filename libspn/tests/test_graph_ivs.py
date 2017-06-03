@@ -12,7 +12,7 @@ import numpy as np
 from context import libspn as spn
 
 
-class TestNodesIVs(tf.test.TestCase):
+class TestGraphIVs(tf.test.TestCase):
 
     def test_iv_value_feed_dict(self):
         """Calculating value of IVs based on inputs provided using feed_dict"""

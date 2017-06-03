@@ -7,16 +7,12 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
 
 
-class TestNodes(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
+class TestGraph(tf.test.TestCase):
 
     def test_input_conversion(self):
         """Conversion and verification of input specs in Input"""
@@ -642,4 +638,4 @@ class TestNodes(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()

@@ -12,7 +12,7 @@ import numpy as np
 from context import libspn as spn
 
 
-class TestNodesSum(tf.test.TestCase):
+class TestGraphSum(tf.test.TestCase):
 
     def test_compute_marginal_value(self):
         """Calculating marginal value of Sum"""

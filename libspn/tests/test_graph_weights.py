@@ -12,7 +12,7 @@ import numpy as np
 from context import libspn as spn
 
 
-class TestNodesWeights(tf.test.TestCase):
+class TestGraphWeights(tf.test.TestCase):
 
     def test_single_initialization(self):
         """Single weights node initialization"""
