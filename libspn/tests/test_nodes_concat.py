@@ -7,16 +7,12 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
 
 
-class TestNodesConcat(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
+class TestNodesConcat(tf.test.TestCase):
 
     def test_value(self):
         """Calculating value of Concat"""
@@ -146,4 +142,4 @@ class TestNodesConcat(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()

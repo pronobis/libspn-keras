@@ -7,16 +7,12 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
 
 
-class TestNodesWeights(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
+class TestNodesWeights(tf.test.TestCase):
 
     def test_single_initialization(self):
         """Single weights node initialization"""
@@ -146,4 +142,4 @@ class TestNodesWeights(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()

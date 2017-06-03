@@ -7,16 +7,12 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
 
 
-class TestNodesProduct(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
+class TestNodesProduct(tf.test.TestCase):
 
     def test_compute_value(self):
         """Calculating value of Product"""
@@ -150,4 +146,4 @@ class TestNodesProduct(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()

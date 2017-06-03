@@ -7,10 +7,10 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
 import numpy as np
 from context import libspn as spn
 import random
+import tensorflow as tf
 
 
 def assert_list_elements_equal(list1, list2):
@@ -20,10 +20,11 @@ def assert_list_elements_equal(list1, list2):
             raise AssertionError("List elements differ: %s != %s" % (list1, list2))
 
 
-class TestPartition(unittest.TestCase):
+class TestPartition(tf.test.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super(TestPartition, cls).setUpClass()
         cls.test_set = [1, 2, 3, 4, 5]
         # Partitions for num_subsets=[1; 4]
         cls.possible_partitions = [None] * len(cls.test_set)
@@ -499,4 +500,4 @@ class TestPartition(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()

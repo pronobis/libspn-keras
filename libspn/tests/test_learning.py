@@ -7,23 +7,15 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
 import tensorflow as tf
 # from context import libspn as spn
 
 
-class TestInference(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
-
-    @classmethod
-    def setUpClass(cls):
-        pass
+class TestLearning(tf.test.TestCase):
 
     def test_hard_em(self):
         pass
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()

@@ -7,16 +7,12 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
 
 
-class TestNodesContVars(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
+class TestNodesContVars(tf.test.TestCase):
 
     def test_contvars_value_feed_dict(self):
         """Calculating value of ContVars based on inputs provided using feed_dict"""
@@ -73,4 +69,4 @@ class TestNodesContVars(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()

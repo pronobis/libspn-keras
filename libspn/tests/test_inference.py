@@ -7,20 +7,12 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
 
 
-class TestInference(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
-
-    @classmethod
-    def setUpClass(cls):
-        pass
+class TestInference(tf.test.TestCase):
 
     def test_marginal_value(self):
         """Calculation of SPN marginal value"""
@@ -190,4 +182,4 @@ class TestInference(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()
