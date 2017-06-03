@@ -36,6 +36,7 @@ class JSONSaver(Saver):
 
     Args:
         path (str): Full path to the file.
+        pretty (bool): Use pretty printing.
     """
 
     __logger = get_logger()

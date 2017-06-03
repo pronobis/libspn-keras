@@ -176,6 +176,8 @@ class SpnModel(spn.App):
     def _define_save_args(self, parser):
         parser.add_argument('path', type=str,
                             help="path to the model file")
+        parser.add_argument('--pretty', type=spn.App.bool_arg,
+                            default=False, help="use pretty printing")
 
     def define_args(self, parser, commands):
         self._define_load_args(
@@ -387,7 +389,7 @@ class SpnModel(spn.App):
         # writer.flush()
 
     def _save_model(self, args, sess):
-        saver = spn.JSONSaver(args.save.path)
+        saver = spn.JSONSaver(args.save.path, pretty=args.save.pretty)
         saver.save(self.root)
 
     def _test_model(self, args, sess):
