@@ -72,6 +72,77 @@ class DiscreteDenseModel(Model):
         self._class_input = None
         self._sample_inputs = None
 
+    def __repr__(self):
+        return (type(self).__qualname__ + "(" +
+                ("num_classes=" + str(self._num_classes)) + ", " +
+                ("num_decomps=" + str(self._num_decomps)) + ", " +
+                ("num_subsets=" + str(self._num_subsets)) + ", " +
+                ("num_mixtures=" + str(self._num_mixtures)) + ", " +
+                ("input_dist=" + str(self._input_dist)) + ", " +
+                ("num_input_mixtures=" + str(self._num_input_mixtures)) + ", " +
+                ("weight_init_value=" + str(self._weight_init_value))
+                + ")")
+
+    @utils.docinherit(Model)
+    def serialize(self, save_param_vals=True, sess=None):
+        # Serialize the graph first
+        data = serialize_graph(self._root, save_param_vals=save_param_vals,
+                               sess=sess)
+        # Add model specific information
+        # Inputs
+        if self._sample_ivs is not None:
+            data['sample_ivs'] = self._sample_ivs.name
+        data['sample_inputs'] = [(i.node.name, i.indices)
+                                 for i in self._sample_inputs]
+        if self._class_ivs is not None:
+            data['class_ivs'] = self._class_ivs.name
+        if self._class_input:
+            data['class_input'] = (self._class_input.node.name,
+                                   self._class_input.indices)
+        # Model params
+        data['num_classes'] = self._num_classes
+        data['num_decomps'] = self._num_decomps
+        data['num_subsets'] = self._num_subsets
+        data['num_mixtures'] = self._num_mixtures
+        data['input_dist'] = self._input_dist
+        data['num_input_mixtures'] = self._num_input_mixtures
+        data['weight_init_value'] = self._weight_init_value
+        return data
+
+    @utils.docinherit(Model)
+    def deserialize(self, data, load_param_vals=True, sess=None):
+        # Deserialize the graph first
+        nodes_by_name = {}
+        self._root = deserialize_graph(data, load_param_vals=load_param_vals,
+                                       sess=sess,
+                                       nodes_by_name=nodes_by_name)
+        # Model specific information
+        # Inputs
+        sample_ivs = data.get('sample_ivs', None)
+        if sample_ivs:
+            self._sample_ivs = nodes_by_name[sample_ivs]
+        else:
+            self._sample_ivs = None
+        self._sample_inputs = tuple(Input(nodes_by_name[nn], i)
+                                    for nn, i in data['sample_inputs'])
+        class_ivs = data.get('class_ivs', None)
+        if class_ivs:
+            self._class_ivs = nodes_by_name[class_ivs]
+        else:
+            self._class_ivs = None
+        class_input = data.get('class_input', None)
+        if class_input:
+            self._class_input = Input(nodes_by_name[class_input[0]], class_input[1])
+        else:
+            self._class_input = None
+        # Model params
+        self._num_classes = data['num_classes']
+        self._num_decomps = data['num_decomps']
+        self._num_subsets = data['num_subsets']
+        self._num_mixtures = data['num_mixtures']
+        self._input_dist = data['input_dist']
+        self._num_input_mixtures = data['num_input_mixtures']
+        self._weight_init_value = data['weight_init_value']
 
     @property
     def sample_ivs(self):
