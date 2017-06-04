@@ -40,3 +40,9 @@ class TestCase(tf.test.TestCase):
     @classmethod
     def out_path(cls, *p):
         return cls.path(cls.out_dir, *p)
+
+    @classmethod
+    def write_tf_graph(cls, sess, *p):
+        writer = tf.summary.FileWriter(cls.logs_path(*p), sess.graph)
+        writer.add_graph(sess.graph)
+        writer.close()

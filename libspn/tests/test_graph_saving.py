@@ -113,14 +113,9 @@ class TestGraphSaving(TestCase):
             np.testing.assert_array_almost_equal(out_marginal2, model.true_values)
             np.testing.assert_array_almost_equal(out_mpe2, model.true_mpe_values)
 
-            # Writing log
-            # writer = tf.summary.FileWriter(
-            #     os.path.realpath(os.path.join(
-            #         os.getcwd(), os.path.dirname(__file__),
-            #         "logs", "test_graph_saving", "test_withparams_initfixed")),
-            #     sess.graph)
-            # writer.add_graph(sess.graph)
-            # writer.close()
+            # Writing graph
+            # self.write_tf_graph(sess, "test_graph_saving",
+            #                     "test_withparams_initfixed")
 
     def test_withparams_initrandom(self):
         # Build an SPN
@@ -155,14 +150,9 @@ class TestGraphSaving(TestCase):
             out_marginal2 = sess.run(val_marginal2, feed_dict={ivs2: feed})
             self.assertAlmostEqual(out_marginal2.sum(), 1.0, places=6)
 
-            # Writing log
-            # writer = tf.summary.FileWriter(
-            #     os.path.realpath(os.path.join(
-            #         os.getcwd(), os.path.dirname(__file__),
-            #         "logs", "test_graph_saving", "test_withparams_initrandom")),
-            #     sess.graph)
-            # writer.add_graph(sess.graph)
-            # writer.close()
+            # Writing graph
+            # self.write_tf_graph(sess, "test_graph_saving",
+            #                     "test_withparams_initrandom")
 
 
 if __name__ == '__main__':
