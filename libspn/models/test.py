@@ -26,6 +26,14 @@ class Poon11NaiveMixtureModel(Model):
         super().__init__()
         self._ivs = None
 
+    @utils.docinherit(Model)
+    def serialize(save_param_vals=True, sess=None):
+        raise NotImplementedError("Serialization not implemented")
+
+    @utils.docinherit(Model)
+    def deserialize(self, data, load_param_vals=True, sess=None):
+        raise NotImplementedError("Serialization not implemented")
+
     @property
     def ivs(self):
         """IVs: The IVs with the input variables of the model."""
