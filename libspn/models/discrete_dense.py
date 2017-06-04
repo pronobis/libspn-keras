@@ -140,7 +140,8 @@ class DiscreteDenseModel(Model):
         rnd = random.Random(seed)
         if self._num_classes == 1:
             # One-class
-            self._root = dense_gen.generate(*sample_inputs, rnd=rnd)
+            self._root = dense_gen.generate(*sample_inputs, rnd=rnd,
+                                            root_name='Root')
         else:
             # Multi-class: create sub-SPNs
             sub_spns = []
@@ -154,7 +155,7 @@ class DiscreteDenseModel(Model):
                                   (c, sub_root.get_num_nodes()))
                 sub_spns.append(sub_root)
             # Create root
-            self._root = Sum(*sub_spns, ivs=class_input)
+            self._root = Sum(*sub_spns, ivs=class_input, name="Root")
 
         if self.__is_debug1():
             self.__debug1("SPN graph has %d nodes" % self._root.get_num_nodes())
