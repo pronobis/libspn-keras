@@ -34,6 +34,10 @@ class ValueType:
             # TODO: Move to metaclass
             register_serializable(type(self))
 
+        def __repr__(self):
+            return ("ValueType.RANDOM_UNIFORM(min_val=%s, max_val=%s)" %
+                    (self.min_val, self.max_val))
+
         def serialize(self):
             return {'min_val': self.min_val,
                     'max_val': self.max_val}
