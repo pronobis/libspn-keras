@@ -106,9 +106,9 @@ class TestModelsDiscreteDense(TestCase):
         self.generic_model_test("3class",
                                 root, sample_ivs, class_ivs)
 
-    def test_discretedense_saving_internalivs(self):
+    def test_discretedense_saving_1class_internalivs(self):
         model1 = spn.DiscreteDenseModel(
-            num_classes=3,
+            num_classes=1,
             num_decomps=2,
             num_subsets=3,
             num_mixtures=2,
@@ -117,6 +117,8 @@ class TestModelsDiscreteDense(TestCase):
             weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
         model1.build(num_vars=6, num_vals=2)
         init1 = spn.initialize_weights(model1.root)
+
+        feed_samples = np.array(list(itertools.product(range(2), repeat=6)))
 
         with tf.Session() as sess:
             # Initialize
@@ -130,25 +132,122 @@ class TestModelsDiscreteDense(TestCase):
         # Reset graph
         tf.reset_default_graph()
 
-        # with tf.Session() as sess:
-        #     # Load
-        #     model2 = spn.DiscreteDenseModel.load_from_json(path,
-        #                                                    load_param_vals=True,
-        #                                                    sess=sess)
-        #     val_marginal2 = model2.root.get_value(
-        #         inference_type=spn.InferenceType.MARGINAL)
+        with tf.Session() as sess:
+            # Load
+            model2 = spn.Model.load_from_json(path,
+                                              load_param_vals=True,
+                                              sess=sess)
+            self.assertIs(type(model2), spn.DiscreteDenseModel)
 
-        #     # Check model after loading
-        #     self.assertTrue(model2.root.is_valid())
-        #     feed = np.array(list(itertools.product(range(2), repeat=6)))
-        #     out_marginal2 = sess.run(val_marginal2,
-        #                              feed_dict={model2.sample_ivs: feed})
-        #     self.assertAlmostEqual(out_marginal2.sum(), 1.0, places=6)
+            val_marginal2 = model2.root.get_value(
+                inference_type=spn.InferenceType.MARGINAL)
 
-        #     # Writing graph
-        #     self.write_tf_graph(sess, self.sid(), self.cid())
+            # Check model after loading
+            self.assertTrue(model2.root.is_valid())
+            out_marginal2 = sess.run(val_marginal2,
+                                     feed_dict={model2.sample_ivs: feed_samples})
+            self.assertAlmostEqual(out_marginal2.sum(), 1.0, places=6)
 
-    def test_discretedense_saving_externalivs(self):
+            # Writing graph
+            self.write_tf_graph(sess, self.sid(), self.cid())
+
+    def test_discretedense_saving_3class_internalivs(self):
+        model1 = spn.DiscreteDenseModel(
+            num_classes=3,
+            num_decomps=2,
+            num_subsets=3,
+            num_mixtures=2,
+            input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
+            num_input_mixtures=None,
+            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+        model1.build(num_vars=6, num_vals=2)
+        init1 = spn.initialize_weights(model1.root)
+
+        feed_samples = list(itertools.product(range(2), repeat=6))
+        feed_class = np.array([i for i in range(3)
+                               for _ in range(len(feed_samples))]).reshape(-1, 1)
+        feed_samples = np.array(feed_samples * 3)
+
+        with tf.Session() as sess:
+            # Initialize
+            init1.run()
+
+            # Save
+            path = self.out_path(self.cid() + ".spn")
+            model1.save_to_json(path, pretty=True, save_param_vals=True,
+                                sess=sess)
+
+        # Reset graph
+        tf.reset_default_graph()
+
+        with tf.Session() as sess:
+            # Load
+            model2 = spn.Model.load_from_json(path,
+                                              load_param_vals=True,
+                                              sess=sess)
+            self.assertIs(type(model2), spn.DiscreteDenseModel)
+
+            val_marginal2 = model2.root.get_value(
+                inference_type=spn.InferenceType.MARGINAL)
+
+            # Check model after loading
+            self.assertTrue(model2.root.is_valid())
+            out_marginal2 = sess.run(val_marginal2,
+                                     feed_dict={model2.sample_ivs: feed_samples,
+                                                model2.class_ivs: feed_class})
+            self.assertAlmostEqual(out_marginal2.sum(), 1.0, places=6)
+
+            # Writing graph
+            self.write_tf_graph(sess, self.sid(), self.cid())
+
+    def test_discretedense_saving_1class_externalivs(self):
+        model1 = spn.DiscreteDenseModel(
+            num_classes=1,
+            num_decomps=2,
+            num_subsets=3,
+            num_mixtures=2,
+            input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
+            num_input_mixtures=None,
+            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+        sample_ivs1 = spn.IVs(num_vars=6, num_vals=2)
+        model1.build(sample_ivs1)
+        init1 = spn.initialize_weights(model1.root)
+
+        feed_samples = np.array(list(itertools.product(range(2), repeat=6)))
+
+        with tf.Session() as sess:
+            # Initialize
+            init1.run()
+
+            # Save
+            path = self.out_path(self.cid() + ".spn")
+            model1.save_to_json(path, pretty=True, save_param_vals=True,
+                                sess=sess)
+
+        # Reset graph
+        tf.reset_default_graph()
+
+        with tf.Session() as sess:
+            # Load
+            model2 = spn.Model.load_from_json(path,
+                                              load_param_vals=True,
+                                              sess=sess)
+            self.assertIs(type(model2), spn.DiscreteDenseModel)
+
+            val_marginal2 = model2.root.get_value(
+                inference_type=spn.InferenceType.MARGINAL)
+
+            # Check model after loading
+            self.assertTrue(model2.root.is_valid())
+            out_marginal2 = sess.run(
+                val_marginal2,
+                feed_dict={model2.sample_inputs[0].node: feed_samples})
+            self.assertAlmostEqual(out_marginal2.sum(), 1.0, places=6)
+
+            # Writing graph
+            self.write_tf_graph(sess, self.sid(), self.cid())
+
+    def test_discretedense_saving_3class_externalivs(self):
         model1 = spn.DiscreteDenseModel(
             num_classes=3,
             num_decomps=2,
@@ -162,6 +261,11 @@ class TestModelsDiscreteDense(TestCase):
         model1.build(sample_ivs1, class_input=class_ivs1)
         init1 = spn.initialize_weights(model1.root)
 
+        feed_samples = list(itertools.product(range(2), repeat=6))
+        feed_class = np.array([i for i in range(3)
+                               for _ in range(len(feed_samples))]).reshape(-1, 1)
+        feed_samples = np.array(feed_samples * 3)
+
         with tf.Session() as sess:
             # Initialize
             init1.run()
@@ -173,6 +277,27 @@ class TestModelsDiscreteDense(TestCase):
 
         # Reset graph
         tf.reset_default_graph()
+
+        with tf.Session() as sess:
+            # Load
+            model2 = spn.Model.load_from_json(path,
+                                              load_param_vals=True,
+                                              sess=sess)
+            self.assertIs(type(model2), spn.DiscreteDenseModel)
+
+            val_marginal2 = model2.root.get_value(
+                inference_type=spn.InferenceType.MARGINAL)
+
+            # Check model after loading
+            self.assertTrue(model2.root.is_valid())
+            out_marginal2 = sess.run(
+                val_marginal2,
+                feed_dict={model2.sample_inputs[0].node: feed_samples,
+                           model2.class_input.node: feed_class})
+            self.assertAlmostEqual(out_marginal2.sum(), 1.0, places=6)
+
+            # Writing graph
+            self.write_tf_graph(sess, self.sid(), self.cid())
 
 
 if __name__ == '__main__':
