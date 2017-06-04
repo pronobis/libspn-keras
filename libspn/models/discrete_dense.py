@@ -11,7 +11,10 @@ from libspn.graph.ivs import IVs
 from libspn.generation.dense import DenseSPNGenerator
 from libspn.utils.math import ValueType
 from libspn.generation.weights import generate_weights
+from libspn.graph.node import Input
+from libspn.graph.serialization import serialize_graph, deserialize_graph
 from libspn.graph.sum import Sum
+from libspn import utils
 import random
 import tensorflow as tf
 
@@ -65,6 +68,10 @@ class DiscreteDenseModel(Model):
         self._num_input_mixtures = num_input_mixtures
         self._weight_init_value = weight_init_value
         self._class_ivs = None
+        self._sample_ivs = None
+        self._class_input = None
+        self._sample_inputs = None
+
 
     @property
     def sample_ivs(self):
@@ -75,6 +82,16 @@ class DiscreteDenseModel(Model):
     def class_ivs(self):
         """IVs: Class indicator variables."""
         return self._class_ivs
+
+    @property
+    def sample_inputs(self):
+        """list of Input: Inputs to the model providing data samples."""
+        return self._sample_inputs
+
+    @property
+    def class_input(self):
+        """Input: Input providing class indicators.."""
+        return self._class_input
 
     def build(self, *sample_inputs, class_input=None, num_vars=None,
               num_vals=None, seed=None):
@@ -124,11 +141,16 @@ class DiscreteDenseModel(Model):
         if not sample_inputs:
             self._sample_ivs = IVs(num_vars=num_vars, num_vals=num_vals,
                                    name="SampleIVs")
-            sample_inputs = [self._sample_ivs]
-        if self._num_classes > 1 and class_input is None:
-            self._class_ivs = IVs(num_vars=1, num_vals=self._num_classes,
-                                  name="ClassIVs")
-            class_input = self._class_ivs
+            self._sample_inputs = [Input(self._sample_ivs)]
+        else:
+            self._sample_inputs = tuple(Input.as_input(i) for i in sample_inputs)
+        if self._num_classes > 1:
+            if class_input is None:
+                self._class_ivs = IVs(num_vars=1, num_vals=self._num_classes,
+                                      name="ClassIVs")
+                self._class_input = Input(self._class_ivs)
+            else:
+                self._class_input = Input.as_input(class_input)
 
         # Generate structure
         dense_gen = DenseSPNGenerator(num_decomps=self._num_decomps,
@@ -140,7 +162,7 @@ class DiscreteDenseModel(Model):
         rnd = random.Random(seed)
         if self._num_classes == 1:
             # One-class
-            self._root = dense_gen.generate(*sample_inputs, rnd=rnd,
+            self._root = dense_gen.generate(*self._sample_inputs, rnd=rnd,
                                             root_name='Root')
         else:
             # Multi-class: create sub-SPNs
@@ -149,13 +171,14 @@ class DiscreteDenseModel(Model):
                 rnd_copy = random.Random()
                 rnd_copy.setstate(rnd.getstate())
                 with tf.name_scope("Class%d" % c):
-                    sub_root = dense_gen.generate(*sample_inputs, rnd=rnd_copy)
+                    sub_root = dense_gen.generate(*self._sample_inputs,
+                                                  rnd=rnd_copy)
                 if self.__is_debug1():
                     self.__debug1("sub-SPN %d has %d nodes" %
                                   (c, sub_root.get_num_nodes()))
                 sub_spns.append(sub_root)
             # Create root
-            self._root = Sum(*sub_spns, ivs=class_input, name="Root")
+            self._root = Sum(*sub_spns, ivs=self._class_input, name="Root")
 
         if self.__is_debug1():
             self.__debug1("SPN graph has %d nodes" % self._root.get_num_nodes())
