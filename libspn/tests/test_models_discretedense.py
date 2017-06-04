@@ -106,9 +106,9 @@ class TestModelsDiscreteDense(TestCase):
         self.generic_model_test("3class",
                                 root, sample_ivs, class_ivs)
 
-    def test_discretedense_saving(self):
+    def test_discretedense_saving_internalivs(self):
         model1 = spn.DiscreteDenseModel(
-            num_classes=1,
+            num_classes=3,
             num_decomps=2,
             num_subsets=3,
             num_mixtures=2,
@@ -147,6 +147,32 @@ class TestModelsDiscreteDense(TestCase):
 
         #     # Writing graph
         #     self.write_tf_graph(sess, self.sid(), self.cid())
+
+    def test_discretedense_saving_externalivs(self):
+        model1 = spn.DiscreteDenseModel(
+            num_classes=3,
+            num_decomps=2,
+            num_subsets=3,
+            num_mixtures=2,
+            input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
+            num_input_mixtures=None,
+            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+        sample_ivs1 = spn.IVs(num_vars=6, num_vals=2)
+        class_ivs1 = spn.IVs(num_vars=1, num_vals=3)
+        model1.build(sample_ivs1, class_input=class_ivs1)
+        init1 = spn.initialize_weights(model1.root)
+
+        with tf.Session() as sess:
+            # Initialize
+            init1.run()
+
+            # Save
+            path = self.out_path(self.cid() + ".spn")
+            model1.save_to_json(path, pretty=True, save_param_vals=True,
+                                sess=sess)
+
+        # Reset graph
+        tf.reset_default_graph()
 
 
 if __name__ == '__main__':
