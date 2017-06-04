@@ -61,6 +61,7 @@ from libspn.data.writer import CSVDataWriter
 from libspn.data.writer import ImageDataWriter
 
 # Models
+from libspn.models.model import Model
 from libspn.models.discrete_dense import DiscreteDenseModel
 from libspn.models.test import Poon11NaiveMixtureModel
 
@@ -117,7 +118,7 @@ __all__ = [
     'ImageDataset', 'MNISTDataset', 'CIFAR10Dataset',
     'DataWriter', 'CSVDataWriter', 'ImageDataWriter',
     # Models
-    'DiscreteDenseModel', 'Poon11NaiveMixtureModel',
+    'Model', 'DiscreteDenseModel', 'Poon11NaiveMixtureModel',
     # Session
     'session',
     # Visualization
