@@ -38,21 +38,22 @@ class Weights(ParamNode):
         data = super().serialize()
         data['num_weights'] = self._num_weights
         data['trainable'] = self._trainable
-        # If we're in session and the variable is set, get its value,
-        # otherwise get init value
-        sess = tf.get_default_session()
-        if (sess is not None and
-                sess.run(tf.is_variable_initialized(self._variable))):
-            data['value'] = sess.run(self._variable).tolist()
-        else:
-            data['value'] = self._init_value
+        data['init_value'] = self._init_value
+        data['value'] = self._variable
         return data
 
     def deserialize(self, data):
-        self._init_value = data['value']
+        self._init_value = data['init_value']
         self._num_weights = data['num_weights']
         self._trainable = data['trainable']
         super().deserialize(data)
+        # Create an op for deserializing value
+        v = data['value']
+        if v is not None:
+            with tf.name_scope(self._name + "/"):
+                return tf.assign(self._variable, v)
+        else:
+            return None
 
     @property
     def num_weights(self):

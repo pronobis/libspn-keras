@@ -925,6 +925,21 @@ class ParamNode(Node):
     def __init__(self, name=None):
         super().__init__(InferenceType.MARGINAL, name)
 
+    @abstractmethod
+    def deserialize(self, data):
+        """Initialize this node with the ``data`` dict during deserialization.
+
+        Return a TF operation that must be executed to complete deserialization.
+
+        Args:
+            data (dict): Dictionary with all the data to be deserialized.
+
+        Returns:
+            TF operation used to finalize deserialization.
+        """
+        super().deserialize(data)
+        return None
+
     def _const_out_size(self):
         """bool: If True, the number of outputs of this node does not depend
         on the inputs of the node and is fixed.
