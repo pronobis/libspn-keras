@@ -107,7 +107,7 @@ class DenseSPNGenerator:
         # Stirling numbers and ratios for partition sampling
         self.__stirling = utils.Stirling()
 
-    def generate(self, *inputs, rnd=None):
+    def generate(self, *inputs, rnd=None, root_name=None):
         """Generate the SPN.
 
         Args:
@@ -116,6 +116,7 @@ class DenseSPNGenerator:
                           ``random.Random`` that will be used instead of the
                           default global instance. This permits using a generator
                           with a custom state independent of the global one.
+            root_name (str): Name of the root node of the generated SPN.
 
         Returns:
            Sum: Root node of the generated SPN.
@@ -131,7 +132,7 @@ class DenseSPNGenerator:
                       len(input_set))
 
         # Create root
-        root = Sum()
+        root = Sum(name=root_name)
 
         # Subsets left to process
         subsets = deque()
