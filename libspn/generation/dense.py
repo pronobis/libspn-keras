@@ -5,7 +5,6 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-from enum import Enum
 from collections import deque
 from libspn import utils
 from libspn.graph.node import Input
@@ -13,6 +12,7 @@ from libspn.graph.sum import Sum
 from libspn.graph.product import Product
 from libspn.log import get_logger
 from libspn.exceptions import StructureError
+from libspn.utils.enum import Enum
 import tensorflow as tf
 import random
 
