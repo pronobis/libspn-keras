@@ -18,6 +18,10 @@ logger = get_logger()
 def serialize_graph(root, save_param_vals=True, sess=None):
     """Convert an SPN graph rooted in ``root`` into a dictionary for serialization.
 
+    The graph is converted to a dict here rather than a collection of Node since
+    additional processing is done (retrieval of variable values inside a session)
+    which cannot easily be done from within JSON encoder.
+
     Args:
         root (Node): Root of the SPN to be serialized.
         save_param_vals (bool): If ``True``, values of parameters will be
