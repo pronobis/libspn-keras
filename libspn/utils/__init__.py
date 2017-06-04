@@ -26,9 +26,10 @@ from .partition import random_partitions_by_enumeration
 from .partition import random_partitions
 from .doc import docinherit
 from .serialization import register_serializable
+from .serialization import json_dumps, json_loads
 from .serialization import json_dump, json_load
 from .serialization import str2type, type2str
-
+from .enum import Enum
 
 # All
 __all__ = ['decode_bytes_array',
@@ -41,5 +42,7 @@ __all__ = ['decode_bytes_array',
            'random_partitions_by_enumeration',
            'random_partitions',
            'docinherit',
-           'register_serializable', 'json_dump', 'json_load',
-           'str2type', 'type2str']
+           'register_serializable',
+           'json_dumps', 'json_loads', 'json_dump', 'json_load',
+           'str2type', 'type2str',
+           'Enum']

@@ -8,6 +8,7 @@
 """LibSPN serialization tools."""
 from collections import OrderedDict
 import json
+import enum
 
 
 __types = {}
@@ -54,11 +55,28 @@ def _decode_json(obj):
     if isinstance(obj, dict) and '__type__' in obj:
         # Decode custom object
         obj_type = str2type(obj['__type__'])
-        obj_instance = obj_type.__new__(obj_type)
-        obj_instance.deserialize(obj)
+        # A workaround for enums, which need their value in __new__
+        if issubclass(obj_type, enum.Enum):
+            obj_instance = obj_type.__new__(obj_type,
+                                            obj_type.deserialize(obj))
+        else:
+            obj_instance = obj_type.__new__(obj_type)
+            obj_instance.deserialize(obj)
         return obj_instance
     else:
         return obj
+
+
+def json_dumps(data, pretty=False):
+    """Dump data into a JSON string."""
+    return json.dumps(data, default=_encode_json,
+                      sort_keys=False,
+                      indent=2 if pretty else None)
+
+
+def json_loads(s):
+    """Load data from a JSON string."""
+    return json.loads(s, object_hook=_decode_json)
 
 
 def json_dump(path, data, pretty=False):
