@@ -7,28 +7,14 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import tensorflow as tf
 from context import libspn as spn
-import os
+from test import TestCase
+import tensorflow as tf
 import numpy as np
 import itertools
 
 
-class TestGraphSaving(tf.test.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        super(TestGraphSaving, cls).setUpClass()
-        cls.out_dir = os.path.realpath(os.path.join(os.getcwd(),
-                                                    os.path.dirname(__file__),
-                                                    "out"))
-
-    @staticmethod
-    def out_path(p):
-        if isinstance(p, list):
-            return [os.path.join(TestGraphSaving.out_dir, i) for i in p]
-        else:
-            return os.path.join(TestGraphSaving.out_dir, p)
+class TestGraphSaving(TestCase):
 
     def test_withoutparams_initfixed(self):
         # Build an SPN
