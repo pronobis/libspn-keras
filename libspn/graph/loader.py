@@ -61,6 +61,7 @@ class JSONLoader(Loader):
 
     __logger = get_logger()
     __info = __logger.info
+    __debug1 = __logger.debug1
 
     def __init__(self, path, sess=None):
         super().__init__(path, sess)
