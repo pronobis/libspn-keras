@@ -16,7 +16,7 @@ import itertools
 # spn.config_logger(spn.DEBUG2)
 
 
-class TestModels(TestCase):
+class TestModelsDiscreteDense(TestCase):
 
     def generic_model_test(self, name, root, sample_ivs, class_ivs):
         # Generating weight initializers
@@ -105,6 +105,48 @@ class TestModels(TestCase):
         root = model.build(sample_ivs, class_input=class_ivs)
         self.generic_model_test("3class",
                                 root, sample_ivs, class_ivs)
+
+    def test_discretedense_saving(self):
+        model1 = spn.DiscreteDenseModel(
+            num_classes=1,
+            num_decomps=2,
+            num_subsets=3,
+            num_mixtures=2,
+            input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
+            num_input_mixtures=None,
+            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+        model1.build(num_vars=6, num_vals=2)
+        init1 = spn.initialize_weights(model1.root)
+
+        with tf.Session() as sess:
+            # Initialize
+            init1.run()
+
+            # Save
+            path = self.out_path(self.cid() + ".spn")
+            model1.save_to_json(path, pretty=True, save_param_vals=True,
+                                sess=sess)
+
+        # Reset graph
+        tf.reset_default_graph()
+
+        # with tf.Session() as sess:
+        #     # Load
+        #     model2 = spn.DiscreteDenseModel.load_from_json(path,
+        #                                                    load_param_vals=True,
+        #                                                    sess=sess)
+        #     val_marginal2 = model2.root.get_value(
+        #         inference_type=spn.InferenceType.MARGINAL)
+
+        #     # Check model after loading
+        #     self.assertTrue(model2.root.is_valid())
+        #     feed = np.array(list(itertools.product(range(2), repeat=6)))
+        #     out_marginal2 = sess.run(val_marginal2,
+        #                              feed_dict={model2.sample_ivs: feed})
+        #     self.assertAlmostEqual(out_marginal2.sum(), 1.0, places=6)
+
+        #     # Writing graph
+        #     self.write_tf_graph(sess, self.sid(), self.cid())
 
 
 if __name__ == '__main__':
