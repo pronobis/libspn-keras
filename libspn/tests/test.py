@@ -46,3 +46,9 @@ class TestCase(tf.test.TestCase):
         writer = tf.summary.FileWriter(cls.logs_path(*p), sess.graph)
         writer.add_graph(sess.graph)
         writer.close()
+
+    def cid(self):
+        return self.id().split('.')[-1]
+
+    def sid(self):
+        return self.id().split('.')[-2]

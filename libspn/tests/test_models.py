@@ -7,18 +7,18 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import tensorflow as tf
 from context import libspn as spn
+from test import TestCase
+import tensorflow as tf
 import numpy as np
 import itertools
-import os
 
 # spn.config_logger(spn.DEBUG2)
 
 
-class TestModels(tf.test.TestCase):
+class TestModels(TestCase):
 
-    def generic_model_test(self, name, root, sample_ivs, class_ivs, write_log):
+    def generic_model_test(self, name, root, sample_ivs, class_ivs):
         # Generating weight initializers
         init = spn.initialize_weights(root)
 
@@ -31,15 +31,7 @@ class TestModels(tf.test.TestCase):
 
         # Creating session
         with tf.Session() as sess:
-            if write_log:
-                # Writing log
-                writer = tf.summary.FileWriter(
-                    os.path.realpath(os.path.join(
-                        os.getcwd(), os.path.dirname(__file__),
-                        "logs", "test_model", name)),
-                    sess.graph)
-                writer.add_graph(sess.graph)
-                writer.close()
+            self.write_tf_graph(sess, self.sid(), self.cid())
             # Initializing weights
             init.run()
             # Computing all values
@@ -70,8 +62,7 @@ class TestModels(tf.test.TestCase):
             weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
         root = model.build(num_vars=6, num_vals=2)
         self.generic_model_test("1class",
-                                root, model.sample_ivs, None,
-                                write_log=True)
+                                root, model.sample_ivs, None)
 
     def test_discretedense_3class_internalivs(self):
         model = spn.DiscreteDenseModel(
@@ -84,8 +75,7 @@ class TestModels(tf.test.TestCase):
             weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
         root = model.build(num_vars=6, num_vals=2)
         self.generic_model_test("3class",
-                                root, model.sample_ivs, model.class_ivs,
-                                write_log=True)
+                                root, model.sample_ivs, model.class_ivs)
 
     def test_discretedense_1class_externalivs(self):
         model = spn.DiscreteDenseModel(
@@ -99,8 +89,7 @@ class TestModels(tf.test.TestCase):
         sample_ivs = spn.IVs(num_vars=6, num_vals=2)
         root = model.build(sample_ivs)
         self.generic_model_test("1class",
-                                root, sample_ivs, None,
-                                write_log=True)
+                                root, sample_ivs, None)
 
     def test_discretedense_3class_externalivs(self):
         model = spn.DiscreteDenseModel(
@@ -115,8 +104,7 @@ class TestModels(tf.test.TestCase):
         class_ivs = spn.IVs(num_vars=1, num_vals=3)
         root = model.build(sample_ivs, class_input=class_ivs)
         self.generic_model_test("3class",
-                                root, sample_ivs, class_ivs,
-                                write_log=True)
+                                root, sample_ivs, class_ivs)
 
 
 if __name__ == '__main__':

@@ -7,27 +7,13 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import os
+from context import libspn as spn
+from test import TestCase
 import tensorflow as tf
 import numpy as np
-from context import libspn as spn
 
 
-class TestCSVFileDataset(tf.test.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        super(TestCSVFileDataset, cls).setUpClass()
-        cls.data_dir = os.path.realpath(os.path.join(os.getcwd(),
-                                                     os.path.dirname(__file__),
-                                                     "data"))
-
-    @staticmethod
-    def data_path(p):
-        if isinstance(p, list):
-            return [os.path.join(TestCSVFileDataset.data_dir, i) for i in p]
-        else:
-            return os.path.join(TestCSVFileDataset.data_dir, p)
+class TestCSVFileDataset(TestCase):
 
     def generic_dataset_test(self, dataset, correct_batches, tol=0.0):
         data = dataset.get_data()

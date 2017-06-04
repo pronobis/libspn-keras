@@ -8,10 +8,11 @@
 # ------------------------------------------------------------------------
 
 from context import libspn as spn
+from test import TestCase
 import tensorflow as tf
 
 
-class TestGraphAlgorithms(tf.test.TestCase):
+class TestGraphAlgorithms(TestCase):
 
     def assertListAlmostEqual(self, list1, list2):
         self.assertEqual(len(list1), len(list2))

@@ -7,31 +7,18 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
+from context import libspn as spn
+from test import TestCase
 import os
 import tensorflow as tf
 import numpy as np
-from context import libspn as spn
 
 
-class TestDataWriter(tf.test.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        super(TestDataWriter, cls).setUpClass()
-        cls.data_dir = os.path.realpath(os.path.join(os.getcwd(),
-                                                     os.path.dirname(__file__),
-                                                     "data"))
-
-    @staticmethod
-    def data_path(p):
-        if isinstance(p, list):
-            return [os.path.join(TestDataWriter.data_dir, i) for i in p]
-        else:
-            return os.path.join(TestDataWriter.data_dir, p)
+class TestDataWriter(TestCase):
 
     def test_csv_data_writer(self):
         # Write
-        path = self.data_path("out_test_csv_data_writer.csv")
+        path = self.out_path(self.cid() + ".csv")
         writer = spn.CSVDataWriter(path)
 
         arr1 = np.array([1, 2, 3, 4])
@@ -73,7 +60,7 @@ class TestDataWriter(tf.test.TestCase):
                                       min_after_dequeue=1000,
                                       num_threads=1,
                                       allow_smaller_final_batch=True)
-        path = self.data_path("out_test_csv_csv_writeall_singletensor.csv")
+        path = self.out_path(self.cid() + ".csv")
         writer = spn.CSVDataWriter(path)
         data1 = dataset1.read_all()
         dataset1.write_all(writer)
@@ -107,7 +94,7 @@ class TestDataWriter(tf.test.TestCase):
                                       min_after_dequeue=1000,
                                       num_threads=1,
                                       allow_smaller_final_batch=True)
-        path = self.data_path("out_test_csv_csv_writeall_tensorlist.csv")
+        path = self.out_path(self.cid() + ".csv")
         writer = spn.CSVDataWriter(path)
         data1 = dataset1.read_all()
         dataset1.write_all(writer)
@@ -139,18 +126,18 @@ class TestDataWriter(tf.test.TestCase):
             ratio=1, crop=0, accurate=True,
             allow_smaller_final_batch=True)
         writer = spn.ImageDataWriter(
-            path=self.data_path("out_img1/img%n-%l.png"),
+            path=self.out_path(self.cid(), "img%n-%l.png"),
             shape=dataset1.shape,
             normalize=False,
             num_digits=1)
 
-        os.makedirs(self.data_path("out_img1"), exist_ok=True)
+        os.makedirs(self.out_path(self.cid()), exist_ok=True)
         data1 = dataset1.read_all()
         dataset1.write_all(writer)
 
         # Re-read
         dataset2 = spn.ImageDataset(
-            image_files=self.data_path("out_img1/*-{*}.png"),
+            image_files=self.out_path(self.cid(), "*-{*}.png"),
             format=spn.ImageFormat.FLOAT,
             num_epochs=1, batch_size=2, shuffle=False,
             ratio=1, crop=0, accurate=True,
@@ -170,18 +157,18 @@ class TestDataWriter(tf.test.TestCase):
             ratio=1, crop=0, accurate=True,
             allow_smaller_final_batch=True)
         writer = spn.ImageDataWriter(
-            path=self.data_path("out_img2/img%n-%l.png"),
+            path=self.out_path(self.cid(), "img%n-%l.png"),
             shape=dataset1.shape,
             normalize=False,
             num_digits=1)
 
-        os.makedirs(self.data_path("out_img2"), exist_ok=True)
+        os.makedirs(self.out_path(self.cid()), exist_ok=True)
         data1 = dataset1.read_all()
         dataset1.write_all(writer)
 
         # Re-read
         dataset2 = spn.ImageDataset(
-            image_files=self.data_path("out_img2/*-{*}.png"),
+            image_files=self.out_path(self.cid(), "*-{*}.png"),
             format=spn.ImageFormat.RGB_FLOAT,
             num_epochs=1, batch_size=2, shuffle=False,
             ratio=1, crop=0, accurate=True,
@@ -201,18 +188,18 @@ class TestDataWriter(tf.test.TestCase):
             ratio=1, crop=0, accurate=True,
             allow_smaller_final_batch=True)
         writer = spn.ImageDataWriter(
-            path=self.data_path("out_img1/img%n-%l.png"),
+            path=self.out_path(self.cid(), "img%n-%l.png"),
             shape=dataset1.shape,
             normalize=False,
             num_digits=1)
 
-        os.makedirs(self.data_path("out_img1"), exist_ok=True)
+        os.makedirs(self.out_path(self.cid()), exist_ok=True)
         data1 = dataset1.read_all()
         dataset1.write_all(writer)
 
         # Re-read
         dataset2 = spn.ImageDataset(
-            image_files=self.data_path("out_img1/*-{*}.png"),
+            image_files=self.out_path(self.cid(), "*-{*}.png"),
             format=spn.ImageFormat.INT,
             num_epochs=1, batch_size=2, shuffle=False,
             ratio=1, crop=0, accurate=True,
@@ -232,18 +219,18 @@ class TestDataWriter(tf.test.TestCase):
             ratio=1, crop=0, accurate=True,
             allow_smaller_final_batch=True)
         writer = spn.ImageDataWriter(
-            path=self.data_path("out_img2/img%n-%l.png"),
+            path=self.out_path(self.cid(), "img%n-%l.png"),
             shape=dataset1.shape,
             normalize=False,
             num_digits=1)
 
-        os.makedirs(self.data_path("out_img2"), exist_ok=True)
+        os.makedirs(self.out_path(self.cid()), exist_ok=True)
         data1 = dataset1.read_all()
         dataset1.write_all(writer)
 
         # Re-read
         dataset2 = spn.ImageDataset(
-            image_files=self.data_path("out_img2/*-{*}.png"),
+            image_files=self.out_path(self.cid(), "*-{*}.png"),
             format=spn.ImageFormat.RGB_INT,
             num_epochs=1, batch_size=2, shuffle=False,
             ratio=1, crop=0, accurate=True,
@@ -263,14 +250,14 @@ class TestDataWriter(tf.test.TestCase):
             ratio=1, crop=0, accurate=True,
             allow_smaller_final_batch=True)
         writer = spn.CSVDataWriter(
-            path=self.data_path("out_test_image_gray_float_csv_writeall.csv"))
+            path=self.out_path(self.cid() + ".csv"))
 
         data1 = dataset1.read_all()
         dataset1.write_all(writer)
 
         # Re-read
         dataset2 = spn.CSVFileDataset(
-            files=self.data_path("out_test_image_gray_float_csv_writeall.csv"),
+            files=self.out_path(self.cid() + ".csv"),
             num_vals=[None] * 25,
             defaults=[[b'']] + [[1.0] for _ in range(25)],
             num_epochs=1,

@@ -7,12 +7,13 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
+from context import libspn as spn
+from test import TestCase
 import tensorflow as tf
 import numpy as np
-from context import libspn as spn
 
 
-class TestInference(tf.test.TestCase):
+class TestInference(TestCase):
 
     def test_marginal_value(self):
         """Calculation of SPN marginal value"""

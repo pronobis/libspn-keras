@@ -7,12 +7,13 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
+from context import libspn as spn
+from test import TestCase
 import tensorflow as tf
 import numpy as np
-from context import libspn as spn
 
 
-class TestMNISTDataset(tf.test.TestCase):
+class TestMNISTDataset(TestCase):
 
     def test_mnist_load(self):
         """Loading MNIST dataset"""

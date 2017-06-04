@@ -7,14 +7,14 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
+from context import libspn as spn
+from test import TestCase
 import itertools
-import os
 import tensorflow as tf
 import numpy as np
-from context import libspn as spn
 
 
-class TestDenseSPNGenerator(tf.test.TestCase):
+class TestDenseSPNGenerator(TestCase):
 
     def test_generte_set(self):
         """Generation of sets of inputs with __generate_set"""
@@ -71,7 +71,7 @@ class TestDenseSPNGenerator(tf.test.TestCase):
                                                   spn.Input(n1, None)])
 
     def generic_dense_test(self, name, num_decomps, num_subsets, num_mixtures,
-                           input_dist, num_input_mixtures, write_log):
+                           input_dist, num_input_mixtures):
         """A generic test for DenseSPNGenerator."""
         v1 = spn.IVs(num_vars=3, num_vals=2, name="IVs1")
         v2 = spn.IVs(num_vars=3, num_vals=2, name="IVs2")
@@ -112,15 +112,7 @@ class TestDenseSPNGenerator(tf.test.TestCase):
             # Test if partition function is 1.0
             self.assertAlmostEqual(out.sum(), 1.0, places=6)
             self.assertAlmostEqual(out_log.sum(), 1.0, places=6)
-            if write_log:
-                # Writing log
-                writer = tf.train.SummaryWriter(
-                    os.path.realpath(os.path.join(
-                        os.getcwd(), os.path.dirname(__file__),
-                        "logs", "test_dense", name)),
-                    sess.graph)
-                writer.add_graph(sess.graph)
-                writer.close()
+            self.write_tf_graph(sess, self.sid(), self.cid())
 
     def test_generate_spn_mixture(self):
         """Generate a dense SPN with mixtures over inputs"""
@@ -129,8 +121,7 @@ class TestDenseSPNGenerator(tf.test.TestCase):
                                 num_subsets=3,
                                 num_mixtures=2,
                                 input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
-                                num_input_mixtures=None,
-                                write_log=False)
+                                num_input_mixtures=None)
 
     def test_generate_spn_raw(self):
         """Generate a dense SPN with raw inputs"""
@@ -139,8 +130,7 @@ class TestDenseSPNGenerator(tf.test.TestCase):
                                 num_subsets=3,
                                 num_mixtures=2,
                                 input_dist=spn.DenseSPNGenerator.InputDist.RAW,
-                                num_input_mixtures=None,
-                                write_log=False)
+                                num_input_mixtures=None)
 
 
 if __name__ == '__main__':

@@ -7,12 +7,13 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
+from context import libspn as spn
+from test import TestCase
 import tensorflow as tf
 import numpy as np
-from context import libspn as spn
 
 
-class TestGraphProduct(tf.test.TestCase):
+class TestGraphProduct(TestCase):
 
     def test_compute_value(self):
         """Calculating value of Product"""

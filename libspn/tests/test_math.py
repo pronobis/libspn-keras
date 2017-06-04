@@ -7,12 +7,13 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
+from context import libspn as spn
+from test import TestCase
 import tensorflow as tf
 import numpy as np
-from context import libspn as spn
 
 
-class TestMath(tf.test.TestCase):
+class TestMath(TestCase):
 
     def test_gather_cols_errors(self):
         # Should work

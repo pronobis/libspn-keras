@@ -7,11 +7,12 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import tensorflow as tf
+from test import TestCase
 # from context import libspn as spn
+import tensorflow as tf
 
 
-class TestLearning(tf.test.TestCase):
+class TestLearning(TestCase):
 
     def test_hard_em(self):
         pass

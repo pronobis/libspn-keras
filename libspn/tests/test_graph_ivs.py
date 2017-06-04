@@ -7,12 +7,13 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
+from context import libspn as spn
+from test import TestCase
 import tensorflow as tf
 import numpy as np
-from context import libspn as spn
 
 
-class TestGraphIVs(tf.test.TestCase):
+class TestGraphIVs(TestCase):
 
     def test_iv_value_feed_dict(self):
         """Calculating value of IVs based on inputs provided using feed_dict"""

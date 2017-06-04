@@ -7,12 +7,13 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
+from context import libspn as spn
+from test import TestCase
 import tensorflow as tf
 import numpy as np
-from context import libspn as spn
 
 
-class TestDataGenerated(tf.test.TestCase):
+class TestDataGenerated(TestCase):
 
     def test_gaussian_mixture_dataset_without_final(self):
         """Batch generation (without smaller final batch) for

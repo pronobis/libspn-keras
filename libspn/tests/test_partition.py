@@ -7,8 +7,9 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import numpy as np
 from context import libspn as spn
+from test import TestCase
+import numpy as np
 import random
 import tensorflow as tf
 
@@ -20,7 +21,7 @@ def assert_list_elements_equal(list1, list2):
             raise AssertionError("List elements differ: %s != %s" % (list1, list2))
 
 
-class TestPartition(tf.test.TestCase):
+class TestPartition(TestCase):
 
     @classmethod
     def setUpClass(cls):

@@ -7,12 +7,13 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
+from context import libspn as spn
+from test import TestCase
 import tensorflow as tf
 import numpy as np
-from context import libspn as spn
 
 
-class TestGraph(tf.test.TestCase):
+class TestGraph(TestCase):
 
     def test_input_conversion(self):
         """Conversion and verification of input specs in Input"""

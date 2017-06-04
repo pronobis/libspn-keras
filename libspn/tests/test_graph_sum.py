@@ -7,12 +7,13 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
+from context import libspn as spn
+from test import TestCase
 import tensorflow as tf
 import numpy as np
-from context import libspn as spn
 
 
-class TestGraphSum(tf.test.TestCase):
+class TestGraphSum(TestCase):
 
     def test_compute_marginal_value(self):
         """Calculating marginal value of Sum"""

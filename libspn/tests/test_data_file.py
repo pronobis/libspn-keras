@@ -7,27 +7,13 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-from unittest.mock import patch
-import os
-import tensorflow as tf
 from context import libspn as spn
+from test import TestCase
+from unittest.mock import patch
+import tensorflow as tf
 
 
-class TestFileDataset(tf.test.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        super(TestFileDataset, cls).setUpClass()
-        cls.data_dir = os.path.realpath(os.path.join(os.getcwd(),
-                                                     os.path.dirname(__file__),
-                                                     "data"))
-
-    @staticmethod
-    def data_path(p):
-        if isinstance(p, list):
-            return [os.path.join(TestFileDataset.data_dir, i) for i in p]
-        else:
-            return os.path.join(TestFileDataset.data_dir, p)
+class TestFileDataset(TestCase):
 
     def test_get_files_labels(self):
         """Obtaining files/labels list from a specification in FileDataset"""

@@ -7,12 +7,13 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
+from context import libspn as spn
+from test import TestCase
 import tensorflow as tf
 import numpy as np
-from context import libspn as spn
 
 
-class TestGraphWeights(tf.test.TestCase):
+class TestGraphWeights(TestCase):
 
     def test_single_initialization(self):
         """Single weights node initialization"""

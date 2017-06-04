@@ -22,7 +22,7 @@ class TestGraphSaving(TestCase):
         root1 = model.build()
 
         # Save
-        path = self.out_path("test_withoutparams_initfixed.spn")
+        path = self.out_path(self.cid() + ".spn")
         saver = spn.JSONSaver(path, pretty=True)
         saver.save(root1, save_param_vals=False)
 
@@ -57,7 +57,7 @@ class TestGraphSaving(TestCase):
         root1 = model.build(num_vars=6, num_vals=2)
 
         # Save
-        path = self.out_path("test_withoutparams_initrandom.spn")
+        path = self.out_path(self.cid() + ".spn")
         saver = spn.JSONSaver(path, pretty=True)
         saver.save(root1, save_param_vals=False)
 
@@ -89,7 +89,7 @@ class TestGraphSaving(TestCase):
             init1.run()
 
             # Save
-            path = self.out_path("test_withparams_initfixed.spn")
+            path = self.out_path(self.cid() + ".spn")
             saver = spn.JSONSaver(path, pretty=True)
             saver.save(root1, save_param_vals=True)
 
@@ -114,8 +114,7 @@ class TestGraphSaving(TestCase):
             np.testing.assert_array_almost_equal(out_mpe2, model.true_mpe_values)
 
             # Writing graph
-            # self.write_tf_graph(sess, "test_graph_saving",
-            #                     "test_withparams_initfixed")
+            self.write_tf_graph(sess, self.sid(), self.cid())
 
     def test_withparams_initrandom(self):
         # Build an SPN
@@ -131,7 +130,7 @@ class TestGraphSaving(TestCase):
             init1.run()
 
             # Save
-            path = self.out_path("test_withparams_initrandom.spn")
+            path = self.out_path(self.cid() + ".spn")
             saver = spn.JSONSaver(path, pretty=True)
             saver.save(root1, save_param_vals=True)
 
@@ -151,8 +150,7 @@ class TestGraphSaving(TestCase):
             self.assertAlmostEqual(out_marginal2.sum(), 1.0, places=6)
 
             # Writing graph
-            # self.write_tf_graph(sess, "test_graph_saving",
-            #                     "test_withparams_initrandom")
+            self.write_tf_graph(sess, self.sid(), self.cid())
 
 
 if __name__ == '__main__':
