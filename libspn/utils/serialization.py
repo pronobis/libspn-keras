@@ -45,7 +45,7 @@ def _encode_json(obj):
         return OrderedDict([('__type__', type2str(obj_type))] +
                            sorted(data.items(), key=lambda t: t[0]))
     else:
-        return obj
+        raise TypeError(repr(obj) + " is not JSON serializable")
 
 
 def _decode_json(obj):
