@@ -37,7 +37,7 @@ class Loader(ABC):
         return self._nodes_by_name.get(node_name, None)
 
     @abstractmethod
-    def load(self, param_vals=True, sess=None):
+    def load(self, load_param_vals=True, sess=None):
         """Loads the SPN.
 
         Args:
