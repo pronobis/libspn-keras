@@ -22,6 +22,8 @@ from libspn.graph.product import Product
 from libspn.graph.weights import Weights
 from libspn.graph.weights import assign_weights
 from libspn.graph.weights import initialize_weights
+from libspn.graph.serialization import serialize_graph
+from libspn.graph.serialization import deserialize_graph
 from libspn.graph.saver import Saver, JSONSaver
 from libspn.graph.loader import Loader, JSONLoader
 from libspn.graph.algorithms import compute_graph_up
@@ -99,6 +101,7 @@ __all__ = [
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IVs', 'ContVars', 'Sum', 'Product',
     'Weights', 'assign_weights', 'initialize_weights',
+    'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
     'compute_graph_up', 'compute_graph_up_down',
     'traverse_graph',
