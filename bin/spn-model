@@ -203,58 +203,61 @@ class SpnModel(spn.App):
         if (args.build is None) == (args.load is None):
             parser.error("build xor load command must be used")
 
-        if args.build and not args.train:  # build implies train
-            parser.error("missing train command")
+        if (args.build and not args.train):
+            parser.error("a new model must be trained")
 
         ##########################
         # Build command
         ##########################
-        # Positional
-        args.build.model = Model[args.build.model.upper()]
-        # Model
-        args.build.dense_input_dist = spn.DenseSPNGenerator.InputDist[
-            args.build.dense_input_dist.upper()]
-        args.build.weight_init = WeightInit[args.build.weight_init.upper()]
+        if args.build:
+            # Positional
+            args.build.model = Model[args.build.model.upper()]
+            # Model
+            args.build.dense_input_dist = spn.DenseSPNGenerator.InputDist[
+                args.build.dense_input_dist.upper()]
+            args.build.weight_init = WeightInit[args.build.weight_init.upper()]
 
         ##########################
         # Train command
         ##########################
-        # Positional
-        args.train.dataset = Dataset[args.train.dataset.upper()]
-        if args.train.dataset is not Dataset.MNIST and args.train.path is None:
-            parser.error("PATH is needed for this dataset")
-        # Data
-        if args.train.classes is not None:
-            args.train.classes = [i.strip() for i in
-                                  args.train.classes.split(',')]
-        args.train.image_format = spn.ImageFormat[args.train.image_format.upper()]
-        if args.train.ratio < 1:
-            parser.error("RATIO must be >=1")
-        if args.train.crop < 0:
-            parser.error("CROP cannot be negative")
-        args.train.mnist_subset = spn.MNISTDataset.Subset[args.train.mnist_subset.upper()]
-        args.train.cifar_subset = spn.CIFAR10Dataset.Subset[args.train.cifar_subset.upper()]
-        # Learning
-        args.train.value_inference = spn.InferenceType[args.train.value_inference.upper()]
+        if args.train:
+            # Positional
+            args.train.dataset = Dataset[args.train.dataset.upper()]
+            if args.train.dataset is not Dataset.MNIST and args.train.path is None:
+                parser.error("PATH is needed for this dataset")
+            # Data
+            if args.train.classes is not None:
+                args.train.classes = [i.strip() for i in
+                                      args.train.classes.split(',')]
+            args.train.image_format = spn.ImageFormat[args.train.image_format.upper()]
+            if args.train.ratio < 1:
+                parser.error("RATIO must be >=1")
+            if args.train.crop < 0:
+                parser.error("CROP cannot be negative")
+            args.train.mnist_subset = spn.MNISTDataset.Subset[args.train.mnist_subset.upper()]
+            args.train.cifar_subset = spn.CIFAR10Dataset.Subset[args.train.cifar_subset.upper()]
+            # Learning
+            args.train.value_inference = spn.InferenceType[args.train.value_inference.upper()]
 
         ##########################
         # Test command
         ##########################
-        # Positional
-        args.test.dataset = Dataset[args.test.dataset.upper()]
-        if args.test.dataset is not Dataset.MNIST and args.test.path is None:
-            parser.error("PATH is needed for this dataset")
-        # Data
-        if args.test.classes is not None:
-            args.test.classes = [i.strip() for i in
-                                 args.test.classes.split(',')]
-        args.test.image_format = spn.ImageFormat[args.test.image_format.upper()]
-        if args.test.ratio < 1:
-            parser.error("RATIO must be >=1")
-        if args.test.crop < 0:
-            parser.error("CROP cannot be negative")
-        args.test.mnist_subset = spn.MNISTDataset.Subset[args.test.mnist_subset.upper()]
-        args.test.cifar_subset = spn.CIFAR10Dataset.Subset[args.test.cifar_subset.upper()]
+        if args.test:
+            # Positional
+            args.test.dataset = Dataset[args.test.dataset.upper()]
+            if args.test.dataset is not Dataset.MNIST and args.test.path is None:
+                parser.error("PATH is needed for this dataset")
+            # Data
+            if args.test.classes is not None:
+                args.test.classes = [i.strip() for i in
+                                     args.test.classes.split(',')]
+            args.test.image_format = spn.ImageFormat[args.test.image_format.upper()]
+            if args.test.ratio < 1:
+                parser.error("RATIO must be >=1")
+            if args.test.crop < 0:
+                parser.error("CROP cannot be negative")
+            args.test.mnist_subset = spn.MNISTDataset.Subset[args.test.mnist_subset.upper()]
+            args.test.cifar_subset = spn.CIFAR10Dataset.Subset[args.test.cifar_subset.upper()]
 
     def _prepare_data(self, args):
         if args.train:
@@ -341,9 +344,10 @@ class SpnModel(spn.App):
                     allow_smaller_final_batch=True,
                     classes=args.test.classes)
 
-    def _load_model(self, args):
-        loader = spn.JSONLoader(args.load.path)
-        self.root = loader.load()
+    def _load_model(self, args, sess):
+        self.model = spn.Model.load_from_json(args.load.path,
+                                              load_param_vals=True,
+                                              sess=sess)
 
     def _build_model(self, args):
         # Decode weight_init_value
@@ -354,7 +358,7 @@ class SpnModel(spn.App):
 
         # Build model
         if args.build.model == Model.DISCRETE_DENSE:
-            model = spn.DiscreteDenseModel(
+            self.model = spn.DiscreteDenseModel(
                 num_classes=args.build.num_classes,
                 num_decomps=args.build.dense_decomps,
                 num_subsets=args.build.dense_subsets,
@@ -362,14 +366,14 @@ class SpnModel(spn.App):
                 input_dist=args.build.dense_input_dist,
                 num_input_mixtures=args.build.dense_input_mixtures,
                 weight_init_value=weight_init_value)
-            model.build(num_vars=self.train_set.num_vars,
-                        num_vals=self.train_set.num_vals,
-                        seed=args.build.dense_seed)
-            self.root = model.root
-            self.sample_ivs = model.sample_ivs
-            self.class_ivs = model.class_ivs
+            self.model.build(num_vars=self.train_set.num_vars,
+                             num_vals=self.train_set.num_vals,
+                             seed=args.build.dense_seed)
 
     def _train_model(self, args, sess):
+        init = spn.initialize_weights(self.model.root)
+        sess.run(init)
+
         pass
         # num_vars=int(self.train_samples.shape[1]),
         # num_vals=self.train_num_vals,
@@ -389,8 +393,9 @@ class SpnModel(spn.App):
         # writer.flush()
 
     def _save_model(self, args, sess):
-        saver = spn.JSONSaver(args.save.path, pretty=args.save.pretty)
-        saver.save(self.root)
+        self.model.save_to_json(args.save.path, pretty=args.save.pretty,
+                                # Save params only if the model was trained
+                                save_param_vals=args.train is not None)
 
     def _test_model(self, args, sess):
         pass
@@ -399,16 +404,17 @@ class SpnModel(spn.App):
         # Prepare data first, we use dataset info in _build_model
         self._prepare_data(args)
 
-        # Get model
-        if args.build:
-            self._build_model(args)
-        elif args.load:
-            self._load_model(args)
-
         # Run tasks in session
         with spn.session() as (sess, run):
+            # Get model
+            if args.build:
+                self._build_model(args)
+            elif args.load:
+                self._load_model(args, sess)
+            # Train
             if args.train:
                 self._train_model(args, sess)
+            # Save
             if args.save:
                 self._save_model(args, sess)
             if args.test:
