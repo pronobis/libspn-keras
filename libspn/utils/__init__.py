@@ -7,6 +7,7 @@
 
 # Import public interface of the library
 
+from .utils import decode_bytes_array
 from .math import gather_cols
 from .math import scatter_cols
 from .math import ValueType
@@ -25,12 +26,14 @@ from .partition import random_partitions_by_enumeration
 from .partition import random_partitions
 from .doc import docinherit
 from .serialization import register_serializable
+from .serialization import json_dumps, json_loads
 from .serialization import json_dump, json_load
 from .serialization import str2type, type2str
-
+from .enum import Enum
 
 # All
-__all__ = ['scatter_cols', 'gather_cols', 'ValueType',
+__all__ = ['decode_bytes_array',
+           'scatter_cols', 'gather_cols', 'ValueType',
            'broadcast_value', 'normalize_tensor',
            'reduce_log_sum', 'concat_maybe', 'split_maybe',
            'StirlingNumber', 'StirlingRatio', 'Stirling',
@@ -39,5 +42,7 @@ __all__ = ['scatter_cols', 'gather_cols', 'ValueType',
            'random_partitions_by_enumeration',
            'random_partitions',
            'docinherit',
-           'register_serializable', 'json_dump', 'json_load',
-           'str2type', 'type2str']
+           'register_serializable',
+           'json_dumps', 'json_loads', 'json_dump', 'json_load',
+           'str2type', 'type2str',
+           'Enum']

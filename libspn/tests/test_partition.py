@@ -7,9 +7,11 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import unittest
-import numpy as np
 from context import libspn as spn
+from test import TestCase
+import numpy as np
+import random
+import tensorflow as tf
 
 
 def assert_list_elements_equal(list1, list2):
@@ -19,10 +21,11 @@ def assert_list_elements_equal(list1, list2):
             raise AssertionError("List elements differ: %s != %s" % (list1, list2))
 
 
-class TestPartition(unittest.TestCase):
+class TestPartition(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super(TestPartition, cls).setUpClass()
         cls.test_set = [1, 2, 3, 4, 5]
         # Partitions for num_subsets=[1; 4]
         cls.possible_partitions = [None] * len(cls.test_set)
@@ -266,7 +269,10 @@ class TestPartition(unittest.TestCase):
             spn.utils.random_partition([1], 2)
         # stirling
         with self.assertRaises(TypeError):
-            spn.utils.random_partition([1], 1, list())
+            spn.utils.random_partition([1], 1, stirling=list())
+        # rnd
+        with self.assertRaises(TypeError):
+            spn.utils.random_partition([1], 1, rnd=list())
 
     def test_random_partition(self):
         """Test sampling random partitions."""
@@ -288,6 +294,48 @@ class TestPartition(unittest.TestCase):
                 for c in counts:
                     self.assertGreater(c, 0.8 * expected)
                     self.assertLess(c, 1.2 * expected)
+
+    def test_random_partition_customrnd(self):
+        """Test sampling random partitions."""
+        stirling = spn.utils.Stirling()
+        for num_subsets in range(1, len(TestPartition.test_set) + 1):
+            # Run test for various num_subsets
+            with self.subTest(num_subsets=num_subsets):
+                possible_partitions = TestPartition.possible_partitions[num_subsets - 1]
+                # TEST 1 - Initialize seed with 100
+                rnd = random.Random(100)
+                counts1 = [0 for p in possible_partitions]
+                # Sample many times
+                num_tests = 10000
+                for _ in range(num_tests):
+                    out = spn.utils.random_partition(TestPartition.test_set,
+                                                     num_subsets, stirling,
+                                                     rnd)
+                    i = possible_partitions.index(out)
+                    counts1[i] += 1
+                # Check if counts are uniform
+                expected = num_tests / len(possible_partitions)
+                for c in counts1:
+                    self.assertGreater(c, 0.8 * expected)
+                    self.assertLess(c, 1.2 * expected)
+                # TEST 2 - Initialize seed with 100
+                rnd = random.Random(100)  # Use seed 100
+                counts2 = [0 for p in possible_partitions]
+                # Sample many times
+                num_tests = 10000
+                for _ in range(num_tests):
+                    out = spn.utils.random_partition(TestPartition.test_set,
+                                                     num_subsets, stirling,
+                                                     rnd)
+                    i = possible_partitions.index(out)
+                    counts2[i] += 1
+                # Check if counts are uniform
+                expected = num_tests / len(possible_partitions)
+                for c in counts2:
+                    self.assertGreater(c, 0.8 * expected)
+                    self.assertLess(c, 1.2 * expected)
+                # COMPARE IF COUNTS ARE IDENTICAL
+                self.assertListEqual(counts1, counts2)
 
     def test_all_partitions_args(self):
         """Argument verification of all_partitions."""
@@ -316,6 +364,37 @@ class TestPartition(unittest.TestCase):
 
     def run_test_random_partitions(self, fun, balanced):
         """Generic test for sampling a subset of random partitions."""
+        def sample_many(rnd=None):
+            """Sample many times."""
+            counts = [0 for p in possible_partitions]
+            num_tests = 2000
+            # Sample partitions many times
+            for _ in range(num_tests):
+                import inspect
+                # Since we request `max_num_partitions` which is less than
+                # all possible partitions in some cases, and more in others,
+                # we test all possibilities
+                if len(inspect.signature(fun).parameters) > 5:
+                    out = fun(TestPartition.test_set, num_subsets,
+                              max_num_partitions, balanced=balanced,
+                              stirling=stirling, rnd=rnd)
+                else:
+                    out = fun(TestPartition.test_set, num_subsets,
+                              max_num_partitions, balanced=balanced,
+                              rnd=rnd)
+                # Verify the sample
+                self.assertEqual(len(out), num_partitions)
+                # Count partitions
+                for p in out:
+                    i = possible_partitions.index(p)
+                    counts[i] += 1
+            # Check if counts are uniform
+            expected = (num_tests * num_partitions) / len(possible_partitions)
+            for c in counts:
+                self.assertGreater(c, 0.8 * expected)
+                self.assertLess(c, 1.2 * expected)
+            return counts
+
         max_num_partitions = 3
         stirling = spn.utils.Stirling()
         for num_subsets in range(1, len(TestPartition.test_set) + 1):
@@ -329,32 +408,12 @@ class TestPartition(unittest.TestCase):
                         num_subsets - 1]
                 else:
                     possible_partitions = TestPartition.possible_partitions[num_subsets - 1]
-                counts = [0 for p in possible_partitions]
-                # Sample partitions many times
-                num_tests = 2000
-                for _ in range(num_tests):
-                    import inspect
-                    # Since we request `max_num_partitions` which is less than
-                    # all possible partitions in some cases, and more in others,
-                    # we test all possibilities
-                    if len(inspect.signature(fun).parameters) > 4:
-                        out = fun(TestPartition.test_set, num_subsets,
-                                  max_num_partitions,
-                                  stirling=stirling, balanced=balanced)
-                    else:
-                        out = fun(TestPartition.test_set, num_subsets,
-                                  max_num_partitions, balanced=balanced)
-                    # Verify the sample
-                    self.assertEqual(len(out), num_partitions)
-                    # Count partitions
-                    for p in out:
-                        i = possible_partitions.index(p)
-                        counts[i] += 1
-                # Check if counts are uniform
-                expected = (num_tests * num_partitions) / len(possible_partitions)
-                for c in counts:
-                    self.assertGreater(c, 0.8 * expected)
-                    self.assertLess(c, 1.2 * expected)
+                # Test with rnd = None
+                sample_many(None)
+                # Test with custom rnd
+                c1 = sample_many(random.Random(100))
+                c2 = sample_many(random.Random(100))
+                self.assertListEqual(c1, c2)
 
     def test_random_partitions_by_sampling_args(self):
         """Argument verification of random_partitions_by_sampling."""
@@ -365,7 +424,10 @@ class TestPartition(unittest.TestCase):
             spn.utils.random_partitions_by_sampling([], 1, 1)
         # stirling
         with self.assertRaises(TypeError):
-            spn.utils.random_partitions_by_sampling([1], 1, 1, list())
+            spn.utils.random_partitions_by_sampling([1], 1, 1, True, stirling=list())
+        # rnd
+        with self.assertRaises(TypeError):
+            spn.utils.random_partitions_by_sampling([1], 1, 1, True, rnd=list())
         # num_partitions
         with self.assertRaises(ValueError):
             spn.utils.random_partitions_by_sampling([1], 1, 0)
@@ -402,6 +464,9 @@ class TestPartition(unittest.TestCase):
             spn.utils.random_partitions_by_enumeration([1], 0, 1)
         with self.assertRaises(ValueError):
             spn.utils.random_partitions_by_enumeration([1], 2, 1)
+        # rnd
+        with self.assertRaises(TypeError):
+            spn.utils.random_partitions([1], 1, 1, True, list())
 
     def test_random_partitions_by_enumeration(self):
         """Test sampling a subset of random partitions by enumeration."""
@@ -419,7 +484,10 @@ class TestPartition(unittest.TestCase):
             spn.utils.random_partitions([], 1, 1)
         # stirling
         with self.assertRaises(TypeError):
-            spn.utils.random_partitions([1], 1, 1, list())
+            spn.utils.random_partitions([1], 1, 1, True, stirling=list())
+        # rnd
+        with self.assertRaises(TypeError):
+            spn.utils.random_partitions([1], 1, 1, True, rnd=list())
         # num_partitions
         with self.assertRaises(ValueError):
             spn.utils.random_partitions([1], 1, 0)
@@ -433,4 +501,4 @@ class TestPartition(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tf.test.main()

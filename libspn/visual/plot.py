@@ -6,7 +6,7 @@
 # ------------------------------------------------------------------------
 
 """LibSPN plotting functions."""
-from libspn.data.image import ImageShape
+
 import numpy as np
 import matplotlib as mpl
 import matplotlib.mlab as mlab
@@ -47,7 +47,7 @@ def plot_2d(x, y, labels=None, probs=None, jitter=True):
 
     # Jitter points if data is categorical
     jitter_radius = 0.25
-    if jitter and issubclass(x.dtype.type, np.integer):
+    if jitter and np.issubdtype(x.dtype, np.integer):
         x = x.astype(float)
         x += np.random.uniform(-jitter_radius, jitter_radius, x.size)
         y = y.astype(float)
@@ -68,38 +68,4 @@ def plot_2d(x, y, labels=None, probs=None, jitter=True):
 
     # TODO: display probabilities
     # http://matplotlib.org/examples/pylab_examples/griddata_demo.html
-    plt.show()
-
-
-def image(image, shape, normalize=False):
-    """Show an image from flattened data.
-
-    Args:
-        image (array): Flattened image data
-        shape (ImageShape): Shape of the image data.
-        normalize (bool): Normalize data before displaying.
-    """
-    if not isinstance(shape, ImageShape):
-        raise ValueError("shape must be ImageShape")
-    if not (issubclass(image.dtype.type, np.integer) or
-            issubclass(image.dtype.type, np.floating)):
-        raise ValueError("image must be of int or float dtype")
-
-    if shape[2] == 1:  # imshow wants single channel as MxN
-        shape = shape[:2]
-    image = image.reshape(shape)
-    cmap = mpl.cm.get_cmap('Greys_r')
-    if normalize:
-        vmin = None
-        vmax = None  # imshow will normalize
-    else:
-        if issubclass(image.dtype.type, np.integer):
-            vmin = 0
-            vmax = 255
-        elif issubclass(image.dtype.type, np.floating):
-            vmin = 0.0
-            vmax = 1.0
-    plt.imshow(image, cmap=cmap, interpolation='none',
-               vmin=vmin, vmax=vmax)
-    plt.grid(False)
     plt.show()

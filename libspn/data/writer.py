@@ -10,6 +10,7 @@ import numpy as np
 import os
 import scipy
 from libspn.log import get_logger
+from libspn import utils
 
 
 class DataWriter(ABC):
@@ -17,7 +18,8 @@ class DataWriter(ABC):
 
     @abstractmethod
     def write(self, data):
-        """Write arrays of data.
+        """
+        Write arrays of data.
 
         Args:
             data: An array, a list of arrays or a dictionary of arrays with
@@ -26,7 +28,8 @@ class DataWriter(ABC):
 
 
 class CSVDataWriter(DataWriter):
-    """Writer that writes data in the CSV format.
+    """
+    Writer that writes data in the CSV format.
 
     Args:
         path (str): Full path to the file.
@@ -35,37 +38,69 @@ class CSVDataWriter(DataWriter):
         fmt_float (str): The format used for storing floats.
     """
 
-    def __init__(self, path, delimiter=',', fmt_int="%d", fmt_float="%.18e"):
+    def __init__(self, path, delimiter=',', fmt_int="%d", fmt_float="%.18e",
+                 fmt_labels_int="%d", fmt_labels_float="%g"):
         self._path = os.path.expanduser(path)
         self._delimiter = delimiter
         self._fmt_int = fmt_int
         self._fmt_float = fmt_float
+        self._fmt_labels_int = fmt_labels_int
+        self._fmt_labels_float = fmt_labels_float
         self.__mode = 'wb'  # Initial mode
 
-    def write(self, *data):
-        """Write arrays of data. The first call to write erases any existing
-        file, while all subsequent calls will append to the same file.
+    def write(self, data, labels=None):
+        """
+        Write data in one or multiple arrays with optional labels. The labels will
+        be saved as the first columns of the CSV file. The first call to write
+        erases any existing file, while all subsequent calls will append to the
+        same file.
 
         Args:
-            data: Arrays with the data to write.
+            data (array or list of arrays): A 1D or 2D array or a list of 1D or
+                2D arrays with the data to write.
+            labels (array): A 1D or 2D array with the labels.
         """
-        # Get columns
-        cols = []
-        fmt = ['%d', '%f', '%f']
+        # Put a single array into a list and check input
+        if isinstance(data, np.ndarray):
+            data = [data]
+        elif not isinstance(data, list):
+            raise ValueError("data must be an array or a list of arrays")
+        if labels is not None and not isinstance(labels, np.ndarray):
+            raise ValueError("labels must be an array")
+        # Get columns and format
+        cols_data = []
         for d in data:
+            d = utils.decode_bytes_array(d)
             if d.ndim == 1:
-                cols.append(d)
+                cols_data.append(d)
             elif d.ndim == 2:
-                cols.extend(d.T)
+                cols_data.extend(d.T)
             else:
-                raise ValueError("Arrays must be 1 or 2 dimensional")
+                raise ValueError("data arrays must be 1 or 2 dimensional")
+        fmt_data = [self._fmt_int if np.issubdtype(c.dtype, np.integer)
+                    else self._fmt_float if np.issubdtype(c.dtype, np.floating)
+                    else '%s'
+                    for c in cols_data]
+        cols_labels = []
+        fmt_labels = []
+        if labels is not None:
+            labels = utils.decode_bytes_array(labels)
+            if labels.ndim == 1:
+                cols_labels.append(labels)
+            elif labels.ndim == 2:
+                cols_labels.extend(labels.T)
+            else:
+                raise ValueError("labels array must be 1 or 2 dimensional")
+            fmt_labels = [
+                self._fmt_labels_int if np.issubdtype(c.dtype, np.integer)
+                else self._fmt_labels_float if np.issubdtype(c.dtype, np.floating)
+                else '%s'
+                for c in cols_labels]
+        cols = cols_labels + cols_data
+        fmt = fmt_labels + fmt_data
 
-        # Get structured array and formats
+        # Get structured array
         arr = np.rec.fromarrays(cols)
-        fmt = [self._fmt_int
-               if np.issubdtype(c.dtype, np.integer)
-               else self._fmt_float
-               for c in cols]
 
         # Write
         with open(self._path, self.__mode) as csvfile:
@@ -76,7 +111,8 @@ class CSVDataWriter(DataWriter):
 
 
 class ImageDataWriter(DataWriter):
-    """Writer writing flattened image data. The image format is selected by the
+    """
+    Writer writing flattened image data. The image format is selected by the
     extension given as part of the path. The images are normalized to [0, 1]
     before being saved.
 
@@ -90,8 +126,9 @@ class ImageDataWriter(DataWriter):
         num_digits (int): Minimum number of digits of the image number.
     """
 
-    logger = get_logger()
-    debug1 = logger.debug1
+    __logger = get_logger()
+    __debug1 = __logger.debug1
+    __is_debug1 = __logger.is_debug1
 
     def __init__(self, path, shape, normalize=False, num_digits=4):
         self._path = os.path.expanduser(path)
@@ -101,33 +138,56 @@ class ImageDataWriter(DataWriter):
         self._image_no = 0
 
     def write(self, images, labels=None, image_no=None):
-        """Write image data to file(s). `images` can be either a single image
+        """
+        Write image data to file(s). `images` can be either a single image
 
         Args:
-            images (array): An array containing a single image or multiple
-                            images of the given shape.
-            labels (value or array): A value or array of values used to label
-                                     the image or images given.
+            images (array): A 1D array containing a single image or a 2D array
+                            containing multiple images of the given shape.
+            labels (value or array): For a single image, a value or a
+                single-element 1D or 2D array containing a label for the image.
+                For multiple images, a 1D or 2D array containing labels for the
+                images.
             image_no (int): Optional. Number of the first image to write.
                             If not given, the number of the last written image
                             is incremented and used.
         """
-        if not (issubclass(images.dtype.type, np.integer) or
-                issubclass(images.dtype.type, np.floating)):
+        if not isinstance(images, np.ndarray):
+            raise ValueError("images must be an array")
+        if not (np.issubdtype(images.dtype, np.integer) or
+                np.issubdtype(images.dtype, np.floating)):
             raise ValueError("images must be of int or float dtype")
         if image_no is not None and not isinstance(image_no, int):
             raise ValueError("image_no must be integer")
 
-        self.debug1("Batch size:%s dtype:%s max_min:%s min_max:%s" %
-                    (images.shape[0], images.dtype,
-                     np.amax(np.amin(images, axis=1)),
-                     np.amin(np.amax(images, axis=1))))
+        if self.__is_debug1():
+            self.__debug1("Batch size:%s dtype:%s max_min:%s min_max:%s" %
+                          (images.shape[0], images.dtype,
+                           np.amax(np.amin(images, axis=1)),
+                           np.amin(np.amax(images, axis=1))))
 
         # Convert 1-image case to multi-image case
         if images.ndim == 1:
             images = images.reshape([1, -1])
             if labels is not None:
-                labels = [labels]
+                if isinstance(labels, np.ndarray):
+                    if labels.ndim == 1:
+                        labels = labels.reshape([1, -1])
+                    elif labels.ndim != 2:
+                        raise ValueError("labels array must be 1 or 2 dimensional")
+                else:
+                    labels = np.array([[labels]])
+        elif images.ndim == 2:
+            if labels is not None:
+                if isinstance(labels, np.ndarray):
+                    if labels.ndim == 1:
+                        labels = labels.reshape([1, -1])
+                    elif labels.ndim != 2:
+                        raise ValueError("labels array must be 1 or 2 dimensional")
+                else:
+                    raise ValueError("labels must be an array")
+        else:
+            raise ValueError("images array must be 1 or 2 dimensional")
         # Set image number
         if image_no is not None:
             self._image_no = image_no
@@ -143,7 +203,7 @@ class ImageDataWriter(DataWriter):
                 path = path.replace(
                     '%n', ("%0" + str(self._num_digits) + "d") % (self._image_no))
             if labels is not None and '%l' in path:
-                label = labels[i]
+                label = labels[i, 0]
                 if isinstance(label, bytes):
                     label = label.decode("utf-8")
                 else:
@@ -152,10 +212,10 @@ class ImageDataWriter(DataWriter):
             # Normalize?
             # imsave normalizes float images, but not uint8 images
             if self._normalize:
-                if issubclass(images.dtype.type, np.integer):
+                if np.issubdtype(images.dtype, np.integer):
                     images = images.astype(np.float32)
             else:
-                if issubclass(images.dtype.type, np.floating):
+                if np.issubdtype(images.dtype, np.floating):
                     images *= 255.0
                 images = images.astype(np.uint8)  # Convert also int32/64 to 8
             # Save

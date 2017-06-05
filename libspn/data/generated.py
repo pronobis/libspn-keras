@@ -57,7 +57,27 @@ class GaussianMixtureDataset(Dataset):
     def __init__(self, components, num_samples, num_epochs, batch_size,
                  shuffle, num_threads=1, allow_smaller_final_batch=False,
                  num_vals=None, seed=None):
-        super().__init__(num_epochs=num_epochs, batch_size=batch_size,
+        if not isinstance(components, list):
+            raise ValueError("components must be a list")
+        components = [GaussianMixtureDataset.Component(
+            c.weight, np.asarray(c.mean), np.asarray(c.cov), c.label)
+            for c in components]
+        for c in components:
+            if not isinstance(c, GaussianMixtureDataset.Component):
+                raise ValueError("component '%s' is not a Component" % c)
+            if c.mean.ndim != 1:
+                raise ValueError("mean array of a component be 1D")
+            if c.cov.ndim != 2:
+                raise ValueError("cov array of a component be 2D")
+            if (c.mean.shape[0] != c.cov.shape[0] or
+                    c.mean.shape[0] != c.cov.shape[1]):
+                raise ValueError("dimensions of mean and cov must be the same")
+            if (c.mean.shape[0] != components[0].mean.shape[0]
+                    or c.cov.shape != components[0].cov.shape):
+                raise ValueError("components must have the same number of dimensions")
+        super().__init__(num_vars=components[0].mean.shape[0],
+                         num_vals=num_vals, num_labels=1,
+                         num_epochs=num_epochs, batch_size=batch_size,
                          shuffle=shuffle,
                          # We shuffle the samples in this class
                          # so batch shuffling is not needed
@@ -175,7 +195,10 @@ class IntGridDataset(Dataset):
 
     def __init__(self, num_dims, num_vals, num_epochs, batch_size, shuffle,
                  num_threads=1, allow_smaller_final_batch=False, seed=None):
-        super().__init__(num_epochs=num_epochs, batch_size=batch_size,
+        super().__init__(num_vars=num_dims,
+                         num_vals=num_vals,
+                         num_labels=0,
+                         num_epochs=num_epochs, batch_size=batch_size,
                          shuffle=shuffle,
                          # We shuffle the samples in this class
                          # so batch shuffling is not needed

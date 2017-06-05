@@ -22,10 +22,21 @@ To use in class methods::
 
     class Klass:
 
-        logger = get_logger()
+        __logger = get_logger()     # __ so that derived class can have
+        __debug1 = __logger.debug   # a different logger
 
-        def method():
-            Klass.logger.debug1("Debug message.")
+        def method(self):
+            self.__debug1("Debug message.")
+
+If expensive processing is required to calculate input for a debug message,
+it can be made conditional on the debug level as follows::
+
+    if Klass.logger.is_debug1():
+        val = get_expensive_value()
+        Klass.logger.debug1("Debug message with value %s." % val)
+
+Note: Don't forget ``()`` behind ``is_debug1``, which will be evaluated to
+``True``!
 
 To quickly setup logging in the application using LibSPN::
 
@@ -51,10 +62,14 @@ DEBUG1 = logging.DEBUG
 DEBUG2 = DEBUG1 - 1
 """Log level for additional (more verbose) debug messages."""
 
+DEBUG3 = DEBUG2 - 1
+"""Log level for additional (even more verbose) debug messages."""
+
 
 # Add two levels of debugging messages
 logging.addLevelName(DEBUG1, "DEBUG1")
 logging.addLevelName(DEBUG2, "DEBUG2")
+logging.addLevelName(DEBUG3, "DEBUG3")
 
 # Define pretty printer
 _pprinter = pprint.PrettyPrinter(indent=1)
@@ -89,6 +104,27 @@ class Logger(logging.getLoggerClass()):
             # Pretty print all arguments
             args = tuple(_pprinter.pformat(a) for a in args)
             self._log(DEBUG2, msg, args, **kwargs)
+
+    def debug3(self, msg, *args, **kwargs):
+        if self.isEnabledFor(DEBUG3):
+            # Pretty print all arguments
+            args = tuple(_pprinter.pformat(a) for a in args)
+            self._log(DEBUG3, msg, args, **kwargs)
+
+    def is_warning(self):
+        return self.isEnabledFor(WARNING)
+
+    def is_info(self):
+        return self.isEnabledFor(INFO)
+
+    def is_debug1(self):
+        return self.isEnabledFor(DEBUG1)
+
+    def is_debug2(self):
+        return self.isEnabledFor(DEBUG2)
+
+    def is_debug3(self):
+        return self.isEnabledFor(DEBUG3)
 
 
 logging.setLoggerClass(Logger)

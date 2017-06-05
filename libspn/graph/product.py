@@ -13,8 +13,10 @@ from libspn.inference.type import InferenceType
 from libspn import utils
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class Product(OpNode):
     """A node representing a single product in an SPN.
 
@@ -24,8 +26,8 @@ class Product(OpNode):
         name (str): Name of the node.
     """
 
-    logger = get_logger()
-    info = logger.info
+    __logger = get_logger()
+    __info = __logger.info
 
     def __init__(self, *values, name="Product"):
         self._values = []
@@ -99,8 +101,8 @@ class Product(OpNode):
         flat_value_scopes = list(chain.from_iterable(value_scopes_))
         for s1, s2 in combinations(flat_value_scopes, 2):
             if s1 & s2:
-                Product.info("%s is not decomposable with input value scopes %s",
-                             self, flat_value_scopes)
+                self.__info("%s is not decomposable with input value scopes %s",
+                            self, flat_value_scopes)
                 return None
         return self._compute_scope(*value_scopes)
 

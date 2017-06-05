@@ -7,12 +7,12 @@
 
 from abc import ABC, abstractmethod
 from libspn import utils
-from libspn.graph.algorithms import traverse_graph
+from libspn.graph.serialization import serialize_graph
+from libspn.log import get_logger
 
 
 class Saver(ABC):
-    """An abstract class defining the interface of a saver saving an SPN to
-    a file.
+    """An abstract class defining the interface of a saver saving an SPN to a file.
 
     Args:
         path (str): Full path to the file.
@@ -22,11 +22,17 @@ class Saver(ABC):
         self._path = path
 
     @abstractmethod
-    def save(self, root):
-        """Saves the SPN specified by ``root`` to the file.
+    def save(self, root, save_param_vals=True, sess=None):
+        """Saves the SPN rooted in ``root`` to a file.
 
         Args:
-            root: Root of the SPN to be saved.
+            root (Node): Root of the SPN to be saved.
+            save_param_vals (bool): If ``True``, values of parameters will be
+                evaluated in a session and saved. The TF variables of parameter
+                nodes must already be initialized. If a valid session cannot be
+                found, the parameter values will not be saved.
+            sess (Session): Optional. Session used to retrieve parameter values.
+                            If ``None``, the default session is used.
         """
 
 
@@ -35,26 +41,22 @@ class JSONSaver(Saver):
 
     Args:
         path (str): Full path to the file.
+        pretty (bool): Use pretty printing.
+        sess (Session): Optional. Session used to retrieve parameter values.
+                        If ``None``, the default session is used.
     """
+
+    __logger = get_logger()
+    __info = __logger.info
+    __debug1 = __logger.debug1
 
     def __init__(self, path, pretty=False):
         super().__init__(path)
         self._pretty = pretty
 
     @utils.docinherit(Saver)
-    def save(self, root):
-        node_datas = []
-
-        def fun(node):
-            data = node.serialize()
-            # The nodes will not be deserialized automatically during JSON
-            # decoding since they do not use the __type__ data field.
-            data['node_type'] = utils.type2str(type(node))
-            node_datas.append(data)
-
-        # Serialize all nodes
-        traverse_graph(root, fun=fun, skip_params=False)
-
-        # Write JSON
-        data = {'root': root.name, 'nodes': node_datas}
+    def save(self, root, save_param_vals=True, sess=None):
+        self.__info("Saving SPN graph rooted in '%s' to file '%s'"
+                    % (root, self._path))
+        data = serialize_graph(root, save_param_vals=save_param_vals, sess=sess)
         utils.json_dump(self._path, data, pretty=self._pretty)

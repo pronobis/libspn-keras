@@ -1,3 +1,6 @@
+out_img1
+out_img2
+out_test_csv_csv_writeall_singletensor.csv
+out_test_csv_csv_writeall_tensorlist.csv
 out_test_csv_data_writer.csv
-out_test_write_all_single_tensor.csv
-out_test_write_all_tensor_list.csv
+out_test_image_gray_float_csv_writeall.csv

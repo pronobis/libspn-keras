@@ -9,8 +9,10 @@ import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.graph.node import VarNode
 from libspn import conf
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class IVs(VarNode):
     """A node representing multiple random variables in the form of indicator
     variables. Each random variable is assumed to take the same number of
@@ -33,6 +35,16 @@ class IVs(VarNode):
         self._num_vars = num_vars
         self._num_vals = num_vals
         super().__init__(feed, name)
+
+    @property
+    def num_vars(self):
+        """int: Number of random variables of the IVs."""
+        return self._num_vars
+
+    @property
+    def num_vals(self):
+        """int: Number of values of each random variable."""
+        return self._num_vals
 
     def serialize(self):
         data = super().serialize()

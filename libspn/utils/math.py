@@ -9,9 +9,9 @@
 
 import tensorflow as tf
 import numpy as np
-from libspn.utils.serialization import register_serializable
 from libspn import conf
 from libspn.ops import ops
+from libspn.utils.serialization import register_serializable
 
 
 class ValueType:
@@ -19,6 +19,7 @@ class ValueType:
     """A class specifying various types of values that be passed to the SPN
     graph."""
 
+    @register_serializable
     class RANDOM_UNIFORM:
 
         """A random value from a uniform distribution.
@@ -31,8 +32,10 @@ class ValueType:
         def __init__(self, min_val=0, max_val=1):
             self.min_val = min_val
             self.max_val = max_val
-            # TODO: Move to metaclass
-            register_serializable(type(self))
+
+        def __repr__(self):
+            return ("ValueType.RANDOM_UNIFORM(min_val=%s, max_val=%s)" %
+                    (self.min_val, self.max_val))
 
         def serialize(self):
             return {'min_val': self.min_val,
@@ -74,7 +77,7 @@ def gather_cols(params, indices, name=None):
             raise ValueError("'indices' must be 1D")
         if indices.size < 1:
             raise ValueError("'indices' cannot be empty")
-        if not issubclass(indices.dtype.type, np.integer):
+        if not np.issubdtype(indices.dtype, np.integer):
             raise ValueError("'indices' must be integer, not %s"
                              % indices.dtype)
         if np.any((indices < 0) | (indices >= param_size)):
@@ -153,7 +156,7 @@ def scatter_cols(params, indices, num_out_cols, name=None):
         if indices.size != param_size:
             raise ValueError("Sizes of 'indices' and the indexed dimension of "
                              "'params' must be the same")
-        if not issubclass(indices.dtype.type, np.integer):
+        if not np.issubdtype(indices.dtype, np.integer):
             raise ValueError("'indices' must be integer, not %s"
                              % indices.dtype)
         if np.any((indices < 0) | (indices >= num_out_cols)):

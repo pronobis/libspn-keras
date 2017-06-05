@@ -1,0 +1,39 @@
+read:
+  dataset: &DATASET image
+  path: &PATH "~/Data/celebA_Local/*.jpg"
+  classes: &CLASSES null  # No class information for celebA
+  # Data params
+  shuffle: false
+  # Image params
+  image-format: &IMAGE_FORMAT binary
+  ratio: &RATIO 2
+  crop: &CROP 0
+  accurate: &ACCURATE true
+
+train:
+  dataset: *DATASET
+  path: *PATH
+  # Data params
+  classes: *CLASSES
+  num-epochs: 100
+  batch-size: 100
+  allow-smaller-batch: true
+  shuffle: true
+  seed: 100
+  # Image params
+  image-format: *IMAGE_FORMAT
+  ratio: *RATIO
+  crop: *CROP
+  accurate: *ACCURATE
+
+test:
+  dataset: *DATASET
+  path: *PATH
+  # Data params
+  classes: *CLASSES
+  batch-size: 100
+  # Image params
+  image-format: *IMAGE_FORMAT
+  ratio: *RATIO
+  crop: *CROP
+  accurate: *ACCURATE

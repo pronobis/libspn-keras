@@ -22,6 +22,8 @@ from libspn.graph.product import Product
 from libspn.graph.weights import Weights
 from libspn.graph.weights import assign_weights
 from libspn.graph.weights import initialize_weights
+from libspn.graph.serialization import serialize_graph
+from libspn.graph.serialization import deserialize_graph
 from libspn.graph.saver import Saver, JSONSaver
 from libspn.graph.loader import Loader, JSONLoader
 from libspn.graph.algorithms import compute_graph_up
@@ -32,7 +34,6 @@ from libspn.graph.algorithms import traverse_graph
 from libspn.generation.dense import DenseSPNGenerator
 from libspn.generation.weights import WeightsGenerator
 from libspn.generation.weights import generate_weights
-from libspn.generation.test import TestSPNGenerator
 
 # Inference and learning
 from libspn.inference.type import InferenceType
@@ -46,23 +47,30 @@ from libspn.learning.gd import GDLearning
 # Data
 from libspn.data.dataset import Dataset
 from libspn.data.file import FileDataset
-from libspn.data.file import CSVFileDataset
+from libspn.data.csv import CSVFileDataset
 from libspn.data.generated import GaussianMixtureDataset
 from libspn.data.generated import IntGridDataset
-from libspn.data.mnist import MnistDataset
-from libspn.data.image import ImageDataset
 from libspn.data.image import ImageFormat
 from libspn.data.image import ImageShape
+from libspn.data.image import ImageDatasetBase
+from libspn.data.image import ImageDataset
+from libspn.data.mnist import MNISTDataset
+from libspn.data.cifar import CIFAR10Dataset
 from libspn.data.writer import DataWriter
 from libspn.data.writer import CSVDataWriter
 from libspn.data.writer import ImageDataWriter
+
+# Models
+from libspn.models.model import Model
+from libspn.models.discrete_dense import DiscreteDenseModel
+from libspn.models.test import Poon11NaiveMixtureModel
 
 # Session
 from libspn.session import session
 
 # Visualization
 from libspn.visual.plot import plot_2d
-from libspn.visual.plot import image
+from libspn.visual.image import show_image
 from libspn.visual.tf_graph import display_tf_graph
 from libspn.visual.spn_graph import display_spn_graph
 
@@ -94,23 +102,27 @@ __all__ = [
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IVs', 'ContVars', 'Sum', 'Product',
     'Weights', 'assign_weights', 'initialize_weights',
+    'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
     'compute_graph_up', 'compute_graph_up_down',
     'traverse_graph',
     # Generators
-    'DenseSPNGenerator', 'WeightsGenerator', 'TestSPNGenerator',
+    'DenseSPNGenerator', 'WeightsGenerator',
     'generate_weights',
     # Inference and learning
     'InferenceType', 'Value', 'LogValue', 'MPEPath', 'MPEState',
     'EMLearning', 'GDLearning',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
-    'IntGridDataset', 'MnistDataset', 'ImageDataset', 'ImageFormat',
-    'ImageShape', 'DataWriter', 'CSVDataWriter', 'ImageDataWriter',
+    'IntGridDataset', 'ImageFormat', 'ImageShape', 'ImageDatasetBase',
+    'ImageDataset', 'MNISTDataset', 'CIFAR10Dataset',
+    'DataWriter', 'CSVDataWriter', 'ImageDataWriter',
+    # Models
+    'Model', 'DiscreteDenseModel', 'Poon11NaiveMixtureModel',
     # Session
     'session',
     # Visualization
-    'plot_2d', 'image', 'display_tf_graph', 'display_spn_graph',
+    'plot_2d', 'show_image', 'display_tf_graph', 'display_spn_graph',
     # Logging
     'config_logger', 'get_logger', 'WARNING', 'INFO', 'DEBUG1', 'DEBUG2',
     # Custom ops, utils and config

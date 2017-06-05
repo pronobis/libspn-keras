@@ -5,6 +5,7 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
+import tensorflow as tf
 from libspn.graph.sum import Sum
 from libspn.graph.algorithms import compute_graph_up
 
@@ -46,9 +47,10 @@ class WeightsGenerator:
                     input_sizes=node._gather_input_sizes(*input_out_sizes))
             return node._compute_out_size(*input_out_sizes)
 
-        self._weights = {}
-        # Traverse the graph and compute the out_size for each node
-        return compute_graph_up(root, val_fun=gen)
+        with tf.name_scope("Weights"):
+            self._weights = {}
+            # Traverse the graph and compute the out_size for each node
+            return compute_graph_up(root, val_fun=gen)
 
 
 def generate_weights(root, init_value=1, trainable=True):

@@ -10,14 +10,21 @@ from libspn.data.dataset import Dataset
 from libspn.data.image import ImageShape, ImageFormat
 from libspn import conf
 from libspn import utils
+from libspn.log import get_logger
 import numpy as np
 import tensorflow as tf
 import os
 from enum import Enum
 import scipy
+import gzip
 
 
-class MnistDataset(Dataset):
+def _read32(bytestream):
+    dt = np.dtype(np.uint32).newbyteorder('>')
+    return np.frombuffer(bytestream.read(4), dtype=dt)[0]
+
+
+class MNISTDataset(Dataset):
     """A dataset providing MNIST data with various types of processing applied.
 
     The data is returned as a tuple of tensors ``(samples, labels)``, where
@@ -26,7 +33,6 @@ class MnistDataset(Dataset):
     contains integer labels representing the digits in the images.
 
     Args:
-        data_dir (str): Path to the folder containing the MNIST dataset.
         subset (Subset): Determines what data to provide.
         format (ImageFormat): Image format.
         num_epochs (int): Number of epochs of produced data.
@@ -41,10 +47,14 @@ class MnistDataset(Dataset):
         allow_smaller_final_batch(bool): If ``False``, the last batch will be
                                          omitted if it has less elements than
                                          ``batch_size``.
-        classes (set of int): Optional. If specified, only the listed classes
+        classes (list of int): Optional. If specified, only the listed classes
                                will be provided.
         seed (int): Optional. Seed used when shuffling.
     """
+
+    __logger = get_logger()
+    __info = __logger.info
+    __debug1 = __logger.debug1
 
     class Subset(Enum):
         """Specifies what data is provided."""
@@ -58,26 +68,12 @@ class MnistDataset(Dataset):
         TEST = 2
         """Provide only test samples."""
 
-    def __init__(self, data_dir, subset, format, num_epochs, batch_size,
+    def __init__(self, subset, format, num_epochs, batch_size,
                  shuffle, ratio=1, crop=0, num_threads=1,
                  allow_smaller_final_batch=False, classes=None, seed=None):
-        super().__init__(num_epochs=num_epochs, batch_size=batch_size,
-                         shuffle=shuffle,
-                         # We shuffle the samples in this class
-                         # so batch shuffling is not needed
-                         shuffle_batch=False, min_after_dequeue=None,
-                         num_threads=num_threads,
-                         allow_smaller_final_batch=allow_smaller_final_batch,
-                         seed=seed)
         self._orig_width = 28
         self._orig_height = 28
-        if not isinstance(data_dir, str):
-            raise ValueError("data_dir must be a string")
-        data_dir = os.path.expanduser(data_dir)
-        if not os.path.isdir(data_dir):
-            raise RuntimeError("data_dir must point to an existing directory")
-        self._data_dir = data_dir
-        if subset not in MnistDataset.Subset:
+        if subset not in MNISTDataset.Subset:
             raise ValueError("Incorrect subset: %s" % subset)
         self._subset = subset
         if format not in {ImageFormat.FLOAT, ImageFormat.INT, ImageFormat.BINARY}:
@@ -98,16 +94,37 @@ class MnistDataset(Dataset):
         self._crop = crop
         self._width -= 2 * crop
         self._height -= 2 * crop
-        if classes is not None and not isinstance(classes, set):
-            raise ValueError("classes must be a set")
-        if (classes is not None and
-                not all(isinstance(i, int) and i >= 0 and i <= 9 for i in classes)):
-            raise ValueError("Elements of classes must be integers in "
-                             "interval [0, 9]")
+        self._num_channels = 1
+        super().__init__(num_vars=(self._height * self._width * self._num_channels),
+                         num_vals=format.num_vals,
+                         num_labels=1,
+                         num_epochs=num_epochs, batch_size=batch_size,
+                         shuffle=shuffle,
+                         # We shuffle the samples in this class
+                         # so batch shuffling is not needed
+                         shuffle_batch=False, min_after_dequeue=None,
+                         num_threads=num_threads,
+                         allow_smaller_final_batch=allow_smaller_final_batch,
+                         seed=seed)
+        if classes is not None:
+            if not isinstance(classes, list):
+                raise ValueError("classes must be a list")
+            try:
+                classes = [int(c) for c in classes]
+            except ValueError:
+                raise ValueError('classes must be convertible to int')
+            if not all(i >= 0 and i <= 9 for i in classes):
+                raise ValueError("elements of classes must be digits in the "
+                                 "interval [0, 9]")
+            if len(set(classes)) != len(classes):
+                raise ValueError('classes must contain unique elements')
         self._classes = classes
         self._samples = None
         self._labels = None
-        self._channels = 1
+        # Get data dir
+        self._data_dir = os.path.realpath(os.path.join(
+            os.getcwd(), os.path.dirname(__file__),
+            os.pardir, os.pardir, 'data', 'mnist'))
 
     @property
     def orig_height(self):
@@ -155,7 +172,7 @@ class MnistDataset(Dataset):
     @property
     def shape(self):
         """Shape of the image data samples."""
-        return ImageShape(self._height, self._width, self._channels)
+        return ImageShape(self._height, self._width, self._num_channels)
 
     @utils.docinherit(Dataset)
     def generate_data(self):
@@ -177,36 +194,28 @@ class MnistDataset(Dataset):
     def load_data(self):
         """Load all data from MNIST data files."""
         # Load data
-        if (self._subset == MnistDataset.Subset.ALL or
-                self._subset == MnistDataset.Subset.TRAIN):
-            loaded = np.fromfile(os.path.join(self._data_dir, 'train-images-idx3-ubyte'),
-                                 dtype=np.uint8)
-            train_x = loaded[16:].reshape(
-                (60000, self._orig_height, self._orig_width))
-            loaded = np.fromfile(os.path.join(self._data_dir, 'train-labels-idx1-ubyte'),
-                                 dtype=np.uint8)
-            train_y = loaded[8:].reshape((60000)).astype(np.int)
+        if (self._subset == MNISTDataset.Subset.ALL or
+                self._subset == MNISTDataset.Subset.TRAIN):
+            self.__info("Loading MNIST training data")
+            train_x = self._load_images('train-images-idx3-ubyte.gz')
+            train_y = self._load_labels('train-labels-idx1-ubyte.gz')
 
-        if (self._subset == MnistDataset.Subset.ALL or
-                self._subset == MnistDataset.Subset.TEST):
-            loaded = np.fromfile(os.path.join(self._data_dir, 't10k-images-idx3-ubyte'),
-                                 dtype=np.uint8)
-            test_x = loaded[16:].reshape((
-                10000, self._orig_height, self._orig_width))
-            loaded = np.fromfile(os.path.join(self._data_dir, 't10k-labels-idx1-ubyte'),
-                                 dtype=np.uint8)
-            test_y = loaded[8:].reshape((10000)).astype(np.int)
+        if (self._subset == MNISTDataset.Subset.ALL or
+                self._subset == MNISTDataset.Subset.TEST):
+            self.__info("Loading MNIST test data")
+            test_x = self._load_images('t10k-images-idx3-ubyte.gz')
+            test_y = self._load_labels('t10k-labels-idx1-ubyte.gz')
 
         # Collect
-        if self._subset == MnistDataset.Subset.TRAIN:
+        if self._subset == MNISTDataset.Subset.TRAIN:
             samples = train_x
             labels = train_y
-        elif self._subset == MnistDataset.Subset.TEST:
+        elif self._subset == MNISTDataset.Subset.TEST:
             for i in range(test_x.shape[0]):
                 test_x
             samples = test_x
             labels = test_y
-        elif self._subset == MnistDataset.Subset.ALL:
+        elif self._subset == MNISTDataset.Subset.ALL:
             samples = np.concatenate([train_x, test_x])
             labels = np.concatenate([train_y, test_y])
 
@@ -214,7 +223,8 @@ class MnistDataset(Dataset):
         if self._classes is None:
             self._labels = labels
         else:
-            chosen = np.in1d(labels, list(self._classes))
+            self.__debug1("Selecting classes %s" % self._classes)
+            chosen = np.in1d(labels, self._classes)
             samples = samples[chosen]
             self._labels = labels[chosen]
 
@@ -248,3 +258,50 @@ class MnistDataset(Dataset):
             self._samples = np.rint(samples * 255.0).astype(np.uint8)
         elif self._format == ImageFormat.BINARY:
             self._samples = (samples > 0.5).astype(np.uint8)
+
+    def _load_images(self, filename):
+        """Extract MNIST images from a file. Stolen from TensorFlow.
+
+        Args:
+            filename (str): Filename of the labels file to load.
+
+        Returns:
+            array: A 3D uint8 numpy array [num, height, width].
+
+        Raises:
+            ValueError: If the bytestream does not start with 2051.
+        """
+        with gzip.GzipFile(os.path.join(self._data_dir, filename)) as bytestream:
+            magic = _read32(bytestream)
+            if magic != 2051:
+                raise ValueError('Invalid magic number %d in MNIST image file: %s' %
+                                 (magic, filename))
+            num_images = _read32(bytestream)
+            rows = _read32(bytestream)
+            cols = _read32(bytestream)
+            buf = bytestream.read(rows * cols * num_images)
+            data = np.frombuffer(buf, dtype=np.uint8)
+            data = data.reshape(num_images, rows, cols)
+            return data
+
+    def _load_labels(self, filename):
+        """Extract MNIST labels from a file. Stolen from TensorFlow.
+
+        Args:
+            filename (str): Filename of the labels file to load.
+
+        Returns:
+            array: a 2D int numpy array [num, 1].
+
+        Raises:
+            ValueError: If the bystream doesn't start with 2049.
+        """
+        with gzip.GzipFile(os.path.join(self._data_dir, filename)) as bytestream:
+            magic = _read32(bytestream)
+            if magic != 2049:
+                raise ValueError('Invalid magic number %d in MNIST label file: %s' %
+                                 (magic, filename))
+            num_items = _read32(bytestream)
+            buf = bytestream.read(num_items)
+            labels = np.frombuffer(buf, dtype=np.uint8)
+            return labels.reshape((-1, 1)).astype(np.int)

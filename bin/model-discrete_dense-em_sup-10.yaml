@@ -1,0 +1,21 @@
+build:
+  model: discrete_dense
+  # Model params
+  num-classes: 10
+  weight-init: random
+  dense-input-dist: raw
+  dense-decomps: 1
+  dense-subsets: 2
+  dense-mixtures: 4
+  dense-input-mixtures: 2
+  dense-seed: null
+
+train:
+  learner: em_sup
+  # Learning params
+  value-inference: marginal
+  init-accum: 20
+  smoothing-val: 0.0
+  smoothing-decay: 0.2
+  smoothing-min: 0.0
+  stop-condition: 0.05

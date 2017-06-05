@@ -5,7 +5,6 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-from enum import Enum
 from collections import deque
 from libspn import utils
 from libspn.graph.node import Input
@@ -13,7 +12,9 @@ from libspn.graph.sum import Sum
 from libspn.graph.product import Product
 from libspn.log import get_logger
 from libspn.exceptions import StructureError
+from libspn.utils.enum import Enum
 import tensorflow as tf
+import random
 
 
 class DenseSPNGenerator:
@@ -36,9 +37,10 @@ class DenseSPNGenerator:
                          similar cardinality (differing by max 1).
     """
 
-    logger = get_logger()
-    debug1 = logger.debug1
-    debug2 = logger.debug2
+    __logger = get_logger()
+    __debug1 = __logger.debug1
+    __debug2 = __logger.debug2
+    __debug3 = __logger.debug3
 
     class InputDist(Enum):
         """Determines how inputs sharing the same scope (for instance IVs for
@@ -75,7 +77,7 @@ class DenseSPNGenerator:
 
     def __init__(self, num_decomps, num_subsets, num_mixtures,
                  input_dist=InputDist.MIXTURE, num_input_mixtures=None,
-                 balanced=False):
+                 balanced=True):
         # Args
         if not isinstance(num_decomps, int) or num_decomps < 1:
             raise ValueError("num_decomps must be a positive integer")
@@ -105,25 +107,32 @@ class DenseSPNGenerator:
         # Stirling numbers and ratios for partition sampling
         self.__stirling = utils.Stirling()
 
-    def generate(self, *inputs):
+    def generate(self, *inputs, rnd=None, root_name=None):
         """Generate the SPN.
 
         Args:
             inputs (input_like): Inputs to the generated SPN.
+            rnd (Random): Optional. A custom instance of a random number generator
+                          ``random.Random`` that will be used instead of the
+                          default global instance. This permits using a generator
+                          with a custom state independent of the global one.
+            root_name (str): Name of the root node of the generated SPN.
 
         Returns:
            Sum: Root node of the generated SPN.
         """
-        DenseSPNGenerator.debug1(
+        self.__debug1(
             "Generating dense SPN (num_decomps=%s, num_subsets=%s,"
             " num_mixtures=%s, input_dist=%s, num_input_mixtures=%s)",
             self.num_decomps, self.num_subsets,
             self.num_mixtures, self.input_dist, self.num_input_mixtures)
         inputs = [Input.as_input(i) for i in inputs]
         input_set = self.__generate_set(inputs)
-        DenseSPNGenerator.debug1("Found %s distinct input scopes",
-                                 len(input_set))
-        root = Sum()
+        self.__debug1("Found %s distinct input scopes",
+                      len(input_set))
+
+        # Create root
+        root = Sum(name=root_name)
 
         # Subsets left to process
         subsets = deque()
@@ -136,10 +145,10 @@ class DenseSPNGenerator:
         while subsets:
             # Process whole layer (all subsets at the same level)
             level = subsets[0].level
-            DenseSPNGenerator.debug1("Processing level %s", level)
+            self.__debug1("Processing level %s", level)
             while subsets and subsets[0].level == level:
                 subset = subsets.popleft()
-                new_subsets = self.__add_decompositions(subset)
+                new_subsets = self.__add_decompositions(subset, rnd)
                 for s in new_subsets:
                     subsets.append(s)
 
@@ -186,37 +195,40 @@ class DenseSPNGenerator:
         # Sorting might improve performance due to branch prediction
         return [tuple(sorted(i)) for i in scope_dict.values()]
 
-    def __add_decompositions(self, subset_info: SubsetInfo):
+    def __add_decompositions(self, subset_info: SubsetInfo, rnd: random.Random):
         """Add nodes for a single subset, i.e. an instance of ``num_decomps``
         decompositions of ``subset`` into ``num_subsets`` sub-subsets with
         ``num_mixures`` mixtures per sub-subset.
 
         Args:
             subset_info(SubsetInfo): Info about the subset being decomposed.
+            rnd (Random): A custom instance of a random number generator or
+                          ``None`` if default global instance should be used.
 
         Returns:
             list of SubsetInfo: Info about each new generated subset, which
             requires further decomposition.
         """
         # Get subset partitions
-        DenseSPNGenerator.debug2("Decomposing subset:\n%s", subset_info.subset)
+        self.__debug3("Decomposing subset:\n%s", subset_info.subset)
         num_elems = len(subset_info.subset)
         num_subsubsets = min(num_elems, self.num_subsets)  # Requested num subsets
         partitions = utils.random_partitions(subset_info.subset, num_subsubsets,
                                              self.num_decomps,
-                                             stirling=self.__stirling,
-                                             balanced=self.balanced)
-        DenseSPNGenerator.debug1("Randomized %s decompositions of a subset"
-                                 " of %s elements into %s sets",
-                                 len(partitions), num_elems, num_subsubsets)
+                                             balanced=self.balanced,
+                                             rnd=rnd,
+                                             stirling=self.__stirling)
+        self.__debug2("Randomized %s decompositions of a subset"
+                      " of %s elements into %s sets",
+                      len(partitions), num_elems, num_subsubsets)
 
         # Generate nodes for each decomposition/partition
         subsubset_infos = []
         for part in partitions:
-            DenseSPNGenerator.debug1("Decomposition %s: into %s subsubsets of cardinality %s",
-                                     self.__decomp_id, len(part), [len(s) for s in part])
-            DenseSPNGenerator.debug2("Decomposition %s subsubsets:\n%s",
-                                     self.__decomp_id, part)
+            self.__debug2("Decomposition %s: into %s subsubsets of cardinality %s",
+                          self.__decomp_id, len(part), [len(s) for s in part])
+            self.__debug3("Decomposition %s subsubsets:\n%s",
+                          self.__decomp_id, part)
             # Handle each subsubset
             sums_id = 1
             prod_inputs = []

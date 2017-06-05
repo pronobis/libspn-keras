@@ -205,9 +205,6 @@ class Node(ABC):
         self.inference_type = inference_type
         with tf.name_scope(self._name + "/"):
             self._create()
-        # For now, we register for serializing in init, to avoid
-        # doing that in subclasses. Should be moved to metaclass.
-        utils.register_serializable(type(self))
 
     @abstractmethod
     def serialize(self):
@@ -221,8 +218,7 @@ class Node(ABC):
 
     @abstractmethod
     def deserialize(self, data):
-        """Initialize this node with the ``data`` dictionary during
-        deserialization.
+        """Initialize this node with the ``data`` dict during deserialization.
 
         Args:
             data (dict): Dictionary with all the data to be deserialized.
@@ -257,6 +253,10 @@ class Node(ABC):
         """Returns ``True`` if the node is a variable node."""
         # Not the best oop, but avoids the need for importing .node to check
         return isinstance(self, VarNode)
+
+    def get_tf_graph_size(self):
+        """Get the size of the TensorFlow graph with which this SPN graph node is associated."""
+        return len(self.tf_graph.get_operations())
 
     def get_nodes(self, skip_params=False):
         """Get a list of nodes in the (sub-)graph rooted in this node.
@@ -921,6 +921,21 @@ class ParamNode(Node):
 
     def __init__(self, name=None):
         super().__init__(InferenceType.MARGINAL, name)
+
+    @abstractmethod
+    def deserialize(self, data):
+        """Initialize this node with the ``data`` dict during deserialization.
+
+        Return a TF operation that must be executed to complete deserialization.
+
+        Args:
+            data (dict): Dictionary with all the data to be deserialized.
+
+        Returns:
+            TF operation used to finalize deserialization.
+        """
+        super().deserialize(data)
+        return None
 
     def _const_out_size(self):
         """bool: If True, the number of outputs of this node does not depend

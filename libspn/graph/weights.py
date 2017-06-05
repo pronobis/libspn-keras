@@ -9,9 +9,11 @@ import tensorflow as tf
 from libspn.graph.node import ParamNode
 from libspn.graph.algorithms import traverse_graph
 from libspn import conf
+from libspn.utils.serialization import register_serializable
 from libspn import utils
 
 
+@register_serializable
 class Weights(ParamNode):
     """A node containing a vector of weights of a sum node.
 
@@ -38,21 +40,22 @@ class Weights(ParamNode):
         data = super().serialize()
         data['num_weights'] = self._num_weights
         data['trainable'] = self._trainable
-        # If we're in session and the variable is set, get its value,
-        # otherwise get init value
-        sess = tf.get_default_session()
-        if (sess is not None and
-                sess.run(tf.is_variable_initialized(self._variable))):
-            data['value'] = sess.run(self._variable).tolist()
-        else:
-            data['value'] = self._init_value
+        data['init_value'] = self._init_value
+        data['value'] = self._variable
         return data
 
     def deserialize(self, data):
-        self._init_value = data['value']
+        self._init_value = data['init_value']
         self._num_weights = data['num_weights']
         self._trainable = data['trainable']
         super().deserialize(data)
+        # Create an op for deserializing value
+        v = data['value']
+        if v is not None:
+            with tf.name_scope(self._name + "/"):
+                return tf.assign(self._variable, v)
+        else:
+            return None
 
     @property
     def num_weights(self):
@@ -111,7 +114,7 @@ class Weights(ParamNode):
         return tf.reduce_sum(counts, 0)
 
 
-def assign_weights(root, value):
+def assign_weights(root, value, name=None):
     """Generate an assign operation assigning a value to all the weights in
     the SPN graph rooted in ``root``.
 
@@ -126,28 +129,30 @@ def assign_weights(root, value):
         if isinstance(node, Weights):
             assign_ops.append(node.assign(value))
 
-    # Get all assignment operations
-    traverse_graph(root, fun=assign, skip_params=False)
+    with tf.name_scope(name, "AssignWeights", [root, value]):
+        # Get all assignment operations
+        traverse_graph(root, fun=assign, skip_params=False)
 
-    # Return a collective operation
-    return tf.group(*assign_ops)
+        # Return a collective operation
+        return tf.group(*assign_ops)
 
 
-def initialize_weights(root):
+def initialize_weights(root, name=None):
     """Generate an assign operation initializing all the sum weights in the SPN
     graph rooted in ``root``.
 
     Args:
         root (Node): The root node of the SPN graph.
     """
-    assign_ops = []
+    initialize_ops = []
 
-    def assign(node):
+    def initialize(node):
         if isinstance(node, Weights):
-            assign_ops.append(node.initialize())
+            initialize_ops.append(node.initialize())
 
-    # Get all assignment operations
-    traverse_graph(root, fun=assign, skip_params=False)
+    with tf.name_scope("InitializeWeights"):
+        # Get all assignment operations
+        traverse_graph(root, fun=initialize, skip_params=False)
 
-    # Return collective operation
-    return tf.group(*assign_ops, name="initialize_weights")
+        # Return collective operation
+        return tf.group(*initialize_ops)

@@ -16,8 +16,10 @@ from libspn import utils
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
 from libspn import conf
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class Sum(OpNode):
     """A node representing a single sum in an SPN.
 
@@ -41,8 +43,8 @@ class Sum(OpNode):
                                        op generation.
     """
 
-    logger = get_logger()
-    info = logger.info
+    __logger = get_logger()
+    __info = __logger.info
 
     def __init__(self, *values, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, name="Sum"):
@@ -245,8 +247,8 @@ class Sum(OpNode):
         # Check sum for completeness wrt values
         first_scope = flat_value_scopes[0]
         if any(s != first_scope for s in flat_value_scopes[1:]):
-            Sum.info("%s is not complete with input value scopes %s",
-                     self, flat_value_scopes)
+            self.__info("%s is not complete with input value scopes %s",
+                        self, flat_value_scopes)
             return None
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
 

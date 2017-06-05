@@ -16,6 +16,12 @@ class Dataset(ABC):
     """An abstract class defining the interface of a dataset.
 
     Args:
+        num_vars (int): Number of variables in each data sample.
+        num_vals (int or list of int): Number of values of each variable. Can be
+            a single value or a list of values, one for each of ``num_vars``
+            variables. Use ``None``, to indicate that a variable is continuous,
+            in the range ``[0, 1]``.
+        num_labels (int): Number of labels for each data sample.
         num_epochs (int): Number of epochs of produced data.
         batch_size (int): Size of a single batch.
         shuffle (bool): Shuffle data within each epoch.
@@ -37,27 +43,80 @@ class Dataset(ABC):
         seed (int): Optional. Seed used when shuffling.
     """
 
-    logger = get_logger()
-    info = logger.info
+    __logger = get_logger()
+    __info = __logger.info
 
-    def __init__(self, num_epochs, batch_size, shuffle, shuffle_batch,
+    def __init__(self, num_vars, num_vals, num_labels,
+                 num_epochs, batch_size, shuffle, shuffle_batch,
                  min_after_dequeue=None, num_threads=1,
                  allow_smaller_final_batch=False, seed=None):
+        if not isinstance(num_vars, int) or num_vars < 1:
+            raise ValueError("num_vars must be a positive integer")
+        self._num_vars = num_vars
+        if isinstance(num_vals, list):
+            if len(num_vals) != num_vars:
+                raise ValueError("num_vals must have num_vars elements")
+            if any((i is not None) and (not isinstance(i, int) or i < 1)
+                   for i in num_vals):
+                raise ValueError("num_vals values must be a positive integers or None")
+            # If all elements are the same, just convert to int
+            if num_vals.count(num_vals[0]) == len(num_vals):
+                self._num_vals = num_vals[0]
+            else:
+                self._num_vals = num_vals
+        else:
+            if ((num_vals is not None) and (not isinstance(num_vals, int) or
+                                            num_vals < 1)):
+                raise ValueError("num_vals must be a positive integer or None")
+            self._num_vals = num_vals
+        if not isinstance(num_labels, int) or num_labels < 0:
+            raise ValueError("num_labels must be an integer >= 0")
+        self._num_labels = num_labels
+        if not isinstance(num_epochs, int) or num_epochs < 1:
+            raise ValueError("num_epochs must be a positive integer")
+        self._num_epochs = num_epochs
+        if not isinstance(batch_size, int) or batch_size < 1:
+            raise ValueError("batch_size must be a positive integer")
+        self._batch_size = batch_size
         if shuffle_batch and not shuffle:
             raise RuntimeError("Batch shuffling should not be enabled "
                                "when shuffle is False.")
         if shuffle_batch and min_after_dequeue is None:
             raise RuntimeError("min_after_dequeue must be set if batch "
                                "shuffling is enabled.")
-        self._num_epochs = num_epochs
-        self._batch_size = batch_size
         self._shuffle = shuffle
         self._shuffle_batch = shuffle_batch
         self._min_after_dequeue = min_after_dequeue
         self._num_threads = num_threads
         self._allow_smaller_final_batch = allow_smaller_final_batch
+        if seed is not None and (not isinstance(seed, int) or seed < 1):
+            raise ValueError("seed must be None or a positive integer")
         self._seed = seed
         self._name_scope = None
+
+    @property
+    def num_vars(self):
+        """int: Number of variables in each data sample."""
+        return self._num_vars
+
+    @property
+    def num_vals(self):
+        """int or list of int: Number of values of each variable.
+
+        If each variable has the same number of values, the value is returned as
+        a single integer or ``None``. If the values differ, a list of lenght
+        ``num_vars`` is returned, where each value represents the number of
+        values for a single variable.
+
+        Value can be either an integer or ``None`` indicating that a variable is
+        continuous, in the range ``[0, 1]``.
+        """
+        return self._num_vals
+
+    @property
+    def num_labels(self):
+        """int: Number of labels for each data sample."""
+        return self._num_labels
 
     @property
     def num_epochs(self):
@@ -91,6 +150,7 @@ class Dataset(ABC):
         Returns:
             A tensor or a list of tensors with the batch data.
         """
+        self.__info("Building dataset operations")
         with tf.name_scope("Dataset") as self._name_scope:
             raw_data = self.generate_data()
             proc_data = self.process_data(raw_data)
@@ -183,6 +243,8 @@ class Dataset(ABC):
         Args:
             writer (DataWriter): The data writer to use.
         """
+        self.__info("Writing all data from %s to %s" %
+                    (type(self).__name__, type(writer).__name__))
         with tf.Graph().as_default():
             data = self.get_data()
             with session() as (sess, run):
@@ -190,7 +252,7 @@ class Dataset(ABC):
                 while run():
                     out = sess.run(data)
                     i += 1
-                    self.info("Batch %d" % i)
+                    self.__info("Writing batch %d" % i)
                     if not isinstance(out, list):  # Convert to list
                         out = [out]
                     writer.write(*out)
