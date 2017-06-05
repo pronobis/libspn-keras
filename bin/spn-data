@@ -123,7 +123,7 @@ class SpnData(spn.App):
         ##########################
         # Write command
         ##########################
-        if args.write is not None:
+        if args.write:
             args.write.writer = Writer[args.write.writer.upper()]
 
     def run(self, args):
