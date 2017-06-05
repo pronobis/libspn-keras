@@ -9,9 +9,11 @@ import tensorflow as tf
 from libspn.graph.node import ParamNode
 from libspn.graph.algorithms import traverse_graph
 from libspn import conf
+from libspn.utils.serialization import register_serializable
 from libspn import utils
 
 
+@register_serializable
 class Weights(ParamNode):
     """A node containing a vector of weights of a sum node.
 

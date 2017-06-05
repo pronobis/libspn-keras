@@ -9,8 +9,10 @@ import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.graph.node import VarNode
 from libspn import conf
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class ContVars(VarNode):
     """A node representing a vector of continuous random variables.
 

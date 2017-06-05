@@ -205,9 +205,6 @@ class Node(ABC):
         self.inference_type = inference_type
         with tf.name_scope(self._name + "/"):
             self._create()
-        # For now, we register for serializing in init, to avoid
-        # doing that in subclasses. Should be moved to metaclass.
-        utils.register_serializable(type(self))
 
     @abstractmethod
     def serialize(self):

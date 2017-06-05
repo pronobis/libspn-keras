@@ -16,8 +16,10 @@ from libspn import utils
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
 from libspn import conf
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class Sum(OpNode):
     """A node representing a single sum in an SPN.
 

@@ -10,8 +10,10 @@ from libspn.graph.node import OpNode, Input
 from libspn import utils
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class Concat(OpNode):
     """An op node that concatenates all inputs into a single output tensor.
 

@@ -9,9 +9,9 @@
 
 import tensorflow as tf
 import numpy as np
-from libspn.utils.serialization import register_serializable
 from libspn import conf
 from libspn.ops import ops
+from libspn.utils.serialization import register_serializable
 
 
 class ValueType:
@@ -19,6 +19,7 @@ class ValueType:
     """A class specifying various types of values that be passed to the SPN
     graph."""
 
+    @register_serializable
     class RANDOM_UNIFORM:
 
         """A random value from a uniform distribution.
@@ -31,8 +32,6 @@ class ValueType:
         def __init__(self, min_val=0, max_val=1):
             self.min_val = min_val
             self.max_val = max_val
-            # TODO: Move to metaclass
-            register_serializable(type(self))
 
         def __repr__(self):
             return ("ValueType.RANDOM_UNIFORM(min_val=%s, max_val=%s)" %

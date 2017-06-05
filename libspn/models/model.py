@@ -8,7 +8,6 @@
 from abc import ABC, abstractmethod
 from libspn.log import get_logger
 from libspn import utils
-from libspn.utils.serialization import register_serializable
 
 
 class Model(ABC):
@@ -19,8 +18,6 @@ class Model(ABC):
 
     def __init__(self):
         self._root = None
-        # TODO: Move to metaclass
-        register_serializable(type(self))
 
     def __repr__(self):
         return type(self).__qualname__

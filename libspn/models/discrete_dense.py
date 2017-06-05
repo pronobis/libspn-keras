@@ -15,10 +15,12 @@ from libspn.graph.node import Input
 from libspn.graph.serialization import serialize_graph, deserialize_graph
 from libspn.graph.sum import Sum
 from libspn import utils
+from libspn.utils.serialization import register_serializable
 import random
 import tensorflow as tf
 
 
+@register_serializable
 class DiscreteDenseModel(Model):
 
     """Basic dense SPN model operating on discrete data.

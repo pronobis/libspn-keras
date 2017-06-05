@@ -10,10 +10,16 @@ import enum
 
 
 class Enum(enum.Enum):
-    """Serializable Enum."""
+    """Serializable Enum.
+
+    Any enum subclassing from this automatically becomes serializable.
+    No further registration is necessary.
+    """
 
     def __init__(self, *args):
-        # TODO: Move to metaclass
+        # The init function is called by metaclass at the time of the enum
+        # definition. Therefore, we can register the enum for serialization here.
+        # This way all enums subclassing from this are automatically serializable.
         register_serializable(type(self))
 
     def serialize(self):

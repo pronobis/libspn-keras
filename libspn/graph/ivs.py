@@ -9,8 +9,10 @@ import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.graph.node import VarNode
 from libspn import conf
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class IVs(VarNode):
     """A node representing multiple random variables in the form of indicator
     variables. Each random variable is assumed to take the same number of

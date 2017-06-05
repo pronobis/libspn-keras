@@ -16,13 +16,17 @@ __types = {}
 
 
 def register_serializable(cls):
-    """Register the class for serialization."""
+    """A class decorator registering the class for serialization."""
     __types[type2str(cls)] = cls
+    return cls
 
 
 def str2type(name):
     """Convert type name to type."""
-    return __types.get(name)
+    t = __types.get(name)
+    if t is None:
+        raise TypeError("Unknown type '%s'" % name)
+    return t
 
 
 def type2str(cls):
