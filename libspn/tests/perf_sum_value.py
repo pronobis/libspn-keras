@@ -46,8 +46,8 @@ class Ops:
 
         # Generate 'num_sums' Sum nodes, connecting each to inputs and ivs
         s = []
-        for _ in range(0, num_sums):
-            s = s + [spn.Sum(*inputs, ivs=ivs)]
+        for iv in ivs:
+            s = s + [spn.Sum(*inputs, ivs=iv)]
             # Generate weights for each Sum node
             s[-1].generate_weights()
 
@@ -62,7 +62,8 @@ class Ops:
 
         return spn.initialize_weights(root), value_op
 
-    def parallel_sums(inputs, indices, ivs, num_sums, inf_type, log=True, output=None):
+    def parallel_sums(inputs, indices, ivs, num_sums, inf_type, log=True,
+                      output=None):
         if indices is None:
             inputs = [inputs]
         else:
@@ -70,7 +71,7 @@ class Ops:
 
         # Generate a single ParallelSums node, modeling 'num_sums' sum nodes
         # within, connecting it to inputs and ivs
-        s = spn.ParallelSums(*inputs, num_sums=num_sums, ivs=ivs)
+        s = spn.ParallelSums(*inputs, num_sums=num_sums, ivs=ivs[0])
         # Generate weights of the Parallel§Sums node
         s.generate_weights()
 
@@ -192,7 +193,8 @@ class PerformanceTest:
                 ivs_slice = np.split(ivs, self.num_sums, axis=1)[0]
 
         root_weight = 1.0 / self.num_sums
-        inputs_array = np.stack([input_slice for _ in range(self.num_sums)], axis=0)
+        inputs_array = np.stack([input_slice for _ in range(self.num_sums)],
+                                axis=0)
 
         # Compute true output with numpy
         if ivs is None:
@@ -215,7 +217,7 @@ class PerformanceTest:
         print2("--> %s: on_gpu=%s, inputs_shape=%s, indices=%s, ivs=%s, inference=%s, log=%s"
                % (op_name, on_gpu, inputs.shape, ("No" if indices is None else "Yes"),
                   ("No" if ivs is None else "Yes"), ("MPE" if inf_type == \
-                  spn.InferenceType.MARGINAL else "MARGINAL"), log), self.file)
+                  spn.InferenceType.MPE else "MARGINAL"), log), self.file)
 
         input_size = inputs.shape[1]
 
@@ -229,12 +231,13 @@ class PerformanceTest:
             inputs_pl = spn.ContVars(num_vars=input_size)
             # Create IVs
             if ivs is None:
-                ivs_pl = None
+                ivs_pl = [None for _ in range(self.num_sums)]
             else:
                 if op_fun is Ops.sum:
-                    ivs_pl = spn.IVs(num_vars=1, num_vals=input_size)
+                    ivs_pl = [spn.IVs(num_vars=1, num_vals=input_size)
+                              for _ in range(self.num_sums)]
                 elif op_fun is Ops.parallel_sums:
-                    ivs_pl = spn.IVs(num_vars=self.num_sums, num_vals=input_size)
+                    ivs_pl = [spn.IVs(num_vars=self.num_sums, num_vals=input_size)]
             # Create ops
             start_time = time.time()
             init_ops, ops = op_fun(inputs_pl, indices, ivs_pl, self.num_sums,
@@ -262,7 +265,8 @@ class PerformanceTest:
             # Create feed dictionary
             feed = {inputs_pl: inputs}
             if ivs is not None:
-                feed[ivs_pl] = ivs
+                for iv_pl in ivs_pl:
+                    feed[iv_pl] = ivs
             for n in range(self.num_runs):
                 # Run
                 start_time = time.time()
@@ -276,7 +280,7 @@ class PerformanceTest:
                     output_correct = False
                     self.test_failed = True
 
-            if all([self.profile, indices is not None, ivs is not None]):
+            if self.profile:
                 # Add additional options to trace the session execution
                 options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                 run_metadata = tf.RunMetadata()
@@ -289,15 +293,24 @@ class PerformanceTest:
                 chrome_trace = fetched_timeline.generate_chrome_trace_format()
                 if not os.path.exists(self.profiles_dir):
                     os.makedirs(self.profiles_dir)
-                with open('%s/timeline_value_%s_%s_%s.json' % (self.profiles_dir,
-                          op_name, ("GPU" if on_gpu else "CPU"), (("MPE-LOG"
-                          if log else "MPE") if inf_type == spn.InferenceType.MPE
-                          else ("MARGINAL-LOG" if log else "MARGINAL"))), 'w') \
-                      as f:
+
+                file_name = op_name
+                file_name += ("_GPU" if on_gpu else "_CPU")
+                file_name += ("_MPE-LOG" if log else "_MPE") if inf_type == \
+                             spn.InferenceType.MPE else ("_MARGINAL-LOG" if \
+                             log else "_MARGINAL")
+                if indices is not None:
+                    file_name += "_Indices"
+                if ivs is not None:
+                    file_name += "_IVS"
+
+                with open('%s/timeline_value_%s.json' % (self.profiles_dir,
+                          file_name), 'w') as f:
                     f.write(chrome_trace)
 
         # Return stats
-        return OpTestResult(op_name, on_gpu, graph_size, ("No" if indices is None else "Yes"),
+        return OpTestResult(op_name, on_gpu, graph_size, ("No" if indices is \
+                                                           None else "Yes"),
                             ("No" if ivs is None else "Yes"), setup_time,
                             weights_init_time, run_times, output_correct)
 
@@ -342,7 +355,8 @@ class PerformanceTest:
                                                    axis=1)
 
         # ParallelSums
-        parallel_sums_inputs = np.random.rand(self.num_input_rows, self.num_input_cols)
+        parallel_sums_inputs = np.random.rand(self.num_input_rows,
+                                              self.num_input_cols)
         parallel_sums_indices = list(range(self.num_input_cols-1, -1, -1))
         parallel_sums_ivs = np.tile(np.expand_dims(np.random.randint(self.num_input_cols,
                                     size=self.num_input_rows), axis=1),
@@ -393,7 +407,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--num-input-rows', default=200, type=int,
                         help="Num of rows of inputs")
-    parser.add_argument('--num-input-cols', default=100, type=int,
+    parser.add_argument('--num-input-cols', default=101, type=int,
                         help="Num of cols of inputs")
     parser.add_argument('--num-sums', default=100, type=int,
                         help="Num of sums modelled in a single layer")
