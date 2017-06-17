@@ -18,3 +18,4 @@ libspn_ops_module = tf.load_op_library(lib_path)
 # Load operations into the namespace
 gather_cols = libspn_ops_module.gather_columns
 scatter_cols = libspn_ops_module.scatter_columns
+scatter_values = libspn_ops_module.scatter_values

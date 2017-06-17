@@ -214,6 +214,73 @@ def scatter_cols(params, indices, num_out_cols, name=None):
                     return gather_cols(with_zeros, gather_indices)
 
 
+def scatter_values(params, indices, num_out_cols, name=None):
+    """Scatter values of a rank R (1D or 2D) tensor into a rank R+1 (2D or 3D)
+    tensor, with the inner-most dimensions having size ``num_out_cols``.
+
+    Args:
+        params (Tensor): A 1D or 2D tensor.
+        indices (array_like): A 1D or 2D (same dimension as params) integer
+                              array indexing the columns in the output tensor
+                              to which the respective value in ``params`` is
+                              scattered to.
+        num_cols (int): The number of columns in the output tensor.
+        name (str): A name for the operation (optional).
+
+    Returns:
+        Tensor: Has the same dtype but an additional dimension as ``params``.
+    """
+    with tf.name_scope(name, "scatter_cols", [params, indices]):
+        # Check input
+        params = tf.convert_to_tensor(params, name="params")
+        indices = tf.convert_to_tensor(indices, name="indices")
+        # Check params
+        param_shape = params.get_shape()
+        param_dims = param_shape.ndims
+        if param_dims == 1:
+            param_size = param_shape[0].value
+        elif param_dims == 2:
+            param_size = param_shape[1].value
+        else:
+            raise ValueError("'params' must be 1D or 2D but it is %dD" %
+                             param_dims)
+        # Check num_out_cols
+        if not isinstance(num_out_cols, int):
+            raise ValueError("'num_out_cols' must be integer, not %s"
+                             % type(num_out_cols))
+        # Check indices
+        indices_shape = indices.get_shape()
+        indices_dims = indices_shape.ndims
+        if indices_dims != param_dims:
+            raise ValueError("Dimension of 'indices': %dD," % indices_dims,
+                             " and dimension of 'params': %dD must be the same" %
+                             param_dims)
+        if indices_dims == 1:
+            indices_size = indices_shape[0].value
+        elif indices_dims == 2:
+            indices_size = indices_shape[1].value
+        if indices_size != param_size:
+            raise ValueError("Sizes of 'indices' and 'params' must be the same")
+        # TODO: Need a way for tensor bound-checking that 0 <= indices < num_out_cols
+        # if np.any((indices < 0) | (indices >= num_out_cols)):
+        #     raise ValueError("'indices' must be smaller than 'num_out_cols'")
+        # Define op
+        if num_out_cols == 1:
+            # Scatter to a single column tensor, it must be from 1 column
+            # tensor and the indices must include it. Just expand the dimension
+            # and forward the tensor.
+            return tf.expand_dims(params, axis=-1)
+        else:
+            if conf.custom_scatter_values:
+                return ops.scatter_values(params, indices,
+                                          num_out_cols=num_out_cols)
+            else: # OneHot
+                if param_dims == 1:
+                    return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
+                           * tf.expand_dims(params, axis=1)
+                else:
+                    return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
+                           * tf.expand_dims(params, axis=2)
 
 def broadcast_value(value, shape, dtype, name=None):
     """Broadcast the given value to the given shape and dtype. If ``value`` is
