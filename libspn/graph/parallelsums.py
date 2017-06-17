@@ -415,7 +415,7 @@ class ParallelSums(OpNode):
         if add_random is not None:
             values_weighted = tf.add(values_weighted, tf.random_uniform(
                 shape=(tf.shape(values_weighted)[0], 1,
-                       int(values_weighted.get_shape()[2])),
+                       values_weighted.shape[2].value),
                 minval=0, maxval=add_random,
                 dtype=conf.dtype))
         # /ADDING RANDOM NUMBERS
