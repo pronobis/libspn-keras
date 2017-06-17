@@ -18,7 +18,6 @@ from libspn.log import get_logger
 from libspn import conf
 from libspn.utils.serialization import register_serializable
 
-
 @register_serializable
 class Sum(OpNode):
     """A node representing a single sum in an SPN.
@@ -296,8 +295,9 @@ class Sum(OpNode):
                                  ivs_value, *value_values):
         # Propagate the counts to the max value
         max_indices = tf.argmax(values_weighted, dimension=1)
-        max_counts = tf.one_hot(max_indices,
-                                values_weighted.get_shape()[1]) * counts
+        max_counts = utils.scatter_values(params=tf.squeeze(counts, axis=1),
+                                          indices=max_indices,
+                                          num_out_cols=values_weighted.shape[1].value)
         # Split the counts to value inputs
         _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
         max_counts_split = utils.split_maybe(max_counts, value_sizes, 1)
