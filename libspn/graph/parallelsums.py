@@ -353,8 +353,8 @@ class ParallelSums(OpNode):
                                  ivs_value, *value_values):
         # Propagate the counts to the max value
         max_indices = tf.argmax(values_weighted, dimension=2)
-        max_counts = tf.one_hot(max_indices, values_weighted.get_shape()[2]) * \
-                     tf.expand_dims(counts, axis=2)
+        max_counts = utils.scatter_values(params=counts, indices=max_indices,
+                         num_out_cols=values_weighted.shape[2].value)
         # Sum up max counts between individual sum nodes
         max_counts_summed = tf.reduce_sum(max_counts, 1)
         # Split the max counts to value inputs
