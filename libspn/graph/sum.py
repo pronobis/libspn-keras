@@ -335,7 +335,7 @@ class Sum(OpNode):
         if add_random is not None:
             values_weighted = tf.add(values_weighted, tf.random_uniform(
                 shape=(tf.shape(values_weighted)[0],
-                       int(values_weighted.get_shape()[1])),
+                       values_weighted.shape[1].value),
                 minval=0, maxval=add_random,
                 dtype=conf.dtype))
         # /ADDING RANDOM NUMBERS
