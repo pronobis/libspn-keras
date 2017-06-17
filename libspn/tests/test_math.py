@@ -11,6 +11,7 @@ from context import libspn as spn
 from test import TestCase
 import tensorflow as tf
 import numpy as np
+import collections
 
 
 class TestMath(TestCase):
@@ -332,6 +333,133 @@ class TestMath(TestCase):
                          [13, 14, 15]])
         out = spn.utils.scatter_cols(t, [0, 1, 2], 3)
         self.assertIs(out, t)
+
+    def test_scatter_values(self):
+        def test(params, indices, num_out_cols, param_dtype, ind_dtype,
+                 true_output, use_gpu=False):
+
+            if use_gpu:
+                device = [False, True]
+            else:
+                device = [False]
+
+            for p_dt in param_dtype:
+                for i_dt in ind_dtype:
+                    for dev in device:
+                        with self.test_session(use_gpu=dev) as sess:
+                            row1 = 1
+                            row2 = -1
+                            row3 = 2
+
+                            # Convert params and output to appropriate data-types
+                            if p_dt == tf.float32 or p_dt == tf.float64:
+                                par = list(map(float, params))
+                                if isinstance(true_output[0], collections.Iterable):
+                                    t_out = [list(map(float, to)) for to in
+                                             true_output]
+                                else:
+                                    t_out = list(map(float, true_output))
+                            else:
+                                par = list(map(int, params))
+                                if isinstance(true_output[0], collections.Iterable):
+                                    t_out = [list(map(int, to)) for to in
+                                             true_output]
+                                else:
+                                    t_out = list(map(int, true_output))
+
+                            p1d = tf.constant(np.array(par), dtype=p_dt)
+                            p2d1 = tf.constant(np.array([np.array(par)]),
+                                                        dtype=p_dt)
+                            p2d2 = tf.constant(np.array([np.array(par) * row1,
+                                                         np.array(par) * row2,
+                                                         np.array(par) * row3]),
+                                               dtype=p_dt)
+
+                            ind1d = tf.constant(np.array(indices), dtype=i_dt)
+                            ind2d1 = tf.constant(np.array([np.array(indices)]),
+                                                 dtype=i_dt)
+                            ind2d2 = tf.constant(np.array([np.array(indices),
+                                                           np.array(indices),
+                                                           np.array(indices)]),
+                                                 dtype=i_dt)
+
+                            op1d = spn.utils.scatter_values(p1d, ind1d,
+                                                            num_out_cols)
+                            op2d1 = spn.utils.scatter_values(p2d1, ind2d1,
+                                                             num_out_cols)
+                            op2d2 = spn.utils.scatter_values(p2d2, ind2d2,
+                                                             num_out_cols)
+
+                            out1d = sess.run(op1d)
+                            out2d1 = sess.run(op2d1)
+                            out2d2 = sess.run(op2d2)
+
+                            # Test outputs
+                            np.testing.assert_array_almost_equal(out1d,
+                                                       np.array(t_out))
+                            self.assertEqual(p_dt.as_numpy_dtype, out1d.dtype)
+                            np.testing.assert_array_equal(op1d.get_shape(),
+                                                    list(np.array(t_out).shape))
+
+                            t_out_2d1 = [np.array(t_out)]
+                            np.testing.assert_array_almost_equal(out2d1,
+                                                                 t_out_2d1)
+                            self.assertEqual(p_dt.as_numpy_dtype, out2d1.dtype)
+                            np.testing.assert_array_equal(op2d1.get_shape(),
+                                                list(np.array(t_out_2d1).shape))
+
+                            t_out_2d2 = [np.array(t_out) * row1,
+                                         np.array(t_out) * row2,
+                                         np.array(t_out) * row3]
+                            np.testing.assert_array_almost_equal(out2d2,
+                                                      np.array(t_out_2d2))
+                            self.assertEqual(p_dt.as_numpy_dtype, out2d2.dtype)
+                            np.testing.assert_array_equal(op2d2.get_shape(),
+                                                list(np.array(t_out_2d2).shape))
+
+        # Single param, single index
+        # Without padding - Only scatter
+        test([12.34],
+             [0],
+             1,
+             [tf.float32, tf.float64, tf.int32, tf.int64],
+             [tf.int32, tf.int64],
+             [[12.34]],
+             use_gpu=True)
+
+        # With padding
+        test([12.34],
+             [1],
+             4,
+             [tf.float32, tf.float64, tf.int32, tf.int64],
+             [tf.int32, tf.int64],
+             [[0.0, 12.34, 0.0, 0.0]],
+             use_gpu=True)
+
+        # Multiple params, multiple indices
+        # Without padding - Only scatter
+        test([12.34, 12.34*2, 12.34*3, 12.34*4],
+             [0, 0, 0, 0],
+             1,
+             [tf.float32, tf.float64, tf.int32, tf.int64],
+             [tf.int32, tf.int64],
+             [[12.34],
+              [12.34*2],
+              [12.34*3],
+              [12.34*4]],
+             use_gpu=True)
+
+        # With padding
+        test([12.34, 12.34*2, 12.34*3, 12.34*4],
+             [1, 4, 2, 0],
+             5,
+             [tf.float32, tf.float64, tf.int32, tf.int64],
+             [tf.int32, tf.int64],
+             [[0.0, 12.34, 0.0, 0.0, 0.0],
+              [0.0, 0.0, 0.0, 0.0, 12.34*2],
+              [0.0, 0.0, 12.34*3, 0.0, 0.0],
+              [12.34*4, 0.0, 0.0, 0.0, 0.0]],
+             use_gpu=True)
 
     def test_broadcast_value(self):
         """broadcast_value for various value types"""

@@ -23,15 +23,20 @@ DEFAULT_COMPUTE_CAPABILITIES = ["3.5", "5.2", "6.1"]
 # Specify sources
 ###############################
 SOURCES_CUDA = ['gather_columns_functor_gpu.cu.cc',
-                'scatter_columns_functor_gpu.cu.cc']
+                'scatter_columns_functor_gpu.cu.cc',
+                'scatter_values_functor_gpu.cu.cc']
 HEADERS_CUDA = ['gather_columns_functor_gpu.cu.h',
-                'scatter_columns_functor_gpu.cu.h']
+                'scatter_columns_functor_gpu.cu.h',
+                'scatter_values_functor_gpu.cu.h']
 SOURCES = ['gather_columns.cc',
            'gather_columns_functor.cc',
            'scatter_columns.cc',
-           'scatter_columns_functor.cc']
+           'scatter_columns_functor.cc',
+           'scatter_values.cc',
+           'scatter_values_functor.cc']
 HEADERS = ['gather_columns_functor.h',
-           'scatter_columns_functor.h']
+           'scatter_columns_functor.h',
+           'scatter_values_functor.h']
 
 
 ###############################
@@ -198,6 +203,7 @@ class BuildCommand(distutils.command.build.build):
         import libspn.ops.ops
         libspn.ops.gather_cols
         libspn.ops.scatter_cols
+        libspn.ops.scatter_values
         print("Custom ops loaded correctly!")
 
     def run(self):
