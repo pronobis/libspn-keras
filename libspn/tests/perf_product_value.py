@@ -25,6 +25,7 @@ green = col.Fore.GREEN
 yellow = col.Fore.YELLOW
 magenta = col.Fore.MAGENTA
 
+
 def print1(str, file, color=yellow):
     if file:
         print(str, file=file)
