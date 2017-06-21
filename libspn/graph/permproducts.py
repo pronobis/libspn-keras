@@ -169,25 +169,22 @@ class PermProducts(OpNode):
             # Shape of values tensor = [Batch, (num_prods * num_vals)]
             # First, split the values tensor into 'num_prods' smaller tensors.
             # Then pack the split tensors together such that the new shape
-            # of values tensor = [num_prods, Batch, num_vals]
-            reshaped_values = tf.stack(tf.split(permuted_values, self._num_prods, 1))
+            # of values tensor = [Batch, num_prods, num_vals]
+            reshaped_values = tf.stack(tf.split(permuted_values,
+                                                self._num_prods, 1), axis=1)
             return reshaped_values
         else:
             return values
 
     def _compute_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
-        if self._num_prods > 1:
-            return tf.transpose(tf.reduce_prod(values, axis=-1))
-        else:
-            return tf.reduce_prod(values, axis=-1, keep_dims=True)
+        return tf.reduce_prod(values, axis=-1,
+                              keep_dims=(False if self._num_prods > 1 else True))
 
     def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
-        if self._num_prods > 1:
-            return tf.transpose(tf.reduce_sum(values, axis=-1))
-        else:
-            return tf.reduce_sum(values, axis=-1, keep_dims=True)
+        return tf.reduce_sum(values, axis=-1,
+                             keep_dims=(False if self._num_prods > 1 else True))
 
     def _compute_mpe_value(self, *value_tensors):
         return self._compute_value(*value_tensors)
@@ -195,7 +192,8 @@ class PermProducts(OpNode):
     def _compute_log_mpe_value(self, *value_tensors):
         return self._compute_log_value(*value_tensors)
 
-    def _compute_mpe_path(self, counts, *value_values, add_random=False, use_unweighted=False):
+    def _compute_mpe_path(self, counts, *value_values, add_random=False,
+                          use_unweighted=False):
         # Path per product node is calculated by permuting backwards to the
         # input nodes, then adding the appropriate counts per input, and then
         # scattering the summed counts to value inputs
@@ -233,7 +231,8 @@ class PermProducts(OpNode):
                     start = i * block_size
                     stop = self._num_prods - (block_size * (inp_size-i-1))
                     counts_indices_list.append(range_with_blocksize(start, stop,
-                                                                    block_size, step))
+                                                                    block_size,
+                                                                    step))
 
             return counts_indices_list
 
@@ -257,5 +256,6 @@ class PermProducts(OpNode):
 
         return self._scatter_to_input_tensors(*value_counts)
 
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False, use_unweighted=False):
+    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
+                              use_unweighted=False):
         return self._compute_mpe_path(counts, *value_values)
