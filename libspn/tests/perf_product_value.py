@@ -164,12 +164,7 @@ class PerformanceTest:
         print1("", file=file)
 
 
-    def _true_output(self, op_fun, inputs, inf_type=None, log=False):
-        if log:
-            np_prod_op = np.sum
-        else:
-            np_prod_op = np.prod
-
+    def _true_output(self, inputs, inf_type=None):
         if inf_type == spn.InferenceType.MARGINAL:
             np_sum_op = np.sum
         elif inf_type == spn.InferenceType.MPE:
@@ -210,7 +205,7 @@ class PerformanceTest:
                   self.file)
 
         # Compute true output
-        true_out = self._true_output(op_fun, inputs, inf_type, log)
+        true_out = self._true_output(inputs, inf_type)
 
         # Create graph
         tf.reset_default_graph()
