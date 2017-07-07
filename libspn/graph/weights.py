@@ -129,7 +129,7 @@ class Weights(ParamNode):
                                      collections=['spn_weights'])
 
     def _compute_out_size(self):
-        return self._num_weights
+        return self._num_weights * self._num_sums
 
     def _compute_value(self):
         return self._variable
