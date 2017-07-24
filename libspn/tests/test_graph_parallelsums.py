@@ -1107,7 +1107,7 @@ class TestNodesParallelSums(unittest.TestCase):
         # Weights
         np.testing.assert_array_almost_equal(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
-                               [0., 0., 11., 0., 0., 0.],
+                                            [0., 0., 11., 0., 0., 0.],
                                [0., 0., 0., 0., 0., 12.],
                                [0., 0., 0., 0., 13., 0.],
                                [0., 14., 0., 0., 0., 0.],
