@@ -830,6 +830,44 @@ class TestNodesParallelSums(unittest.TestCase):
                               spn.Scope(s4.ivs.node, 1) |
                               spn.Scope(s4.ivs.node, 2)])
 
+    def test_compute_valid(self):
+        """Calculating validity of Sum"""
+        # Without IVs
+        v12 = spn.IVs(num_vars=2, num_vals=4)
+        v34 = spn.ContVars(num_vars=2)
+        s1 = spn.ParallelSums((v12, [0, 1, 2, 3]), num_sums=3, name="S1")
+        s2 = spn.ParallelSums((v12, [0, 1, 2, 4]), name="S2")
+        s3 = spn.ParallelSums((v12, [0, 1, 2, 3]), (v34, 0), num_sums=2, name="S3")
+        p1 = spn.Product((v12, [0, 5]), (v34, 0), name="P1")
+        p2 = spn.Product((v12, [1, 6]), (v34, 0), name="P2")
+        p3 = spn.Product((v12, [1, 6]), (v34, 1), name="P3")
+        s4 = spn.ParallelSums(p1, p2, num_sums=2, name="S4")
+        s5 = spn.ParallelSums(p1, p3, num_sums=3, name="S5")
+        self.assertTrue(v12.is_valid())
+        self.assertTrue(v34.is_valid())
+        self.assertTrue(s1.is_valid())
+        self.assertFalse(s2.is_valid())
+        self.assertFalse(s3.is_valid())
+        self.assertTrue(s4.is_valid())
+        self.assertFalse(s5.is_valid())
+        # With IVS
+        s6 = spn.ParallelSums(p1, p2, num_sums=3, name="S6")
+        s6.generate_ivs()
+        self.assertTrue(s6.is_valid())
+        s7 = spn.ParallelSums(p1, p2, num_sums=1, name="S7")
+        s7.set_ivs(spn.ContVars(num_vars=2))
+        self.assertFalse(s7.is_valid())
+        s8 = spn.ParallelSums(p1, p2, num_sums=2, name="S8")
+        s8.set_ivs(spn.IVs(num_vars=3, num_vals=2))
+        s9 = spn.ParallelSums(p1, p2, num_sums=2, name="S9")
+        s9.set_ivs(spn.ContVars(num_vars=2))
+        with self.assertRaises(spn.StructureError):
+            s8.is_valid()
+            s9.is_valid()
+        s10 = spn.ParallelSums(p1, p2, num_sums=2, name="S10")
+        s10.set_ivs((v12, [0, 3, 5, 7]))
+        self.assertTrue(s10.is_valid())
+
     def test_compute_mpe_path_noivs_single_sum(self):
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
