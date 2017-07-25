@@ -9,7 +9,6 @@
 
 from itertools import chain
 import tensorflow as tf
-import numpy as np
 from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode, Input
 from libspn.inference.type import InferenceType
@@ -19,8 +18,6 @@ from libspn import utils
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
 from libspn import conf
-
-from itertools import cycle
 
 
 class ParallelSums(OpNode):
@@ -56,7 +53,7 @@ class ParallelSums(OpNode):
                  inference_type=InferenceType.MARGINAL, name="ParallelSums"):
         if not num_sums > 0:
             raise StructureError("In %s num_sums: %s need to be > 0" % self,
-                                  num_sums)
+                                 num_sums)
 
         super().__init__(inference_type, name)
 
@@ -289,7 +286,6 @@ class ParallelSums(OpNode):
         values = utils.concat_maybe(value_tensors, 1)
         return weight_tensor, ivs_tensor, values
 
-
     def _compute_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
@@ -298,12 +294,11 @@ class ParallelSums(OpNode):
             # reshape it to (num_sums X Batch X num_feat)
             reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
-            values_selected_weighted = tf.expand_dims(values, axis=1) * \
-                                       (ivs_tensor * weight_tensor)
+            values_selected_weighted = tf.expand_dims(values, axis=1) * (
+                                       ivs_tensor * weight_tensor)
             return tf.reduce_sum(values_selected_weighted, axis=2)
         else:
             return tf.matmul(values, weight_tensor, transpose_b=True)
-
 
     def _compute_log_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
@@ -319,7 +314,6 @@ class ParallelSums(OpNode):
             values_weighted = tf.expand_dims(values, axis=1) + weight_tensor
         return utils.reduce_log_sum_3D(values_weighted, transpose=False)
 
-
     def _compute_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
@@ -333,7 +327,6 @@ class ParallelSums(OpNode):
         else:
             values_weighted = tf.expand_dims(values, axis=1) * weight_tensor
         return tf.reduce_max(values_weighted, axis=2)
-
 
     def _compute_log_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
@@ -349,13 +342,12 @@ class ParallelSums(OpNode):
             values_weighted = tf.expand_dims(values, axis=1) + weight_tensor
         return tf.reduce_max(values_weighted, axis=2)
 
-
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
                                  ivs_value, *value_values):
         # Propagate the counts to the max value
         max_indices = tf.argmax(values_weighted, dimension=2)
         max_counts = utils.scatter_values(params=counts, indices=max_indices,
-                         num_out_cols=values_weighted.shape[2].value)
+                                          num_out_cols=values_weighted.shape[2].value)
         # Sum up max counts between individual sum nodes
         max_counts_summed = tf.reduce_sum(max_counts, 1)
         # Split the max counts to value inputs
@@ -365,7 +357,6 @@ class ParallelSums(OpNode):
             (max_counts, weight_value),  # Weights
             (max_counts_summed, ivs_value),  # IVs
             *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
-
 
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
                           add_random=None, use_unweighted=False):
@@ -383,7 +374,6 @@ class ParallelSums(OpNode):
             values_weighted = tf.expand_dims(values, axis=1) * weight_value
         return self._compute_mpe_path_common(
              values_weighted, counts, weight_value, ivs_value, *value_values)
-
 
     def _compute_log_mpe_path(self, counts, weight_value, ivs_value,
                               *value_values, add_random=None,

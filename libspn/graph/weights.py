@@ -79,8 +79,8 @@ class Weights(ParamNode):
 
     @property
     def variable(self):
-        """Variable: The TF variable of shape ``[num_sums, num_weights]`` holding the
-        weights."""
+        """Variable: The TF variable of shape ``[num_sums, num_weights]``
+        holding the weights."""
         return self._variable
 
     def initialize(self):
@@ -124,7 +124,8 @@ class Weights(ParamNode):
         init_val = utils.broadcast_value(self._init_value,
                                          shape=(shape,),
                                          dtype=conf.dtype)
-        init_val = utils.normalize_tensor_2D(init_val, self._num_weights, self._num_sums)
+        init_val = utils.normalize_tensor_2D(init_val, self._num_weights,
+                                             self._num_sums)
         self._variable = tf.Variable(init_val, dtype=conf.dtype,
                                      collections=['spn_weights'])
 

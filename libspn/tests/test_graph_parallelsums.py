@@ -21,8 +21,8 @@ class TestNodesParallelSums(unittest.TestCase):
     def test_compute_marginal_value(self):
         """Calculating marginal value of Sum."""
         def test(values, num_sums, ivs, weights, feed, output):
-            with self.subTest(values=values, num_sums=num_sums, ivs=ivs, weights=weights,
-                              feed=feed):
+            with self.subTest(values=values, num_sums=num_sums, ivs=ivs,
+                              weights=weights, feed=feed):
                 n = spn.ParallelSums(*values, num_sums=num_sums, ivs=ivs)
                 n.generate_weights(weights)
                 op = n.get_value(spn.InferenceType.MARGINAL)
@@ -407,8 +407,8 @@ class TestNodesParallelSums(unittest.TestCase):
     def test_compute_mpe_value(self):
         """Calculating MPE value of Parallel Sums."""
         def test(values, num_sums, ivs, weights, feed, output):
-            with self.subTest(values=values, num_sums=num_sums, ivs=ivs, weights=weights,
-                              feed=feed):
+            with self.subTest(values=values, num_sums=num_sums, ivs=ivs,
+                              weights=weights, feed=feed):
                 n = spn.ParallelSums(*values, num_sums=num_sums, ivs=ivs)
                 n.generate_weights(weights)
                 op = n.get_value(spn.InferenceType.MPE)
@@ -761,24 +761,24 @@ class TestNodesParallelSums(unittest.TestCase):
              [[0.1*0.2]])
 
     def test_comput_scope(self):
-        """Calculating scope of Sum"""
+        """Calculating scope of ParallelSums"""
         # Create graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=2, name="V34")
-        ivs_s4 = spn.IVs(num_vars=3, num_vals=4, name="ivs_s4")
-        s1 = spn.ParallelSums((v12, [0, 1, 2, 3]), num_sums=2, name="S1")
+        v12 = spn.IVs(num_vars=2, num_vals=4)
+        v34 = spn.ContVars(num_vars=2)
+        ivs_s4 = spn.IVs(num_vars=3, num_vals=4)
+        s1 = spn.ParallelSums((v12, [0, 1, 2, 3]), num_sums=2)
         s1.generate_ivs()
-        s2 = spn.ParallelSums((v12, [4, 5, 6, 7]), num_sums=1, name="S2")
-        p1 = spn.Product((v12, [0, 7]), name="P1")
-        p2 = spn.Product((v12, [3, 4]), name="P1")
-        p3 = spn.Product(v34, name="P3")
-        n1 = spn.Concat(s1, s2, p3, name="N1")
-        n2 = spn.Concat(p1, p2, name="N2")
-        p4 = spn.Product((n1, [0]), (n1, [1]), name="P4")
-        p5 = spn.Product((n2, [0]), (n1, [2]), name="P5")
-        s3 = spn.Sum(p4, n2, name="S3")
-        p6 = spn.Product(s3, (n1, [2]), name="P6")
-        s4 = spn.Sum(p5, p6, ivs=ivs_s4, name="S4")
+        s2 = spn.ParallelSums((v12, [4, 5, 6, 7]), num_sums=1)
+        p1 = spn.Product((v12, [0, 7]))
+        p2 = spn.Product((v12, [3, 4]))
+        p3 = spn.Product(v34)
+        n1 = spn.Concat(s1, s2, p3)
+        n2 = spn.Concat(p1, p2)
+        p4 = spn.Product((n1, [0]), (n1, [1]))
+        p5 = spn.Product((n2, [0]), (n1, [2]))
+        s3 = spn.Sum(p4, n2)
+        p6 = spn.Product(s3, (n1, [2]))
+        s4 = spn.Sum(p5, p6, ivs=ivs_s4)
         # Test
         self.assertListEqual(v12.get_scope(),
                              [spn.Scope(v12, 0), spn.Scope(v12, 0),
@@ -831,18 +831,18 @@ class TestNodesParallelSums(unittest.TestCase):
                               spn.Scope(s4.ivs.node, 2)])
 
     def test_compute_valid(self):
-        """Calculating validity of Sum"""
+        """Calculating validity of ParallelSums"""
         # Without IVs
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
-        s1 = spn.ParallelSums((v12, [0, 1, 2, 3]), num_sums=3, name="S1")
+        s1 = spn.ParallelSums((v12, [0, 1, 2, 3]), num_sums=3)
         s2 = spn.ParallelSums((v12, [0, 1, 2, 4]), name="S2")
-        s3 = spn.ParallelSums((v12, [0, 1, 2, 3]), (v34, 0), num_sums=2, name="S3")
-        p1 = spn.Product((v12, [0, 5]), (v34, 0), name="P1")
-        p2 = spn.Product((v12, [1, 6]), (v34, 0), name="P2")
-        p3 = spn.Product((v12, [1, 6]), (v34, 1), name="P3")
-        s4 = spn.ParallelSums(p1, p2, num_sums=2, name="S4")
-        s5 = spn.ParallelSums(p1, p3, num_sums=3, name="S5")
+        s3 = spn.ParallelSums((v12, [0, 1, 2, 3]), (v34, 0), num_sums=2)
+        p1 = spn.Product((v12, [0, 5]), (v34, 0))
+        p2 = spn.Product((v12, [1, 6]), (v34, 0))
+        p3 = spn.Product((v12, [1, 6]), (v34, 1))
+        s4 = spn.ParallelSums(p1, p2, num_sums=2)
+        s5 = spn.ParallelSums(p1, p3, num_sums=3)
         self.assertTrue(v12.is_valid())
         self.assertTrue(v34.is_valid())
         self.assertTrue(s1.is_valid())
@@ -851,20 +851,20 @@ class TestNodesParallelSums(unittest.TestCase):
         self.assertTrue(s4.is_valid())
         self.assertFalse(s5.is_valid())
         # With IVS
-        s6 = spn.ParallelSums(p1, p2, num_sums=3, name="S6")
+        s6 = spn.ParallelSums(p1, p2, num_sums=3)
         s6.generate_ivs()
         self.assertTrue(s6.is_valid())
-        s7 = spn.ParallelSums(p1, p2, num_sums=1, name="S7")
+        s7 = spn.ParallelSums(p1, p2, num_sums=1)
         s7.set_ivs(spn.ContVars(num_vars=2))
         self.assertFalse(s7.is_valid())
-        s8 = spn.ParallelSums(p1, p2, num_sums=2, name="S8")
+        s8 = spn.ParallelSums(p1, p2, num_sums=2)
         s8.set_ivs(spn.IVs(num_vars=3, num_vals=2))
-        s9 = spn.ParallelSums(p1, p2, num_sums=2, name="S9")
+        s9 = spn.ParallelSums(p1, p2, num_sums=2)
         s9.set_ivs(spn.ContVars(num_vars=2))
         with self.assertRaises(spn.StructureError):
             s8.is_valid()
             s9.is_valid()
-        s10 = spn.ParallelSums(p1, p2, num_sums=2, name="S10")
+        s10 = spn.ParallelSums(p1, p2, num_sums=2)
         s10.set_ivs((v12, [0, 3, 5, 7]))
         self.assertTrue(s10.is_valid())
 
@@ -910,10 +910,10 @@ class TestNodesParallelSums(unittest.TestCase):
         # Weights
         np.testing.assert_array_almost_equal(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
-                               [0., 0., 11., 0., 0., 0.],
-                               [0., 0., 0., 0., 0., 12.],
-                               [0., 0., 0., 0., 13., 0.]]],
-                             dtype=np.float32), [1, 0, 2]))
+                                            [0., 0., 11., 0., 0., 0.],
+                                            [0., 0., 0., 0., 0., 12.],
+                                            [0., 0., 0., 0., 13., 0.]]],
+                                 dtype=np.float32), [1, 0, 2]))
 
         np.testing.assert_array_almost_equal(
             out[1], np.array([[10., 0., 0., 0., 0., 0., 0., 0.],
@@ -985,15 +985,14 @@ class TestNodesParallelSums(unittest.TestCase):
         # Weights
         np.testing.assert_array_almost_equal(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
-                               [0., 0., 11., 0., 0., 0.],
-                               [0., 0., 0., 0., 0., 12.],
-                               [0., 0., 0., 0., 13., 0.]],
-
-                              [[20., 0., 0., 0., 0., 0.],
-                               [0., 0., 21., 0., 0., 0.],
-                               [0., 0., 0., 0., 0., 22.],
-                               [0., 0., 0., 0., 23., 0.]]],
-                             dtype=np.float32), [1, 0, 2]))
+                                            [0., 0., 11., 0., 0., 0.],
+                                            [0., 0., 0., 0., 0., 12.],
+                                            [0., 0., 0., 0., 13., 0.]],
+                                           [[20., 0., 0., 0., 0., 0.],
+                                            [0., 0., 21., 0., 0., 0.],
+                                            [0., 0., 0., 0., 0., 22.],
+                                            [0., 0., 0., 0., 23., 0.]]],
+                                 dtype=np.float32), [1, 0, 2]))
 
         np.testing.assert_array_almost_equal(
             out[1], np.array([[30., 0., 0., 0., 0., 0., 0., 0.],
@@ -1083,14 +1082,14 @@ class TestNodesParallelSums(unittest.TestCase):
         # Weights
         np.testing.assert_array_almost_equal(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
-                               [0., 0., 11., 0., 0., 0.],
-                               [0., 0., 0., 0., 0., 12.],
-                               [0., 0., 0., 0., 13., 0.],
-                               [0., 14., 0., 0., 0., 0.],
-                               [0., 0., 15., 0., 0., 0.],
-                               [0., 0., 0., 16., 0., 0.],
-                               [17., 0., 0., 0., 0., 0.]]],
-                             dtype=np.float32), [1, 0, 2]))
+                                            [0., 0., 11., 0., 0., 0.],
+                                            [0., 0., 0., 0., 0., 12.],
+                                            [0., 0., 0., 0., 13., 0.],
+                                            [0., 14., 0., 0., 0., 0.],
+                                            [0., 0., 15., 0., 0., 0.],
+                                            [0., 0., 0., 16., 0., 0.],
+                                            [17., 0., 0., 0., 0., 0.]]],
+                                 dtype=np.float32), [1, 0, 2]))
 
         # IVs
         np.testing.assert_array_almost_equal(
@@ -1215,23 +1214,22 @@ class TestNodesParallelSums(unittest.TestCase):
         # Weights
         np.testing.assert_array_almost_equal(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
-                               [0., 0., 11., 0., 0., 0.],
-                               [0., 0., 0., 0., 0., 12.],
-                               [0., 0., 0., 0., 13., 0.],
-                               [0., 14., 0., 0., 0., 0.],
-                               [0., 0., 15., 0., 0., 0.],
-                               [0., 0., 0., 16., 0., 0.],
-                               [17., 0., 0., 0., 0., 0.]],
-
-                              [[20., 0., 0., 0., 0., 0.],
-                               [0., 0., 21., 0., 0., 0.],
-                               [0., 0., 0., 0., 0., 22.],
-                               [0., 0., 0., 0., 23., 0.],
-                               [0., 24., 0., 0., 0., 0.],
-                               [0., 0., 25., 0., 0., 0.],
-                               [0., 0., 0., 26., 0., 0.],
-                               [27., 0., 0., 0., 0., 0.]]],
-                             dtype=np.float32), [1, 0, 2]))
+                                            [0., 0., 11., 0., 0., 0.],
+                                            [0., 0., 0., 0., 0., 12.],
+                                            [0., 0., 0., 0., 13., 0.],
+                                            [0., 14., 0., 0., 0., 0.],
+                                            [0., 0., 15., 0., 0., 0.],
+                                            [0., 0., 0., 16., 0., 0.],
+                                            [17., 0., 0., 0., 0., 0.]],
+                                           [[20., 0., 0., 0., 0., 0.],
+                                            [0., 0., 21., 0., 0., 0.],
+                                            [0., 0., 0., 0., 0., 22.],
+                                            [0., 0., 0., 0., 23., 0.],
+                                            [0., 24., 0., 0., 0., 0.],
+                                            [0., 0., 25., 0., 0., 0.],
+                                            [0., 0., 0., 26., 0., 0.],
+                                            [27., 0., 0., 0., 0., 0.]]],
+                                 dtype=np.float32), [1, 0, 2]))
 
         # IVs
         np.testing.assert_array_almost_equal(

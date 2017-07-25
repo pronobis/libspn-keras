@@ -274,13 +274,14 @@ def scatter_values(params, indices, num_out_cols, name=None):
             if conf.custom_scatter_values:
                 return ops.scatter_values(params, indices,
                                           num_out_cols=num_out_cols)
-            else: # OneHot
+            else:  # OneHot
                 if param_dims == 1:
                     return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
                            * tf.expand_dims(params, axis=1)
                 else:
                     return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
                            * tf.expand_dims(params, axis=2)
+
 
 def broadcast_value(value, shape, dtype, name=None):
     """Broadcast the given value to the given shape and dtype. If ``value`` is
@@ -409,6 +410,7 @@ def reduce_log_sum_3D(log_input, transpose=True, name=None):
                                                     out_normal), -1))
         else:
             return tf.squeeze(tf.where(all_zero, out_zeros, out_normal), -1)
+
 
 def concat_maybe(values, axis, name='concat'):
     """Concatenate ``values`` if there is more than one value. Oherwise, just
