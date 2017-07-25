@@ -24,6 +24,7 @@ green = col.Fore.GREEN
 yellow = col.Fore.YELLOW
 magenta = col.Fore.MAGENTA
 
+
 def print1(str, file, color=yellow):
     if file:
         print(str, file=file)
@@ -86,6 +87,7 @@ class Ops:
             value_op = root.get_value(inference_type=inf_type)
 
         return spn.initialize_weights(root), value_op
+
 
 class OpTestResult:
     """Result of a single test of a single op."""
@@ -167,7 +169,6 @@ class PerformanceTest:
         print1("- num_runs=%s" % num_runs, file)
         print1("", file=file)
 
-
     def _true_output(self, op_fun, inputs, indices, ivs=None, inf_type=None):
         input_size = inputs.shape[1]
 
@@ -198,13 +199,12 @@ class PerformanceTest:
 
         # Compute true output with numpy
         if ivs is None:
-            return np_op(np.transpose(np_op((inputs_array * weight), axis=-1)) \
+            return np_op(np.transpose(np_op((inputs_array * weight), axis=-1))
                          * root_weight, axis=-1, keepdims=True)
         else:
             ivs_oh = np.eye(input_size)[np.squeeze(ivs_slice)]
             return np_op(np.transpose(np_op((inputs_array * ivs_oh * weight),
                          axis=-1)) * root_weight, axis=-1, keepdims=True)
-
 
     def _run_op_test(self, op_fun, inputs, indices=None, ivs=None,
                      inf_type=spn.InferenceType.MARGINAL, log=False, on_gpu=True):
@@ -216,7 +216,7 @@ class PerformanceTest:
         # Print
         print2("--> %s: on_gpu=%s, inputs_shape=%s, indices=%s, ivs=%s, inference=%s, log=%s"
                % (op_name, on_gpu, inputs.shape, ("No" if indices is None else "Yes"),
-                  ("No" if ivs is None else "Yes"), ("MPE" if inf_type == \
+                  ("No" if ivs is None else "Yes"), ("MPE" if inf_type ==
                   spn.InferenceType.MPE else "MARGINAL"), log), self.file)
 
         input_size = inputs.shape[1]
@@ -297,8 +297,8 @@ class PerformanceTest:
                 file_name = op_name
                 file_name += ("_GPU" if on_gpu else "_CPU")
                 file_name += ("_MPE-LOG" if log else "_MPE") if inf_type == \
-                             spn.InferenceType.MPE else ("_MARGINAL-LOG" if \
-                             log else "_MARGINAL")
+                    spn.InferenceType.MPE else ("_MARGINAL-LOG" if log else
+                                                "_MARGINAL")
                 if indices is not None:
                     file_name += "_Indices"
                 if ivs is not None:
@@ -309,8 +309,8 @@ class PerformanceTest:
                     f.write(chrome_trace)
 
         # Return stats
-        return OpTestResult(op_name, on_gpu, graph_size, ("No" if indices is \
-                                                           None else "Yes"),
+        return OpTestResult(op_name, on_gpu, graph_size, ("No" if indices is
+                                                          None else "Yes"),
                             ("No" if ivs is None else "Yes"), setup_time,
                             weights_init_time, run_times, output_correct)
 
@@ -320,27 +320,26 @@ class PerformanceTest:
         gpu_results = []
         for op_fun, inp, ind, iv in zip(op_funs, inputs, indices, ivs):
             if not self.without_cpu:
-                cpu_results.append( # Indices = No, IVs = No
+                cpu_results.append(  # Indices = No, IVs = No
                     self._run_op_test(op_fun, inp, indices=None, ivs=None,
                                       inf_type=inf_type, log=log, on_gpu=False))
-                cpu_results.append( # Indices = Yes, IVs = No
+                cpu_results.append(  # Indices = Yes, IVs = No
                     self._run_op_test(op_fun, inp, indices=ind, ivs=None,
                                       inf_type=inf_type, log=log, on_gpu=False))
-                cpu_results.append( # Indices = Yes, IVs = Yes
+                cpu_results.append(  # Indices = Yes, IVs = Yes
                     self._run_op_test(op_fun, inp, indices=ind, ivs=iv,
                                       inf_type=inf_type, log=log, on_gpu=False))
             if not self.without_gpu:
-                gpu_results.append( # Indices = No, IVs = No
+                gpu_results.append(  # Indices = No, IVs = No
                     self._run_op_test(op_fun, inp, indices=None, ivs=None,
                                       inf_type=inf_type, log=log, on_gpu=True))
-                gpu_results.append( # Indices = Yes, IVs = No
+                gpu_results.append(  # Indices = Yes, IVs = No
                     self._run_op_test(op_fun, inp, indices=ind, ivs=None,
                                       inf_type=inf_type, log=log, on_gpu=True))
-                gpu_results.append( # Indices = Yes, IVs = Yes
+                gpu_results.append(  # Indices = Yes, IVs = Yes
                     self._run_op_test(op_fun, inp, indices=ind, ivs=iv,
                                       inf_type=inf_type, log=log, on_gpu=True))
         return TestResults(test_name, cpu_results, gpu_results)
-
 
     def run(self):
         """Run all tests."""
@@ -352,7 +351,7 @@ class PerformanceTest:
         sum_indices = list(range(self.num_input_cols-1, -1, -1))
         sum_ivs = np.expand_dims(np.random.randint(self.num_input_cols,
                                                    size=self.num_input_rows),
-                                                   axis=1)
+                                 axis=1)
 
         # ParallelSums
         parallel_sums_inputs = np.random.rand(self.num_input_rows,

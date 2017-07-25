@@ -13,7 +13,6 @@ from context import libspn as spn
 import time
 import argparse
 import colorama as col
-import sys
 from tensorflow.python.client import timeline
 import os
 col.init()
@@ -23,6 +22,7 @@ blue = col.Fore.BLUE
 green = col.Fore.GREEN
 yellow = col.Fore.YELLOW
 magenta = col.Fore.MAGENTA
+
 
 def print1(str, file, color=yellow):
     if file:
@@ -170,7 +170,6 @@ class PerformanceTest:
         print1("- num_runs=%s" % num_runs, file)
         print1("", file=file)
 
-
     def _true_output(self, op_fun, inputs, indices, ivs=None):
         input_size = inputs.shape[1]
 
@@ -204,6 +203,7 @@ class PerformanceTest:
         elif op_fun is Ops.parallel_sums:
             return np.transpose(np.delete(np.insert(np.zeros_like(inputs_array),
                                           0, counts, axis=0), -1, 0), [1, 0, 2])
+
     def _run_op_test(self, op_fun, inputs, indices=None, ivs=None,
                      inf_type=spn.InferenceType.MARGINAL, log=False, on_gpu=True):
         """Run a single test for a single op."""
@@ -213,9 +213,9 @@ class PerformanceTest:
 
         # Print
         print2("--> %s: on_gpu=%s, inputs_shape=%s, indices=%s, ivs=%s, inference=%s, log=%s"
-               % (op_name, on_gpu, inputs.shape, ("No" if indices is None \
+               % (op_name, on_gpu, inputs.shape, ("No" if indices is None
                                                   else "Yes"),
-                  ("No" if ivs is None else "Yes"), ("MPE" if inf_type == \
+                  ("No" if ivs is None else "Yes"), ("MPE" if inf_type ==
                   spn.InferenceType.MPE else "MARGINAL"), log), self.file)
 
         input_size = inputs.shape[1]
@@ -260,7 +260,6 @@ class PerformanceTest:
             # Initialize weights of all the sum nodes in the graph
             start_time = time.time()
             init_ops.run()
-            weights_init_time = time.time() - start_time
 
             run_times = []
             # Create feed dictionary
@@ -298,8 +297,8 @@ class PerformanceTest:
                 file_name = op_name
                 file_name += ("_GPU" if on_gpu else "_CPU")
                 file_name += ("_MPE-LOG" if log else "_MPE") if inf_type == \
-                             spn.InferenceType.MPE else ("_MARGINAL-LOG" if \
-                             log else "_MARGINAL")
+                    spn.InferenceType.MPE else ("_MARGINAL-LOG" if log else
+                                                "_MARGINAL")
                 if indices is not None:
                     file_name += "_Indices"
                 if ivs is not None:
@@ -310,10 +309,10 @@ class PerformanceTest:
                     f.write(chrome_trace)
 
         # Return stats
-        return OpTestResult(op_name, on_gpu, graph_size, ("No" if indices is \
+        return OpTestResult(op_name, on_gpu, graph_size, ("No" if indices is
                                                           None else "Yes"),
                             ("No" if ivs is None else "Yes"), setup_time,
-                             run_times, output_correct)
+                            run_times, output_correct)
 
     def _run_test(self, test_name, op_funs, inputs, indices, ivs, inf_type, log):
         """Run a single test for multiple ops and devices."""
@@ -321,27 +320,26 @@ class PerformanceTest:
         gpu_results = []
         for op_fun, inp, ind, iv in zip(op_funs, inputs, indices, ivs):
             if not self.without_cpu:
-                cpu_results.append( # Indices = No, IVs = No
+                cpu_results.append(  # Indices = No, IVs = No
                     self._run_op_test(op_fun, inp, indices=None, ivs=None,
                                       inf_type=inf_type, log=log, on_gpu=False))
-                cpu_results.append( # Indices = Yes, IVs = No
+                cpu_results.append(  # Indices = Yes, IVs = No
                     self._run_op_test(op_fun, inp, indices=ind, ivs=None,
                                       inf_type=inf_type, log=log, on_gpu=False))
-                cpu_results.append( # Indices = Yes, IVs = Yes
+                cpu_results.append(  # Indices = Yes, IVs = Yes
                     self._run_op_test(op_fun, inp, indices=ind, ivs=iv,
                                       inf_type=inf_type, log=log, on_gpu=False))
             if not self.without_gpu:
-                gpu_results.append( # Indices = No, IVs = No
+                gpu_results.append(  # Indices = No, IVs = No
                     self._run_op_test(op_fun, inp, indices=None, ivs=None,
                                       inf_type=inf_type, log=log, on_gpu=True))
-                gpu_results.append( # Indices = Yes, IVs = No
+                gpu_results.append(  # Indices = Yes, IVs = No
                     self._run_op_test(op_fun, inp, indices=ind, ivs=None,
                                       inf_type=inf_type, log=log, on_gpu=True))
-                gpu_results.append( # Indices = Yes, IVs = Yes
+                gpu_results.append(  # Indices = Yes, IVs = Yes
                     self._run_op_test(op_fun, inp, indices=ind, ivs=iv,
                                       inf_type=inf_type, log=log, on_gpu=True))
         return TestResults(test_name, cpu_results, gpu_results)
-
 
     def run(self):
         """Run all tests."""
@@ -353,7 +351,7 @@ class PerformanceTest:
         sum_indices = list(range(self.num_input_cols-1, -1, -1))
         sum_ivs = np.expand_dims(np.random.randint(self.num_input_cols,
                                                    size=self.num_input_rows),
-                                                   axis=1)
+                                 axis=1)
 
         # ParallelSums
         parallel_sums_inputs = np.random.rand(self.num_input_rows, self.num_input_cols)
