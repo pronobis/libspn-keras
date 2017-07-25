@@ -39,11 +39,13 @@ class Ops:
         if len(b.shape) == 2:
             return tf.matmul(a, b, transpose_b=True)
         else:
-            return tf.squeeze(tf.matmul(tf.expand_dims(a, axis=1), b, transpose_b=True))
+            return tf.squeeze(tf.matmul(tf.expand_dims(a, axis=1), b,
+                                        transpose_b=True))
 
     def reduction_by_matmul(a, b):
         bcasted = tf.expand_dims(a, axis=1) * b
-        ones = tf.ones(shape=(tf.shape(a)[0], 1, a.shape.as_list()[1]), dtype=bcasted.dtype)
+        ones = tf.ones(shape=(tf.shape(a)[0], 1, a.shape.as_list()[1]),
+                       dtype=bcasted.dtype)
         return tf.squeeze(tf.matmul(ones, bcasted, transpose_b=True))
 
 
@@ -70,13 +72,13 @@ class TestResults:
 
     def print(self, file):
         def get_header(dev):
-            return ("%3s %11s: %5s %11s %15s %14s %10s" %
+            return ("%3s %15s: %5s %11s %15s %14s %10s" %
                     (dev, 'op', 'size', 'setup_time',
                      'first_run_time', 'rest_run_time', 'correct'))
 
         def get_res(res):
             """Helper function printing a single result."""
-            return ("%15s: %5d %11.2f %15.2f %14.2f %10s" %
+            return ("%19s: %5d %11.2f %15.2f %14.2f %10s" %
                     (res.op_name, res.graph_size,
                      res.setup_time * 1000, res.run_times[0] * 1000,
                      np.mean(res.run_times[1:]) * 1000,
@@ -136,8 +138,8 @@ class PerformanceTest:
         tf.reset_default_graph()
         with tf.device(device_name):
             # Create input
-            # We cannot use a constant here, since the operation will be pre-computed
-            # on a CPU for some cases (e.g. for int64 indices)
+            # We cannot use a constant here, since the operation will be
+            # pre-computed on a CPU for some cases (e.g. for int64 indices)
             # To ensure that data is copied only once, we add an identity op
             # which is served the input data and connected to all ops
             a_pl = tf.placeholder(dtype=self.dtype, shape=(None, a.shape[1]))
@@ -145,7 +147,8 @@ class PerformanceTest:
             if b.ndim == 2:
                 b_pl = tf.placeholder(dtype=self.dtype, shape=(None, b.shape[1]))
             else:
-                b_pl = tf.placeholder(dtype=self.dtype, shape=(None, b.shape[1], b.shape[2]))
+                b_pl = tf.placeholder(dtype=self.dtype, shape=(None, b.shape[1],
+                                      b.shape[2]))
             b_op = tf.identity(b_pl)
             # Create ops
             start_time = time.time()

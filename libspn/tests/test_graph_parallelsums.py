@@ -21,8 +21,8 @@ class TestNodesParallelSums(unittest.TestCase):
     def test_compute_marginal_value(self):
         """Calculating marginal value of Sum."""
         def test(values, num_sums, ivs, weights, feed, output):
-            with self.subTest(values=values, num_sums=num_sums, ivs=ivs, weights=weights,
-                              feed=feed):
+            with self.subTest(values=values, num_sums=num_sums, ivs=ivs,
+                              weights=weights, feed=feed):
                 n = spn.ParallelSums(*values, num_sums=num_sums, ivs=ivs)
                 n.generate_weights(weights)
                 op = n.get_value(spn.InferenceType.MARGINAL)
@@ -407,8 +407,8 @@ class TestNodesParallelSums(unittest.TestCase):
     def test_compute_mpe_value(self):
         """Calculating MPE value of Parallel Sums."""
         def test(values, num_sums, ivs, weights, feed, output):
-            with self.subTest(values=values, num_sums=num_sums, ivs=ivs, weights=weights,
-                              feed=feed):
+            with self.subTest(values=values, num_sums=num_sums, ivs=ivs,
+                              weights=weights, feed=feed):
                 n = spn.ParallelSums(*values, num_sums=num_sums, ivs=ivs)
                 n.generate_weights(weights)
                 op = n.get_value(spn.InferenceType.MPE)
@@ -802,10 +802,10 @@ class TestNodesParallelSums(unittest.TestCase):
         # Weights
         np.testing.assert_array_almost_equal(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
-                               [0., 0., 11., 0., 0., 0.],
-                               [0., 0., 0., 0., 0., 12.],
-                               [0., 0., 0., 0., 13., 0.]]],
-                             dtype=np.float32), [1, 0, 2]))
+                                            [0., 0., 11., 0., 0., 0.],
+                                            [0., 0., 0., 0., 0., 12.],
+                                            [0., 0., 0., 0., 13., 0.]]],
+                                 dtype=np.float32), [1, 0, 2]))
 
         np.testing.assert_array_almost_equal(
             out[1], np.array([[10., 0., 0., 0., 0., 0., 0., 0.],
@@ -877,15 +877,14 @@ class TestNodesParallelSums(unittest.TestCase):
         # Weights
         np.testing.assert_array_almost_equal(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
-                               [0., 0., 11., 0., 0., 0.],
-                               [0., 0., 0., 0., 0., 12.],
-                               [0., 0., 0., 0., 13., 0.]],
-
-                              [[20., 0., 0., 0., 0., 0.],
-                               [0., 0., 21., 0., 0., 0.],
-                               [0., 0., 0., 0., 0., 22.],
-                               [0., 0., 0., 0., 23., 0.]]],
-                             dtype=np.float32), [1, 0, 2]))
+                                            [0., 0., 11., 0., 0., 0.],
+                                            [0., 0., 0., 0., 0., 12.],
+                                            [0., 0., 0., 0., 13., 0.]],
+                                           [[20., 0., 0., 0., 0., 0.],
+                                            [0., 0., 21., 0., 0., 0.],
+                                            [0., 0., 0., 0., 0., 22.],
+                                            [0., 0., 0., 0., 23., 0.]]],
+                                 dtype=np.float32), [1, 0, 2]))
 
         np.testing.assert_array_almost_equal(
             out[1], np.array([[30., 0., 0., 0., 0., 0., 0., 0.],
@@ -975,14 +974,14 @@ class TestNodesParallelSums(unittest.TestCase):
         # Weights
         np.testing.assert_array_almost_equal(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
-                               [0., 0., 11., 0., 0., 0.],
-                               [0., 0., 0., 0., 0., 12.],
-                               [0., 0., 0., 0., 13., 0.],
-                               [0., 14., 0., 0., 0., 0.],
-                               [0., 0., 15., 0., 0., 0.],
-                               [0., 0., 0., 16., 0., 0.],
-                               [17., 0., 0., 0., 0., 0.]]],
-                             dtype=np.float32), [1, 0, 2]))
+                                            [0., 0., 11., 0., 0., 0.],
+                                            [0., 0., 0., 0., 0., 12.],
+                                            [0., 0., 0., 0., 13., 0.],
+                                            [0., 14., 0., 0., 0., 0.],
+                                            [0., 0., 15., 0., 0., 0.],
+                                            [0., 0., 0., 16., 0., 0.],
+                                            [17., 0., 0., 0., 0., 0.]]],
+                                 dtype=np.float32), [1, 0, 2]))
 
         # IVs
         np.testing.assert_array_almost_equal(

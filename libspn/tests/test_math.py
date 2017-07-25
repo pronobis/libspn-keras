@@ -369,7 +369,7 @@ class TestMath(TestCase):
 
                             p1d = tf.constant(np.array(par), dtype=p_dt)
                             p2d1 = tf.constant(np.array([np.array(par)]),
-                                                        dtype=p_dt)
+                                               dtype=p_dt)
                             p2d2 = tf.constant(np.array([np.array(par) * row1,
                                                          np.array(par) * row2,
                                                          np.array(par) * row3]),
@@ -396,26 +396,29 @@ class TestMath(TestCase):
 
                             # Test outputs
                             np.testing.assert_array_almost_equal(out1d,
-                                                       np.array(t_out))
+                                                                 np.array(t_out))
                             self.assertEqual(p_dt.as_numpy_dtype, out1d.dtype)
                             np.testing.assert_array_equal(op1d.get_shape(),
-                                                    list(np.array(t_out).shape))
+                                                          list(np.array(
+                                                               t_out).shape))
 
                             t_out_2d1 = [np.array(t_out)]
                             np.testing.assert_array_almost_equal(out2d1,
                                                                  t_out_2d1)
                             self.assertEqual(p_dt.as_numpy_dtype, out2d1.dtype)
                             np.testing.assert_array_equal(op2d1.get_shape(),
-                                                list(np.array(t_out_2d1).shape))
+                                                          list(np.array(
+                                                               t_out_2d1).shape))
 
                             t_out_2d2 = [np.array(t_out) * row1,
                                          np.array(t_out) * row2,
                                          np.array(t_out) * row3]
                             np.testing.assert_array_almost_equal(out2d2,
-                                                      np.array(t_out_2d2))
+                                                                 np.array(t_out_2d2))
                             self.assertEqual(p_dt.as_numpy_dtype, out2d2.dtype)
                             np.testing.assert_array_equal(op2d2.get_shape(),
-                                                list(np.array(t_out_2d2).shape))
+                                                          list(np.array(
+                                                               t_out_2d2).shape))
 
         # Single param, single index
         # Without padding - Only scatter
@@ -604,7 +607,8 @@ class TestMath(TestCase):
         np.testing.assert_array_equal(out3[0], np.array([0, 1, 2, 3, 4, 5, 6]))
         np.testing.assert_array_equal(out4[0], np.array([[0, 1, 2, 3, 4, 5, 6],
                                                          [7, 8, 9, 10, 11, 12, 13],
-                                                         [14, 15, 16, 17, 18, 19, 20]]))
+                                                         [14, 15, 16, 17, 18, 19,
+                                                          20]]))
         # Test if original tensor returned for 1 split
         self.assertIs(op3[0], value1)
         self.assertIs(op4[0], value2)
