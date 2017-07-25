@@ -144,12 +144,13 @@ class PermProducts(OpNode):
         if any(s is None for s in value_scopes_):
             return None
         # Check product decomposability
-        flat_value_scopes = list(chain.from_iterable(value_scopes_))
-        for s1, s2 in combinations(flat_value_scopes, 2):
-            if s1 & s2:
-                PermProducts.info("%s is not decomposable with input value scopes %s",
-                                  self, flat_value_scopes)
-                return None
+        permuted_value_scopes = list(product(*value_scopes_))
+        for perm_val_scope in permuted_value_scopes:
+            for s1, s2 in combinations(perm_val_scope, 2):
+                if s1 & s2:
+                    PermProducts.info("%s is not decomposable with input value "
+                                      "scopes %s", self, value_scopes_)
+                    return None
         return self._compute_scope(*value_scopes)
 
     def _compute_value_common(self, *value_tensors):

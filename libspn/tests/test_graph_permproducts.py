@@ -306,6 +306,39 @@ class TestNodesPermProducts(unittest.TestCase):
              {v2: [[0.7, 0.8, 0.9]]},       # 0.9
              [[0.9]])
 
+    def test_compute_valid(self):
+        """Calculating validity of PermProducts"""
+        v12 = spn.IVs(num_vars=2, num_vals=3)
+        v345 = spn.IVs(num_vars=3, num_vals=3)
+        v678 = spn.ContVars(num_vars=3)
+        v910 = spn.ContVars(num_vars=2)
+        p1 = spn.PermProducts((v12, [0, 1]), (v12, [4, 5]))
+        p2 = spn.PermProducts((v12, [3, 5]), (v345, [0, 1, 2]))
+        p3 = spn.PermProducts((v345, [0, 1, 2]), (v345, [3, 4, 5]), (v345, [6, 7, 8]))
+        p4 = spn.PermProducts((v345, [6, 8]), (v678, [0, 1]))
+        p5 = spn.PermProducts((v678, [1]), v910)
+        p6 = spn.PermProducts(v678, v910)
+        p7 = spn.PermProducts((v678, [0, 1, 2]))
+        p8 = spn.PermProducts((v910, [0]), (v910, [1]))
+        self.assertTrue(p1.is_valid())
+        self.assertTrue(p2.is_valid())
+        self.assertTrue(p3.is_valid())
+        self.assertTrue(p4.is_valid())
+        self.assertTrue(p5.is_valid())
+        self.assertTrue(p6.is_valid())
+        self.assertTrue(p7.is_valid())
+        self.assertTrue(p8.is_valid())
+        p9 = spn.PermProducts((v12, [0, 1]), (v12, [1, 2]))
+        p10 = spn.PermProducts((v12, [3, 4, 5]), (v345, [0]), (v345, [0, 1, 2]))
+        p11 = spn.PermProducts((v345, [3, 5]), (v678, [0]), (v678, [0]))
+        p12 = spn.PermProducts((v910, [1]), (v910, [1]))
+        p13 = spn.PermProducts(v910, v910)
+        self.assertFalse(p9.is_valid())
+        self.assertFalse(p10.is_valid())
+        self.assertFalse(p11.is_valid())
+        self.assertFalse(p12.is_valid())
+        self.assertFalse(p13.is_valid())
+
     def test_compute_mpe_path(self):
         """Calculating MPE path of PermProducts"""
         def test(counts, inputs, feed, output):
