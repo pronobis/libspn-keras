@@ -18,7 +18,8 @@ import numpy as np
 
 
 class PermProducts(OpNode):
-    """A node representing multiple products, permuted over the input space, in an SPN.
+    """A node representing multiple products, permuted over the input space, in
+       an SPN.
 
     Args:
         *values (input_like): Inputs providing input values to this node.
@@ -107,7 +108,8 @@ class PermProducts(OpNode):
         """
         ind_range = np.cumsum([0] + input_sizes)
         ind_list = list(product(*[range(start, stop)
-                                  for start, stop in zip(ind_range, ind_range[1:])]))
+                                  for start, stop in zip(ind_range,
+                                                         ind_range[1:])]))
 
         return list(chain(*ind_list))
 
@@ -243,7 +245,8 @@ class PermProducts(OpNode):
             # input, gathering the counts, and summing them together.
             for ind in permute_counts(self._input_sizes):
                 summed_counts = summed_counts + [tf.reduce_sum(utils.gather_cols(
-                                                 counts, ind), axis=1, keep_dims=True)]
+                                                 counts, ind), axis=1,
+                                                 keep_dims=True)]
         else:  # For single input case, i.e, when _num_prods = 1
             summed_counts.extend(self._input_sizes[0] * [counts])
 
