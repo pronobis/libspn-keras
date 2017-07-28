@@ -25,6 +25,7 @@ green = col.Fore.GREEN
 yellow = col.Fore.YELLOW
 magenta = col.Fore.MAGENTA
 
+
 def print1(str, file, color=yellow):
     if file:
         print(str, file=file)
@@ -92,6 +93,7 @@ class Ops:
         mpe_path_gen.get_mpe_path(root)
         path_ops = [mpe_path_gen.counts[inp] for inp in inputs]
         return spn.initialize_weights(root), path_ops
+
 
 class OpTestResult:
     """Result of a single test of a single op."""
@@ -167,25 +169,24 @@ class PerformanceTest:
         print1("- num_runs=%s" % num_runs, file)
         print1("", file=file)
 
-
     def _true_output(self, inputs):
         # Create permuted indices based on number and size of inputs
         inds = map(int, np.arange(self.num_input_cols))
         permuted_inds = list(product(inds, repeat=self.num_inputs))
         off_sets = list(range(0, (self.num_inputs * self.num_input_cols),
-                             self.num_input_cols))
+                        self.num_input_cols))
         permuted_inds_list = []
         for perm_inds in permuted_inds:
             permuted_inds_list.append([p_ind + off_set for p_ind, off_set in
                                        zip(list(perm_inds), off_sets)])
 
-        concatenated_inputs=np.concatenate(inputs, axis=1)
+        concatenated_inputs = np.concatenate(inputs, axis=1)
         products_output = np.concatenate([np.prod(concatenated_inputs[:, p_inds],
                                                   axis=1, keepdims=True) for
                                           p_inds in permuted_inds_list], axis=1)
 
         root_weight = 1.0 / self.num_prods
-        root_counts = np.eye(self.num_prods)[np.argmax((products_output \
+        root_counts = np.eye(self.num_prods)[np.argmax((products_output
                                                         * root_weight), axis=1)]
 
         product_counts = np.zeros_like(concatenated_inputs)
@@ -193,7 +194,6 @@ class PerformanceTest:
             product_counts[:, p_inds] += root_counts[:, [idx]]
 
         return np.split(product_counts, self.num_inputs, axis=1)
-
 
     def _run_op_test(self, op_fun, inputs, log=False, on_gpu=True,
                      inf_type=spn.InferenceType.MARGINAL):
@@ -204,9 +204,9 @@ class PerformanceTest:
 
         # Print
         print2("--> %s: on_gpu=%s, num_inputs=%s, inputs_shape=%s, inference=%s, log=%s"
-               % (op_name, on_gpu, self.num_inputs, inputs[0].shape, ("MPE" if \
+               % (op_name, on_gpu, self.num_inputs, inputs[0].shape, ("MPE" if
                   inf_type == spn.InferenceType.MPE else "MARGINAL"), log),
-                  self.file)
+               self.file)
 
         # Compute true output
         true_out = self._true_output(inputs)
@@ -269,8 +269,8 @@ class PerformanceTest:
                 file_name = op_name
                 file_name += ("_GPU" if on_gpu else "_CPU")
                 file_name += ("_MPE-LOG" if log else "_MPE") if inf_type == \
-                             spn.InferenceType.MPE else ("_MARGINAL-LOG" if \
-                             log else "_MARGINAL")
+                    spn.InferenceType.MPE else ("_MARGINAL-LOG" if log else
+                                                "_MARGINAL")
 
                 with open('%s/timeline_path_%s.json' % (self.profiles_dir,
                           file_name), 'w') as f:
@@ -294,7 +294,6 @@ class PerformanceTest:
                     self._run_op_test(op_fun, inp, log=log, on_gpu=True,
                                       inf_type=inf_type))
         return TestResults(test_name, cpu_results, gpu_results)
-
 
     def run(self):
         """Run all tests."""
