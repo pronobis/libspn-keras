@@ -296,7 +296,7 @@ class ParallelSums(OpNode):
             weight_tensor, ivs_tensor, *value_tensors)
         if self._ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
-            # reshape it to (num_sums X Batch X num_feat)
+            # reshape it to (Batch X num_sums X num_feat)
             reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
             values_selected_weighted = tf.expand_dims(values, axis=1) * (
@@ -310,7 +310,7 @@ class ParallelSums(OpNode):
             weight_tensor, ivs_tensor, *value_tensors)
         if self._ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
-            # reshape it to (num_sums X Batch X num_feat)
+            # reshape it to (Batch X num_sums X num_feat)
             reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
             values_weighted = tf.expand_dims(values, axis=1) + (ivs_tensor +
@@ -324,7 +324,7 @@ class ParallelSums(OpNode):
             weight_tensor, ivs_tensor, *value_tensors)
         if self._ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
-            # reshape it to (num_sums X Batch X num_feat)
+            # reshape it to (Batch X num_sums X num_feat)
             reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
             values_weighted = tf.expand_dims(values, axis=1) * (ivs_tensor *
@@ -338,7 +338,7 @@ class ParallelSums(OpNode):
             weight_tensor, ivs_tensor, *value_tensors)
         if self._ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
-            # reshape it to (num_sums X Batch X num_feat)
+            # reshape it to (Batch X num_sums X num_feat)
             reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
             values_weighted = tf.expand_dims(values, axis=1) + (ivs_tensor +
@@ -370,7 +370,7 @@ class ParallelSums(OpNode):
             weight_value, ivs_value, *value_values)
         if self._ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
-            # reshape it to (num_sums X Batch X num_feat)
+            # reshape it to (Batch X num_sums X num_feat)
             reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_value = tf.reshape(ivs_value, shape=reshape)
             values_weighted = tf.expand_dims(values, axis=1) * (ivs_value *
@@ -388,7 +388,7 @@ class ParallelSums(OpNode):
             weight_value, ivs_value, *value_values)
         if self._ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
-            # reshape it to (num_sums X Batch X num_feat)
+            # reshape it to (Batch X num_sums X num_feat)
             reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_value = tf.reshape(ivs_value, shape=reshape)
 
