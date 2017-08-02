@@ -261,7 +261,7 @@ class Sums(OpNode):
                                      % (len(ivs_scopes_), len(flat_value_scopes),
                                         self))
             # Check if scope of all IVs is just one and the same variable
-            if len(Scope.merge_scopes(ivs_scopes_)) > 1:
+            if len(Scope.merge_scopes(ivs_scopes_)) > self._num_sums:
                 return None
         # Check sum for completeness wrt values
         first_scope = flat_value_scopes[0]
