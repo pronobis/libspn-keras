@@ -1023,6 +1023,116 @@ class TestNodesSums(unittest.TestCase):
               ivs: [[2]]},
              [[(0.1*0.3)]])
 
+    def test_comput_scope(self):
+        """Calculating scope of Sums"""
+        # Create graph
+        v12 = spn.IVs(num_vars=2, num_vals=4)
+        v34 = spn.ContVars(num_vars=2)
+        ivs_s4 = spn.IVs(num_vars=3, num_vals=4)
+        s1 = spn.Sums((v12, [0, 1, 2, 3]), (v12, [0, 1, 2, 3]), num_sums=2)
+        s1.generate_ivs()
+        s2 = spn.Sums((v12, [4, 5, 6, 7]), num_sums=1)
+        p1 = spn.Product((v12, [0, 7]))
+        p2 = spn.Product((v12, [3, 4]))
+        p3 = spn.Product(v34)
+        n1 = spn.Concat(s1, s2, p3)
+        n2 = spn.Concat(p1, p2)
+        p4 = spn.Product((n1, [0]), (n1, [1]))
+        p5 = spn.Product((n2, [0]), (n1, [2]))
+        s3 = spn.Sum(p4, n2)
+        p6 = spn.Product(s3, (n1, [2]))
+        s4 = spn.Sum(p5, p6, ivs=ivs_s4)
+        # Test
+        self.assertListEqual(v12.get_scope(),
+                             [spn.Scope(v12, 0), spn.Scope(v12, 0),
+                              spn.Scope(v12, 0), spn.Scope(v12, 0),
+                              spn.Scope(v12, 1), spn.Scope(v12, 1),
+                              spn.Scope(v12, 1), spn.Scope(v12, 1)])
+        self.assertListEqual(v34.get_scope(),
+                             [spn.Scope(v34, 0), spn.Scope(v34, 1)])
+        self.assertListEqual(s1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s1.ivs.node, 1)])
+        self.assertListEqual(s2.get_scope(),
+                             [spn.Scope(v12, 1)])
+        self.assertListEqual(p1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1)])
+        self.assertListEqual(p2.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1)])
+        self.assertListEqual(p3.get_scope(),
+                             [spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(n1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s1.ivs.node, 1), spn.Scope(v12, 1),
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(n2.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1)])
+        self.assertListEqual(p4.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s1.ivs.node, 1)])
+        self.assertListEqual(p5.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(s3.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s1.ivs.node, 1)])
+        self.assertListEqual(p6.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s1.ivs.node, 1)])
+        self.assertListEqual(s4.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s1.ivs.node, 1) |
+                              spn.Scope(s4.ivs.node, 0) |
+                              spn.Scope(s4.ivs.node, 1) |
+                              spn.Scope(s4.ivs.node, 2)])
+
+    def test_compute_valid(self):
+        """Calculating validity of Sums"""
+        # Without IVs
+        v12 = spn.IVs(num_vars=2, num_vals=4)
+        v34 = spn.ContVars(num_vars=2)
+        s1 = spn.Sums((v12, [0, 1, 2, 3]), (v12, [0, 1, 2, 3]),
+                      (v12, [0, 1, 2, 3]), num_sums=3)
+        s2 = spn.Sums((v12, [0, 1, 2, 4]), name="S2")
+        s3 = spn.Sums((v12, [0, 1, 2, 3]), (v34, 0), (v12, [0, 1, 2, 3]),
+                      (v34, 0), num_sums=2)
+        p1 = spn.Product((v12, [0, 5]), (v34, 0))
+        p2 = spn.Product((v12, [1, 6]), (v34, 0))
+        p3 = spn.Product((v12, [1, 6]), (v34, 1))
+        s4 = spn.Sums(p1, p2, p1, p2, num_sums=2)
+        s5 = spn.Sums(p1, p3, p1, p3, p1, p3, num_sums=3)
+        self.assertTrue(v12.is_valid())
+        self.assertTrue(v34.is_valid())
+        self.assertTrue(s1.is_valid())
+        self.assertFalse(s2.is_valid())
+        self.assertFalse(s3.is_valid())
+        self.assertTrue(s4.is_valid())
+        self.assertFalse(s5.is_valid())
+        # With IVS
+        s6 = spn.Sums(p1, p2, p1, p2, p1, p2, num_sums=3)
+        s6.generate_ivs()
+        self.assertTrue(s6.is_valid())
+        s7 = spn.Sums(p1, p2, num_sums=1)
+        s7.set_ivs(spn.ContVars(num_vars=2))
+        self.assertFalse(s7.is_valid())
+        s8 = spn.Sums(p1, p2, p1, p2, num_sums=2)
+        s8.set_ivs(spn.IVs(num_vars=3, num_vals=2))
+        s9 = spn.Sums(p1, p2, p1, p2, num_sums=2)
+        s9.set_ivs(spn.ContVars(num_vars=2))
+        with self.assertRaises(spn.StructureError):
+            s8.is_valid()
+            s9.is_valid()
+        s10 = spn.Sums(p1, p2, p1, p2, num_sums=2)
+        s10.set_ivs((v12, [0, 3, 5, 7]))
+        self.assertTrue(s10.is_valid())
+
     def test_compute_mpe_path_noivs_single_sum(self):
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
