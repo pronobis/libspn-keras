@@ -164,6 +164,7 @@ class TestNodesProducts(unittest.TestCase):
              {v1: [[0.01, 0.1, 0.03]]},
              [[0.1, 0.1]])
 
+
     def test_compute_valid(self):
         """Calculating validity of Products"""
         v12 = spn.IVs(num_vars=2, num_vals=3)
