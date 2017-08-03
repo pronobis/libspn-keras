@@ -20,6 +20,7 @@ from libspn.graph.concat import Concat
 from libspn.graph.sum import Sum
 from libspn.graph.product import Product
 from libspn.graph.permproducts import PermProducts
+from libspn.graph.products import Products
 from libspn.graph.weights import Weights
 from libspn.graph.weights import assign_weights
 from libspn.graph.weights import initialize_weights
@@ -101,7 +102,8 @@ from libspn.exceptions import StructureError
 __all__ = [
     # Graph
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
-    'Concat', 'IVs', 'ContVars', 'Sum', 'Product', 'PermProducts',
+    'Concat', 'IVs', 'ContVars', 'Sum',
+    'Product', 'PermProducts', 'Products',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
