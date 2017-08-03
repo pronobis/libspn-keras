@@ -17,6 +17,7 @@ import colorama as col
 import sys
 from tensorflow.python.client import timeline
 import os
+import itertools
 col.init()
 
 red = col.Fore.RED
@@ -40,7 +41,7 @@ def print2(str, file):
 
 class Ops:
 
-    def product(inputs, num_input_cols, inf_type, log=False, output=None):
+    def product(inputs, num_input_cols, num_prods, inf_type, log=False, output=None):
         num_inputs = len(inputs)
         # Create permuted indices based on number and size of inputs
         inds = map(int, np.arange(num_input_cols))
@@ -73,13 +74,46 @@ class Ops:
 
         return spn.initialize_weights(root), value_op
 
-    def perm_products(inputs, num_input_cols, inf_type, log=False, output=None):
+    def perm_products(inputs, num_input_cols, num_prods, inf_type, log=False, output=None):
         # Generate a single PermProducts node, modeling 'num_prods' product
         # nodes within, connecting it to inputs
         p = spn.PermProducts(*inputs)
 
         # Connect the PermProducts nodes to a single root Sum node and generate
         # its weights
+        root = spn.Sum(p)
+        root.generate_weights()
+
+        if log:
+            value_op = root.get_log_value(inference_type=inf_type)
+        else:
+            value_op = root.get_value(inference_type=inf_type)
+
+        return spn.initialize_weights(root), value_op
+
+    def products(inputs, num_input_cols, num_prods, inf_type, log=False, output=None):
+        num_inputs = len(inputs)
+        # Create permuted indices based on number and size of inputs
+        inds = map(int, np.arange(num_input_cols))
+        permuted_inds = list(product(inds, repeat=num_inputs))
+        permuted_inds_list = [list(elem) for elem in permuted_inds]
+        permuted_inds_list_of_list = []
+        for elem in permuted_inds_list:
+            permuted_inds_list_of_list.append([elem[i:i+1] for i in
+                                               range(0, len(elem), 1)])
+
+        # Create inputs list by combining inputs and indices
+        permuted_inputs = []
+        for indices in permuted_inds_list_of_list:
+            permuted_inputs.append([tuple(i) for i in zip(inputs, indices)])
+        permuted_inputs = list(itertools.chain.from_iterable(permuted_inputs))
+
+        # Generate a single Products node, modeling 'num_prods' product nodes
+        # within, connecting it to inputs
+        p = spn.Products(*permuted_inputs, num_prods=num_prods)
+
+        # Connect all product nodes to a single root Sum node and generate its
+        # weights
         root = spn.Sum(p)
         root.generate_weights()
 
@@ -131,10 +165,12 @@ class TestResults:
         print1("-----------------------", file)
         print1(get_header("CPU"), file)
         for res in sorted(self.cpu_results, key=lambda x: len(x.op_name)):
-            print1(get_res(res), file, red)
+            print1(get_res(res), file, (red if res.op_name is "product" else
+                   green if res.op_name is "perm_products" else magenta))
         print1(get_header("GPU"), file)
         for res in sorted(self.gpu_results, key=lambda x: len(x.op_name)):
-            print1(get_res(res), file, red)
+            print1(get_res(res), file, (red if res.op_name is "product" else
+                   green if res.op_name is "perm_products" else magenta))
 
 
 class PerformanceTest:
@@ -215,13 +251,14 @@ class PerformanceTest:
                          range(self.num_inputs)]
             # Create ops
             start_time = time.time()
-            init_ops, ops = op_fun(inputs_pl, self.num_input_cols, inf_type, log)
+            init_ops, ops = op_fun(inputs_pl, self.num_input_cols, self.num_prods,
+                                   inf_type, log)
             for _ in range(self.num_ops - 1):
                 # The tuple ensures that the next op waits for the output
                 # of the previous op, effectively stacking the ops
                 # but using the original input every time
-                init_ops, ops = op_fun(inputs_pl, self.num_input_cols, inf_type,
-                                       log, tf.tuple([ops])[0])
+                init_ops, ops = op_fun(inputs_pl, self.num_input_cols, self.num_prods,
+                                       inf_type, log, tf.tuple([ops])[0])
             setup_time = time.time() - start_time
         # Get num of graph ops
         graph_size = len(tf.get_default_graph().get_operations())
@@ -303,27 +340,30 @@ class PerformanceTest:
         # PermProduct
         perm_products_inputs = product_inputs
 
+        # Products
+        products_inputs = product_inputs
+
         r = self._run_test('InferenceType: MARGINAL',
-                           [Ops.product, Ops.perm_products],
-                           [product_inputs, perm_products_inputs],
+                           [Ops.product, Ops.perm_products, Ops.products],
+                           [product_inputs, perm_products_inputs, products_inputs],
                            inf_type=spn.InferenceType.MARGINAL, log=False)
         results.append(r)
 
         r = self._run_test('InferenceType: MARGINAL-LOG',
-                           [Ops.product, Ops.perm_products],
-                           [product_inputs, perm_products_inputs],
+                           [Ops.product, Ops.perm_products, Ops.products],
+                           [product_inputs, perm_products_inputs, products_inputs],
                            inf_type=spn.InferenceType.MARGINAL, log=True)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE',
-                           [Ops.product, Ops.perm_products],
-                           [product_inputs, perm_products_inputs],
+                           [Ops.product, Ops.perm_products, Ops.products],
+                           [product_inputs, perm_products_inputs, products_inputs],
                            inf_type=spn.InferenceType.MPE, log=False)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE-LOG',
-                           [Ops.product, Ops.perm_products],
-                           [product_inputs, perm_products_inputs],
+                           [Ops.product, Ops.perm_products, Ops.products],
+                           [product_inputs, perm_products_inputs, products_inputs],
                            inf_type=spn.InferenceType.MPE, log=True)
         results.append(r)
 
