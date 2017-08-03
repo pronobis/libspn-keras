@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------
-# Copyright (C) 2016 Andrzej Pronobis - All Rights Reserved
+# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
 #
 # This file is part of LibSPN. Unauthorized use or copying of this file,
 # via any medium is strictly prohibited. Proprietary and confidential.
@@ -175,8 +175,9 @@ class PermProducts(OpNode):
             # First, split the values tensor into 'num_prods' smaller tensors.
             # Then pack the split tensors together such that the new shape
             # of values tensor = [Batch, num_prods, num_vals]
-            reshaped_values = tf.stack(tf.split(permuted_values,
-                                                self._num_prods, 1), axis=1)
+            reshape = (-1, self._num_prods, int(permuted_values.shape[1].value /
+                                                self._num_prods))
+            reshaped_values = tf.reshape(permuted_values, shape=reshape)
             return reshaped_values
         else:
             return values
