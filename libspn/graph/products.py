@@ -103,11 +103,15 @@ class Products(OpNode):
             return None
         # Check product decomposability
         flat_value_scopes = list(chain.from_iterable(value_scopes_))
-        for s1, s2 in combinations(flat_value_scopes, 2):
-            if s1 & s2:
-                Products.info("%s is not decomposable with input value scopes %s",
-                              self, flat_value_scopes)
-                return None
+        values_per_product = int(len(flat_value_scopes) / self._num_prods)
+        sub_value_scopes = [flat_value_scopes[i:(i + values_per_product)] for i in
+                            range(0, len(flat_value_scopes), values_per_product)]
+        for scopes in sub_value_scopes:
+            for s1, s2 in combinations(scopes, 2):
+                if s1 & s2:
+                    Products.info("%s is not decomposable with input value scopes %s",
+                                  self, flat_value_scopes)
+                    return None
         return self._compute_scope(*value_scopes)
 
     def _compute_value_common(self, *value_tensors):
