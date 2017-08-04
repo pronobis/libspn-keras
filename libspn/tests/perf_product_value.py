@@ -9,7 +9,7 @@
 
 import tensorflow as tf
 import numpy as np
-from itertools import product
+from itertools import product, chain
 from context import libspn as spn
 import time
 import argparse
@@ -17,7 +17,7 @@ import colorama as col
 import sys
 from tensorflow.python.client import timeline
 import os
-import itertools
+import random
 col.init()
 
 red = col.Fore.RED
@@ -41,7 +41,8 @@ def print2(str, file):
 
 class Ops:
 
-    def product(inputs, num_input_cols, num_prods, inf_type, log=False, output=None):
+    def product(inputs, num_input_cols, num_prods, inf_type, indices=None,
+                log=False, output=None):
         num_inputs = len(inputs)
         # Create permuted indices based on number and size of inputs
         inds = map(int, np.arange(num_input_cols))
@@ -74,7 +75,11 @@ class Ops:
 
         return spn.initialize_weights(root), value_op
 
-    def perm_products(inputs, num_input_cols, num_prods, inf_type, log=False, output=None):
+    def perm_products(inputs, num_input_cols, num_prods, inf_type, indices=None,
+                      log=False, output=None):
+        if indices is not None:
+            inputs = [(inp, ind) for inp, ind in zip(inputs, indices)]
+
         # Generate a single PermProducts node, modeling 'num_prods' product
         # nodes within, connecting it to inputs
         p = spn.PermProducts(*inputs)
@@ -91,7 +96,8 @@ class Ops:
 
         return spn.initialize_weights(root), value_op
 
-    def products(inputs, num_input_cols, num_prods, inf_type, log=False, output=None):
+    def products(inputs, num_input_cols, num_prods, inf_type, indices=None,
+                 log=False, output=None):
         num_inputs = len(inputs)
         # Create permuted indices based on number and size of inputs
         inds = map(int, np.arange(num_input_cols))
@@ -106,7 +112,7 @@ class Ops:
         permuted_inputs = []
         for indices in permuted_inds_list_of_list:
             permuted_inputs.append([tuple(i) for i in zip(inputs, indices)])
-        permuted_inputs = list(itertools.chain.from_iterable(permuted_inputs))
+        permuted_inputs = list(chain.from_iterable(permuted_inputs))
 
         # Generate a single Products node, modeling 'num_prods' product nodes
         # within, connecting it to inputs
@@ -128,11 +134,12 @@ class Ops:
 class OpTestResult:
     """Result of a single test of a single op."""
 
-    def __init__(self, op_name, on_gpu, graph_size, setup_time, run_times,
+    def __init__(self, op_name, on_gpu, graph_size, indices, setup_time, run_times,
                  output_correct):
         self.op_name = op_name
         self.on_gpu = on_gpu
         self.graph_size = graph_size
+        self.indices = indices
         self.setup_time = setup_time
         self.run_times = run_times
         self.output_correct = output_correct
@@ -148,14 +155,14 @@ class TestResults:
 
     def print(self, file):
         def get_header(dev):
-            return ("%3s %11s %5s %11s %15s %14s %10s" %
-                    (dev, 'op', 'size', 'setup_time', 'first_run_time',
+            return ("%3s %11s %5s %5s %11s %15s %14s %10s" %
+                    (dev, 'op', 'size', 'indices', 'setup_time', 'first_run_time',
                      'rest_run_time', 'correct'))
 
         def get_res(res):
             """Helper function printing a single result."""
-            return ("%15s %5d %11.2f %15.2f %14.2f %10s" %
-                    (res.op_name, res.graph_size, res.setup_time * 1000,
+            return ("%15s %5d %5s %11.2f %15.2f %14.2f %10s" %
+                    (res.op_name, res.graph_size, res.indices, res.setup_time * 1000,
                      res.run_times[0] * 1000, np.mean(res.run_times[1:]) * 1000,
                      res.output_correct))
 
@@ -166,11 +173,13 @@ class TestResults:
         print1(get_header("CPU"), file)
         for res in sorted(self.cpu_results, key=lambda x: len(x.op_name)):
             print1(get_res(res), file, (red if res.op_name is "product" else
-                   green if res.op_name is "perm_products" else magenta))
+                   magenta if res.op_name is "products" else (green if res.indices
+                                                              is "No" else blue)))
         print1(get_header("GPU"), file)
         for res in sorted(self.gpu_results, key=lambda x: len(x.op_name)):
             print1(get_res(res), file, (red if res.op_name is "product" else
-                   green if res.op_name is "perm_products" else magenta))
+                   magenta if res.op_name is "products" else (green if res.indices
+                                                              is "No" else blue)))
 
 
 class PerformanceTest:
@@ -201,7 +210,7 @@ class PerformanceTest:
         print1("- num_runs=%s" % num_runs, file)
         print1("", file=file)
 
-    def _true_output(self, inputs, inf_type=None):
+    def _true_output(self, inputs, indices=None, inf_type=None):
         if inf_type == spn.InferenceType.MARGINAL:
             np_sum_op = np.sum
         elif inf_type == spn.InferenceType.MPE:
@@ -227,7 +236,7 @@ class PerformanceTest:
         root_weight = 1.0 / self.num_prods
         return np_sum_op(products_output * root_weight, axis=1, keepdims=True)
 
-    def _run_op_test(self, op_fun, inputs, log=False, on_gpu=True,
+    def _run_op_test(self, op_fun, inputs, indices=None, log=False, on_gpu=True,
                      inf_type=spn.InferenceType.MARGINAL):
         """Run a single test for a single op."""
         # Preparations
@@ -241,7 +250,7 @@ class PerformanceTest:
                self.file)
 
         # Compute true output
-        true_out = self._true_output(inputs, inf_type)
+        true_out = self._true_output(inputs, indices, inf_type)
 
         # Create graph
         tf.reset_default_graph()
@@ -252,13 +261,13 @@ class PerformanceTest:
             # Create ops
             start_time = time.time()
             init_ops, ops = op_fun(inputs_pl, self.num_input_cols, self.num_prods,
-                                   inf_type, log)
+                                   inf_type, indices, log)
             for _ in range(self.num_ops - 1):
                 # The tuple ensures that the next op waits for the output
                 # of the previous op, effectively stacking the ops
                 # but using the original input every time
                 init_ops, ops = op_fun(inputs_pl, self.num_input_cols, self.num_prods,
-                                       inf_type, log, tf.tuple([ops])[0])
+                                       inf_type, indices, log, tf.tuple([ops])[0])
             setup_time = time.time() - start_time
         # Get num of graph ops
         graph_size = len(tf.get_default_graph().get_operations())
@@ -310,22 +319,31 @@ class PerformanceTest:
                     f.write(chrome_trace)
 
         # Return stats
-        return OpTestResult(op_name, on_gpu, graph_size, setup_time, run_times,
-                            output_correct)
+        return OpTestResult(op_name, on_gpu, graph_size, ("No" if (op_fun is
+                            Ops.perm_products and indices is None) else "Yes"),
+                            setup_time, run_times, output_correct)
 
-    def _run_test(self, test_name, op_funs, inputs, inf_type, log):
+    def _run_test(self, test_name, op_funs, inputs, indices, inf_type, log):
         """Run a single test for multiple ops and devices."""
         cpu_results = []
         gpu_results = []
-        for op_fun, inp in zip(op_funs, inputs):
+        for op_fun, inp, ind in zip(op_funs, inputs, indices):
             if not self.without_cpu:
                 cpu_results.append(
-                    self._run_op_test(op_fun, inp, log=log, on_gpu=False,
-                                      inf_type=inf_type))
+                    self._run_op_test(op_fun, inp, indices=None, log=log,
+                                      on_gpu=False, inf_type=inf_type))
+                if op_fun is Ops.perm_products:
+                        cpu_results.append(
+                            self._run_op_test(op_fun, inp, ind, log=log,
+                                              on_gpu=False, inf_type=inf_type))
             if not self.without_gpu:
                 gpu_results.append(
-                    self._run_op_test(op_fun, inp, log=log, on_gpu=True,
-                                      inf_type=inf_type))
+                    self._run_op_test(op_fun, inp, indices=None, log=log,
+                                      on_gpu=True, inf_type=inf_type))
+                if op_fun is Ops.perm_products:
+                        gpu_results.append(
+                            self._run_op_test(op_fun, inp, ind, log=log,
+                                              on_gpu=True, inf_type=inf_type))
         return TestResults(test_name, cpu_results, gpu_results)
 
     def run(self):
@@ -343,27 +361,34 @@ class PerformanceTest:
         # Products
         products_inputs = product_inputs
 
+        indices = [random.sample(range(self.num_input_cols), self.num_input_cols)
+                   for _ in range(self.num_inputs)]
+
         r = self._run_test('InferenceType: MARGINAL',
                            [Ops.product, Ops.perm_products, Ops.products],
                            [product_inputs, perm_products_inputs, products_inputs],
+                           [None, indices, None],
                            inf_type=spn.InferenceType.MARGINAL, log=False)
         results.append(r)
 
         r = self._run_test('InferenceType: MARGINAL-LOG',
                            [Ops.product, Ops.perm_products, Ops.products],
                            [product_inputs, perm_products_inputs, products_inputs],
+                           [None, indices, None],
                            inf_type=spn.InferenceType.MARGINAL, log=True)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE',
                            [Ops.product, Ops.perm_products, Ops.products],
                            [product_inputs, perm_products_inputs, products_inputs],
+                           [None, indices, None],
                            inf_type=spn.InferenceType.MPE, log=False)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE-LOG',
                            [Ops.product, Ops.perm_products, Ops.products],
                            [product_inputs, perm_products_inputs, products_inputs],
+                           [None, indices, None],
                            inf_type=spn.InferenceType.MPE, log=True)
         results.append(r)
 
@@ -378,11 +403,11 @@ class PerformanceTest:
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num-inputs', default=2, type=int,
+    parser.add_argument('--num-inputs', default=5, type=int,
                         help="Num of input nodes")
     parser.add_argument('--num-input-rows', default=200, type=int,
                         help="Num of rows of inputs")
-    parser.add_argument('--num-input-cols', default=10, type=int,
+    parser.add_argument('--num-input-cols', default=3, type=int,
                         help="Num of cols of inputs")
     parser.add_argument('--num-ops', default=10, type=int,
                         help="Num of ops used for tests")
