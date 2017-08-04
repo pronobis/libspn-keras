@@ -164,6 +164,85 @@ class TestNodesProducts(unittest.TestCase):
              {v1: [[0.01, 0.1, 0.03]]},
              [[0.1, 0.1]])
 
+    def test_compute_valid(self):
+        """Calculating validity of Products"""
+        v12 = spn.IVs(num_vars=2, num_vals=3)
+        v345 = spn.IVs(num_vars=3, num_vals=3)
+        v678 = spn.ContVars(num_vars=3)
+        v910 = spn.ContVars(num_vars=2)
+        p1 = spn.Products((v12, 0), (v12, 4), (v12, 0), (v12, 5),
+                          (v12, 1), (v12, 4), (v12, 1), (v12, 5), num_prods=4)
+        p2 = spn.Products((v12, 3), (v345, 0), (v12, 3), (v345, 1), (v12, 3), (v345, 2),
+                          (v12, 5), (v345, 0), (v12, 5), (v345, 1), (v12, 5), (v345, 2),
+                          num_prods=6)
+        p3 = spn.Products((v345, 0), (v345, 3), (v345, 6), (v345, 0), (v345, 3),
+                          (v345, 7), (v345, 0), (v345, 3), (v345, 8), (v345, 0),
+                          (v345, 4), (v345, 6), (v345, 0), (v345, 4), (v345, 7),
+                          (v345, 0), (v345, 4), (v345, 8), (v345, 0), (v345, 5),
+                          (v345, 6), (v345, 0), (v345, 5), (v345, 7), (v345, 0),
+                          (v345, 5), (v345, 8), (v345, 1), (v345, 3), (v345, 6),
+                          (v345, 1), (v345, 3), (v345, 7), (v345, 1), (v345, 3),
+                          (v345, 8), (v345, 1), (v345, 4), (v345, 6), (v345, 1),
+                          (v345, 4), (v345, 7), (v345, 1), (v345, 4), (v345, 8),
+                          (v345, 1), (v345, 5), (v345, 6), (v345, 1), (v345, 5),
+                          (v345, 7), (v345, 1), (v345, 5), (v345, 8), (v345, 2),
+                          (v345, 3), (v345, 6), (v345, 2), (v345, 3), (v345, 7),
+                          (v345, 2), (v345, 3), (v345, 8), (v345, 2), (v345, 4),
+                          (v345, 6), (v345, 2), (v345, 4), (v345, 7), (v345, 2),
+                          (v345, 4), (v345, 8), (v345, 2), (v345, 5), (v345, 6),
+                          (v345, 2), (v345, 5), (v345, 7), (v345, 2), (v345, 5),
+                          (v345, 8), num_prods=27)
+        p4 = spn.Products((v345, 6), (v678, 0), (v345, 6), (v678, 1),
+                          (v345, 8), (v678, 0), (v345, 8), (v678, 1), num_prods=4)
+        p5 = spn.Products((v678, 1), (v910, 0), (v678, 1), (v910, 1), num_prods=2)
+        p6_1 = spn.Products((v678, 0), (v910, 0), (v678, 0), (v910, 1),
+                            (v678, 1), (v910, 0), (v678, 1), (v910, 1),
+                            (v678, 2), (v910, 0), (v678, 2), (v910, 1), num_prods=6)
+        p6_2 = spn.Products((v678, 0), (v910, 0), (v678, 1), (v910, 0),
+                            (v678, 1), (v910, 1), (v678, 2), (v910, 0), num_prods=4)
+        p7_1 = spn.Products((v678, [0, 1, 2]))
+        p7_2 = spn.Products(v678)
+        p8_1 = spn.Products((v910, [0]), (v910, [1]))
+        p8_2 = spn.Products(v910, num_prods=2)
+        self.assertTrue(p1.is_valid())
+        self.assertTrue(p2.is_valid())
+        self.assertTrue(p3.is_valid())
+        self.assertTrue(p4.is_valid())
+        self.assertTrue(p5.is_valid())
+        self.assertTrue(p6_1.is_valid())
+        self.assertTrue(p6_2.is_valid())
+        self.assertTrue(p7_1.is_valid())
+        self.assertTrue(p7_2.is_valid())
+        self.assertTrue(p8_1.is_valid())
+        self.assertTrue(p8_2.is_valid())
+        p9 = spn.Products((v12, 0), (v12, 1), (v12, 0), (v12, 2),
+                          (v12, 1), (v12, 1), (v12, 1), (v12, 2), num_prods=4)
+        p10 = spn.Products((v12, 3), (v345, 0), (v345, 0),
+                           (v12, 3), (v345, 0), (v345, 1),
+                           (v12, 3), (v345, 0), (v345, 2),
+                           (v12, 4), (v345, 0), (v345, 0),
+                           (v12, 4), (v345, 0), (v345, 1),
+                           (v12, 4), (v345, 0), (v345, 2),
+                           (v12, 5), (v345, 0), (v345, 0),
+                           (v12, 5), (v345, 0), (v345, 1),
+                           (v12, 5), (v345, 0), (v345, 2), num_prods=9)
+        p11_1 = spn.Products((v345, 3), (v678, 0), (v678, 0),
+                             (v345, 5), (v678, 0), (v678, 0), num_prods=2)
+        p11_2 = spn.Products((v345, 3), (v678, 0), (v678, 0),
+                             (v345, 5), (v678, 0), (v678, 0), num_prods=3)
+        p12 = spn.Products((v910, 1), (v910, 1), num_prods=1)
+        p13_1 = spn.Products((v910, 0), (v910, 0), (v910, 0), (v910, 1),
+                             (v910, 1), (v910, 0), (v910, 1), (v910, 1), num_prods=4)
+        p13_2 = spn.Products((v910, 0), (v910, 0), (v910, 0), (v910, 1),
+                             (v910, 1), (v910, 0), (v910, 1), (v910, 1), num_prods=1)
+        self.assertFalse(p9.is_valid())
+        self.assertFalse(p10.is_valid())
+        self.assertFalse(p11_1.is_valid())
+        self.assertFalse(p11_2.is_valid())
+        self.assertFalse(p12.is_valid())
+        self.assertFalse(p13_1.is_valid())
+        self.assertFalse(p13_2.is_valid())
+
     def test_compute_mpe_path(self):
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
