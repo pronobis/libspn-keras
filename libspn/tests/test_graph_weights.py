@@ -152,10 +152,10 @@ class TestGraphWeights(TestCase):
         s1.generate_weights([0.2, 0.3])
         s2 = spn.Sum(v2)
         s2.generate_weights(5)
-        # ParallelSums
-        s3 = spn.ParallelSums(*[v3, v4], num_sums=2)
+        # ParSums
+        s3 = spn.ParSums(*[v3, v4], num_sums=2)
         s3.generate_weights([0.1, 0.2, 0.3, 0.4, 0.4, 0.3, 0.2, 0.1])
-        s4 = spn.ParallelSums(*[v1, v2, v3, v4], num_sums=3)
+        s4 = spn.ParSums(*[v1, v2, v3, v4], num_sums=3)
         s4.generate_weights(2.0)
         # Product
         p = spn.Product(s1, s2, s3, s4)
@@ -206,10 +206,10 @@ class TestGraphWeights(TestCase):
         s1.generate_weights([0.2, 0.3])
         s2 = spn.Sum(v2)
         s2.generate_weights(5)
-        # ParallelSums
-        s3 = spn.ParallelSums(*[v3, v4], num_sums=2)
+        # ParSums
+        s3 = spn.ParSums(*[v3, v4], num_sums=2)
         s3.generate_weights([0.1, 0.2, 0.3, 0.4, 0.4, 0.3, 0.2, 0.1])
-        s4 = spn.ParallelSums(*[v2, v3], num_sums=3)
+        s4 = spn.ParSums(*[v2, v3], num_sums=3)
         s4.generate_weights(2.0)
         p = spn.Product(s1, s2, s3, s4)
         init1 = s1.weights.node.initialize()

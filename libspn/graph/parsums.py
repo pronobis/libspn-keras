@@ -20,8 +20,8 @@ from libspn.log import get_logger
 from libspn import conf
 
 
-class ParallelSums(OpNode):
-    """A node representing multiple parallel-sums (which share the same input)
+class ParSums(OpNode):
+    """A node representing multiple par-sums (which share the same input)
             in an SPN.
 
     Args:
@@ -50,7 +50,7 @@ class ParallelSums(OpNode):
     info = logger.info
 
     def __init__(self, *values, num_sums=1, weights=None, ivs=None,
-                 inference_type=InferenceType.MARGINAL, name="ParallelSums"):
+                 inference_type=InferenceType.MARGINAL, name="ParSums"):
         if not num_sums > 0:
             raise StructureError("In %s num_sums: %s need to be > 0" % self,
                                  num_sums)
@@ -273,7 +273,7 @@ class ParallelSums(OpNode):
         # Check sum for completeness wrt values
         first_scope = flat_value_scopes[0]
         if any(s != first_scope for s in flat_value_scopes[1:]):
-            ParallelSums.info("%s is not complete with input value scopes %s",
+            ParSums.info("%s is not complete with input value scopes %s",
                               self, flat_value_scopes)
             return None
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
