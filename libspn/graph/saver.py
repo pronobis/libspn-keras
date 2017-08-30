@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from libspn import utils
 from libspn.graph.serialization import serialize_graph
 from libspn.log import get_logger
+import os
 
 
 class Saver(ABC):
@@ -19,7 +20,7 @@ class Saver(ABC):
     """
 
     def __init__(self, path):
-        self._path = path
+        self._path = os.path.expanduser(path)
 
     @abstractmethod
     def save(self, root, save_param_vals=True, sess=None):

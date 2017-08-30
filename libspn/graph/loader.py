@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from libspn import utils
 from libspn.log import get_logger
 from libspn.graph.serialization import deserialize_graph
+import os
 
 
 class Loader(ABC):
@@ -19,7 +20,7 @@ class Loader(ABC):
     """
 
     def __init__(self, path):
-        self._path = path
+        self._path = os.path.expanduser(path)
         self._nodes_by_name = {}  # Dict of nodes indexed by original name
 
     def find_node(self, node_name):
