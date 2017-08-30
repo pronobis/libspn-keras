@@ -10,13 +10,17 @@ import numpy as np
 import tensorflow as tf
 
 
-def display_tf_graph(graph=tf.get_default_graph(), max_const_size=32):
+def display_tf_graph(graph=None, max_const_size=32):
     """Visualize a TensorFlow graph in IPython/Jupyter.
 
     Args:
         graph: Graph or GraphDef to visualize.
+               If ``None``, default graph is used.
         max_const_size: Max const size that will not be stripped from graph.
     """
+    if graph is None:
+        graph = tf.get_default_graph()
+
     # This function is stolen from
     # http://nbviewer.jupyter.org/github/tensorflow/tensorflow/blob/master/tensorflow/examples/tutorials/deepdream/deepdream.ipynb
     if hasattr(graph, 'as_graph_def'):
