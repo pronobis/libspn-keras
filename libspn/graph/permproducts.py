@@ -136,7 +136,9 @@ class PermProducts(OpNode):
         if not self._values:
             raise StructureError("%s is missing input values." % self)
         value_scopes = self._gather_input_scopes(*value_scopes)
-        return [Scope.merge_scopes(chain.from_iterable(value_scopes))]
+        value_scopes_list = [Scope.merge_scopes(pvs) for pvs in product(*[vs for
+                             vs in value_scopes])]
+        return [value_scopes_list[0]] if self._num_prods == 1 else value_scopes_list
 
     def _compute_valid(self, *value_scopes):
         if not self._values:

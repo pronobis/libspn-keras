@@ -318,16 +318,24 @@ class TestNodesPermProducts(unittest.TestCase):
         s1.generate_ivs()
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
         p1 = spn.Product((v12, [0, 7]), name="P1")
-        p2 = spn.Product((v12, [3, 4]), name="P1")
+        p2 = spn.Product((v12, [3, 4]), name="P2")
         p3 = spn.Product(v34, name="P3")
         n1 = spn.Concat(s1, s2, p3, name="N1")
         n2 = spn.Concat(p1, p2, name="N2")
-        perm_prod_1 = spn.PermProducts(n1, n2, name="PP1")
-        perm_prod_2 = spn.PermProducts((n1, [0, 1]), (n2, [0]), name="PP2")
-        perm_prod_3 = spn.PermProducts(p2, p3, name="PP3")
-        perm_prod_4 = spn.PermProducts((n1, [0, 1]), name="PP4")
-        s3 = spn.Sum(perm_prod_1, perm_prod_2, name="S3")
+        pp1 = spn.PermProducts(n1, n2, name="PP1")  # num_prods = 6
+        pp2 = spn.PermProducts((n1, [0, 1]), (n2, [0]), name="PP2")  # num_prods = 2
+        pp3 = spn.PermProducts(n2, p3, name="PP3")  # num_prods = 2
+        pp4 = spn.PermProducts(p2, p3, name="PP4")  # num_prods = 1
+        pp5 = spn.PermProducts((n2, [0, 1]), name="PP5")  # num_prods = 1
+        pp6 = spn.PermProducts(p3, name="PP6")  # num_prods = 1
+        n3 = spn.Concat((pp1, [0, 2, 3]), pp2, pp4, name="N3")
+        s3 = spn.Sum((pp1, [0, 2, 4]), (pp1, [1, 3, 5]), pp2, pp3, (pp4, 0),
+                     pp5, pp6, name="S3")
         s3.generate_ivs()
+        n4 = spn.Concat((pp3, [0, 1]), pp5, (pp6, 0), name="N4")
+        pp7 = spn.PermProducts(n3, s3, n4, name="PP7")  # num_prods = 24
+        pp8 = spn.PermProducts(n3, name="PP8")  # num_prods = 1
+        pp9 = spn.PermProducts((n4, [0, 1, 2, 3]), name="PP9")  # num_prods = 1
         # Test
         self.assertListEqual(v12.get_scope(),
                              [spn.Scope(v12, 0), spn.Scope(v12, 0),
@@ -353,24 +361,66 @@ class TestNodesPermProducts(unittest.TestCase):
         self.assertListEqual(n2.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1)])
-        self.assertListEqual(perm_prod_1.get_scope(),
+        self.assertListEqual(pp1.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s1.ivs.node, 0)])
-        self.assertListEqual(perm_prod_2.get_scope(),
+                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(pp2.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0)])
-        self.assertListEqual(perm_prod_3.get_scope(),
+                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1)])
+        self.assertListEqual(pp3.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(pp4.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
-        self.assertListEqual(perm_prod_4.get_scope(),
+        self.assertListEqual(pp5.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1)])
+        self.assertListEqual(pp6.get_scope(),
+                             [spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(n3.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0)])
+                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(s3.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
                               spn.Scope(s1.ivs.node, 0) |
                               spn.Scope(s3.ivs.node, 0)])
+        self.assertListEqual(n4.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1),
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(pp7.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s3.ivs.node, 0)] * 24)
+        self.assertListEqual(pp8.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0)])
+        self.assertListEqual(pp9.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
 
     def test_compute_valid(self):
         """Calculating validity of PermProducts"""
