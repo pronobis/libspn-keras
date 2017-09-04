@@ -309,6 +309,69 @@ class TestNodesPermProducts(unittest.TestCase):
              {v2: [[0.7, 0.8, 0.9]]},       # 0.9
              [[0.9]])
 
+    def test_comput_scope(self):
+        """Calculating scope of PermProducts"""
+        # Create graph
+        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
+        v34 = spn.ContVars(num_vars=2, name="V34")
+        s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
+        s1.generate_ivs()
+        s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
+        p1 = spn.Product((v12, [0, 7]), name="P1")
+        p2 = spn.Product((v12, [3, 4]), name="P1")
+        p3 = spn.Product(v34, name="P3")
+        n1 = spn.Concat(s1, s2, p3, name="N1")
+        n2 = spn.Concat(p1, p2, name="N2")
+        perm_prod_1 = spn.PermProducts(n1, n2, name="PP1")
+        perm_prod_2 = spn.PermProducts((n1, [0, 1]), (n2, [0]), name="PP2")
+        perm_prod_3 = spn.PermProducts(p2, p3, name="PP3")
+        perm_prod_4 = spn.PermProducts((n1, [0, 1]), name="PP4")
+        s3 = spn.Sum(perm_prod_1, perm_prod_2, name="S3")
+        s3.generate_ivs()
+        # Test
+        self.assertListEqual(v12.get_scope(),
+                             [spn.Scope(v12, 0), spn.Scope(v12, 0),
+                              spn.Scope(v12, 0), spn.Scope(v12, 0),
+                              spn.Scope(v12, 1), spn.Scope(v12, 1),
+                              spn.Scope(v12, 1), spn.Scope(v12, 1)])
+        self.assertListEqual(v34.get_scope(),
+                             [spn.Scope(v34, 0), spn.Scope(v34, 1)])
+        self.assertListEqual(s1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0)])
+        self.assertListEqual(s2.get_scope(),
+                             [spn.Scope(v12, 1)])
+        self.assertListEqual(p1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1)])
+        self.assertListEqual(p2.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1)])
+        self.assertListEqual(p3.get_scope(),
+                             [spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(n1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(v12, 1),
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(n2.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1)])
+        self.assertListEqual(perm_prod_1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s1.ivs.node, 0)])
+        self.assertListEqual(perm_prod_2.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0)])
+        self.assertListEqual(perm_prod_3.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(perm_prod_4.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0)])
+        self.assertListEqual(s3.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s3.ivs.node, 0)])
+
     def test_compute_valid(self):
         """Calculating validity of PermProducts"""
         v12 = spn.IVs(num_vars=2, num_vals=3)
