@@ -91,8 +91,13 @@ class Products(OpNode):
     def _compute_scope(self, *value_scopes):
         if not self._values:
             raise StructureError("%s is missing input values." % self)
-        value_scopes = self._gather_input_scopes(*value_scopes)
-        return [Scope.merge_scopes(chain.from_iterable(value_scopes))]
+        value_scopes = list(chain.from_iterable(self._gather_input_scopes(
+                                                *value_scopes)))
+        sublist_size = int(len(value_scopes) / self._num_prods)
+        # Divide gathered value scopes into sublists, one per modelled Product node.
+        value_scopes_sublists = [value_scopes[i:i+sublist_size] for i in
+                                 range(0, len(value_scopes), sublist_size)]
+        return [Scope.merge_scopes(vs) for vs in value_scopes_sublists]
 
     def _compute_valid(self, *value_scopes):
         if not self._values:
