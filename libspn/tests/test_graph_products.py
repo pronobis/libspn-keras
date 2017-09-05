@@ -164,6 +164,92 @@ class TestNodesProducts(unittest.TestCase):
              {v1: [[0.01, 0.1, 0.03]]},
              [[0.1, 0.1]])
 
+    def test_comput_scope(self):
+        """Calculating scope of Products"""
+        # Create graph
+        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
+        v34 = spn.ContVars(num_vars=2, name="V34")
+        s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
+        s1.generate_ivs()
+        s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
+        ps1 = spn.Products((v12, [0, 7]), (v12, [3, 4]), v34, num_prods=3,
+                           name="Ps1")
+        n1 = spn.Concat(s1, s2, (ps1, [2]), name="N1")
+        n2 = spn.Concat((ps1, [0]), (ps1, [1]), name="N2")
+        s3 = spn.Sum(ps1, name="S3")
+        s3.generate_ivs()
+        ps2 = spn.Products((n1, [0, 1]), (n1, 2), (n2, 0), n2, (n2, 1), s3,
+                           num_prods=4, name="Ps2")
+        s4 = spn.Sum((ps2, 0), n2, name="S4")
+        s5 = spn.Sum(ps2, name="S5")
+        s6 = spn.Sum((ps2, [1, 3]), name="S6")
+        s6.generate_ivs()
+        ps3 = spn.Products(s4, (n1, 2), name="Ps3")
+        ps4 = spn.Products(s4, s5, s6, s4, s5, s6, num_prods=2, name="Ps4")
+        # Test
+        self.assertListEqual(v12.get_scope(),
+                             [spn.Scope(v12, 0), spn.Scope(v12, 0),
+                              spn.Scope(v12, 0), spn.Scope(v12, 0),
+                              spn.Scope(v12, 1), spn.Scope(v12, 1),
+                              spn.Scope(v12, 1), spn.Scope(v12, 1)])
+        self.assertListEqual(v34.get_scope(),
+                             [spn.Scope(v34, 0), spn.Scope(v34, 1)])
+        self.assertListEqual(s1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0)])
+        self.assertListEqual(s2.get_scope(),
+                             [spn.Scope(v12, 1)])
+        self.assertListEqual(ps1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1),
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(n1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(v12, 1),
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(n2.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1)])
+        self.assertListEqual(s3.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s3.ivs.node, 0)])
+        self.assertListEqual(ps2.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s3.ivs.node, 0)])
+        self.assertListEqual(s4.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0)])
+        self.assertListEqual(s5.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0) | spn.Scope(v34, 0) |
+                              spn.Scope(v34, 1) | spn.Scope(s3.ivs.node, 0)])
+        self.assertListEqual(s6.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s3.ivs.node, 0) |
+                              spn.Scope(s6.ivs.node, 0)])
+        self.assertListEqual(ps3.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(ps4.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s3.ivs.node, 0) |
+                              spn.Scope(s6.ivs.node, 0),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s3.ivs.node, 0) |
+                              spn.Scope(s6.ivs.node, 0)])
+
     def test_compute_valid(self):
         """Calculating validity of Products"""
         v12 = spn.IVs(num_vars=2, num_vals=3)
