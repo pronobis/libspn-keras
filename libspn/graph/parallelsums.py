@@ -241,8 +241,13 @@ class ParallelSums(OpNode):
                                                                  *value_scopes)
         flat_value_scopes = list(chain.from_iterable(value_scopes))
         if self._ivs:
-            flat_value_scopes.extend(ivs_scopes)
-        return [Scope.merge_scopes(flat_value_scopes)]
+            sublist_size = int(len(ivs_scopes) / self._num_sums)
+            # Divide gathered ivs scopes into sublists, one per modelled Sum node.
+            ivs_scopes_sublists = [ivs_scopes[i:i+sublist_size] for i in
+                                   range(0, len(ivs_scopes), sublist_size)]
+        return [Scope.merge_scopes(flat_value_scopes + ivs_scopes_sublists[i]
+                                   if self._ivs else flat_value_scopes)
+                for i in range(self._num_sums)]
 
     def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
         if not self._values:
