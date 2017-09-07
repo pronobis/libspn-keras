@@ -237,9 +237,20 @@ class Sums(OpNode):
                                                                  ivs_scopes,
                                                                  *value_scopes)
         flat_value_scopes = list(chain.from_iterable(value_scopes))
+        sublist_size = int(len(flat_value_scopes) / self._num_sums)
+        # Divide gathered value scopes into sublists, one per modelled Sum node
+        value_scopes_sublists = [flat_value_scopes[i:i+sublist_size] for i in
+                                 range(0, len(flat_value_scopes), sublist_size)]
         if self._ivs:
-            flat_value_scopes.extend(ivs_scopes)
-        return [Scope.merge_scopes(flat_value_scopes)]
+            sublist_size = int(len(ivs_scopes) / self._num_sums)
+            # Divide gathered ivs scopes into sublists, one per modelled Sum node
+            ivs_scopes_sublists = [ivs_scopes[i:i+sublist_size] for i in
+                                   range(0, len(ivs_scopes), sublist_size)]
+            # Add respective ivs scope to value scope list of each Sum node
+            for val, ivs in zip(value_scopes_sublists, ivs_scopes_sublists):
+                val.extend(ivs)
+        return [Scope.merge_scopes(val_scope) for val_scope in
+                value_scopes_sublists]
 
     def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
         if not self._values:
