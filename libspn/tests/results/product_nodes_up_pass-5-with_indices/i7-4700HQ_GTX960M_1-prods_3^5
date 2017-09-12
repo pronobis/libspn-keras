@@ -1,0 +1,97 @@
+Params:
+- num_inputs=5
+- num_input_rows=200
+- num_input_cols=3
+- num_prods=243
+- num_ops=10
+- num_runs=50
+
+Running tests:
+--> product: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=False
+--> product: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=False
+--> perm_products: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=False
+--> perm_products: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=False
+--> perm_products: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=False
+--> perm_products: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=False
+--> products: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=False
+--> products: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=False
+--> product: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=True
+--> product: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=True
+--> perm_products: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=True
+--> perm_products: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=True
+--> perm_products: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=True
+--> perm_products: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=True
+--> products: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=True
+--> products: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MARGINAL, log=True
+--> product: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=False
+--> product: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=False
+--> perm_products: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=False
+--> perm_products: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=False
+--> perm_products: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=False
+--> perm_products: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=False
+--> products: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=False
+--> products: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=False
+--> product: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=True
+--> product: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=True
+--> perm_products: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=True
+--> perm_products: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=True
+--> perm_products: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=True
+--> perm_products: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=True
+--> products: on_gpu=False, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=True
+--> products: on_gpu=True, num_inputs=5, inputs_shape=(200, 3), inference=MPE, log=True
+
+-----------------------
+InferenceType: MARGINAL
+-----------------------
+CPU          op  size indices  setup_time  first_run_time  rest_run_time    correct
+        product 34243   Yes    26802.75          218.58           1.52       True
+       products 24563   Yes    19436.54          158.45           1.28       True
+  perm_products   283    No      208.36            2.95           1.52       True
+  perm_products   343   Yes      237.80            2.92           1.48       True
+GPU          op  size indices  setup_time  first_run_time  rest_run_time    correct
+        product 34243   Yes    27350.48          420.22           9.10       True
+       products 24563   Yes    18522.86          153.48           0.96       True
+  perm_products   283    No      199.19            2.88           0.66       True
+  perm_products   343   Yes      235.99            3.27           0.68       True
+
+-----------------------
+InferenceType: MARGINAL-LOG
+-----------------------
+CPU          op  size indices  setup_time  first_run_time  rest_run_time    correct
+        product 34423   Yes    28776.55          247.83           1.83       True
+       products 24743   Yes    19690.45          161.74           1.51       True
+  perm_products   463    No      311.65            4.10           1.75       True
+  perm_products   523   Yes      340.27            4.18           1.83       True
+GPU          op  size indices  setup_time  first_run_time  rest_run_time    correct
+        product 34423   Yes    29947.43          250.94           9.31       True
+       products 24743   Yes    19315.21          164.56           1.30       True
+  perm_products   463    No      311.95            4.54           1.05       True
+  perm_products   523   Yes      357.48            4.79           0.96       True
+
+-----------------------
+InferenceType: MPE
+-----------------------
+CPU          op  size indices  setup_time  first_run_time  rest_run_time    correct
+        product 34243   Yes    27745.45          247.91           1.83       True
+       products 24563   Yes    20151.18          173.83           1.43       True
+  perm_products   283    No      210.50            3.27           1.70       True
+  perm_products   343   Yes      237.54            3.22           1.73       True
+GPU          op  size indices  setup_time  first_run_time  rest_run_time    correct
+        product 34243   Yes    27736.25          250.12           9.29       True
+       products 24563   Yes    19394.17          167.66           1.16       True
+  perm_products   283    No      204.28            3.32           0.82       True
+  perm_products   343   Yes      234.24            3.38           0.86       True
+
+-----------------------
+InferenceType: MPE-LOG
+-----------------------
+CPU          op  size indices  setup_time  first_run_time  rest_run_time    correct
+        product 34303   Yes    28585.73          245.33           1.58       True
+       products 24623   Yes    20088.63          162.05           1.25       True
+  perm_products   343    No      235.52            3.14           1.54       True
+  perm_products   403   Yes      276.51            3.19           1.59       True
+GPU          op  size indices  setup_time  first_run_time  rest_run_time    correct
+        product 34303   Yes    28508.09          257.55           9.23       True
+       products 24623   Yes    19519.18          161.59           1.19       True
+  perm_products   343    No      224.73            3.55           0.86       True
+  perm_products   403   Yes      265.38            3.86           0.88       True
