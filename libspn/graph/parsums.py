@@ -1,9 +1,11 @@
 # ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
+# Copyright (C) 2016 Andrzej Pronobis - All Rights Reserved
 #
 # This file is part of LibSPN. Unauthorized use or copying of this file,
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
+
+# WORK IN PROGRESS
 
 from itertools import chain
 import tensorflow as tf
@@ -16,16 +18,17 @@ from libspn import utils
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
 from libspn import conf
-from libspn.utils.serialization import register_serializable
 
 
-@register_serializable
-class Sum(OpNode):
-    """A node representing a single sum in an SPN.
+class ParSums(OpNode):
+    """A node representing multiple par-sums (which share the same input)
+            in an SPN.
 
     Args:
         *values (input_like): Inputs providing input values to this node.
             See :meth:`~libspn.Input.as_input` for possible values.
+        num_sums (input_like): Input providing numbe of sums modeled by this
+            single sums node.
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
@@ -43,16 +46,23 @@ class Sum(OpNode):
                                        op generation.
     """
 
-    __logger = get_logger()
-    __info = __logger.info
+    logger = get_logger()
+    info = logger.info
 
-    def __init__(self, *values, weights=None, ivs=None,
-                 inference_type=InferenceType.MARGINAL, name="Sum"):
+    def __init__(self, *values, num_sums=1, weights=None, ivs=None,
+                 inference_type=InferenceType.MARGINAL, name="ParSums"):
+        if not num_sums > 0:
+            raise StructureError("In %s num_sums: %s need to be > 0" % self,
+                                 num_sums)
+
         super().__init__(inference_type, name)
+
         self.set_values(*values)
+        self._num_sums = num_sums
         self.set_weights(weights)
         self.set_ivs(ivs)
 
+# TODO
     def serialize(self):
         data = super().serialize()
         data['values'] = [(i.node.name, i.indices) for i in self._values]
@@ -62,12 +72,14 @@ class Sum(OpNode):
             data['ivs'] = (self._ivs.node.name, self._ivs.indices)
         return data
 
+# TODO
     def deserialize(self, data):
         super().deserialize(data)
         self.set_values()
         self.set_weights()
         self.set_ivs()
 
+# TODO
     def deserialize_inputs(self, data, nodes_by_name):
         super().deserialize_inputs(data, nodes_by_name)
         self._values = tuple(Input(nodes_by_name[nn], i)
@@ -170,9 +182,16 @@ class Sum(OpNode):
         if not input_sizes:
             input_sizes = self.get_input_sizes()
         num_values = sum(input_sizes[2:])  # Skip ivs, weights
+
+        if init_value == 1:
+            init_value = utils.broadcast_value(1,
+                                               (self._num_sums * num_values,),
+                                               dtype=conf.dtype)
+
         # Generate weights
         weights = Weights(init_value=init_value,
                           num_weights=num_values,
+                          num_sums=self._num_sums,
                           trainable=trainable, name=name)
         self.set_weights(weights)
         return weights
@@ -200,7 +219,8 @@ class Sum(OpNode):
         num_values = sum(len(v.indices) if v.indices is not None
                          else v.node.get_out_size()
                          for v in self._values)
-        ivs = IVs(feed=feed, num_vars=1, num_vals=num_values, name=name)
+        ivs = IVs(feed=feed, num_vars=self._num_sums, num_vals=num_values,
+                  name=name)
         self.set_ivs(ivs)
         return ivs
 
@@ -209,7 +229,7 @@ class Sum(OpNode):
         return True
 
     def _compute_out_size(self, *input_out_sizes):
-        return 1
+        return self._num_sums
 
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):
         if not self._values:
@@ -219,8 +239,13 @@ class Sum(OpNode):
                                                                  *value_scopes)
         flat_value_scopes = list(chain.from_iterable(value_scopes))
         if self._ivs:
-            flat_value_scopes.extend(ivs_scopes)
-        return [Scope.merge_scopes(flat_value_scopes)]
+            sublist_size = int(len(ivs_scopes) / self._num_sums)
+            # Divide gathered ivs scopes into sublists, one per modelled Sum node.
+            ivs_scopes_sublists = [ivs_scopes[i:i+sublist_size] for i in
+                                   range(0, len(ivs_scopes), sublist_size)]
+        return [Scope.merge_scopes(flat_value_scopes + ivs_scopes_sublists[i]
+                                   if self._ivs else flat_value_scopes)
+                for i in range(self._num_sums)]
 
     def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
         if not self._values:
@@ -236,19 +261,20 @@ class Sum(OpNode):
         # IVs
         if self._ivs:
             # Verify number of IVs
-            if len(ivs_scopes_) != len(flat_value_scopes):
+            if len(ivs_scopes_) != len(flat_value_scopes) * self._num_sums:
                 raise StructureError("Number of IVs (%s) and values (%s) does "
                                      "not match for %s"
-                                     % (len(ivs_scopes_), len(flat_value_scopes),
+                                     % (len(ivs_scopes_),
+                                        len(flat_value_scopes) * self._num_sums,
                                         self))
             # Check if scope of all IVs is just one and the same variable
-            if len(Scope.merge_scopes(ivs_scopes_)) > 1:
+            if len(Scope.merge_scopes(ivs_scopes_)) > self._num_sums:
                 return None
         # Check sum for completeness wrt values
         first_scope = flat_value_scopes[0]
         if any(s != first_scope for s in flat_value_scopes[1:]):
-            self.__info("%s is not complete with input value scopes %s",
-                        self, flat_value_scopes)
+            ParSums.info("%s is not complete with input value scopes %s",
+                              self, flat_value_scopes)
             return None
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
 
@@ -268,43 +294,73 @@ class Sum(OpNode):
     def _compute_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
-        values_selected = values * ivs_tensor if self._ivs else values
-        return tf.matmul(values_selected, tf.reshape(weight_tensor, [-1, 1]))
+        if self._ivs:
+            # IVs tensor shape = (Batch X (num_sums * num_vals))
+            # reshape it to (Batch X num_sums X num_feat)
+            reshape = (-1, self._num_sums, values.shape[1].value)
+            ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
+            values_selected_weighted = tf.expand_dims(values, axis=1) * (
+                                       ivs_tensor * weight_tensor)
+            return tf.reduce_sum(values_selected_weighted, axis=2)
+        else:
+            return tf.matmul(values, weight_tensor, transpose_b=True)
 
     def _compute_log_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
-        values_selected = values + ivs_tensor if self._ivs else values
-        values_weighted = values_selected + weight_tensor
-        return utils.reduce_log_sum(values_weighted)
+        if self._ivs:
+            # IVs tensor shape = (Batch X (num_sums * num_vals))
+            # reshape it to (Batch X num_sums X num_feat)
+            reshape = (-1, self._num_sums, values.shape[1].value)
+            ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
+            values_weighted = tf.expand_dims(values, axis=1) + (ivs_tensor +
+                                                                weight_tensor)
+        else:
+            values_weighted = tf.expand_dims(values, axis=1) + weight_tensor
+        return utils.reduce_log_sum_3D(values_weighted, transpose=False)
 
     def _compute_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
-        values_selected = values * ivs_tensor if self._ivs else values
-        values_weighted = values_selected * weight_tensor
-        return tf.reduce_max(values_weighted, 1, keep_dims=True)
+        if self._ivs:
+            # IVs tensor shape = (Batch X (num_sums * num_vals))
+            # reshape it to (Batch X num_sums X num_feat)
+            reshape = (-1, self._num_sums, values.shape[1].value)
+            ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
+            values_weighted = tf.expand_dims(values, axis=1) * (ivs_tensor *
+                                                                weight_tensor)
+        else:
+            values_weighted = tf.expand_dims(values, axis=1) * weight_tensor
+        return tf.reduce_max(values_weighted, axis=2)
 
     def _compute_log_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
-        values_selected = values + ivs_tensor if self._ivs else values
-        values_weighted = values_selected + weight_tensor
-        return tf.reduce_max(values_weighted, 1, keep_dims=True)
+        if self._ivs:
+            # IVs tensor shape = (Batch X (num_sums * num_vals))
+            # reshape it to (Batch X num_sums X num_feat)
+            reshape = (-1, self._num_sums, values.shape[1].value)
+            ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
+            values_weighted = tf.expand_dims(values, axis=1) + (ivs_tensor +
+                                                                weight_tensor)
+        else:
+            values_weighted = tf.expand_dims(values, axis=1) + weight_tensor
+        return tf.reduce_max(values_weighted, axis=2)
 
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
                                  ivs_value, *value_values):
         # Propagate the counts to the max value
-        max_indices = tf.argmax(values_weighted, dimension=1)
-        max_counts = utils.scatter_values(params=tf.squeeze(counts, axis=1),
-                                          indices=max_indices,
-                                          num_out_cols=values_weighted.shape[1].value)
-        # Split the counts to value inputs
+        max_indices = tf.argmax(values_weighted, dimension=2)
+        max_counts = utils.scatter_values(params=counts, indices=max_indices,
+                                          num_out_cols=values_weighted.shape[2].value)
+        # Sum up max counts between individual sum nodes
+        max_counts_summed = tf.reduce_sum(max_counts, 1)
+        # Split the max counts to value inputs
         _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
-        max_counts_split = utils.split_maybe(max_counts, value_sizes, 1)
+        max_counts_split = tf.split(max_counts_summed, value_sizes, 1)
         return self._scatter_to_input_tensors(
             (max_counts, weight_value),  # Weights
-            (max_counts, ivs_value),  # IVs
+            (max_counts_summed, ivs_value),  # IVs
             *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
 
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
@@ -312,31 +368,50 @@ class Sum(OpNode):
         # Get weighted, IV selected values
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
-        values_selected = values * ivs_value if self._ivs else values
-        values_weighted = values_selected * weight_value
+        if self._ivs:
+            # IVs tensor shape = (Batch X (num_sums * num_vals))
+            # reshape it to (Batch X num_sums X num_feat)
+            reshape = (-1, self._num_sums, values.shape[1].value)
+            ivs_value = tf.reshape(ivs_value, shape=reshape)
+            values_weighted = tf.expand_dims(values, axis=1) * (ivs_value *
+                                                                weight_value)
+        else:
+            values_weighted = tf.expand_dims(values, axis=1) * weight_value
         return self._compute_mpe_path_common(
-            values_weighted, counts, weight_value, ivs_value, *value_values)
+             values_weighted, counts, weight_value, ivs_value, *value_values)
 
-    def _compute_log_mpe_path(self, counts, weight_value, ivs_value, *value_values,
-                              add_random=None, use_unweighted=False):
+    def _compute_log_mpe_path(self, counts, weight_value, ivs_value,
+                              *value_values, add_random=None,
+                              use_unweighted=False):
         # Get weighted, IV selected values
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
-        values_selected = values + ivs_value if self._ivs else values
+        if self._ivs:
+            # IVs tensor shape = (Batch X (num_sums * num_vals))
+            # reshape it to (Batch X num_sums X num_feat)
+            reshape = (-1, self._num_sums, values.shape[1].value)
+            ivs_value = tf.reshape(ivs_value, shape=reshape)
 
-        # WARN USING UNWEIGHTED VALUE
-        if not use_unweighted or any(v.node.is_var for v in self._values):
-            values_weighted = values_selected + weight_value
+            # WARN USING UNWEIGHTED VALUE
+            if not use_unweighted or any(v.node.is_var for v in self._values):
+                values_weighted = tf.expand_dims(values, axis=1) + (ivs_value +
+                                                                    weight_value)
+            else:
+                # / USING UNWEIGHTED VALUE
+                values_weighted = tf.expand_dims(values, axis=1) + ivs_value
         else:
-            values_weighted = values_selected
-
-        # / USING UNWEIGHTED VALUE
+            # WARN USING UNWEIGHTED VALUE
+            if not use_unweighted or any(v.node.is_var for v in self._values):
+                values_weighted = tf.expand_dims(values, axis=1) + weight_value
+            else:
+                # / USING UNWEIGHTED VALUE
+                values_weighted = tf.expand_dims(values, axis=1)
 
         # WARN ADDING RANDOM NUMBERS
         if add_random is not None:
             values_weighted = tf.add(values_weighted, tf.random_uniform(
-                shape=(tf.shape(values_weighted)[0],
-                       values_weighted.shape[1].value),
+                shape=(tf.shape(values_weighted)[0], 1,
+                       values_weighted.shape[2].value),
                 minval=0, maxval=add_random,
                 dtype=conf.dtype))
         # /ADDING RANDOM NUMBERS

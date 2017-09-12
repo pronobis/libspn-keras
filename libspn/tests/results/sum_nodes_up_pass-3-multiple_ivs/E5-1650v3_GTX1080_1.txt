@@ -1,0 +1,128 @@
+Params:
+- num_input_rows=200
+- num_input_cols=101
+- num_sums=100
+- num_ops=10
+- num_runs=50
+
+Running tests:
+--> sum: on_gpu=False, inputs_shape=(200, 101), indices=No, ivs=No, inference=MARGINAL, log=False
+--> sum: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MARGINAL, log=False
+--> sum: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MARGINAL, log=False
+--> sum: on_gpu=True, inputs_shape=(200, 101), indices=No, ivs=No, inference=MARGINAL, log=False
+--> sum: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MARGINAL, log=False
+--> sum: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MARGINAL, log=False
+--> parallel_sums: on_gpu=False, inputs_shape=(200, 101), indices=No, ivs=No, inference=MARGINAL, log=False
+--> parallel_sums: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MARGINAL, log=False
+--> parallel_sums: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MARGINAL, log=False
+--> parallel_sums: on_gpu=True, inputs_shape=(200, 101), indices=No, ivs=No, inference=MARGINAL, log=False
+--> parallel_sums: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MARGINAL, log=False
+--> parallel_sums: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MARGINAL, log=False
+--> sum: on_gpu=False, inputs_shape=(200, 101), indices=No, ivs=No, inference=MARGINAL, log=True
+--> sum: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MARGINAL, log=True
+--> sum: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MARGINAL, log=True
+--> sum: on_gpu=True, inputs_shape=(200, 101), indices=No, ivs=No, inference=MARGINAL, log=True
+--> sum: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MARGINAL, log=True
+--> sum: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MARGINAL, log=True
+--> parallel_sums: on_gpu=False, inputs_shape=(200, 101), indices=No, ivs=No, inference=MARGINAL, log=True
+--> parallel_sums: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MARGINAL, log=True
+--> parallel_sums: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MARGINAL, log=True
+--> parallel_sums: on_gpu=True, inputs_shape=(200, 101), indices=No, ivs=No, inference=MARGINAL, log=True
+--> parallel_sums: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MARGINAL, log=True
+--> parallel_sums: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MARGINAL, log=True
+--> sum: on_gpu=False, inputs_shape=(200, 101), indices=No, ivs=No, inference=MPE, log=False
+--> sum: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MPE, log=False
+--> sum: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MPE, log=False
+--> sum: on_gpu=True, inputs_shape=(200, 101), indices=No, ivs=No, inference=MPE, log=False
+--> sum: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MPE, log=False
+--> sum: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MPE, log=False
+--> parallel_sums: on_gpu=False, inputs_shape=(200, 101), indices=No, ivs=No, inference=MPE, log=False
+--> parallel_sums: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MPE, log=False
+--> parallel_sums: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MPE, log=False
+--> parallel_sums: on_gpu=True, inputs_shape=(200, 101), indices=No, ivs=No, inference=MPE, log=False
+--> parallel_sums: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MPE, log=False
+--> parallel_sums: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MPE, log=False
+--> sum: on_gpu=False, inputs_shape=(200, 101), indices=No, ivs=No, inference=MPE, log=True
+--> sum: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MPE, log=True
+--> sum: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MPE, log=True
+--> sum: on_gpu=True, inputs_shape=(200, 101), indices=No, ivs=No, inference=MPE, log=True
+--> sum: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MPE, log=True
+--> sum: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MPE, log=True
+--> parallel_sums: on_gpu=False, inputs_shape=(200, 101), indices=No, ivs=No, inference=MPE, log=True
+--> parallel_sums: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MPE, log=True
+--> parallel_sums: on_gpu=False, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MPE, log=True
+--> parallel_sums: on_gpu=True, inputs_shape=(200, 101), indices=No, ivs=No, inference=MPE, log=True
+--> parallel_sums: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=No, inference=MPE, log=True
+--> parallel_sums: on_gpu=True, inputs_shape=(200, 101), indices=Yes, ivs=Yes, inference=MPE, log=True
+
+-----------------------
+InferenceType: MARGINAL
+-----------------------
+CPU          op  size indices   ivs  setup_time weights_init_time  first_run_time  rest_run_time    correct
+            sum 16219    No      No     6852.30          587.16           51.12           1.38       True
+            sum 18219   Yes      No     7784.77          647.68           88.50           1.35       True
+            sum 31319   Yes     Yes    12607.70         1114.32          167.71          11.75       True
+  parallel_sums   339    No      No      131.36           13.03            4.71           0.34       True
+  parallel_sums   359   Yes      No      135.12           12.36            1.42           0.48       True
+  parallel_sums   550   Yes     Yes      202.10           17.30           26.13          15.89       True
+GPU          op  size indices   ivs  setup_time weights_init_time  first_run_time  rest_run_time    correct
+            sum 16219    No      No     7211.79          949.45          464.59           2.28       True
+            sum 18219   Yes      No     7935.46          673.64           63.68           2.38       True
+            sum 31319   Yes     Yes    13183.29         1113.85          191.50          10.11       True
+  parallel_sums   339    No      No      128.40           11.74            3.83           0.57       True
+  parallel_sums   359   Yes      No      223.38           13.89            2.18           0.52       True
+  parallel_sums   550   Yes     Yes      211.91           16.99            5.38           1.34       True
+
+-----------------------
+InferenceType: MARGINAL-LOG
+-----------------------
+CPU          op  size indices   ivs  setup_time weights_init_time  first_run_time  rest_run_time    correct
+            sum 29359    No      No    11772.44          961.38          134.22           5.45       True
+            sum 31359   Yes      No    12163.24         1059.48          129.99           5.58       True
+            sum 45459   Yes     Yes    18196.05         1556.28          244.82          15.30       True
+  parallel_sums   659    No      No      275.70           24.57           18.55           9.19       True
+  parallel_sums   679   Yes      No      251.71           20.75           13.55           9.16       True
+  parallel_sums   840   Yes     Yes      300.80           23.77           33.55          17.58       True
+GPU          op  size indices   ivs  setup_time weights_init_time  first_run_time  rest_run_time    correct
+            sum 29359    No      No    11909.88          996.15          134.27          11.54       True
+            sum 31359   Yes      No    12239.78         1069.57          141.68          10.13       True
+            sum 45459   Yes     Yes    17493.73         1535.48          380.61          21.42       True
+  parallel_sums   659    No      No      241.02           19.34            4.11           1.33       True
+  parallel_sums   679   Yes      No      239.60           19.90            4.28           1.36       True
+  parallel_sums   840   Yes     Yes      295.25           24.39            5.82           2.07       True
+
+-----------------------
+InferenceType: MPE
+-----------------------
+CPU          op  size indices   ivs  setup_time weights_init_time  first_run_time  rest_run_time    correct
+            sum 16219    No      No     7461.69          765.33           99.07           4.52       True
+            sum 18219   Yes      No     7570.29          642.56           63.51           4.91       True
+            sum 31319   Yes     Yes    12416.38         1093.19          159.73          14.84       True
+  parallel_sums   379    No      No      158.99           15.42            9.98           6.43       True
+  parallel_sums   399   Yes      No      149.01           13.60            8.23           6.10       True
+  parallel_sums   550   Yes     Yes      201.56           17.07           34.31          16.34       True
+GPU          op  size indices   ivs  setup_time weights_init_time  first_run_time  rest_run_time    correct
+            sum 16219    No      No     7139.37          588.46           54.17           2.59       True
+            sum 18219   Yes      No     7637.11          731.15           64.59           2.82       True
+            sum 31319   Yes     Yes    12236.58         1115.80          179.99          10.76       True
+  parallel_sums   379    No      No      609.31           12.95            2.34           0.96       True
+  parallel_sums   399   Yes      No      182.66           13.34            2.51           0.91       True
+  parallel_sums   550   Yes     Yes      225.40           17.64            4.17           1.42       True
+
+-----------------------
+InferenceType: MPE-LOG
+-----------------------
+CPU          op  size indices   ivs  setup_time weights_init_time  first_run_time  rest_run_time    correct
+            sum 17239    No      No     7122.62          585.43           52.91           2.04       True
+            sum 19239   Yes      No     7975.75          662.45          115.04           2.02       True
+            sum 33339   Yes     Yes    13016.21         1150.86          162.14          12.56       True
+  parallel_sums   409    No      No      165.53           16.04           10.16           6.77       True
+  parallel_sums   429   Yes      No      159.04           14.16            8.83           6.36       True
+  parallel_sums   590   Yes     Yes      242.28           20.37           21.96          14.75       True
+GPU          op  size indices   ivs  setup_time weights_init_time  first_run_time  rest_run_time    correct
+            sum 17239    No      No     7665.56          617.37           62.28           2.91       True
+            sum 19239   Yes      No     7948.81          679.29          126.42           3.74       True
+            sum 33339   Yes     Yes    13103.29         1152.65          189.13          11.77       True
+  parallel_sums   409    No      No      158.23           13.54            2.47           0.85       True
+  parallel_sums   429   Yes      No      159.23           13.57            2.57           1.03       True
+  parallel_sums   590   Yes     Yes      291.69           19.36            4.55           1.61       True
