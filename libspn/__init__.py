@@ -36,6 +36,7 @@ from libspn.graph.algorithms import traverse_graph
 
 # Generators
 from libspn.generation.dense import DenseSPNGenerator
+from libspn.generation.dense_multinodes import DenseSPNGeneratorMultiNodes
 from libspn.generation.weights import WeightsGenerator
 from libspn.generation.weights import generate_weights
 
