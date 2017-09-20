@@ -330,34 +330,6 @@ class PerformanceTest:
 
 def main():
 
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('--num-input-rows', default=3, type=int,
-    #                     help="Num of rows of inputs")
-    # parser.add_argument('--num-input-vars', default=2, type=int,
-    #                     help="Num of input variables")
-    # parser.add_argument('--num-input-vals', default=2, type=int,
-    #                     help="Num of input values per variable")
-    # parser.add_argument('--num-mixtures', default=2, type=int,
-    #                     help="Num of mixtures per subset")
-    # parser.add_argument('--num-networks', default=2, type=int,
-    #                     help="Num of networks used for tests")
-    # parser.add_argument('--num-runs', default=3, type=int,
-    #                     help="Num of times each test is run")
-    # parser.add_argument('--log-devices', action='store_true',
-    #                     help="Log on which device op is run. Affects run time!")
-    # parser.add_argument('--without-cpu', action='store_true',
-    #                     help="Do not run CPU tests")
-    # parser.add_argument('--without-gpu', action='store_true',
-    #                     help="Do not run GPU tests")
-    # parser.add_argument('--profile', default=False, action='store_true',
-    #                     help="Run test one more time and profile")
-    # parser.add_argument('--profiles-dir', default='profiles', type=str,
-    #                     help="Run test one more time and profile")
-    # parser.add_argument('--save-to', default='', type=str,
-    #                     help="Save results to file")
-    # args = parser.parse_args()
-
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--num-input-rows', default=200, type=int,
                         help="Num of rows of inputs")
