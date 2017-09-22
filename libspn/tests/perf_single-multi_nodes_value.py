@@ -335,7 +335,7 @@ def main():
                         help="Num of rows of inputs")
     parser.add_argument('--num-input-vars', default=5, type=int,
                         help="Num of input variables")
-    parser.add_argument('--num-input-vals', default=10, type=int,
+    parser.add_argument('--num-input-vals', default=5, type=int,
                         help="Num of input values per variable")
     parser.add_argument('--num-mixtures', default=5, type=int,
                         help="Num of mixtures per subset")
