@@ -243,12 +243,10 @@ multi_nodes=%s, log=%s"
                     try:
                         np.testing.assert_almost_equal((np.exp(out).sum() if log else
                                                         out.sum()), true_out,
-                                                       decimal=4)
+                                                       decimal=2)
                     except AssertionError:
                         output_correct = False
                         self.test_failed = True
-                        print("OUTPUT INCORRECT: true_out: ", true_out, "  out.sum(): ",
-                              (np.exp(out).sum() if log else out.sum()))
 
             if self.profile:
                 # Add additional options to trace the session execution
@@ -344,11 +342,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--num-input-rows', default=200, type=int,
                         help="Num of rows of inputs")
-    parser.add_argument('--num-input-vars', default=5, type=int,
+    parser.add_argument('--num-input-vars', default=10, type=int,
                         help="Num of input variables")
     parser.add_argument('--num-input-vals', default=5, type=int,
                         help="Num of input values per variable")
-    parser.add_argument('--num-decomps', default=1, type=int,
+    parser.add_argument('--num-decomps', default=4, type=int,
                         help="Num of decompositions at each level")
     parser.add_argument('--num-subsets', default=5, type=int,
                         help="Num of subsets in each desomposition")
@@ -374,40 +372,6 @@ def main():
                         help="Save results to file")
     args = parser.parse_args()
 
-
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('--num-input-rows', default=10, type=int,
-    #                     help="Num of rows of inputs")
-    # parser.add_argument('--num-input-vars', default=2, type=int,
-    #                     help="Num of input variables")
-    # parser.add_argument('--num-input-vals', default=2, type=int,
-    #                     help="Num of input values per variable")
-    # parser.add_argument('--num-decomps', default=1, type=int,
-    #                     help="Num of decompositions at each level")
-    # parser.add_argument('--num-subsets', default=2, type=int,
-    #                     help="Num of subsets in each desomposition")
-    # parser.add_argument('--num-mixtures', default=2, type=int,
-    #                     help="Num of mixtures for each subset")
-    # parser.add_argument('--num-input-mixtures', default=2, type=int,
-    #                     help="Num of input mixtures")
-    # parser.add_argument('--balanced', default=True, action='store_true',
-    #                     help="Generated dense SPN is balanced between decompositions")
-    # parser.add_argument('--num-runs', default=5, type=int,
-    #                     help="Num of times each test is run")
-    # parser.add_argument('--log-devices', action='store_true',
-    #                     help="Log on which device op is run. Affects run time!")
-    # parser.add_argument('--without-cpu', action='store_true',
-    #                     help="Do not run CPU tests")
-    # parser.add_argument('--without-gpu', action='store_true',
-    #                     help="Do not run GPU tests")
-    # parser.add_argument('--profile', default=False, action='store_true',
-    #                     help="Run test one more time and profile")
-    # parser.add_argument('--profiles-dir', default='profiles', type=str,
-    #                     help="Run test one more time and profile")
-    # parser.add_argument('--save-to', default='', type=str,
-    #                     help="Save results to file")
-    # args = parser.parse_args()
-
     # To ensure that SPN graph size between 'MIXTURE' and 'RAW' networks are consistant
     if args.num_input_mixtures is not None:
         if args.num_input_mixtures != args.num_input_vals:
@@ -415,8 +379,6 @@ def main():
     else:
         if args.num_mixtures != args.num_input_vals:
             sys.exit('ERROR: num_mixtures must be == num_input_vals')
-    if args.num_subsets != args.num_input_vars:
-        sys.exit('ERROR: num_subsets must be == num_input_vars')
 
     # Open a file
     f = None
