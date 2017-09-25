@@ -141,11 +141,6 @@ class TestResults:
         print1("%s" % self.test_name, file)
         print1("-----------------------", file)
         print1(get_header("CPU"), file)
-        # for res in sorted(self.cpu_results, key=lambda x: len(x.op_name)):
-        #     print1(get_res(res), file, red)
-        # print1(get_header("GPU"), file)
-        # for res in sorted(self.gpu_results, key=lambda x: len(x.op_name)):
-        #     print1(get_res(res), file, magenta)
         for res in sorted(self.cpu_results, key=lambda x: len(x.op_name)):
             print1(get_res(res), file, (red if res.input_dist is "RAW" else green))
         print1(get_header("GPU"), file)
