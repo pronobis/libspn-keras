@@ -169,9 +169,11 @@ class PerformanceTest:
         print1("- num_runs=%s" % num_runs, file)
         print1("", file=file)
 
-    def _true_output(self, batch_size, num_input_vars, num_input_vals):
-        true_out = np.zeros((1, batch_size, num_input_vars*num_input_vals))
-        true_out[:, :, list(range(0, num_input_vars*num_input_vals, num_input_vals))] = 1
+    def _true_output(self):
+        true_out = np.zeros((1, self.num_input_rows,
+                             self.num_input_vars*self.num_input_vals))
+        true_out[:, :, list(range(0, self.num_input_vars*self.num_input_vals,
+                                  self.num_input_vals))] = 1
         return true_out
 
     def _run_network_test(self, network_fun, inputs, inf_type=spn.InferenceType.MARGINAL,
@@ -187,8 +189,7 @@ class PerformanceTest:
                   spn.InferenceType.MPE else "MARGINAL"), log), self.file)
 
         # Compute true output
-        true_out = self._true_output(self.num_input_rows, self.num_input_vars,
-                                     self.num_input_vals)
+        true_out = self._true_output()
 
         # Create graph
         tf.reset_default_graph()
