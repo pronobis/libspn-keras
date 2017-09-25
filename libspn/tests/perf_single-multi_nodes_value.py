@@ -246,8 +246,6 @@ class PerformanceTest:
                 except AssertionError:
                     output_correct = False
                     self.test_failed = True
-                    print("Out: ", (np.exp(out) if log else out), "  True_Out: ",
-                          true_out)
 
             if self.profile:
                 # Add additional options to trace the session execution
