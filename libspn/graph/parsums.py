@@ -274,7 +274,7 @@ class ParSums(OpNode):
         first_scope = flat_value_scopes[0]
         if any(s != first_scope for s in flat_value_scopes[1:]):
             ParSums.info("%s is not complete with input value scopes %s",
-                              self, flat_value_scopes)
+                         self, flat_value_scopes)
             return None
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
 
@@ -405,7 +405,8 @@ class ParSums(OpNode):
                 values_weighted = tf.expand_dims(values, axis=1) + weight_value
             else:
                 # / USING UNWEIGHTED VALUE
-                values_weighted = tf.expand_dims(values, axis=1)
+                values_weighted = tf.tile(tf.expand_dims(values, axis=1),
+                                          [1, self._num_sums, 1])
 
         # WARN ADDING RANDOM NUMBERS
         if add_random is not None:
