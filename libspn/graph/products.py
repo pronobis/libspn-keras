@@ -13,16 +13,17 @@ from libspn.inference.type import InferenceType
 from libspn import utils
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class Products(OpNode):
     """A node representing a multiple products in an SPN.
 
     Args:
         *values (input_like): Inputs providing input values to this node.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_prods (input_like): Input providing numbe of products modeled by
-           this single products node.
+        num_prods (int): Number of Product ops modelled by this node.
         name (str): Name of the node.
     """
 
@@ -41,11 +42,13 @@ class Products(OpNode):
     def serialize(self):
         data = super().serialize()
         data['values'] = [(i.node.name, i.indices) for i in self._values]
+        data['num_prods'] = self._num_prods
         return data
 
     def deserialize(self, data):
         super().deserialize(data)
         self.set_values()
+        self._num_prods = data['num_prods']
 
     def deserialize_inputs(self, data, nodes_by_name):
         super().deserialize_inputs(data, nodes_by_name)
@@ -56,6 +59,19 @@ class Products(OpNode):
     @utils.docinherit(OpNode)
     def inputs(self):
         return self._values
+
+    @property
+    def num_prods(self):
+        """int: Number of Product ops modelled by this node."""
+        return self._num_prods
+
+    def set_num_prods(self, num_prods=1):
+        """Set the number of Product ops modelled by this node.
+
+        Args:
+            num_prods (int): Number of Product ops modelled by this node.
+        """
+        self._num_prods = num_prods
 
     @property
     def values(self):

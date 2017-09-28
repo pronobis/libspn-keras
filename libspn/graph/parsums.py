@@ -18,8 +18,10 @@ from libspn import utils
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
 from libspn import conf
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class ParSums(OpNode):
     """A node representing multiple par-sums (which share the same input)
             in an SPN.
@@ -27,8 +29,7 @@ class ParSums(OpNode):
     Args:
         *values (input_like): Inputs providing input values to this node.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (input_like): Input providing numbe of sums modeled by this
-            single sums node.
+        num_sums (int): Number of Sum ops modelled by this node.
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
@@ -66,6 +67,7 @@ class ParSums(OpNode):
     def serialize(self):
         data = super().serialize()
         data['values'] = [(i.node.name, i.indices) for i in self._values]
+        data['num_sums'] = self._num_sums
         if self._weights:
             data['weights'] = (self._weights.node.name, self._weights.indices)
         if self._ivs:
@@ -76,6 +78,7 @@ class ParSums(OpNode):
     def deserialize(self, data):
         super().deserialize(data)
         self.set_values()
+        self._num_sums = data['num_sums']
         self.set_weights()
         self.set_ivs()
 
@@ -95,6 +98,19 @@ class ParSums(OpNode):
     @utils.docinherit(OpNode)
     def inputs(self):
         return (self._weights, self._ivs) + self._values
+
+    @property
+    def num_sums(self):
+        """int: Number of Sum ops modelled by this node."""
+        return self._num_sums
+
+    def set_num_sums(self, num_sums=1):
+        """Set the number of Sum ops modelled by this node.
+
+        Args:
+            num_sums (int): Number of Sum ops modelled by this node.
+        """
+        self._num_sums = num_sums
 
     @property
     def weights(self):
