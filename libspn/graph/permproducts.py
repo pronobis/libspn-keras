@@ -13,10 +13,11 @@ from libspn.inference.type import InferenceType
 from libspn import utils
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
-
 import numpy as np
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class PermProducts(OpNode):
     """A node representing multiple products, permuted over the input space, in
        an SPN.
@@ -52,6 +53,7 @@ class PermProducts(OpNode):
         super().deserialize_inputs(data, nodes_by_name)
         self._values = tuple(Input(nodes_by_name[nn], i)
                              for nn, i in data['values'])
+        self.create_products()
 
     @property
     @utils.docinherit(OpNode)
