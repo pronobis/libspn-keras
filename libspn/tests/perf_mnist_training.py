@@ -13,7 +13,6 @@ from context import libspn as spn
 import time
 import argparse
 import colorama as col
-import sys
 import scipy as scp
 from tensorflow.python.client import timeline
 import os
@@ -275,8 +274,6 @@ class PerformanceTest:
             reset_accumulators = learning.reset_accumulators()
             accumulate_updates = learning.accumulate_updates()
             update_spn = learning.update_spn()
-            train_likelihood = learning.value.values[root]
-            avg_train_likelihood = tf.reduce_mean(train_likelihood)
 
             # Generate Testing Ops
             mpe_state_gen = spn.MPEState(log=log, value_inference_type=spn.InferenceType.MPE)
@@ -313,43 +310,64 @@ class PerformanceTest:
                           min_additive_smoothing)
                 sess.run(additive_smoothing_var.assign(ads))
                 # Run accumulate_updates
-                train_likelihoods_arr, avg_train_likelihood_val, _, = \
-                    sess.run([train_likelihood, avg_train_likelihood, accumulate_updates],
-                             feed_dict=feed)
+                sess.run(accumulate_updates, feed_dict=feed)
                 # Update weights
                 sess.run(update_spn)
+                # Reset accumulators
                 sess.run(reset_accumulators)
                 run_times.append(time.time() - start_time)
+
+            if self.profile:
+                # Add additional options to trace the session execution
+                options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                run_metadata_acc_updt = tf.RunMetadata()
+                run_metadata_spn_updt = tf.RunMetadata()
+                run_metadata_acc_rst = tf.RunMetadata()
+
+                # Run a single epoch
+                # Run accumulate_updates
+                sess.run(accumulate_updates, feed_dict=feed, options=options,
+                         run_metadata=run_metadata_acc_updt)
+                # Update weights
+                sess.run(update_spn, options=options, run_metadata=run_metadata_spn_updt)
+                # Reset accumulators
+                sess.run(reset_accumulators, options=options, run_metadata=run_metadata_acc_rst)
+
+                # Create the Timeline object, and write it to a json file
+                fetched_timeline_acc_updt = timeline.Timeline(run_metadata_acc_updt.step_stats)
+                fetched_timeline_spn_updt = timeline.Timeline(run_metadata_spn_updt.step_stats)
+                fetched_timeline_acc_rst = timeline.Timeline(run_metadata_acc_rst.step_stats)
+
+                chrome_trace_acc_updt = fetched_timeline_acc_updt.generate_chrome_trace_format()
+                chrome_trace_spn_updt = fetched_timeline_spn_updt.generate_chrome_trace_format()
+                chrome_trace_acc_rst = fetched_timeline_acc_rst.generate_chrome_trace_format()
+
+                if not os.path.exists(self.profiles_dir):
+                    os.makedirs(self.profiles_dir)
+
+                file_name = op_name
+                file_name += ("_GPU_" if on_gpu else "_CPU_")
+                file_name += input_dist  # "RAW" or "MIXTURE"
+                file_name += ("_MULTI-OP" if multi_nodes else "_SINGLE-OP")
+                file_name += ("_MPE-LOG" if log else "_MPE") if inf_type == \
+                    spn.InferenceType.MPE else ("_MARGINAL-LOG" if log else
+                                                "_MARGINAL")
+
+                with open('%s/timeline_%s_acc_updt.json' % (self.profiles_dir,
+                          file_name), 'w') as f:
+                    f.write(chrome_trace_acc_updt)
+                with open('%s/timeline_%s_spn_updt.json' % (self.profiles_dir,
+                          file_name), 'w') as f:
+                    f.write(chrome_trace_spn_updt)
+                with open('%s/timeline_%s_acc_rst.json' % (self.profiles_dir,
+                          file_name), 'w') as f:
+                    f.write(chrome_trace_acc_rst)
+
             # Run Testing
             mpe_latent_val = sess.run([mpe_latent], feed_dict={inputs_pl: test_set,
                                       latent: np.ones((test_set.shape[0], 1))*-1})
             result = (mpe_latent_val == test_labels)
             test_accuracy = np.sum(result) / test_labels.size
-
-            # if self.profile:
-            #     # Add additional options to trace the session execution
-            #     options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-            #     run_metadata = tf.RunMetadata()
-            #
-            #     out = sess.run(ops, feed_dict=feed, options=options,
-            #                    run_metadata=run_metadata)
-            #
-            #     # Create the Timeline object, and write it to a json file
-            #     fetched_timeline = timeline.Timeline(run_metadata.step_stats)
-            #     chrome_trace = fetched_timeline.generate_chrome_trace_format()
-            #     if not os.path.exists(self.profiles_dir):
-            #         os.makedirs(self.profiles_dir)
-            #
-            #     file_name = op_name
-            #     file_name += ("_GPU" if on_gpu else "_CPU")
-            #     file_name += ("_MULTINODES" if multi_nodes else "_SINGLENODES")
-            #     file_name += ("_MPE-LOG" if log else "_MPE") if inf_type == \
-            #         spn.InferenceType.MPE else ("_MARGINAL-LOG" if log else
-            #                                     "_MARGINAL")
-            #
-            #     with open('%s/timeline_%s.json' % (self.profiles_dir, file_name),
-            #               'w') as f:
-            #         f.write(chrome_trace)
 
         # Return stats
         return OpTestResult(op_name, on_gpu, multi_nodes, spn_size, tf_size,

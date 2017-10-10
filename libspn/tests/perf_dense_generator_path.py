@@ -268,8 +268,9 @@ multi_nodes=%s, log=%s"
                     os.makedirs(self.profiles_dir)
 
                 file_name = op_name
-                file_name += ("_GPU" if on_gpu else "_CPU")
-                file_name += ("_MULTINODES" if multi_nodes else "_SINGLENODES")
+                file_name += ("_GPU_" if on_gpu else "_CPU_")
+                file_name += input_dist
+                file_name += ("_MULTI-OP" if multi_nodes else "_SINGLE-OP")
                 file_name += ("_MPE-LOG" if log else "_MPE") if inf_type == \
                     spn.InferenceType.MPE else ("_MARGINAL-LOG" if log else
                                                 "_MARGINAL")
