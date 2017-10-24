@@ -162,6 +162,8 @@ class BuildCommand(distutils.command.build.build):
                     '-DGOOGLE_CUDA=1',
                     '-O2',  # Used in other TF code and sufficient for max opt
                     '-I', self._tf_includes,
+                    # The below fixes a missing include in TF 1.4rc0
+                    '-I', os.path.join(self._tf_includes, 'external', 'nsync', 'public'),
                     '-L', self._cuda_libs] +
                    # Downgrade the ABI if system gcc > TF gcc
                    (['-D_GLIBCXX_USE_CXX11_ABI=0']
