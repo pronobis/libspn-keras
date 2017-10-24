@@ -90,12 +90,13 @@ class BuildCommand(distutils.command.build.build):
             self._cuda_home = os.path.dirname(os.path.dirname(self._cuda_nvcc))
         else:
             # - try a set of paths
-            cuda_paths = ['/usr/local/cuda', '/usr/local/cuda-8.0']
+            cuda_paths = ['/usr/local/cuda', '/usr/local/cuda-9.0', '/usr/local/cuda-8.0']
             for p in cuda_paths:
                 pb = os.path.join(p, 'bin', 'nvcc')
                 if os.path.exists(pb):
                     self._cuda_home = p
                     self._cuda_nvcc = pb
+                    break
         if not self._cuda_home:
             os.sys.exit("ERROR: CUDA not found!")
         self._cuda_libs = os.path.join(self._cuda_home, 'lib64')
