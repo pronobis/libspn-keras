@@ -136,7 +136,10 @@ class BuildCommand(distutils.command.build.build):
                     '-std=c++11', '-x=cu', '-Xcompiler', '-fPIC',
                     '-DGOOGLE_CUDA=1',
                     '--expt-relaxed-constexpr',  # To silence harmless warnings
-                    '-I', self._tf_includes] +
+                    '-I', self._tf_includes,
+                    # The below fixes a missing include in TF 1.4rc0
+                    '-I', os.path.join(self._tf_includes, 'external', 'nsync', 'public')
+                    ] +
                    # Downgrade the ABI if system gcc > TF gcc
                    (['-D_GLIBCXX_USE_CXX11_ABI=0']
                     if self._downgrade_abi else []) +
