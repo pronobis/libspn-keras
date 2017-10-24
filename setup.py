@@ -110,6 +110,8 @@ class BuildCommand(distutils.command.build.build):
         self._tf_includes = tensorflow.sysconfig.get_include()
         self._tf_libs = tensorflow.sysconfig.get_lib()
         self._tf_version = tensorflow.__version__
+        self._tf_version_major = int(self._tf_version[0])
+        self._tf_version_minor = int(self._tf_version[2])
         self._tf_gcc_version = tensorflow.__compiler_version__
         self._tf_gcc_version_major = int(self._tf_gcc_version[0])
         print("- Found TensorFlow %s" % self._tf_version)
@@ -160,7 +162,7 @@ class BuildCommand(distutils.command.build.build):
         try:
             cmd = (['g++', '-shared', '-o', target] +
                    inputs +
-                   ['-std=c++11', '-fPIC', '-lcudart', '-ltensorflow_framework',
+                   ['-std=c++11', '-fPIC', '-lcudart',
                     '-DGOOGLE_CUDA=1',
                     '-O2',  # Used in other TF code and sufficient for max opt
                     '-I', self._tf_includes,
@@ -168,6 +170,9 @@ class BuildCommand(distutils.command.build.build):
                     '-I', os.path.join(self._tf_includes, 'external', 'nsync', 'public'),
                     '-L', self._cuda_libs,
                     '-L', self._tf_libs] +
+                   # Framework library needed for TF>=1.4
+                   (['-ltensorflow_framework']
+                    if self._tf_version_major > 1 or self._tf_version_minor >= 4 else []) +
                    # Downgrade the ABI if system gcc > TF gcc
                    (['-D_GLIBCXX_USE_CXX11_ABI=0']
                     if self._downgrade_abi else []) +
