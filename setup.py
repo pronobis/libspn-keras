@@ -301,6 +301,8 @@ setup(
         'numpy',
         'scipy',
         'matplotlib',
+        'pillow',
+        'pyyaml',
         'colorama'  # For color output in tests
     ],
     zip_safe=False,
