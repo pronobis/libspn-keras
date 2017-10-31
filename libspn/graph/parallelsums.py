@@ -19,8 +19,6 @@ from libspn.exceptions import StructureError
 from libspn.log import get_logger
 from libspn import conf
 
-from itertools import cycle
-
 
 class ParallelSums(OpNode):
     """A node representing multiple parallel-sums (which share the same input)
