@@ -114,7 +114,7 @@ __all__ = [
     'compute_graph_up', 'compute_graph_up_down',
     'traverse_graph',
     # Generators
-    'DenseSPNGenerator', 'WeightsGenerator',
+    'DenseSPNGenerator', 'DenseSPNGeneratorMultiNodes', 'WeightsGenerator',
     'generate_weights',
     # Inference and learning
     'InferenceType', 'Value', 'LogValue', 'MPEPath', 'MPEState',
