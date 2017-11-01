@@ -1283,7 +1283,7 @@ class TestNodesParSums(unittest.TestCase):
                                             [0., 0., 25., 0., 0., 0.],
                                             [0., 0., 0., 26., 0., 0.],
                                             [27., 0., 0., 0., 0., 0.]]],
-                                 dtype=np.float32), [1, 0, 2]))
+                                          dtype=np.float32), [1, 0, 2]))
 
         # IVs
         np.testing.assert_array_almost_equal(

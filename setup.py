@@ -95,12 +95,13 @@ class BuildCommand(distutils.command.build.build):
             self._cuda_home = os.path.dirname(os.path.dirname(self._cuda_nvcc))
         else:
             # - try a set of paths
-            cuda_paths = ['/usr/local/cuda', '/usr/local/cuda-8.0']
+            cuda_paths = ['/usr/local/cuda', '/usr/local/cuda-9.0', '/usr/local/cuda-8.0']
             for p in cuda_paths:
                 pb = os.path.join(p, 'bin', 'nvcc')
                 if os.path.exists(pb):
                     self._cuda_home = p
                     self._cuda_nvcc = pb
+                    break
         if not self._cuda_home:
             os.sys.exit("ERROR: CUDA not found!")
         self._cuda_libs = os.path.join(self._cuda_home, 'lib64')
@@ -112,12 +113,16 @@ class BuildCommand(distutils.command.build.build):
         # TensorFlow
         import tensorflow
         self._tf_includes = tensorflow.sysconfig.get_include()
+        self._tf_libs = tensorflow.sysconfig.get_lib()
         self._tf_version = tensorflow.__version__
+        self._tf_version_major = int(self._tf_version[0])
+        self._tf_version_minor = int(self._tf_version[2])
         self._tf_gcc_version = tensorflow.__compiler_version__
         self._tf_gcc_version_major = int(self._tf_gcc_version[0])
         print("- Found TensorFlow %s" % self._tf_version)
         print("  gcc version: %s" % self._tf_gcc_version)
         print("  includes: %s" % self._tf_includes)
+        print("  libraries: %s" % self._tf_libs)
 
         # gcc
         try:
@@ -140,7 +145,10 @@ class BuildCommand(distutils.command.build.build):
                     '-std=c++11', '-x=cu', '-Xcompiler', '-fPIC',
                     '-DGOOGLE_CUDA=1',
                     '--expt-relaxed-constexpr',  # To silence harmless warnings
-                    '-I', self._tf_includes] +
+                    '-I', self._tf_includes,
+                    # The below fixes a missing include in TF 1.4rc0
+                    '-I', os.path.join(self._tf_includes, 'external', 'nsync', 'public')
+                    ] +
                    # Downgrade the ABI if system gcc > TF gcc
                    (['-D_GLIBCXX_USE_CXX11_ABI=0']
                     if self._downgrade_abi else []) +
@@ -163,7 +171,13 @@ class BuildCommand(distutils.command.build.build):
                     '-DGOOGLE_CUDA=1',
                     '-O2',  # Used in other TF code and sufficient for max opt
                     '-I', self._tf_includes,
-                    '-L', self._cuda_libs] +
+                    # The below fixes a missing include in TF 1.4rc0
+                    '-I', os.path.join(self._tf_includes, 'external', 'nsync', 'public'),
+                    '-L', self._cuda_libs,
+                    '-L', self._tf_libs] +
+                   # Framework library needed for TF>=1.4
+                   (['-ltensorflow_framework']
+                    if self._tf_version_major > 1 or self._tf_version_minor >= 4 else []) +
                    # Downgrade the ABI if system gcc > TF gcc
                    (['-D_GLIBCXX_USE_CXX11_ABI=0']
                     if self._downgrade_abi else []) +
@@ -306,6 +320,8 @@ setup(
         'numpy',
         'scipy',
         'matplotlib',
+        'pillow',
+        'pyyaml',
         'colorama'  # For color output in tests
     ],
     zip_safe=False,
