@@ -100,12 +100,13 @@ class Ops:
 class OpTestResult:
     """Result of a single test of a single op."""
 
-    def __init__(self, op_name, on_gpu, spn_size, tf_size, input_dist, setup_time,
-                 weights_init_time, run_times, output_correct):
+    def __init__(self, op_name, on_gpu, spn_size, tf_size, memory_used, input_dist,
+                 setup_time, weights_init_time, run_times, output_correct):
         self.op_name = op_name
         self.on_gpu = on_gpu
         self.spn_size = spn_size
         self.tf_size = tf_size
+        self.memory_used = memory_used
         self.input_dist = input_dist
         self.setup_time = setup_time
         self.weights_init_time = weights_init_time
@@ -123,16 +124,17 @@ class TestResults:
 
     def print(self, file):
         def get_header(dev):
-            return ("%4s %11s %9s %8s %11s %11s %17s %15s %14s %10s" %
-                    (dev, 'op', 'SPN_size', 'TF_size', 'input_dist', 'setup_time',
-                     'weights_init_time', 'first_run_time', 'rest_run_time',
-                     'correct'))
+            return ("%4s %11s %9s %8s %9s %11s %11s %17s %15s %14s %10s" %
+                    (dev, 'op', 'SPN_size', 'TF_size', 'mem_used', 'input_dist',
+                     'setup_time', 'weights_init_time', 'first_run_time',
+                     'rest_run_time', 'correct'))
 
         def get_res(res):
             """Helper function printing a single result."""
-            return ("%16s %7d  %7d% 11s %11.2f %15.2f %15.2f %14.2f %12s" %
-                    (res.op_name, res.spn_size, res.tf_size, res.input_dist,
-                     res.setup_time * 1000, res.weights_init_time * 1000,
+            return ("%16s %7d %7d %11.4f %10s %11.2f %15.2f %15.2f %14.2f %12s" %
+                    (res.op_name, res.spn_size, res.tf_size,
+                     (0.0 if res.memory_used is None else res.memory_used / 1000000),
+                     res.input_dist, res.setup_time * 1000, res.weights_init_time * 1000,
                      res.run_times[0] * 1000, np.mean(res.run_times[1:]) * 1000,
                      res.output_correct))
 
@@ -211,6 +213,8 @@ multi_nodes=%s, log=%s"
                                          self.balanced, input_dist, multi_nodes, inf_type,
                                          log)
             setup_time = time.time() - start_time
+            if on_gpu:
+                max_bytes_used_op = tf.contrib.memory_stats.MaxBytesInUse()
         # Get num of SPN ops
         spn_size = root.get_num_nodes()
         # Get num of graph ops
@@ -243,6 +247,11 @@ multi_nodes=%s, log=%s"
                         output_correct = False
                         self.test_failed = True
 
+            if on_gpu:
+                memory_used = sess.run(max_bytes_used_op)
+            else:
+                memory_used = None
+
             if self.profile:
                 # Add additional options to trace the session execution
                 options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
@@ -270,8 +279,9 @@ multi_nodes=%s, log=%s"
                     f.write(chrome_trace)
 
         # Return stats
-        return OpTestResult(op_name, on_gpu, spn_size, tf_size, input_dist, setup_time,
-                            weights_init_time, run_times, output_correct)
+        return OpTestResult(op_name, on_gpu, spn_size, tf_size, memory_used,
+                            input_dist, setup_time, weights_init_time, run_times,
+                            output_correct)
 
     def _run_test(self, test_name, op_funs, inputs, multi_nodes, inf_type, log):
         """Run a single test for multiple ops and devices."""
