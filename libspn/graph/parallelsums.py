@@ -299,8 +299,8 @@ class ParallelSums(OpNode):
             # reshape it to (num_sums X Batch X num_feat)
             reshape = (-1, self._num_sums, values.shape[1].value)
             ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
-            values_selected_weighted = tf.expand_dims(values, axis=1) * \
-                (ivs_tensor * weight_tensor)
+            values_selected_weighted = tf.expand_dims(values, axis=1) * (
+                                       ivs_tensor * weight_tensor)
             return tf.reduce_sum(values_selected_weighted, axis=2)
         else:
             return tf.matmul(values, weight_tensor, transpose_b=True)

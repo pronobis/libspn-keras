@@ -760,6 +760,168 @@ class TestNodesParallelSums(unittest.TestCase):
              ivs: [[0]]},
              [[0.1*0.2]])
 
+    def test_comput_scope(self):
+        """Calculating scope of ParallelSums"""
+        # Create a graph
+        v12 = spn.IVs(num_vars=2, num_vals=4)
+        v34 = spn.ContVars(num_vars=2)
+        ivs_ps5 = spn.IVs(num_vars=3, num_vals=7)
+        ps1 = spn.ParallelSums((v12, [0, 1, 2, 3]), num_sums=2, name="PS1")
+        ps2 = spn.ParallelSums((v12, [2, 3, 6, 7]), num_sums=1, name="PS2")
+        ps2.generate_ivs()
+        ps3 = spn.ParallelSums((v12, [4, 6]), (v34, 0), num_sums=3, name="PS3")
+        ps3.generate_ivs()
+        ps4 = spn.ParallelSums(v34, num_sums=2, name="PS4")
+        n1 = spn.Concat(ps1, ps2, (ps3, [0, 2]), name="N1")
+        n2 = spn.Concat((ps3, 1), (ps4, 1), name="N2")
+        p1 = spn.Product((ps1, 1), ps3, name="P1")
+        p2 = spn.Product((ps2, 0), (ps3, 2), name="P2")
+        s1 = spn.Sum((ps3, [0, 2]), ps4, name="S1")
+        s1.generate_ivs()
+        p3 = spn.Product(ps3, name="P3")
+        n3 = spn.Concat(ps4, name="N3")
+        ps5 = spn.ParallelSums(n1, (n2, 0), p1, ivs=ivs_ps5, num_sums=3, name="PS5")
+        ps6 = spn.ParallelSums(p2, name="PS6")
+        ps7 = spn.ParallelSums(p2, s1, p3, (n3, 1), num_sums=2, name="PS7")
+        s2 = spn.Sum(ps5, ps6, ps7, name="S2")
+        s2.generate_ivs()
+        # Test
+        self.assertListEqual(v12.get_scope(),
+                             [spn.Scope(v12, 0), spn.Scope(v12, 0),
+                              spn.Scope(v12, 0), spn.Scope(v12, 0),
+                              spn.Scope(v12, 1), spn.Scope(v12, 1),
+                              spn.Scope(v12, 1), spn.Scope(v12, 1)])
+        self.assertListEqual(v34.get_scope(),
+                             [spn.Scope(v34, 0), spn.Scope(v34, 1)])
+        self.assertListEqual(ps1.get_scope(),
+                             [spn.Scope(v12, 0), spn.Scope(v12, 0)])
+        self.assertListEqual(ps2.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(ps2.ivs.node, 0)])
+        self.assertListEqual(ps3.get_scope(),
+                             [spn.Scope(v12, 1) | spn.Scope(v34, 0) |
+                              spn.Scope(ps3.ivs.node, 0),
+                              spn.Scope(v12, 1) | spn.Scope(v34, 0) |
+                              spn.Scope(ps3.ivs.node, 1),
+                              spn.Scope(v12, 1) | spn.Scope(v34, 0) |
+                              spn.Scope(ps3.ivs.node, 2)])
+        self.assertListEqual(ps4.get_scope(),
+                             [spn.Scope(v34, 0) | spn.Scope(v34, 1)] * 2)
+        self.assertListEqual(n1.get_scope(),
+                             [spn.Scope(v12, 0), spn.Scope(v12, 0),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(ps2.ivs.node, 0),
+                              spn.Scope(v12, 1) | spn.Scope(v34, 0) |
+                              spn.Scope(ps3.ivs.node, 0),
+                              spn.Scope(v12, 1) | spn.Scope(v34, 0) |
+                              spn.Scope(ps3.ivs.node, 2)])
+        self.assertListEqual(n2.get_scope(),
+                             [spn.Scope(v12, 1) | spn.Scope(v34, 0) |
+                              spn.Scope(ps3.ivs.node, 1),
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(p1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(ps3.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 1) |
+                              spn.Scope(ps3.ivs.node, 2)])
+        self.assertListEqual(p2.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(ps2.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 2)])
+        self.assertListEqual(s1.get_scope(),
+                             [spn.Scope(v12, 1) | spn.Scope(v34, 0) |
+                              spn.Scope(v34, 1) | spn.Scope(ps3.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 2) |
+                              spn.Scope(s1.ivs.node, 0)])
+        self.assertListEqual(p3.get_scope(),
+                             [spn.Scope(v12, 1) | spn.Scope(v34, 0) |
+                              spn.Scope(ps3.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 1) |
+                              spn.Scope(ps3.ivs.node, 2)])
+        self.assertListEqual(n3.get_scope(),
+                             [spn.Scope(v34, 0) | spn.Scope(v34, 1)] * 2)
+        self.assertListEqual(ps5.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(ps2.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 1) |
+                              spn.Scope(ps3.ivs.node, 2) |
+                              spn.Scope(ps5.ivs.node, 0),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(ps2.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 1) |
+                              spn.Scope(ps3.ivs.node, 2) |
+                              spn.Scope(ps5.ivs.node, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(ps2.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 1) |
+                              spn.Scope(ps3.ivs.node, 2) |
+                              spn.Scope(ps5.ivs.node, 2)])
+        self.assertListEqual(ps6.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(ps2.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 2)])
+        self.assertListEqual(ps7.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(ps2.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 1) |
+                              spn.Scope(ps3.ivs.node, 2) |
+                              spn.Scope(s1.ivs.node, 0)] * 2)
+        self.assertListEqual(s2.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(ps2.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 0) |
+                              spn.Scope(ps3.ivs.node, 1) |
+                              spn.Scope(ps3.ivs.node, 2) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(ps5.ivs.node, 0) |
+                              spn.Scope(ps5.ivs.node, 1) |
+                              spn.Scope(ps5.ivs.node, 2) |
+                              spn.Scope(s2.ivs.node, 0)])
+
+    def test_compute_valid(self):
+        """Calculating validity of ParallelSums"""
+        # Without IVs
+        v12 = spn.IVs(num_vars=2, num_vals=4)
+        v34 = spn.ContVars(num_vars=2)
+        s1 = spn.ParallelSums((v12, [0, 1, 2, 3]), num_sums=3)
+        s2 = spn.ParallelSums((v12, [0, 1, 2, 4]), name="S2")
+        s3 = spn.ParallelSums((v12, [0, 1, 2, 3]), (v34, 0), num_sums=2)
+        p1 = spn.Product((v12, [0, 5]), (v34, 0))
+        p2 = spn.Product((v12, [1, 6]), (v34, 0))
+        p3 = spn.Product((v12, [1, 6]), (v34, 1))
+        s4 = spn.ParallelSums(p1, p2, num_sums=2)
+        s5 = spn.ParallelSums(p1, p3, num_sums=3)
+        self.assertTrue(v12.is_valid())
+        self.assertTrue(v34.is_valid())
+        self.assertTrue(s1.is_valid())
+        self.assertFalse(s2.is_valid())
+        self.assertFalse(s3.is_valid())
+        self.assertTrue(s4.is_valid())
+        self.assertFalse(s5.is_valid())
+        # With IVS
+        s6 = spn.ParallelSums(p1, p2, num_sums=3)
+        s6.generate_ivs()
+        self.assertTrue(s6.is_valid())
+        s7 = spn.ParallelSums(p1, p2, num_sums=1)
+        s7.set_ivs(spn.ContVars(num_vars=2))
+        self.assertFalse(s7.is_valid())
+        s8 = spn.ParallelSums(p1, p2, num_sums=2)
+        s8.set_ivs(spn.IVs(num_vars=3, num_vals=2))
+        s9 = spn.ParallelSums(p1, p2, num_sums=2)
+        s9.set_ivs(spn.ContVars(num_vars=2))
+        with self.assertRaises(spn.StructureError):
+            s8.is_valid()
+            s9.is_valid()
+        s10 = spn.ParallelSums(p1, p2, num_sums=2)
+        s10.set_ivs((v12, [0, 3, 5, 7]))
+        self.assertTrue(s10.is_valid())
+
     def test_compute_mpe_path_noivs_single_sum(self):
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
