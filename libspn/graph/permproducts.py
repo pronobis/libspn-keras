@@ -13,8 +13,9 @@ from libspn.inference.type import InferenceType
 from libspn import utils
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
-import numpy as np
 from libspn.utils.serialization import register_serializable
+
+import numpy as np
 
 
 @register_serializable
