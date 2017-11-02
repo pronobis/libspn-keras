@@ -123,13 +123,14 @@ class Ops:
 class OpTestResult:
     """Result of a single test of a single op."""
 
-    def __init__(self, op_name, on_gpu, multi_nodes, spn_size, tf_size, input_dist,
-                 setup_time, weights_init_time, run_times, test_accuracy):
+    def __init__(self, op_name, on_gpu, multi_nodes, spn_size, tf_size, memory_used,
+                 input_dist, setup_time, weights_init_time, run_times, test_accuracy):
         self.op_name = op_name
         self.on_gpu = on_gpu
         self.multi_nodes = multi_nodes
         self.spn_size = spn_size
         self.tf_size = tf_size
+        self.memory_used = memory_used
         self.input_dist = input_dist
         self.setup_time = setup_time
         self.weights_init_time = weights_init_time
@@ -147,15 +148,16 @@ class TestResults:
 
     def print(self, file):
         def get_header(dev):
-            return ("%4s %11s %13s %9s %8s %11s %11s %17s %15s %14s %11s" %
-                    (dev, 'op', 'multi_nodes', 'SPN_size', 'TF_size', 'input_dist',
-                     'setup_time', 'weights_init_time', 'first_run_time',
+            return ("%4s %11s %13s %9s %8s %9s %11s %11s %17s %15s %14s %11s" %
+                    (dev, 'op', 'multi_nodes', 'SPN_size', 'TF_size', 'mem_used',
+                     'input_dist', 'setup_time', 'weights_init_time', 'first_run_time',
                      'rest_run_time', 'test_accuracy'))
 
         def get_res(res):
             """Helper function printing a single result."""
-            return ("%16s %11s %10d %7d% 11s %13.2f %15.2f %15.2f %17.2f %8.4f" %
+            return ("%16s %11s %10d %7d %11.4f %11s %13.2f %15.2f %15.2f %17.2f %8.4f" %
                     (res.op_name, res.multi_nodes, res.spn_size, res.tf_size,
+                     (0.0 if res.memory_used is None else res.memory_used / 1000000),
                      res.input_dist, res.setup_time * 1000,
                      res.weights_init_time * 1000,
                      res.run_times[0] * 1000, np.mean(res.run_times[1:]) * 1000,
@@ -279,6 +281,9 @@ class PerformanceTest:
             mpe_state_gen = spn.MPEState(log=log, value_inference_type=spn.InferenceType.MPE)
             mpe_ivs, mpe_latent = mpe_state_gen.get_state(root, inputs_pl, latent)
             setup_time = time.time() - start_time
+
+            if on_gpu:
+                max_bytes_used_op = tf.contrib.memory_stats.MaxBytesInUse()
         # Get num of SPN ops
         spn_size = root.get_num_nodes()
         # Get num of graph ops
@@ -316,6 +321,11 @@ class PerformanceTest:
                 # Reset accumulators
                 sess.run(reset_accumulators)
                 run_times.append(time.time() - start_time)
+
+            if on_gpu:
+                memory_used = sess.run(max_bytes_used_op)
+            else:
+                memory_used = None
 
             if self.profile:
                 # Add additional options to trace the session execution
@@ -371,8 +381,8 @@ class PerformanceTest:
 
         # Return stats
         return OpTestResult(op_name, on_gpu, multi_nodes, spn_size, tf_size,
-                            input_dist, setup_time, weights_init_time, run_times,
-                            test_accuracy)
+                            memory_used, input_dist, setup_time, weights_init_time,
+                            run_times, test_accuracy)
 
     def _run_test(self, test_name, op_funs, multi_nodes, inf_type, log):
         """Run a single test for multiple ops and devices."""
@@ -405,19 +415,9 @@ class PerformanceTest:
         print1("Running tests:", self.file)
         results = []
 
-        r = self._run_test('InferenceType: MARGINAL',
-                           [Ops.mnist_01, Ops.mnist_all], [False, True],
-                           inf_type=spn.InferenceType.MARGINAL, log=False)
-        results.append(r)
-
         r = self._run_test('InferenceType: MARGINAL-LOG',
                            [Ops.mnist_01, Ops.mnist_all], [False, True],
                            inf_type=spn.InferenceType.MARGINAL, log=True)
-        results.append(r)
-
-        r = self._run_test('InferenceType: MPE',
-                           [Ops.mnist_01, Ops.mnist_all], [False, True],
-                           inf_type=spn.InferenceType.MPE, log=False)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE-LOG',
