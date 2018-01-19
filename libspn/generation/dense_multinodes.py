@@ -216,6 +216,29 @@ class DenseSPNGeneratorMultiNodes:
             list of SubsetInfo: Info about each new generated subset, which
             requires further decomposition.
         """
+
+        def subsubset_to_inputs_list(subsubset):
+            """Convert sub-subsets into a list of tuples, where each
+               tuple contains an input and a list of indices
+            """
+            subsubset_list = list(next(iter(subsubset)))
+            # Create a list of unique inputs from sub-subsets list
+            unique_inputs = list(set(s_subset[0]
+                                 for s_subset in subsubset_list))
+            # For each unique input, collect all associated indices
+            # into a single list, then create a list of tuples,
+            # where each tuple contains an unique input and it's
+            # list of incices
+            inputs_list = []
+            for unique_inp in unique_inputs:
+                indices_list = []
+                for s_subset in subsubset_list:
+                    if s_subset[0] == unique_inp:
+                        indices_list.append(s_subset[1])
+                inputs_list.append(tuple((unique_inp, indices_list)))
+
+            return inputs_list
+
         # Get subset partitions
         self.__debug3("Decomposing subset:\n%s", subset_info.subset)
         num_elems = len(subset_info.subset)
@@ -256,12 +279,17 @@ class DenseSPNGeneratorMultiNodes:
                                                subset=subsubset, parents=[sums]))
                     else:  # Non-decomposable
                         if self.input_dist == DenseSPNGeneratorMultiNodes.InputDist.RAW:
-                            # Concat the content of subset and register as inputs to PermProds
-                            prod_inputs.append(Concat(*(list(next(iter(subsubset))))))
+                            # Create an inputs list
+                            inputs_list = subsubset_to_inputs_list(subsubset)
+                            # Concat the content of the inputs list, and register
+                            # as inputs to PermProds
+                            prod_inputs.append(Concat(*inputs_list))
                         elif self.input_dist == DenseSPNGeneratorMultiNodes.InputDist.MIXTURE:
+                            # Create an inputs list
+                            inputs_list = subsubset_to_inputs_list(subsubset)
                             # Add mixtures
                             with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
-                                sums = ParSums(*(list(next(iter(subsubset)))),
+                                sums = ParSums(*inputs_list,
                                                num_sums=self.num_input_mixtures,
                                                name="ParallelSums%s.%s" %
                                                (self.__decomp_id, sums_id))
@@ -293,9 +321,11 @@ class DenseSPNGeneratorMultiNodes:
                                 sums_id += 1
                             # Register the mixtures as inputs of products
                             prod_inputs.append([(s, 0) for s in sums])
+                            # Create an inputs list
+                            inputs_list = subsubset_to_inputs_list(subsubset)
                             # Connect inputs to mixtures
                             for s in sums:
-                                s.add_values(*(list(next(iter(subsubset)))))
+                                s.add_values(*inputs_list)
             # Add product nodes
             if self.multi_nodes:
                 # Create a single PermProds node, modelling all the product nodes
