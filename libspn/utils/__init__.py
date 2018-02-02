@@ -9,6 +9,7 @@
 
 from .utils import decode_bytes_array
 from .math import gather_cols
+from .math import gather_cols_3d
 from .math import scatter_cols
 from .math import ValueType
 from .math import broadcast_value
@@ -33,7 +34,7 @@ from .enum import Enum
 
 # All
 __all__ = ['decode_bytes_array',
-           'scatter_cols', 'gather_cols', 'ValueType',
+           'scatter_cols', 'gather_cols', 'gather_cols_3d', 'ValueType',
            'broadcast_value', 'normalize_tensor',
            'reduce_log_sum', 'concat_maybe', 'split_maybe',
            'StirlingNumber', 'StirlingRatio', 'Stirling',
