@@ -193,6 +193,8 @@ class PerformanceTest:
         self.profiles_dir = profiles_dir
         self.file = file
         self.test_failed = False
+        self.datasets = tf.contrib.learn.datasets.mnist.read_data_sets("mnist")
+
 
         print1("Params:", file)
         print1("- num_decomps=%s" % num_decomps, file)
@@ -205,7 +207,7 @@ class PerformanceTest:
 
     def _data_set(self, op_fun):
         # TRAINING SET
-        datasets = tf.contrib.learn.datasets.mnist.read_data_sets("mnist")
+        datasets = self.datasets  #tf.contrib.learn.datasets.mnist.read_data_sets("mnist")
 
         # Process data
         def process_set(data):
@@ -213,7 +215,7 @@ class PerformanceTest:
             images = np.reshape(data, (-1, 28, 28))
             resized = []
             for i in range(images.shape[0]):
-                resized.append((scp.misc.imresize(images[i, :, :], 0.5, interp='nearest').ravel()
+                resized.append((scp.misc.imresize(images[i, :, :], 0.25, interp='nearest').ravel()
                                > threshold).astype(dtype=int))
             images = np.vstack(resized)
             return images
@@ -391,19 +393,19 @@ class PerformanceTest:
         for op_fun in op_funs:
             for mult in multi_nodes:
                 if not self.without_cpu:
-                    cpu_results.append(
-                        self._run_op_test(op_fun, input_dist="RAW",
-                                          multi_nodes=mult, inf_type=inf_type,
-                                          log=log, on_gpu=False))
+                    # cpu_results.append(
+                    #     self._run_op_test(op_fun, input_dist="RAW",
+                    #                       multi_nodes=mult, inf_type=inf_type,
+                    #                       log=log, on_gpu=False))
                     cpu_results.append(
                         self._run_op_test(op_fun, input_dist="MIXTURE",
                                           multi_nodes=mult, inf_type=inf_type,
                                           log=log, on_gpu=False))
                 if not self.without_gpu:
-                    gpu_results.append(
-                        self._run_op_test(op_fun, input_dist="RAW",
-                                          multi_nodes=mult, inf_type=inf_type,
-                                          log=log, on_gpu=True))
+                    # gpu_results.append(
+                    #     self._run_op_test(op_fun, input_dist="RAW",
+                    #                       multi_nodes=mult, inf_type=inf_type,
+                    #                       log=log, on_gpu=True))
                     gpu_results.append(
                         self._run_op_test(op_fun, input_dist="MIXTURE",
                                           multi_nodes=mult, inf_type=inf_type,
@@ -416,12 +418,12 @@ class PerformanceTest:
         results = []
 
         r = self._run_test('InferenceType: MARGINAL-LOG',
-                           [Ops.mnist_01, Ops.mnist_all], [False, True],
+                           [Ops.mnist_all], [True],
                            inf_type=spn.InferenceType.MARGINAL, log=True)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE-LOG',
-                           [Ops.mnist_01, Ops.mnist_all], [False, True],
+                           [Ops.mnist_all], [True],
                            inf_type=spn.InferenceType.MPE, log=True)
         results.append(r)
 
@@ -438,7 +440,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--num-decomps', default=1, type=int,
                         help="Num of decompositions at each level")
-    parser.add_argument('--num-subsets', default=5, type=int,
+    parser.add_argument('--num-subsets', default=2, type=int,
                         help="Num of subsets in each desomposition")
     parser.add_argument('--num-mixtures', default=2, type=int,
                         help="Num of mixtures for each subset")
@@ -446,7 +448,7 @@ def main():
                         help="Num of input mixtures")
     parser.add_argument('--balanced', default=True, action='store_true',
                         help="Generated dense SPN is balanced between decompositions")
-    parser.add_argument('--num-epochs', default=25, type=int,
+    parser.add_argument('--num-epochs', default=2, type=int,
                         help="Num of epochs to train the network")
     parser.add_argument('--log-devices', action='store_true',
                         help="Log on which device op is run. Affects run time!")
