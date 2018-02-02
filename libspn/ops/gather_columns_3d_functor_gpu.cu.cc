@@ -12,8 +12,8 @@ typedef Eigen::GpuDevice GPUDevice;
 #define DEFINE_GPU_SPECS_INDEX(T, IndT) \
   template struct functor::GatherColumns3dFunctor<GPUDevice, T, IndT>
 
-#define DEFINE_GPU_SPECS(T)             \
-  DEFINE_GPU_SPECS_INDEX(T, int32);     \
+#define DEFINE_GPU_SPECS(T)          \
+  DEFINE_GPU_SPECS_INDEX(T, int32);  \
   DEFINE_GPU_SPECS_INDEX(T, int64);
 
 TF_CALL_GPU_NUMBER_TYPES(DEFINE_GPU_SPECS);

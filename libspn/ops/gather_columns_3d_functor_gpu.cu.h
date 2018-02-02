@@ -19,6 +19,7 @@ __global__ void OutputPadInitKernel(T* output,
                                     const int64 output_size,
                                     const T pad_elem)
 {
+  //--Initialize output with pad-element--//
   CUDA_1D_KERNEL_LOOP(i, output_size)
   {
     output[i] = pad_elem;
@@ -35,9 +36,13 @@ __global__ void GatherColumns3dPaddingOpKernel(const T* params,
 {
   CUDA_1D_KERNEL_LOOP(i, output_size)
   {
+    //--Calculate column index of params--//
     IndT col = ldg(indices + (i % indices_size));
     if(col > -1)
     {
+      //--If not a negative index (indicating a non-padded column),
+      //  then calculate the params row and copy the params elemnt
+      //  to output--//
       IndT row = (i / indices_size) * params_cols;
       output[i] = ldg(params + row + col);
     }
@@ -54,7 +59,9 @@ __global__ void GatherColumns3dNoPaddingOpKernel(const T* params,
 {
   CUDA_1D_KERNEL_LOOP(i, output_size)
   {
+    //--Calculate row index of params--//
     IndT row = (i / indices_size) * params_cols;
+    //--Calculate column index of params--//
     IndT col = ldg(indices + (i % indices_size));
 
     output[i] = ldg(params + row + col);
@@ -72,11 +79,13 @@ struct GatherColumns3dFunctor<GPUDevice, T, IndT>
                     typename TTypes<T>::Matrix& output,
                     const bool& padding)
   {
+    //--Get rows and cols size of params and indices--//
     const int64 params_rows = params.dimension(0);
     const int64 params_cols = params.dimension(1);
     const int64 indices_rows = indices.dimension(0);
     const int64 indices_cols = indices.dimension(1);
 
+    //--Get size of params, indices and output--//
     const int64 output_size = output.size();
     const int64 params_size = params.size();
     const int64 indices_size = indices.size();
@@ -89,26 +98,28 @@ struct GatherColumns3dFunctor<GPUDevice, T, IndT>
     cudaEventCreate(&stop);
     cudaEventRecord(start, 0);
 #endif  // EXEC_TIME_CALC
+    //--Create a cuda configuration object--//
+    CudaLaunchConfig config = GetCudaLaunchConfig(output_size, d);
     if(padding)
     {
-      //--Declare padding element as a double, and set it to default value 0.0--//
+      //--Declare padding element as a double, and set it to value 0.0--//
       double pad_elem = 0.0;
 
-      //--Initialize output tensor with pad_element--//
-      CudaLaunchConfig config = GetCudaLaunchConfig(output_size, d);
+      //--Since output has atlest one padded column,
+      //  initialize output tensor with pad_element--//
       OutputPadInitKernel<T>
           <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
           output.data(), output_size, (T)pad_elem);
 
-      //config = GetCudaLaunchConfig(output_size, d);
+      //--Cuda kernal optimized for output with padded-columns--//
       GatherColumns3dPaddingOpKernel<T, IndT>
           <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
           params.data(), params_cols, indices.data(),
           indices_size, output.data(), output_size);
     }
-    else
+    else //--No Padding needed--//
     {
-      CudaLaunchConfig config = GetCudaLaunchConfig(output_size, d);
+      //--Cuda kernal optimized for output without padded-columns--//
       GatherColumns3dNoPaddingOpKernel<T, IndT>
           <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
           params.data(), params_cols, indices.data(),

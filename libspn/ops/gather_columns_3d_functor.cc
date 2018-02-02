@@ -8,13 +8,13 @@ namespace tensorflow
 namespace functor
 {
 //--Forward declarations of the functor specializations for GPU--//
-#define DECLARE_GPU_SPECS_INDEX(T, IndT)                                     \
-  template <>                                                                \
-  Status GatherColumns3dFunctor<GPUDevice, T, IndT>::operator()(    \
-      const GPUDevice& dvc, const typename TTypes<T>::ConstMatrix& params,   \
-      const typename TTypes<IndT>::ConstMatrix& indices,                     \
-      typename TTypes<T>::Matrix& output,                                    \
-      const bool& padding);                                                   \
+#define DECLARE_GPU_SPECS_INDEX(T, IndT)                                   \
+  template <>                                                              \
+  Status GatherColumns3dFunctor<GPUDevice, T, IndT>::operator()(           \
+      const GPUDevice& dvc, const typename TTypes<T>::ConstMatrix& params, \
+      const typename TTypes<IndT>::ConstMatrix& indices,                   \
+      typename TTypes<T>::Matrix& output,                                  \
+      const bool& padding);                                                \
   extern template struct GatherColumns3dFunctor<GPUDevice, T, IndT>;
 
 #define DECLARE_GPU_SPECS(T)         \

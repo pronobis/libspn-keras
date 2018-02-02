@@ -25,6 +25,7 @@ Status CopyAndPad(const typename TTypes<T>::ConstMatrix& params,
                   typename TTypes<T>::Matrix& output,
                   const bool& padding)
 {
+  //--Get rows and cols size of params and indices--//
   const int64 params_rows = params.dimension(0);
   const int64 params_cols = params.dimension(1);
   const int64 indices_rows = indices.dimension(0);
@@ -37,15 +38,15 @@ Status CopyAndPad(const typename TTypes<T>::ConstMatrix& params,
     start = clock();
   #endif  // EXEC_TIME_CALC
 
-  int current_slice = 0;
   int current_row = 0;
 
   if(padding)
   {
-    //--Declare padding element as a double, and set it to the default value 0.0--//
+    //--Declare padding element as a double, and set it to 0.0--//
     double pad_elem = 0.0;
 
-    //--Mem-copy padding element to output tensor--//
+    //--Since output has atlest one padded column,
+    //  mem-copy padding element to output tensor--//
     memset(&output(0, 0), pad_elem, ((params_rows * indices_rows * indices_cols) * sizeof(T)));
 
     for (int row = 0; row < indices_rows; row++)
@@ -55,9 +56,11 @@ Status CopyAndPad(const typename TTypes<T>::ConstMatrix& params,
         current_row = (slice * indices_rows) + row;
         for (int col = 0, col_next = 1; col < indices_cols; col++, col_next++)
         {
-          //--Check indices[r][c] ∈ (0, num_out_cols]--//
+          //--Check if indices[r][c] ∈ (0, num_out_cols]--//
           if (!FastBoundsCheck(indices(row, col), params_cols))
           {
+            //--If so - indicating a padded column - ignore rest of the
+            //  current row by breaking--//
             break;
           }
 

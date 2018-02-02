@@ -14,7 +14,7 @@ using shape_inference::Dimension;
 REGISTER_OP("GatherColumns3d")
     .Input("params: T")
     .Input("indices: IndT")
-    .Output("columns: T")
+    .Output("output: T")
     .Attr("padding: bool = false")
     .Attr("T: realnumbertype")
     .Attr("IndT: {int32, int64}")
@@ -71,15 +71,12 @@ class GatherColumns3dOp : public OpKernel
     OP_REQUIRES(ctx, TensorShapeUtils::IsVectorOrHigher(indices.shape()),
                 errors::InvalidArgument("Indices must be at least a vector."));
 
-    //--TODO: Not needed--//
-    //OP_REQUIRES(ctx, params.IsSameSize(indices),
-    //            errors::InvalidArgument("Params and Indices must be of the same shape."));
-
     int64 indices_size = indices.dim_size(0);
 
     OP_REQUIRES(ctx, indices_size > 0,
                 errors::InvalidArgument("Indices cannot be empty."));
 
+    //--Get params shape--//
     const TensorShape& params_shape(params.shape());
     int params_dims = params_shape.dims();
 
@@ -87,12 +84,14 @@ class GatherColumns3dOp : public OpKernel
                 errors::InvalidArgument("Params must be 1D or 2D but it is: ",
                                         params_dims, "D."));
 
+    //--Get indices shape--//
     const TensorShape& indices_shape(indices.shape());
 
     OP_REQUIRES(ctx, indices_shape.dims() == 2,
                 errors::InvalidArgument("Indices must be 2D but it is: ",
                                         indices_shape.dims(), "D."));
 
+    //--Get rows and cols size of params and indices--//
     int64 params_rows;
     int64 params_cols;
     int64 indices_rows;
@@ -112,6 +111,7 @@ class GatherColumns3dOp : public OpKernel
     indices_rows = indices.dim_size(0);
     indices_cols = indices.dim_size(1);
 
+    //--Create output shape--//
     TensorShape output_shape(indices_shape);
 
     if(params_dims > 1)
@@ -124,6 +124,7 @@ class GatherColumns3dOp : public OpKernel
     Tensor* output = nullptr;
     OP_REQUIRES_OK(ctx, ctx->allocate_output(0, output_shape, &output));
 
+    //--Reshape params, indices and output as 2D matrices--//
     auto output_tensor = output->shaped<T, 2>({(params_rows * indices_rows),
                                                indices_cols});
     auto params_tensor = params.shaped<T, 2>({params_rows, params_cols});
@@ -139,18 +140,18 @@ class GatherColumns3dOp : public OpKernel
   bool padding;
 };
 
-#define REGISTER_GATHERCOLUMNS3D_ALL(dev, type, index_type)                \
-  REGISTER_KERNEL_BUILDER(Name("GatherColumns3d")                          \
-                              .Device(DEVICE_##dev)                                 \
-                              .TypeConstraint<type>("T")                            \
-                              .TypeConstraint<index_type>("IndT"),                  \
+#define REGISTER_GATHERCOLUMNS3D_ALL(dev, type, index_type)         \
+  REGISTER_KERNEL_BUILDER(Name("GatherColumns3d")                   \
+                              .Device(DEVICE_##dev)                 \
+                              .TypeConstraint<type>("T")            \
+                              .TypeConstraint<index_type>("IndT"),  \
                           GatherColumns3dOp<dev##Device, type, index_type>)
 
-#define REGISTER_GATHERCOLUMNS3D_ALL_INDICES(dev, type) \
-  REGISTER_GATHERCOLUMNS3D_ALL(dev, type, int32);       \
+#define REGISTER_GATHERCOLUMNS3D_ALL_INDICES(dev, type)  \
+  REGISTER_GATHERCOLUMNS3D_ALL(dev, type, int32);        \
   REGISTER_GATHERCOLUMNS3D_ALL(dev, type, int64)
 
-#define REGISTER_GATHERCOLUMNS3D_CPU(type) \
+#define REGISTER_GATHERCOLUMNS3D_CPU(type)  \
   REGISTER_GATHERCOLUMNS3D_ALL_INDICES(CPU, type)
 
 //--Registration of CPU implementations--//
@@ -161,7 +162,7 @@ TF_CALL_REAL_NUMBER_TYPES(REGISTER_GATHERCOLUMNS3D_CPU);
 #if GOOGLE_CUDA
 
 //--Registration of the GPU implementations--//
-#define REGISTER_GATHERCOLUMNS3D_GPU(type) \
+#define REGISTER_GATHERCOLUMNS3D_GPU(type)  \
   REGISTER_GATHERCOLUMNS3D_ALL_INDICES(GPU, type)
 
 TF_CALL_GPU_NUMBER_TYPES(REGISTER_GATHERCOLUMNS3D_GPU);
