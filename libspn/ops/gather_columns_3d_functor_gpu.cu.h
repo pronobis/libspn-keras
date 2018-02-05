@@ -14,18 +14,6 @@ namespace tensorflow
 {
 typedef Eigen::GpuDevice GPUDevice;
 
-template <typename T>
-__global__ void OutputPadInitKernel(T* output,
-                                    const int64 output_size,
-                                    const T pad_elem)
-{
-  //--Initialize output with pad-element--//
-  CUDA_1D_KERNEL_LOOP(i, output_size)
-  {
-    output[i] = pad_elem;
-  }
-}
-
 template <typename T, typename IndT>
 __global__ void GatherColumns3dPaddingOpKernel(const T* params,
                                       const int64 params_cols,
@@ -107,9 +95,7 @@ struct GatherColumns3dFunctor<GPUDevice, T, IndT>
 
       //--Since output has atlest one padded column,
       //  initialize output tensor with pad_element--//
-      OutputPadInitKernel<T>
-          <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
-          output.data(), output_size, (T)pad_elem);
+      cudaMemset(output.data(), 0, output_size*sizeof(T));
 
       //--Cuda kernal optimized for output with padded-columns--//
       GatherColumns3dPaddingOpKernel<T, IndT>
