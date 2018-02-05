@@ -83,7 +83,7 @@ def gather_cols(params, indices, name=None):
         if np.any((indices < 0) | (indices >= param_size)):
             raise ValueError("'indices' must fit the the indexed dimension")
         # Define op
-        if param_size == 1:
+        if param_size == 1 and indices.size == 1:
             # Single column tensor, indices must include it, just forward tensor
             return params
         elif indices.size == param_size and np.all(np.ediff1d(indices) == 1):
