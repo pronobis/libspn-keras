@@ -242,24 +242,17 @@ class PermProducts(OpNode):
 
             return counts_indices_list
 
-        summed_counts = []
         if(len(self._input_sizes) > 1):
-            # Calculate counts per input by permuting from counts back to each
-            # input, gathering the counts, and summing them together.
-            for ind in permute_counts(self._input_sizes):
-                summed_counts = summed_counts + [tf.reduce_sum(utils.gather_cols(
-                                                 counts, ind), axis=1,
-                                                 keep_dims=True)]
+            permuted_indices = permute_counts(self._input_sizes)
+            summed_counts = tf.reduce_sum(utils.gather_cols_3d(counts, permuted_indices),
+                                          axis=-1)
+            processed_counts_list = tf.split(summed_counts, self._input_sizes, axis=-1)
         else:  # For single input case, i.e, when _num_prods = 1
-            summed_counts.extend(self._input_sizes[0] * [counts])
+            summed_counts = self._input_sizes[0] * [counts]
+            processed_counts_list = [tf.concat(values=summed_counts, axis=-1)]
 
-        concat_counts = []
-        # Concat counts per input, based on size of each input.
-        for s in range(len(self._input_sizes)):
-            concat_counts.append(tf.concat(values=summed_counts[sum(self._input_sizes[0:s]):
-                                 sum(self._input_sizes[0:s+1])], axis=1))
-
-        value_counts = zip(concat_counts, value_values)
+        # Zip lists of processed counts and value_values together for scattering
+        value_counts = zip(processed_counts_list, value_values)
 
         return self._scatter_to_input_tensors(*value_counts)
 
