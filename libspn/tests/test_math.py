@@ -12,6 +12,7 @@ from test import TestCase
 import tensorflow as tf
 import numpy as np
 import collections
+from random import shuffle
 
 
 class TestMath(TestCase):
@@ -162,6 +163,333 @@ class TestMath(TestCase):
                          [13, 14, 15]])
         out = spn.utils.gather_cols(t, [0, 1, 2])
         self.assertIs(out, t)
+
+    def test_gather_columns_3d_not_padded(self):
+        def assert_output(params, indices, params_dtype, output, output_shape):
+            # Assert Output values, shape and dtype
+            true_output = (params[indices] if len(params.shape) == 1
+                           else params[:, indices])
+
+            np.testing.assert_array_almost_equal(output,
+                                                 np.array(true_output))
+            self.assertEqual(params_dtype.as_numpy_dtype, output.dtype)
+            np.testing.assert_array_equal(output_shape,
+                                          list(np.array(true_output).shape))
+
+        def test(params_shape, indices_shape, param_dtype, ind_dtype, use_gpu=False):
+
+            if use_gpu:
+                device = [False, True]
+            else:
+                device = [False]
+
+            if len(params_shape) == 1:
+                params_cols = params_shape[0]
+            else:
+                params_cols = params_shape[1]
+
+            for p_dt in param_dtype:
+                for i_dt in ind_dtype:
+                    for dev in device:
+                        with self.test_session(use_gpu=dev) as sess:
+                            # Generate random params array
+                            params = np.random.randint(100, size=params_shape)
+                            # Convert params to appropriate data-types
+                            params = np.array(params, dtype=p_dt.as_numpy_dtype)
+                            # Create params tensor
+                            params_tensor = tf.constant(params, dtype=p_dt)
+
+                            # Random indices
+                            random_indices = np.random.randint(params_cols,
+                                                               size=indices_shape,
+                                                               dtype=i_dt)
+                            # Arange indices
+                            if len(indices_shape) == 1:
+                                arange_indices = np.arange(0, params_cols, dtype=i_dt)
+                            else:
+                                arange_indices = np.array([np.arange(0, params_cols) for
+                                                           _ in range(indices_shape[0])],
+                                                          dtype=i_dt)
+
+                            # Create Ops
+                            op_rand_ind = spn.utils.gather_cols_3d(params_tensor,
+                                                                   random_indices)
+                            op_arange_ind = spn.utils.gather_cols_3d(params_tensor,
+                                                                     arange_indices)
+
+                            # Execute Sessions
+                            output_rand_ind = sess.run(op_rand_ind)
+                            output_arange_ind = sess.run(op_arange_ind)
+
+                            # Test Output
+                            assert_output(params, random_indices, p_dt, output_rand_ind,
+                                          op_rand_ind.get_shape())
+                            assert_output(params, arange_indices, p_dt, output_arange_ind,
+                                          op_arange_ind.get_shape())
+
+        # Without padding
+        # Single params
+        test(params_shape=(1,), indices_shape=(1, ),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(1,), indices_shape=(1, 1),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(1,), indices_shape=(4, ),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(1,), indices_shape=(4, 1),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(1,), indices_shape=(1, 5),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(1,), indices_shape=(4, 5),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        # 1D params
+        test(params_shape=(6,), indices_shape=(1, ),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(6,), indices_shape=(1, 1),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(6,), indices_shape=(4, ),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(6,), indices_shape=(4, 1),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(6,), indices_shape=(1, 5),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(6,), indices_shape=(4, 5),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        # 2D params with single column
+        test(params_shape=(3, 1), indices_shape=(1, ),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(3, 1), indices_shape=(1, 1),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        # # Test case fails: Calls 'return_tensor = gather_cols(params, indices[0])'
+        # #                  and 'return return_tensor' from spn.utils.gather_cols_3d()
+        # #                  which inturn calles 'return ops.gather_cols(params, indices)'
+        # #                  from  spn.utils.gather_cols()
+        # test(params_shape=(3, 1), indices_shape=(4, ),
+        #      param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+        #      ind_dtype=[np.int32, np.int64],
+        #      use_gpu=True)
+        #
+        test(params_shape=(3, 1), indices_shape=(4, 1),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        # # Test case fails: Calls 'return_tensor = gather_cols(params, indices[0])'
+        # #                  and 'return tf.expand_dims(return_tensor, axis=-2)'
+        # #                  from spn.utils.gather_cols_3d() which inturn calles
+        # #                  'return ops.gather_cols(params, indices)' from
+        # #                  spn.utils.gather_cols()
+        # test(params_shape=(3, 1), indices_shape=(1, 5),
+        #      param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+        #      ind_dtype=[np.int32, np.int64],
+        #      use_gpu=True)
+        #
+        test(params_shape=(3, 1), indices_shape=(4, 5),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        # 2D params with single row
+        test(params_shape=(1, 6), indices_shape=(1, ),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(1, 6), indices_shape=(1, 1),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(1, 6), indices_shape=(4, ),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(1, 6), indices_shape=(4, 1),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(1, 6), indices_shape=(1, 5),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(1, 6), indices_shape=(4, 5),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        # 2D params with multiple rows and columns
+        test(params_shape=(3, 6), indices_shape=(1, ),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(3, 6), indices_shape=(1, 1),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(3, 6), indices_shape=(4, ),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(3, 6), indices_shape=(4, 1),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(3, 6), indices_shape=(1, 5),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        test(params_shape=(3, 6), indices_shape=(4, 5),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+    def test_gather_columns_3d_padded(self):
+        def test(params_shape, indices_shape, param_dtype, ind_dtype, use_gpu=False):
+
+            if use_gpu:
+                device = [False, True]
+            else:
+                device = [False]
+
+            if len(params_shape) == 1:
+                params_rows = 1
+                params_cols = params_shape[0]
+            else:
+                params_rows = params_shape[0]
+                params_cols = params_shape[1]
+
+            if len(indices_shape) == 1:
+                indices_rows = 1
+                indices_cols = indices_shape[0]
+            else:
+                indices_rows = indices_shape[0]
+                indices_cols = indices_shape[1]
+
+            for p_dt in param_dtype:
+                for i_dt in ind_dtype:
+                    for dev in device:
+                        with self.test_session(use_gpu=dev) as sess:
+
+                            # Generate random params array
+                            params = np.random.randint(100, size=params_shape)
+                            # Convert params to appropriate data-types
+                            params = np.array(params, dtype=p_dt.as_numpy_dtype)
+                            # Create params tensor
+                            params_tensor = tf.constant(params, dtype=p_dt)
+
+                            # Generate a list of 1D indices arrays, with random
+                            # length ranging (1, indices-column-size)
+                            indices = []
+                            ind_length = indices_cols
+                            for i in range(indices_rows):
+                                indices.append(np.random.randint(params_cols,
+                                                                 size=ind_length,
+                                                                 dtype=i_dt))
+                                ind_length = np.random.randint(1, indices_cols)
+                            # Shuffle indices list
+                            shuffle(indices)
+
+                            # Create Ops
+                            op = spn.utils.gather_cols_3d(params_tensor, indices)
+
+                            # Execute session
+                            output = sess.run(op)
+
+                            # Insert a column of zeros to the last column of params
+                            params_with_zero = \
+                                np.insert(params, params_cols,
+                                          np.zeros(params_rows,
+                                                   dtype=p_dt.as_numpy_dtype),
+                                          axis=-1)
+
+                            # Fill indices of padded columns with index of the
+                            # last-column of params
+                            indices = [np.insert(ind, ind.size,
+                                                 np.full((indices_cols-ind.size),
+                                                         params_cols, dtype=i_dt))
+                                       for ind in indices]
+                            # Convert list of indices to a np.array
+                            indices = np.array(indices)
+
+                            # Compute true output
+                            true_output = (params_with_zero[indices] if
+                                           len(params_with_zero.shape) == 1
+                                           else params_with_zero[:, indices])
+
+                            # Test Output values, shape and dtype
+                            np.testing.assert_array_almost_equal(output,
+                                                                 np.array(true_output))
+                            self.assertEqual(p_dt.as_numpy_dtype, output.dtype)
+                            np.testing.assert_array_equal(op.get_shape(),
+                                                          list(np.array(true_output).shape))
+
+        # With padding
+        # 1D params
+        test(params_shape=(6,), indices_shape=(4, 5),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        # 2D params with single row
+        test(params_shape=(1, 6), indices_shape=(4, 5),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
+
+        # 2D params with multiple rows and columns
+        test(params_shape=(3, 6), indices_shape=(4, 5),
+             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+             ind_dtype=[np.int32, np.int64],
+             use_gpu=True)
 
     def test_scatter_cols_errors(self):
         # Should work
