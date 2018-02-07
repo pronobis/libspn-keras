@@ -415,9 +415,19 @@ class PerformanceTest:
         print1("Running tests:", self.file)
         results = []
 
+        r = self._run_test('InferenceType: MARGINAL',
+                           [Ops.mnist_01, Ops.mnist_all], [False, True],
+                           inf_type=spn.InferenceType.MARGINAL, log=False)
+        results.append(r)
+
         r = self._run_test('InferenceType: MARGINAL-LOG',
                            [Ops.mnist_01, Ops.mnist_all], [False, True],
                            inf_type=spn.InferenceType.MARGINAL, log=True)
+        results.append(r)
+
+        r = self._run_test('InferenceType: MPE',
+                           [Ops.mnist_01, Ops.mnist_all], [False, True],
+                           inf_type=spn.InferenceType.MPE, log=False)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE-LOG',
