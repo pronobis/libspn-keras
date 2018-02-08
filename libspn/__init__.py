@@ -20,6 +20,7 @@ from libspn.graph.concat import Concat
 from libspn.graph.sum import Sum
 from libspn.graph.parsums import ParSums
 from libspn.graph.sums import Sums
+from libspn.graph.sumslayer import SumsLayer
 from libspn.graph.product import Product
 from libspn.graph.permproducts import PermProducts
 from libspn.graph.products import Products
@@ -106,7 +107,7 @@ __all__ = [
     # Graph
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IVs', 'ContVars',
-    'Sum', 'ParSums', 'Sums',
+    'Sum', 'ParSums', 'Sums', 'SumsLayer',
     'Product', 'PermProducts', 'Products',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
