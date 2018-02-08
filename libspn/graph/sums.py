@@ -16,8 +16,6 @@ from libspn import utils
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
 from libspn import conf
-import operator
-import functools
 from libspn.utils.serialization import register_serializable
 
 
@@ -374,17 +372,15 @@ class Sums(OpNode):
         max_indices = tf.argmax(values_weighted, dimension=2)
         max_counts = utils.scatter_values(params=counts, indices=max_indices,
                                           num_out_cols=values_weighted.shape[2].value)
-        # Sum up max counts between individual sum nodes
-        max_counts_summed = tf.reduce_sum(max_counts, 1)
         _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
         # Reshape max counts to a wide 2D tensor of shape 'Batch X (num_sums * num_vals)'
-        reshape = (-1, functools.reduce(operator.add, value_sizes, 0))
+        reshape = (-1, sum(value_sizes))
         max_counts_reshaped = tf.reshape(max_counts, shape=reshape)
         # Split the reshaped max counts to value inputs
         max_counts_split = tf.split(max_counts_reshaped, value_sizes, 1)
         return self._scatter_to_input_tensors(
             (max_counts, weight_value),  # Weights
-            (max_counts_summed, ivs_value),  # IVs
+            (max_counts_reshaped, ivs_value),  # IVs
             *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
 
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
