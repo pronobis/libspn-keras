@@ -187,6 +187,9 @@ class Products(OpNode):
                     if input_size > 1 else count)
 
         num_inputs_per_product = int(len(self.get_input_sizes()) / self._num_prods)
+        input_size_per_product = sum(self.get_input_sizes()) // self._num_prods
+
+        self._values
 
         # Split the counts matrix into num_prod columns, then clone each column
         # number-of-inputs-per-product times
