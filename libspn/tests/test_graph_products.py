@@ -10,6 +10,7 @@
 import unittest
 import tensorflow as tf
 import numpy as np
+import random
 from context import libspn as spn
 
 
@@ -330,42 +331,102 @@ class TestNodesProducts(unittest.TestCase):
         self.assertFalse(p13_2.is_valid())
 
     def test_compute_mpe_path(self):
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
-        p = spn.Products((v12, [0, 5]), v5, v34, (v12, [3]), num_prods=2)
-        counts = tf.placeholder(tf.float32, shape=(None, 2))
-        op = p._compute_mpe_path(tf.identity(counts),
-                                 v12.get_value(),
-                                 v5.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value())
-        feed = [[11, 12],
-                [21, 22],
-                [31, 32]]
-        with tf.Session() as sess:
-            out = sess.run(op, feed_dict={counts: feed})
-        np.testing.assert_array_almost_equal(
-            out[0], np.array([[11., 0., 0., 0., 0., 11., 0., 0.],
-                              [21., 0., 0., 0., 0., 21., 0., 0.],
-                              [31., 0., 0., 0., 0., 31., 0., 0.]],
-                             dtype=np.float32))
-        np.testing.assert_array_almost_equal(
-            out[1], np.array([[11.],
-                              [21.],
-                              [31.]],
-                             dtype=np.float32))
-        np.testing.assert_array_almost_equal(
-            out[2], np.array([[12., 12.],
-                              [22., 22.],
-                              [32., 32.]],
-                             dtype=np.float32))
+        """Calculating path of Products"""
+        num_vals = 2
+        batch_size = 7
 
-        np.testing.assert_array_almost_equal(
-            out[3], np.array([[0., 0., 0., 12., 0., 0., 0., 0.],
-                              [0., 0., 0., 22., 0., 0., 0., 0.],
-                              [0., 0., 0., 32., 0., 0., 0., 0.]],
-                             dtype=np.float32))
+        def test(input_sizes, num_prods):
+            with self.subTest(input_sizes=input_sizes, num_prods=num_prods):
+                inputs = []
+                indices = []
+                true_outputs = []
+                # Create randon (IVs or ContVar) inputs or random size each
+                for i_size in input_sizes:
+                    # Choose a random size for an input node
+                    rand_num_vars = np.random.randint(low=i_size, high=i_size+5)
+                    # Randomly choose to create either a IVs or a ContVar input
+                    if random.choice([True, False]):
+                        # Create an IVs input node
+                        inputs.append(spn.IVs(num_vars=rand_num_vars,
+                                              num_vals=num_vals))
+                        # Generate random indices for the created input
+                        indices.append(random.sample(range(rand_num_vars*num_vals),
+                                                     k=i_size))
+                        # Create a Zeros matrix, with the same size as the created
+                        # input node
+                        true_outputs.append(np.zeros((batch_size, rand_num_vars*num_vals)))
+                    else:
+                        # Create anContVars input node
+                        inputs.append(spn.ContVars(num_vars=rand_num_vars))
+                        # Generate random indices for the created input
+                        indices.append(random.sample(range(rand_num_vars), k=i_size))
+                        # Create a Zeros matrix, with the same size as the created
+                        # input node
+                        true_outputs.append(np.zeros((batch_size, rand_num_vars)))
+
+                # Create the Products node
+                p = spn.Products(*list(zip(inputs, indices)), num_prods=num_prods)
+
+                # Create counts as a placeholder
+                counts = tf.placeholder(tf.float32, shape=(None, num_prods))
+
+                # Create mpe path op
+                op = p._compute_mpe_path(tf.identity(counts),
+                                         *[inp.get_value() for inp in inputs])
+
+                # Generate random counts feed
+                coutnts_feed = np.random.randint(100, size=(batch_size, num_prods))
+
+                # Create a session and execute the generated op
+                with tf.Session() as sess:
+                    outputs = sess.run(op, feed_dict={counts: coutnts_feed})
+
+                # Calculate true-output
+                # (1) Split counts into num_prod sub-matrices
+                split_counts = np.split(coutnts_feed, num_prods, axis=1)
+
+                # (2) Tile each counts matrix to the size of prod-input
+                tiled_counts_list = [np.tile(sc, [1, sum(input_sizes)//num_prods])
+                                     for sc in split_counts]
+
+                # (3) Concat all tiled counts to a single matrix
+                concated_counts = np.concatenate(tiled_counts_list, axis=1)
+
+                # (4) Split the concatenated counts matrix into input-sizes
+                value_counts = np.split(concated_counts, np.cumsum(input_sizes),
+                                        axis=1)
+
+                # (5) Scatter each count matrix to inputs
+                for t_out, i_indices, v_counts in zip(true_outputs, indices,
+                                                      value_counts):
+                    t_out[:, i_indices] = v_counts
+
+                # Assert outputs with true_outputs
+                for out, t_out in zip(outputs, true_outputs):
+                    np.testing.assert_array_almost_equal(out, t_out)
+
+        # Test case with a single input of size '1', modeling a single poduct node
+        test([1], 1)
+
+        def run_all_test_cases():
+            """Test cases wth all combination of input-sizes and
+               number-of-products modeled"""
+
+            input_sizes = [[10],
+                           [1] * 10,
+                           [2, 2, 2, 2, 2],
+                           [5, 5],
+                           [1, 2, 3, 4],
+                           [4, 3, 2, 1],
+                           [2, 1, 2, 3, 1, 1]]
+
+            num_prods = [1, 10, 5, 2]
+
+            for n_prod in num_prods:
+                for i_size in input_sizes:
+                    test(i_size, n_prod)
+
+        run_all_test_cases()
 
 
 if __name__ == '__main__':
