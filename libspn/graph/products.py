@@ -179,29 +179,25 @@ class Products(OpNode):
         if not self._values:
             raise StructureError("%s is missing input values." % self)
 
-        def process_input(v_input, v_value, count):
-            input_size = v_input.get_size(v_value)
+        value_sizes = self.get_input_sizes(*value_values)
+        input_size_per_prod = sum(value_sizes) // self._num_prods
 
-            # Tile the counts if input is larger than 1
-            return (tf.tile(count, [1, input_size])
-                    if input_size > 1 else count)
+        # (1) Split (num_prods)
+        split_counts = tf.split(counts, self._num_prods, axis=1)
 
-        num_inputs_per_product = int(len(self.get_input_sizes()) / self._num_prods)
+        # (2) Tile (size_of_prods)
+        tiled_counts_list = [tf.tile(sc, [1, input_size_per_prod]) for sc in split_counts]
 
-        # Split the counts matrix into num_prod columns, then clone each column
-        # number-of-inputs-per-product times
-        counts_list = list(chain(*[[c] * num_inputs_per_product for c in
-                           tf.split(counts, self._num_prods, axis=1)]))
+        # (3) Concat
+        concated_counts = tf.concat(tiled_counts_list, axis=1)
 
-        # For each input of each product node, pass relevant counts to all
-        # elements selected by indices
-        value_counts = [(process_input(v_input, v_value, count), v_value)
-                        for v_input, v_value, count
-                        in zip(self._values, value_values, counts_list)]
+        # (4) Split (*value_sizes)
+        value_counts = tf.split(concated_counts, value_sizes, axis=1)
+        counts_values_paired = [(v_count, v_value) for v_count, v_value in
+                                zip(value_counts, value_values)]
 
-        # TODO: Scatter to input tensors can be merged with tiling to reduce
-        # the amount of operations.
-        return self._scatter_to_input_tensors(*value_counts)
+        # (5) scatter_cols (num_inputs)
+        return self._scatter_to_input_tensors(*counts_values_paired)
 
     def _compute_log_mpe_path(self, counts, *value_values, add_random=False, use_unweighted=False):
         return self._compute_mpe_path(counts, *value_values)
