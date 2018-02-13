@@ -84,9 +84,15 @@ def gather_cols(params, indices, name=None):
         if np.any((indices < 0) | (indices >= param_size)):
             raise ValueError("'indices' must fit the the indexed dimension")
         # Define op
-        if param_size == 1 and indices.size == 1:
-            # Single column tensor, indices must include it, just forward tensor
-            return params
+        if param_size == 1:# and indices.size == 1:
+            if indices.size == 1:
+                # Single column tensor with a single indices, which should include
+                # it, so just forward tensor
+                return params
+            else:
+                # Single column tensor with multiple indices - case of tiling
+                return tf.tile(params, ([indices.size] if param_dims == 1
+                                        else [1, indices.size]))
         elif indices.size == param_size and np.all(np.ediff1d(indices) == 1):
             # Indices index all params in the original order, pass through
             return params
