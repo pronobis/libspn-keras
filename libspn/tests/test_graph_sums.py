@@ -11,6 +11,7 @@ import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
+from parameterized import parameterized
 
 
 class TestNodesSums(unittest.TestCase):
@@ -1360,7 +1361,8 @@ class TestNodesSums(unittest.TestCase):
                               [0.]],
                              dtype=np.float32))
 
-    def test_compute_mpe_path_ivs_single_sum(self):
+    @parameterized.expand([('Non-log', False), ('Log', True)])
+    def test_compute_mpe_path_ivs_single_sum(self, name, log):
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
@@ -1368,13 +1370,23 @@ class TestNodesSums(unittest.TestCase):
         iv = s.generate_ivs()
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
-        op = s._compute_mpe_path(tf.identity(counts),
-                                 w.get_value(),
-                                 iv.get_value(),
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+        if log:
+            op = s._compute_log_mpe_path(tf.identity(counts),
+                                         w.get_log_value(),
+                                         iv.get_log_value(),
+                                         v12.get_log_value(),
+                                         v34.get_log_value(),
+                                         v12.get_log_value(),
+                                         v5.get_log_value())
+        else:
+            op = s._compute_mpe_path(tf.identity(counts),
+                                     w.get_value(),
+                                     iv.get_value(),
+                                     v12.get_value(),
+                                     v34.get_value(),
+                                     v12.get_value(),
+                                     v5.get_value())
+
         init = w.initialize()
         counts_feed = [[10],
                        [11],
@@ -1418,6 +1430,15 @@ class TestNodesSums(unittest.TestCase):
                                           v34: v34_feed,
                                           v5: v5_feed})
         # Weights
+        print(out[0])
+        print(np.array([[[10., 0., 0., 0., 0., 0.],
+                        [0., 0., 11., 0., 0., 0.],
+                        [0., 0., 0., 0., 0., 12.],
+                        [0., 0., 0., 0., 13., 0.],
+                        [0., 14., 0., 0., 0., 0.],
+                        [0., 0., 15., 0., 0., 0.],
+                        [0., 0., 0., 16., 0., 0.],
+                        [17., 0., 0., 0., 0., 0.]]]))
         np.testing.assert_array_almost_equal(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
                                             [0., 0., 11., 0., 0., 0.],
@@ -1485,7 +1506,8 @@ class TestNodesSums(unittest.TestCase):
                               [0.]],
                              dtype=np.float32))
 
-    def test_compute_mpe_path_ivs_multi_sums(self):
+    @parameterized.expand([('Non-log', False), ('Log', True)])
+    def test_compute_mpe_path_ivs_multi_sums(self, name, log):
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
@@ -1494,17 +1516,30 @@ class TestNodesSums(unittest.TestCase):
         iv = s.generate_ivs()
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 2))
-        op = s._compute_mpe_path(tf.identity(counts),
-                                 w.get_value(),
-                                 iv.get_value(),
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value(),
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+        if log:
+            op = s._compute_log_mpe_path(tf.identity(counts),
+                                     w.get_log_value(),
+                                     iv.get_log_value(),
+                                     v12.get_log_value(),
+                                     v34.get_log_value(),
+                                     v12.get_log_value(),
+                                     v5.get_log_value(),
+                                     v12.get_log_value(),
+                                     v34.get_log_value(),
+                                     v12.get_log_value(),
+                                     v5.get_log_value())
+        else:
+            op = s._compute_mpe_path(tf.identity(counts),
+                                     w.get_value(),
+                                     iv.get_value(),
+                                     v12.get_value(),
+                                     v34.get_value(),
+                                     v12.get_value(),
+                                     v5.get_value(),
+                                     v12.get_value(),
+                                     v34.get_value(),
+                                     v12.get_value(),
+                                     v5.get_value())
         init = w.initialize()
         counts_feed = [[10, 20],
                        [11, 21],
