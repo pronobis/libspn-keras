@@ -13,8 +13,6 @@ import tensorflow as tf
 import numpy as np
 from parameterized import parameterized
 import itertools
-from collections import defaultdict
-import textwrap
 
 
 def _extend_with_2D(ts, indices=None, n_stack=2):
