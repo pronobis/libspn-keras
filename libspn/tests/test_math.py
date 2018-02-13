@@ -157,170 +157,29 @@ class TestMath(TestCase):
                             assert_output(params, arange_indices, p_dt, output_arange_ind,
                                           op_arange_ind.get_shape())
 
-        # Without padding
-        # Single params
-        test(params_shape=(1,), indices_shape=(1, ),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
+        # List of params shapes
+        params_shapes = [(1, ),   # Single params
+                         (1, 1),  # 2D params with single row and column
+                         (6, ),   # 1D params
+                         (3, 1),  # 2D params with single column
+                         (1, 6),  # 2D params with single row
+                         (3, 6)]  # 2D params with multiple rows and columns
 
-        test(params_shape=(1,), indices_shape=(1, 1),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
+        # List of indices shapes
+        indices_shapes = [(1, ),   # Single index
+                          (1, 1),  # 2D indices with single row and column
+                          (4, ),   # 1D indices
+                          (4, 1),  # 2D indices with single column
+                          (1, 5),  # 2D indices with single row
+                          (4, 5)]  # 2D indices with multiple rows and columns
 
-        test(params_shape=(1,), indices_shape=(4, ),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(1,), indices_shape=(4, 1),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(1,), indices_shape=(1, 5),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(1,), indices_shape=(4, 5),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        # 1D params
-        test(params_shape=(6,), indices_shape=(1, ),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(6,), indices_shape=(1, 1),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(6,), indices_shape=(4, ),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(6,), indices_shape=(4, 1),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(6,), indices_shape=(1, 5),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(6,), indices_shape=(4, 5),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        # 2D params with single column
-        test(params_shape=(3, 1), indices_shape=(1, ),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(3, 1), indices_shape=(1, 1),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        # # Test case fails: Calls 'return_tensor = gather_cols(params, indices[0])'
-        # #                  and 'return return_tensor' from spn.utils.gather_cols_3d()
-        # #                  which inturn calles 'return ops.gather_cols(params, indices)'
-        # #                  from  spn.utils.gather_cols()
-        # test(params_shape=(3, 1), indices_shape=(4, ),
-        #      param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-        #      ind_dtype=[np.int32, np.int64],
-        #      use_gpu=True)
-        #
-        test(params_shape=(3, 1), indices_shape=(4, 1),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        # # Test case fails: Calls 'return_tensor = gather_cols(params, indices[0])'
-        # #                  and 'return tf.expand_dims(return_tensor, axis=-2)'
-        # #                  from spn.utils.gather_cols_3d() which inturn calles
-        # #                  'return ops.gather_cols(params, indices)' from
-        # #                  spn.utils.gather_cols()
-        # test(params_shape=(3, 1), indices_shape=(1, 5),
-        #      param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-        #      ind_dtype=[np.int32, np.int64],
-        #      use_gpu=True)
-        #
-        test(params_shape=(3, 1), indices_shape=(4, 5),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        # 2D params with single row
-        test(params_shape=(1, 6), indices_shape=(1, ),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(1, 6), indices_shape=(1, 1),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(1, 6), indices_shape=(4, ),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(1, 6), indices_shape=(4, 1),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(1, 6), indices_shape=(1, 5),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(1, 6), indices_shape=(4, 5),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        # 2D params with multiple rows and columns
-        test(params_shape=(3, 6), indices_shape=(1, ),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(3, 6), indices_shape=(1, 1),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(3, 6), indices_shape=(4, ),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(3, 6), indices_shape=(4, 1),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(3, 6), indices_shape=(1, 5),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        test(params_shape=(3, 6), indices_shape=(4, 5),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
+        # All combination of test cases for gather_cols_3d without padding
+        for p_shape in params_shapes:
+            for i_shape in indices_shapes:
+                test(params_shape=p_shape, indices_shape=i_shape,
+                     param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+                     ind_dtype=[np.int32, np.int64],
+                     use_gpu=True)
 
     def test_gather_columns_3d_padded(self):
         def test(params_shape, indices_shape, param_dtype, ind_dtype, use_gpu=False):
