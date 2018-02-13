@@ -15,11 +15,16 @@ from parameterized import parameterized
 import itertools
 
 
+INPUT_SIZES = [[10], [1] * 10, [2] * 5, [5, 5], [1, 2, 3, 4], [4, 3, 2, 1], [2, 1, 2, 3, 1, 1]]
+SUM_SIZES = [[10], [1] * 10, [2] * 5, [5, 5], [1, 2, 3, 4], [4, 3, 2, 1], [2, 1, 2, 3, 1, 1]]
+
+
 def x_dot_w(xs, ws):
     return [np.asarray(x).dot(np.asarray(w) / np.sum(w)) for x, w in zip(xs, ws)]
 
 
 def sums_layer_mpe_path_numpy(inputs, sums_sizes, weights, counts, ivs=None):
+    """ Computes the output of _compute_mpe_path with numpy """
     inputs_to_reduce, iv_mask_per_sum, weights_per_sum = sums_layer_numpy_common(
         inputs, ivs, sums_sizes, weights)
 
@@ -27,17 +32,26 @@ def sums_layer_mpe_path_numpy(inputs, sums_sizes, weights, counts, ivs=None):
     max_indices = [np.argmax(x * np.reshape(w/np.sum(w), (1, -1)) * iv, axis=1)
                    for x, w, iv in zip(inputs_to_reduce, weights_per_sum, iv_mask_per_sum)]
 
-    counts_to_scatter = []
+    counts_per_sum = []
     for i, (mi, size) in enumerate(zip(max_indices, sums_sizes)):
         # Initialize the counts
         cnt = np.zeros((mi.shape[0], size))
         cnt[range(cnt.shape[0]), mi] = counts[:, i]
-        counts_to_scatter.append(cnt)
+        counts_per_sum.append(cnt)
 
-    counts_to_split = np.concatenate(counts_to_scatter, axis=1)
+    # Go from counts per sum to counts per input
+    counts_concatenated = np.concatenate(counts_per_sum, axis=1)
+    values_weighted = np.concatenate([(x * np.reshape(w / np.sum(w), (1, -1)) * iv)
+     for x, w, iv in zip(inputs_to_reduce, weights_per_sum, iv_mask_per_sum)], axis=1)
+
+    print("Counts concatenated:\n ", counts_concatenated)
+    print("Values weighted:\n", values_weighted)
+
     indices = np.cumsum([len(t[1]) if t[1] else t[0].shape[1] for t in inputs])[:-1]
-    counts_per_input = np.split(counts_to_split, indices, axis=1)
+    counts_per_input = np.split(counts_concatenated, indices, axis=1)
 
+    # 'Scatter' the values to the indices given by each second tuple element in inputs if not None
+    # otherwise, the indices are just [0, ..., size-1]
     scattered = []
     for c, inp in zip(counts_per_input, inputs):
         s = np.zeros_like(inp[0])
@@ -51,6 +65,7 @@ def sums_layer_mpe_path_numpy(inputs, sums_sizes, weights, counts, ivs=None):
 
 def sums_layer_value_numpy(inputs, sums_sizes, weights, ivs=None,
                            inference_type=spn.InferenceType.MARGINAL):
+    """ Computes value of SumsLayer using numpy """
     inputs_to_reduce, iv_mask_per_sum, weights_per_sum = sums_layer_numpy_common(
         inputs, ivs, sums_sizes, weights)
 
@@ -107,47 +122,14 @@ def build_iv_mask(inputs_selected, inputs_to_reduce, ivs, sums_sizes):
     return ivs_
 
 
-INPUT_SIZES = [[10], [1] * 10, [2] * 5, [5, 5], [1, 2, 3, 4], [4, 3, 2, 1], [2, 1, 2, 3, 1, 1]]
-SUM_SIZES = [[10], [1] * 10, [2] * 5, [5, 5], [1, 2, 3, 4], [4, 3, 2, 1], [2, 1, 2, 3, 1, 1]]
-
-
 class TestNodesSumsLayer(tf.test.TestCase):
-    #
-    # @parameterized.expand([
-    #     (input_sizes, sum_sizes) for input_sizes, sum_sizes in
-    #     itertools.product(INPUT_SIZES, SUM_SIZES)
-    # ])
-    # def test_sums_layer_mpe_path_numpy(self, input_sizes, sum_sizes):
-    #     batch_size = 32
-    #     total_size = np.sum(input_sizes)
-    #     x = np.random.rand(batch_size, total_size)
-    #     w = np.ones(total_size)
-    #
-    #     counts = np.arange(batch_size * len(sum_sizes)).reshape((batch_size, len(sum_sizes)))
-    #
-    #     xw = x * np.reshape(w, (1, -1))
-    #     truth = []
-    #     offset = 0
-    #     for i, s in enumerate(sum_sizes):
-    #         slice = xw[:, offset:offset+s]
-    #         offset += s
-    #
-    #     inputs = []
-    #     outputs = []
-    #     offset = 0
-    #     for s in sum_sizes:
-    #         inputs.append((x[:, offset:offset + s], None))
-    #         outputs.append(np.mean(x[:, offset:offset + s], axis=1, keepdims=True))
-    #         offset += s
-    #
-    #     np.testing.assert_allclose(sums_layer_value_numpy(inputs, sum_sizes, w),
-    #                                np.concatenate(outputs, axis=1))
 
     @parameterized.expand([
         (input_sizes, sum_sizes) for input_sizes, sum_sizes in
         itertools.product(INPUT_SIZES, SUM_SIZES)
     ])
     def test_sums_layer_numpy(self, input_sizes, sum_sizes):
+        """ Tests numpy SumsLayer helper """
         batch_size = 32
         total_size = np.sum(input_sizes)
         x = np.random.rand(batch_size, total_size)
@@ -169,6 +151,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         itertools.product(INPUT_SIZES, SUM_SIZES)
     ])
     def test_sums_layer_with_indices_numpy(self, input_sizes, sum_sizes):
+        """ Test the numpy SumsLayer helper with indices for each input """
         batch_size = 32
         total_size = np.sum(input_sizes)
         x = np.random.rand(batch_size, total_size * 5)
@@ -191,6 +174,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         itertools.product(INPUT_SIZES, SUM_SIZES)
     ])
     def test_sums_layer_with_indices_ivs_numpy(self, input_sizes, sum_sizes):
+        """ Tests the numpy helper with indices per input and IVs """
         batch_size = 32
         total_size = np.sum(input_sizes)
         x = np.random.rand(batch_size, total_size * 5)
@@ -224,10 +208,14 @@ class TestNodesSumsLayer(tf.test.TestCase):
             INPUT_SIZES, SUM_SIZES, [False, True],
             [spn.InferenceType.MARGINAL, spn.InferenceType.MPE], [False, True])
     ])
-    def test_sumslayer_varying_sizes_indices(self, input_sizes, sum_sizes, ivs, inference_type,
-                                             log):
+    def test_sumslayer_varying_sizes_values(self, input_sizes, sum_sizes, ivs, inference_type,
+                                            log):
+        """
+        Tests the SumsLayer value computation for different input sizes, sum sizes, inference types,
+        with and without IVs, and in log and non-log space.
+        """
         # Initialize dimensions
-        batch_size = 32
+        batch_size = 256
         total_size = np.sum(input_sizes)
         fac = 5
 
@@ -235,49 +223,16 @@ class TestNodesSumsLayer(tf.test.TestCase):
         x = np.random.rand(batch_size, total_size * fac)
         w = np.random.rand(total_size)
 
-        # Lists that will hold nodes or values
-        numpy_inputs = []
-        ivs_list = []
-        spn_inputs = []
-        feed_dict = {}
-
-        # Offset to use for determining
-        offset = 0
-        for s in sum_sizes:
-            slice_size = s * fac
-
-            # Pick some random indices
-            ind = [int(i) for i in np.random.choice(slice_size, s, replace=False)]
-
-            # Append the value-indices tuple to numpy_inputs
-            value = x[:, offset:offset + slice_size]
-            numpy_inputs.append((value, ind))
-            # Append the node-indices tuple spn_inputs
-            node = spn.ContVars(num_vars=slice_size)
-            spn_inputs.append((node, ind))
-
-            # Update feed_dict
-            feed_dict[node] = value
-
-            if ivs:
-                # Create some random IVs
-                iv = np.random.choice(s + 1, batch_size) - 1
-                ivs_list.append(iv)
-
-            # Update offset
-            offset += slice_size
-
-        # Add IV node to the graph
-        ivs_node = None
-        if ivs and max(sum_sizes) > 1:
-            ivs_node = spn.IVs(num_vars=len(sum_sizes), num_vals=max(sum_sizes))
-            feed_dict[ivs_node] = np.stack(ivs_list, axis=1)
+        # Get feed dict, IV numeric value list, an IV node, the numeric inputs and the SPN input
+        # tuples
+        feed_dict, ivs_list, ivs_node, numpy_inputs, spn_inputs = self.sumslayer_common(
+            batch_size, fac, x, ivs, sum_sizes)
 
         # Build SumsLayer
         n = spn.SumsLayer(*spn_inputs, n_sums_or_sizes=sum_sizes, ivs=ivs_node)
         weight_node = n.generate_weights(w)
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Run required op
             spn.initialize_weights(weight_node).run()
             if log:
@@ -286,6 +241,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
                 op = n.get_value(inference_type)
             out = sess.run(op, feed_dict=feed_dict)
 
+        # Get true output using numpy
         true_out = sums_layer_value_numpy(numpy_inputs, sum_sizes, w, ivs_list,
                                           inference_type=inference_type)
         self.assertAllClose(true_out, out)
@@ -294,24 +250,81 @@ class TestNodesSumsLayer(tf.test.TestCase):
         (input_sizes, sum_sizes, ivs, log) for
         input_sizes, sum_sizes, ivs, log in
         itertools.product(
-            INPUT_SIZES, SUM_SIZES, [False, True], [False, True])
+            INPUT_SIZES, SUM_SIZES, [False], [False])
     ])
     def test_sumslayer_varying_sizes_mpe_path(self, input_sizes, sum_sizes, ivs, log):
+        """
+        Tests the SumsLayer MPE path computation for different input sizes, sum sizes, with and
+        without IVs, and in log and non-log space
+        """
         # Initialize dimensions
-        batch_size = 32
+        batch_size = 2
         total_size = np.sum(input_sizes)
-        fac = 5
+        fac = 2
 
         # Generate random arrays
         x = np.random.rand(batch_size, total_size * fac)
         w = np.random.rand(total_size)
+        counts = np.arange(batch_size * len(sum_sizes)).reshape((batch_size, len(sum_sizes))) + 10
 
+        # Get feed dict, IV numeric value list, an IV node, the numeric inputs and the SPN input
+        # tuples
+        feed_dict, ivs_list, ivs_node, numpy_inputs, spn_inputs = self.sumslayer_common(
+            batch_size, fac, x, ivs, input_sizes)
+
+        # Compute the true output using numpy
+        true_outs = sums_layer_mpe_path_numpy(numpy_inputs, sum_sizes, w, counts,
+                                              ivs=ivs_list)
+
+        # Build SumsLayer
+        n = spn.SumsLayer(*spn_inputs, n_sums_or_sizes=sum_sizes, ivs=ivs_node)
+        weight_node = n.generate_weights(w)
+
+        # Add counts
+        counts_ph = tf.placeholder(tf.float32, shape=counts.shape)
+        feed_dict[counts_ph] = counts
+
+        with self.test_session() as sess:
+            # Run required op
+            spn.initialize_weights(weight_node).run()
+            if log:
+                # Get the value ops and log mpe path op
+                w_val = weight_node.get_log_value()
+                iv_val = ivs_node.get_log_value() if ivs_node else None
+                value_input_vals = [inp[0].get_log_value() for inp in spn_inputs]
+                op = n._compute_log_mpe_path(
+                    tf.identity(counts_ph), w_val, iv_val, *value_input_vals
+                )
+            else:
+                # Get the value ops and mpe path op
+                w_val = weight_node.get_value()
+                iv_val = ivs_node.get_value() if ivs_node else None
+                value_input_vals = [inp[0].get_value() for inp in spn_inputs]
+                op = n._compute_mpe_path(
+                    tf.identity(counts_ph), w_val, iv_val, *value_input_vals
+                )
+            if ivs_node is None:
+                # Remove None op for IV
+                op = tuple(o for i, o in enumerate(op) if i != 1)
+            out = sess.run(op, feed_dict=feed_dict)[2 if ivs_node else 1:]
+
+        print(input_sizes, sum_sizes, ivs, log)
+        for o, to in zip(out, true_outs):
+            print("out\n", o)
+            print("true_out\n", to)
+            print("shape\n", o.shape)
+            print("x\n", x)
+            print("w\n", w)
+            print("x * w\n")
+            self.assertAllClose(o, to)
+
+    @staticmethod
+    def sumslayer_common(batch_size, fac, x, ivs, sum_sizes):
         # Lists that will hold nodes or values
         numpy_inputs = []
         ivs_list = []
         spn_inputs = []
         feed_dict = {}
-
         # Offset to use for determining
         offset = 0
         for s in sum_sizes:
@@ -343,45 +356,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         if ivs and max(sum_sizes) > 1:
             ivs_node = spn.IVs(num_vars=len(sum_sizes), num_vals=max(sum_sizes))
             feed_dict[ivs_node] = np.stack(ivs_list, axis=1)
-        counts = np.arange(batch_size * len(sum_sizes)).reshape((batch_size, len(sum_sizes))) + 10
-        counts_ph = tf.placeholder(tf.float32, shape=counts.shape)
-        feed_dict[counts_ph] = counts
-
-        # Build SumsLayer
-        n = spn.SumsLayer(*spn_inputs, n_sums_or_sizes=sum_sizes, ivs=ivs_node)
-        weight_node = n.generate_weights(w)
-
-        with tf.Session() as sess:
-            # Run required op
-            spn.initialize_weights(weight_node).run()
-            if log:
-                wval = weight_node.get_log_value()
-                ivval = ivs_node.get_log_value() if ivs_node else None
-                value_input_vals = [inp[0].get_log_value() for inp in spn_inputs]
-                op = n._compute_log_mpe_path(
-                    tf.identity(counts_ph), wval, ivval, *value_input_vals
-                )
-            else:
-                wval = weight_node.get_value()
-                ivval = ivs_node.get_value() if ivs_node else None
-                value_input_vals = [inp[0].get_value() for inp in spn_inputs]
-                op = n._compute_mpe_path(
-                    tf.identity(counts_ph), wval, ivval, *value_input_vals
-                )
-            if ivs_node is None:
-                # Remove None op for IV
-                op = tuple(o for i, o in enumerate(op) if i != 1)
-            out = sess.run(op, feed_dict=feed_dict)[2 if ivs_node else 1:]
-
-        print("Input sizes:", input_sizes)
-        true_outs = sums_layer_mpe_path_numpy(numpy_inputs, sum_sizes, w, counts,
-                                              ivs=ivs_list)
-        self.assertEqual(len(out), len(true_outs))
-        for o, to in zip(out, true_outs):
-            print("out\n", o)
-            print("true_out\n", to)
-            self.assertAllClose(o, to)
-        # self.assertAllClose(true_out, out)
+        return feed_dict, ivs_list, ivs_node, numpy_inputs, spn_inputs
 
     def tearDown(self):
         tf.reset_default_graph()

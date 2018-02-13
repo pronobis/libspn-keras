@@ -53,9 +53,6 @@ class SumsLayer(OpNode):
 
     def __init__(self, *values, n_sums_or_sizes=None, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, name="Sums"):
-        # if not num_sums > 0:
-        #     raise StructureError("In %s num_sums: %s need to be > 0" % self, num_sums)
-
         super().__init__(inference_type, name)
 
         self.set_values(*values)
@@ -67,29 +64,36 @@ class SumsLayer(OpNode):
             len(v.indices) if v and v.indices else v.node.get_out_size() if v else 0
             for v in self._values)
 
-        self._value_reduction_sizes = n_sums_or_sizes
+        self._value_input_sizes = n_sums_or_sizes
         if isinstance(n_sums_or_sizes, int):
-            self._value_reduction_sizes = [_sum_index_lengths // n_sums_or_sizes] * n_sums_or_sizes
+            self._value_input_sizes = [_sum_index_lengths // n_sums_or_sizes] * n_sums_or_sizes
         elif n_sums_or_sizes and sum(n_sums_or_sizes) != _sum_index_lengths:
             raise StructureError("The specified total number of sums is incompatible with the value"
                                  " input indices. \n"
                                  "Total number of sums: {}, total indices in value inputs: "
                                  "{}".format(sum(n_sums_or_sizes), _sum_index_lengths))
         elif not n_sums_or_sizes:
-            self._value_reduction_sizes = [len(v.indices) if v.indices else v.node.get_out_size()
-                                           for v in self._values]
-        self._num_sums = len(self._value_reduction_sizes)
-
-        self._mask = self._build_mask()
-
+            self._value_input_sizes = [len(v.indices) if v.indices else v.node.get_out_size()
+                                       for v in self._values]
         self._must_gather_for_path = False
 
-    def _build_mask(self):
-        max_value_input_size = max(self._value_reduction_sizes)
-        sum_sizes_col = np.asarray(self._value_reduction_sizes).reshape((self._num_sums, 1))
-        index_row = np.arange(max_value_input_size).reshape((1, max_value_input_size))
+    @property
+    def _mask(self):
+        """
+        Constructs mask that could be used to cancel out 'columns' that are padded as a result of
+        varying reduction sizes. Returns a Boolean mask.
+        """
+        max_size = max(self._value_input_sizes)
+        sizes_col = np.asarray(self._value_input_sizes).reshape((self._num_sums, 1))
+        index_row = np.arange(max_size).reshape((1, max_size))
+
         # Use broadcasting
-        return index_row < sum_sizes_col #tf.constant(index_row < sum_sizes_col, dtype=tf.float32)
+        return index_row < sizes_col
+
+    @property
+    def _num_sums(self):
+        """ The number of sums modeled """
+        return len(self._value_input_sizes)
 
 # TODO
     def serialize(self):
@@ -210,26 +214,25 @@ class SumsLayer(OpNode):
         if name is None:
             name = self._name + "_Weights"
         # Count all input values
-        if not input_sizes:
-            input_sizes = self.get_input_sizes()
-        num_values = sum(input_sizes[2:])  # Skip ivs, weights
+        input_sizes = input_sizes or self._value_input_sizes
 
-        # TODO clean up the above
         if isinstance(init_value, int) and init_value == 1:
-            init_value = utils.broadcast_value(1,
-                                               (self._num_sums, max(self._value_reduction_sizes)),
-                                               dtype=conf.dtype)
-        elif np.asarray(init_value).size == sum(self._value_reduction_sizes):
-            v = np.zeros(self._num_sums * max(self._value_reduction_sizes))
-            v[self._mask.reshape((-1,))] = np.asarray(init_value).reshape((-1,))
-            init_value = v.reshape((self._num_sums, max(self._value_reduction_sizes)))
-        elif np.asarray(init_value).size != self._num_sums * max(self._value_reduction_sizes):
-            raise ValueError("Incorrect initializer shape, should be ")
-
+            init_value = utils.broadcast_value(
+                1, (self._num_sums, max(input_sizes)), dtype=conf.dtype)
+        elif hasattr(init_value, '__iter__'):
+            if np.asarray(init_value).size == sum(input_sizes):
+                v = np.zeros(self._num_sums * max(input_sizes))
+                v[self._mask.reshape((-1,))] = np.asarray(init_value).reshape((-1,))
+                init_value = v.reshape((self._num_sums, max(input_sizes)))
+            elif np.asarray(init_value).size != self._num_sums * max(input_sizes):
+                raise ValueError("Incorrect initializer shape, should be ")
+        else:
+            raise ValueError("Initialization value {} of type {} not usable, use an int or an "
+                             "iterable of correct size".format(init_value, type(init_value)))
 
         # Generate weights
         weights = Weights(init_value=init_value,
-                          num_weights=max(self._value_reduction_sizes),
+                          num_weights=max(self._value_input_sizes),
                           num_sums=self._num_sums,
                           trainable=trainable, name=name)
         self.set_weights(weights)
@@ -256,7 +259,7 @@ class SumsLayer(OpNode):
             name = self._name + "_IVs"
 
         ivs = IVs(feed=feed, num_vars=self._num_sums,
-                  num_vals=max(self._value_reduction_sizes),
+                  num_vals=max(self._value_input_sizes),
                   name=name)
         self.set_ivs(ivs)
         return ivs
@@ -320,33 +323,39 @@ class SumsLayer(OpNode):
             return None
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
 
-    def _concatenate_values_and_indices(self, value_tensors, inputs):
+    def _concatenate_values_and_indices(self, value_tensors):
+        """
+        Concatenates input tensors and returns the nested indices that are required for gathering
+        all sum inputs to a reducible set of columns
+        """
+        # TODO, this does not do anything with uniqueness of input Tensors yet
         combined_indices = []
-        # TODO, this does not do anything with uniqueness yet
         flat_col_indices = []
         flat_tensor_offsets = []
 
-        toffset = 0
+        tensor_offset = 0
         for ti, (v, t) in enumerate(zip(self._values, value_tensors)):
             # Get indices. If no there, will be [0, 1, ... , len-1]
             indices = v.indices if v.indices else np.arange(v.node.get_out_size()).tolist()
             flat_col_indices.append(indices)
             # Just repeat the offset len(indices) times
-            flat_tensor_offsets.append([toffset for _ in indices])
-            toffset += t.shape[1].value
+            flat_tensor_offsets.append([tensor_offset for _ in indices])
+            tensor_offset += t.shape[1].value
 
         # Flatten the tensor offsets and column indices
         flat_tensor_offsets = np.asarray(list(chain(*flat_tensor_offsets)))
         flat_col_indices = np.asarray(list(chain(*flat_col_indices)))
 
+        # Offset in flattened arrays
         offset = 0
-        max_size = max(self._value_reduction_sizes)
-        for size in self._value_reduction_sizes:
+        max_size = max(self._value_input_sizes)
+        for size in self._value_input_sizes:
             # Now indices can be found by adding up column indices and tensor offsets
             indices = flat_col_indices[offset:offset + size] + \
                       flat_tensor_offsets[offset:offset + size]
-            if size < max_size and not self._must_gather_for_path and \
-                len(set(flat_tensor_offsets[offset:offset + size])) > 1:
+            # If there is padding and we have more than one unique tensor involved, we have to
+            # perform an additional gather step when computing the MPE path
+            if size < max_size:  #nd len(set(flat_tensor_offsets[offset:offset + size])) > 1:
                 self._must_gather_for_path = True
             # Combined indices contains an array for each reducible set of columns
             combined_indices.append(indices)
@@ -362,7 +371,7 @@ class SumsLayer(OpNode):
         if not self._weights:
             raise StructureError("%s is missing weights" % self)
         # Prepare values
-        indices, values = self._concatenate_values_and_indices(value_tensors, self.inputs[2:])
+        indices, values = self._concatenate_values_and_indices(value_tensors)
         weight_tensor, ivs_tensor = self._gather_input_tensors(weight_tensor, ivs_tensor)
 
         reducible_values = utils.gather_cols_3d(values, indices, name="GatherToReducible")
@@ -370,60 +379,65 @@ class SumsLayer(OpNode):
         if weighted:
             reducible_values = cwise_op(reducible_values, weight_tensor)
         if self._ivs:
-            iv_reshape = (-1, self._num_sums, max(self._value_reduction_sizes))
+            iv_reshape = (-1, self._num_sums, max(self._value_input_sizes))
             ivs_tensor_reshaped = tf.reshape(ivs_tensor, iv_reshape)
             reducible_values = cwise_op(reducible_values, ivs_tensor_reshaped)
 
         return reduction_function(reducible_values)
 
     def _compute_value(self, weight_tensor, ivs_tensor, *value_tensors):
+        """ Computes value in non-log space """
         reduce_sum = functools.partial(tf.reduce_sum, axis=2)
         return self._compute_value_common(
             tf.multiply, reduce_sum, weight_tensor, ivs_tensor, *value_tensors)
 
     def _compute_log_value(self, weight_tensor, ivs_tensor, *value_tensors):
+        """ Computes value in log space """
         reduce_logsum = functools.partial(utils.reduce_log_sum_3D, transpose=False)
         return self._compute_value_common(
             tf.add, reduce_logsum, weight_tensor, ivs_tensor, *value_tensors)
 
     def _compute_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
+        """ Computes MPE value in non-log space """
         reduce_max = functools.partial(tf.reduce_max, axis=2)
         return self._compute_value_common(
             tf.multiply, reduce_max, weight_tensor, ivs_tensor, *value_tensors)
 
     def _compute_log_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
+        """ Computes MPE value in log space """
         reduce_max = functools.partial(tf.reduce_max, axis=2)
         return self._compute_value_common(
             tf.add, reduce_max, weight_tensor, ivs_tensor, *value_tensors)
 
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
                                  ivs_value, *value_values):
+        """ Common operations for log and non-log MPE path """
         # Propagate the counts to the max value
         max_indices = tf.argmax(values_weighted, dimension=2)
-
         max_counts = utils.scatter_values(params=counts, indices=max_indices,
               num_out_cols=values_weighted.shape[2].value)
 
         _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
         # Reshape max counts to a wide 2D tensor of shape 'Batch X (num_sums * num_vals)'
-        max_size = max(self._value_reduction_sizes)
+        max_size = max(self._value_input_sizes)
         reshape = (-1, self._num_sums * max_size)
         max_counts_reshaped = tf.reshape(max_counts, shape=reshape)
 
+        # This flag is set to True if we have had to pad within an input
         if self._must_gather_for_path:
             indices = []
             offset = 0
-            for size in self._value_reduction_sizes:
+            for size in self._value_input_sizes:
                 indices.extend([offset + i for i in range(size)])
                 offset += max_size
             max_counts_reshaped = utils.gather_cols(max_counts_reshaped, indices)
 
         if not self._must_gather_for_path and \
-                any(s < max_size for s in self._value_reduction_sizes):
+                any(s < max_size for s in self._value_input_sizes):
             splits = []
             splits_to_keep = []
             split_index = 0
-            for s in self._value_reduction_sizes:
+            for s in self._value_input_sizes:
                 splits.append(s)
                 splits_to_keep.append(split_index)
                 if s < max_size:
@@ -434,6 +448,9 @@ class SumsLayer(OpNode):
                                 enumerate(tf.split(max_counts_reshaped, splits, 1))
                                 if i in splits_to_keep]
         else:
+            max_counts_reshaped = tf.Print(tf.identity(max_counts_reshaped),
+                                           [max_counts_reshaped, values_weighted], summarize=100)
+            print("Value sizes: ", value_sizes)
             # Split the reshaped max counts to value inputs
             max_counts_split = tf.split(max_counts_reshaped, value_sizes, 1)
         return self._scatter_to_input_tensors(
