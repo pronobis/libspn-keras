@@ -27,7 +27,6 @@ def sums_layer_mpe_path_numpy(inputs, sums_sizes, weights, counts, ivs=None):
     """ Computes the output of _compute_mpe_path with numpy """
     inputs_to_reduce, iv_mask_per_sum, weights_per_sum = sums_layer_numpy_common(
         inputs, ivs, sums_sizes, weights)
-
     # Get max index for sum node
     max_indices = [np.argmax(x * np.reshape(w/np.sum(w), (1, -1)) * iv, axis=1)
                    for x, w, iv in zip(inputs_to_reduce, weights_per_sum, iv_mask_per_sum)]
@@ -41,12 +40,6 @@ def sums_layer_mpe_path_numpy(inputs, sums_sizes, weights, counts, ivs=None):
 
     # Go from counts per sum to counts per input
     counts_concatenated = np.concatenate(counts_per_sum, axis=1)
-    values_weighted = np.concatenate([(x * np.reshape(w / np.sum(w), (1, -1)) * iv)
-     for x, w, iv in zip(inputs_to_reduce, weights_per_sum, iv_mask_per_sum)], axis=1)
-
-    print("Counts concatenated:\n ", counts_concatenated)
-    print("Values weighted:\n", values_weighted)
-
     indices = np.cumsum([len(t[1]) if t[1] else t[0].shape[1] for t in inputs])[:-1]
     counts_per_input = np.split(counts_concatenated, indices, axis=1)
 
@@ -85,20 +78,13 @@ def sums_layer_numpy_common(inputs, ivs, sums_sizes, weights):
             inputs_selected.append(x[:, indices])
         else:
             inputs_selected.append(x)
-    if len(sums_sizes) > 1:
-        # Concatenate and then split based on sums_sizes
-        splits = np.cumsum(sums_sizes)[:-1]
-        inputs_concatenated = np.concatenate(inputs_selected, axis=1)
-        inputs_to_reduce = np.split(inputs_concatenated, splits, axis=1)
-        weights_per_sum = np.split(weights, splits)
-        iv_mask = build_iv_mask(inputs_selected, inputs_to_reduce, ivs, sums_sizes)
-        iv_mask_per_sum = np.split(iv_mask, splits, axis=1)
-    else:
-        # Simpler case, input is already 'concatenated'
-        inputs_to_reduce = inputs_selected
-        weights_per_sum = [weights]
-        iv_mask = build_iv_mask(inputs_selected, inputs_to_reduce, ivs, sums_sizes)
-        iv_mask_per_sum = [iv_mask]
+    # Concatenate and then split based on sums_sizes
+    splits = np.cumsum(sums_sizes)[:-1]
+    inputs_concatenated = np.concatenate(inputs_selected, axis=1)
+    inputs_to_reduce = np.split(inputs_concatenated, splits, axis=1)
+    weights_per_sum = np.split(weights, splits)
+    iv_mask = build_iv_mask(inputs_selected, inputs_to_reduce, ivs, sums_sizes)
+    iv_mask_per_sum = np.split(iv_mask, splits, axis=1)
 
     return inputs_to_reduce, iv_mask_per_sum, weights_per_sum
 
@@ -226,7 +212,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         # Get feed dict, IV numeric value list, an IV node, the numeric inputs and the SPN input
         # tuples
         feed_dict, ivs_list, ivs_node, numpy_inputs, spn_inputs = self.sumslayer_common(
-            batch_size, fac, x, ivs, sum_sizes)
+            batch_size, fac, x, ivs, input_sizes, sum_sizes)
 
         # Build SumsLayer
         n = spn.SumsLayer(*spn_inputs, n_sums_or_sizes=sum_sizes, ivs=ivs_node)
@@ -250,7 +236,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         (input_sizes, sum_sizes, ivs, log) for
         input_sizes, sum_sizes, ivs, log in
         itertools.product(
-            INPUT_SIZES, SUM_SIZES, [False], [False])
+            INPUT_SIZES, SUM_SIZES, [False, True], [False, True])
     ])
     def test_sumslayer_varying_sizes_mpe_path(self, input_sizes, sum_sizes, ivs, log):
         """
@@ -270,7 +256,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         # Get feed dict, IV numeric value list, an IV node, the numeric inputs and the SPN input
         # tuples
         feed_dict, ivs_list, ivs_node, numpy_inputs, spn_inputs = self.sumslayer_common(
-            batch_size, fac, x, ivs, input_sizes)
+            batch_size, fac, x, ivs, input_sizes, sum_sizes)
 
         # Compute the true output using numpy
         true_outs = sums_layer_mpe_path_numpy(numpy_inputs, sum_sizes, w, counts,
@@ -319,7 +305,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
             self.assertAllClose(o, to)
 
     @staticmethod
-    def sumslayer_common(batch_size, fac, x, ivs, sum_sizes):
+    def sumslayer_common(batch_size, fac, x, ivs, input_sizes, sum_sizes):
         # Lists that will hold nodes or values
         numpy_inputs = []
         ivs_list = []
@@ -327,7 +313,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         feed_dict = {}
         # Offset to use for determining
         offset = 0
-        for s in sum_sizes:
+        for s in input_sizes:
             slice_size = s * fac
 
             # Pick some random indices
@@ -343,13 +329,14 @@ class TestNodesSumsLayer(tf.test.TestCase):
             # Update feed_dict
             feed_dict[node] = value
 
-            if ivs:
+            # Update offset
+            offset += slice_size
+
+        if ivs:
+            for s in sum_sizes:
                 # Create some random IVs
                 iv = np.random.choice(s + 1, batch_size) - 1
                 ivs_list.append(iv)
-
-            # Update offset
-            offset += slice_size
 
         # Add IV node to the graph
         ivs_node = None
