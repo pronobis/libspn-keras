@@ -75,7 +75,7 @@ class SumsLayer(OpNode):
         elif not n_sums_or_sizes:
             self._value_input_sizes = [len(v.indices) if v.indices else v.node.get_out_size()
                                        for v in self._values]
-        self._must_gather_for_path = False
+        self._must_gather_for_mpe_path = False
 
     @property
     def _mask(self):
@@ -95,7 +95,7 @@ class SumsLayer(OpNode):
         """ The number of sums modeled """
         return len(self._value_input_sizes)
 
-# TODO
+    # TODO
     def serialize(self):
         data = super().serialize()
         data['values'] = [(i.node.name, i.indices) for i in self._values]
@@ -106,7 +106,7 @@ class SumsLayer(OpNode):
             data['ivs'] = (self._ivs.node.name, self._ivs.indices)
         return data
 
-# TODO
+    # TODO
     def deserialize(self, data):
         super().deserialize(data)
         self.set_values()
@@ -114,7 +114,7 @@ class SumsLayer(OpNode):
         self.set_weights()
         self.set_ivs()
 
-# TODO
+    # TODO
     def deserialize_inputs(self, data, nodes_by_name):
         super().deserialize_inputs(data, nodes_by_name)
         self._values = tuple(Input(nodes_by_name[nn], i)
@@ -280,12 +280,12 @@ class SumsLayer(OpNode):
         flat_value_scopes = list(chain.from_iterable(value_scopes))
         sublist_size = int(len(flat_value_scopes) / self._num_sums)
         # Divide gathered value scopes into sublists, one per modelled Sum node
-        value_scopes_sublists = [flat_value_scopes[i:i+sublist_size] for i in
+        value_scopes_sublists = [flat_value_scopes[i:i + sublist_size] for i in
                                  range(0, len(flat_value_scopes), sublist_size)]
         if self._ivs:
             sublist_size = int(len(ivs_scopes) / self._num_sums)
             # Divide gathered ivs scopes into sublists, one per modelled Sum node
-            ivs_scopes_sublists = [ivs_scopes[i:i+sublist_size] for i in
+            ivs_scopes_sublists = [ivs_scopes[i:i + sublist_size] for i in
                                    range(0, len(ivs_scopes), sublist_size)]
             # Add respective ivs scope to value scope list of each Sum node
             for val, ivs in zip(value_scopes_sublists, ivs_scopes_sublists):
@@ -301,7 +301,7 @@ class SumsLayer(OpNode):
                                                                    *value_scopes)
         # If already invalid, return None
         if (any(s is None for s in value_scopes_)
-                or (self._ivs and ivs_scopes_ is None)):
+            or (self._ivs and ivs_scopes_ is None)):
             return None
         flat_value_scopes = list(chain.from_iterable(value_scopes_))
         # IVs
@@ -353,18 +353,19 @@ class SumsLayer(OpNode):
             # Now indices can be found by adding up column indices and tensor offsets
             indices = flat_col_indices[offset:offset + size] + \
                       flat_tensor_offsets[offset:offset + size]
-            # If there is padding and we have more than one unique tensor involved, we have to
-            # perform an additional gather step when computing the MPE path
-            if size < max_size:  #nd len(set(flat_tensor_offsets[offset:offset + size])) > 1:
-                self._must_gather_for_path = True
+            # If there is padding within a single tensor, we have to perform an additional gather
+            # step when computing the MPE path
+            if size < max_size:
+                self._must_gather_for_mpe_path = True
             # Combined indices contains an array for each reducible set of columns
             combined_indices.append(indices)
             offset += size
+
         return combined_indices, utils.concat_maybe(value_tensors, 1)
 
     def _compute_value_common(self, cwise_op, reduction_function, weight_tensor, ivs_tensor,
                               *value_tensors, weighted=True):
-        """Common actions when computing value."""
+        """ Common actions when computing value. """
         # Check inputs
         if not self._values:
             raise StructureError("%s is missing input values" % self)
@@ -374,6 +375,8 @@ class SumsLayer(OpNode):
         indices, values = self._concatenate_values_and_indices(value_tensors)
         weight_tensor, ivs_tensor = self._gather_input_tensors(weight_tensor, ivs_tensor)
 
+        # Create a 3D tensor with dimensions [batch, sum node, sum input]
+        # The last axis will have zeros when the sum size is less than the max sum size
         reducible_values = utils.gather_cols_3d(values, indices, name="GatherToReducible")
 
         if weighted:
@@ -415,7 +418,7 @@ class SumsLayer(OpNode):
         # Propagate the counts to the max value
         max_indices = tf.argmax(values_weighted, dimension=2)
         max_counts = utils.scatter_values(params=counts, indices=max_indices,
-              num_out_cols=values_weighted.shape[2].value)
+                                          num_out_cols=values_weighted.shape[2].value)
 
         _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
         # Reshape max counts to a wide 2D tensor of shape 'Batch X (num_sums * num_vals)'
@@ -424,32 +427,21 @@ class SumsLayer(OpNode):
         max_counts_reshaped = tf.reshape(max_counts, shape=reshape)
 
         # This flag is set to True if we have had to pad within an input
-        if self._must_gather_for_path:
+        if self._must_gather_for_mpe_path:
+            # Will hold indices to gather
             indices = []
             offset = 0
             for size in self._value_input_sizes:
                 indices.extend([offset + i for i in range(size)])
                 offset += max_size
+            # Gather so that padded parts are left out
             max_counts_reshaped = utils.gather_cols(max_counts_reshaped, indices)
 
-        if not self._must_gather_for_path and \
-                any(s < max_size for s in self._value_input_sizes):
-            splits = []
-            splits_to_keep = []
-            split_index = 0
-            for s in self._value_input_sizes:
-                splits.append(s)
-                splits_to_keep.append(split_index)
-                if s < max_size:
-                    splits.append(max_size - s)
-                    split_index += 1
-                split_index += 1
-            max_counts_split = [t for i, t in
-                                enumerate(tf.split(max_counts_reshaped, splits, 1))
-                                if i in splits_to_keep]
-        else:
-            # Split the reshaped max counts to value inputs
-            max_counts_split = tf.split(max_counts_reshaped, value_sizes, 1)
+        # TODO we should be able to split the tensor without having to gather and ignore 'padded'
+        # parts if the padding always occurred between two tensors and never within a single tensor
+
+        # Split the reshaped max counts to value inputs
+        max_counts_split = tf.split(max_counts_reshaped, value_sizes, 1)
         return self._scatter_to_input_tensors(
             (max_counts, weight_value),  # Weights
             (max_counts_reshaped, ivs_value),  # IVs
