@@ -448,9 +448,6 @@ class SumsLayer(OpNode):
                                 enumerate(tf.split(max_counts_reshaped, splits, 1))
                                 if i in splits_to_keep]
         else:
-            max_counts_reshaped = tf.Print(tf.identity(max_counts_reshaped),
-                                           [max_counts_reshaped, values_weighted], summarize=100)
-            print("Value sizes: ", value_sizes)
             # Split the reshaped max counts to value inputs
             max_counts_split = tf.split(max_counts_reshaped, value_sizes, 1)
         return self._scatter_to_input_tensors(
