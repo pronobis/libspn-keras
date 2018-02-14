@@ -182,7 +182,8 @@ class TestMath(TestCase):
                      use_gpu=True)
 
     def test_gather_columns_3d_padded(self):
-        def test(params_shape, indices_shape, param_dtype, ind_dtype, use_gpu=False):
+        def test(params_shape, indices_shape, param_dtype, ind_dtype,
+                 pad_elem=0, use_gpu=False):
 
             if use_gpu:
                 device = [False, True]
@@ -216,7 +217,7 @@ class TestMath(TestCase):
                             params_tensor = tf.constant(params, dtype=p_dt)
 
                             # Generate a list of 1D indices arrays, with random
-                            # length ranging (1, indices-column-size)
+                            # length ranging between [1, indices-column-size)
                             indices = []
                             ind_length = indices_cols
                             for i in range(indices_rows):
@@ -228,7 +229,8 @@ class TestMath(TestCase):
                             shuffle(indices)
 
                             # Create Ops
-                            op = spn.utils.gather_cols_3d(params_tensor, indices)
+                            op = spn.utils.gather_cols_3d(params_tensor, indices,
+                                                          pad_elem=pad_elem)
 
                             # Execute session
                             output = sess.run(op)
@@ -236,8 +238,8 @@ class TestMath(TestCase):
                             # Insert a column of zeros to the last column of params
                             params_with_zero = \
                                 np.insert(params, params_cols,
-                                          np.zeros(params_rows,
-                                                   dtype=p_dt.as_numpy_dtype),
+                                          np.ones(params_rows,
+                                                  dtype=p_dt.as_numpy_dtype)*pad_elem,
                                           axis=-1)
 
                             # Fill indices of padded columns with index of the
@@ -253,6 +255,12 @@ class TestMath(TestCase):
                             true_output = (params_with_zero[indices] if
                                            len(params_with_zero.shape) == 1
                                            else params_with_zero[:, indices])
+
+                            #print("\noutput: \n", output)
+                            #print("\ntrue_output: \n", true_output)
+                            #print("\npad_elem: ", pad_elem)
+                            #print("\nparam_dtype: ", p_dt)
+                            #print("\nind_dtype: ", i_dt)
 
                             # Test Output values, shape and dtype
                             np.testing.assert_array_almost_equal(output,
@@ -279,6 +287,23 @@ class TestMath(TestCase):
              param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
              ind_dtype=[np.int32, np.int64],
              use_gpu=True)
+
+        # List of params shapes
+        params_shapes = [(6, ),   # 1D params
+                         (1, 6),  # 2D params with single row
+                         (3, 6)]  # 2D params with multiple rows and columns
+
+        # List of padding elements
+        pad_elems = [-float('inf'), -1.0, 0.0, 1.0, 1.23456789, float('inf'),  # float
+                     -1, 0, 1, 12345678]  # int
+
+        # All combination of test cases for gather_cols_3d without padding
+        for p_shape in params_shapes:
+            for p_elem in pad_elems:
+                test(params_shape=p_shape, indices_shape=(4, 5),
+                     param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
+                     ind_dtype=[np.int32, np.int64], pad_elem=p_elem,
+                     use_gpu=True)
 
     def test_scatter_cols_errors(self):
         # Should work

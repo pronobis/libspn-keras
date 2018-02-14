@@ -120,7 +120,7 @@ def gather_cols(params, indices, name=None):
                                                      np.expand_dims(indices, 1)))
 
 
-def gather_cols_3d(params, indices, name=None):
+def gather_cols_3d(params, indices, pad_elem=0, name=None):
     """Gather columns of a 2D tensor or values of a 1D tensor into a 1D, 2D or 3D
        tensor, based on the dimension of params and list size of indices.
        The output tensor contains a slice of gathered columns, per 1D-indices array
@@ -135,7 +135,7 @@ def gather_cols_3d(params, indices, name=None):
     Returns:
         Tensor: Has the same dtype as ``params``, and rank = R_params + R_indices - 1 .
     """
-    with tf.name_scope(name, "gather_cols_3d", [params, indices]):
+    with tf.name_scope(name, "gather_cols_3d", [params, indices, pad_elem]):
         params = tf.convert_to_tensor(params, name="params")
         ind_2D = False
         if isinstance(indices[0], collections.Iterable):
@@ -207,7 +207,7 @@ def gather_cols_3d(params, indices, name=None):
                     return tf.reshape(tf.tile(params, [1, indices_rows]),
                                       (-1, indices_rows, indices_cols))
             else:
-                return ops.gather_cols_3d(params, indices, padding)
+                return ops.gather_cols_3d(params, indices, padding, pad_elem)
 
 
 def scatter_cols(params, indices, num_out_cols, name=None):

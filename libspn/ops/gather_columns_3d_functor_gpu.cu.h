@@ -14,6 +14,20 @@ namespace tensorflow
 {
 typedef Eigen::GpuDevice GPUDevice;
 
+  //--Cuda kernal for initializing output tensor with padding element--//
+template <typename T>
+__global__ void OutputPadInitKernel(T* output,
+                                    const int64 output_size,
+                                    const T pad_elem)
+{
+  //--Initialize output with pad-element--//
+  CUDA_1D_KERNEL_LOOP(i, output_size)
+  {
+    output[i] = pad_elem;
+  }
+}
+
+//--Cuda kernal for gathering, optimized for output with padded-columns--//
 template <typename T, typename IndT>
 __global__ void GatherColumns3dPaddingOpKernel(const T* params,
                                       const int64 params_cols,
@@ -29,7 +43,7 @@ __global__ void GatherColumns3dPaddingOpKernel(const T* params,
     if(col > -1)
     {
       //--If not a negative index (indicating a non-padded column),
-      //  then calculate the params row and copy the params elemnt
+      //  then calculate the params row and copy the params element
       //  to output--//
       IndT row = (i / indices_size) * params_cols;
       output[i] = ldg(params + row + col);
@@ -37,6 +51,7 @@ __global__ void GatherColumns3dPaddingOpKernel(const T* params,
   }
 }
 
+//--Cuda kernal for gathering, optimized for output without padded-columns--//
 template <typename T, typename IndT>
 __global__ void GatherColumns3dNoPaddingOpKernel(const T* params,
                                       const int64 params_cols,
@@ -65,7 +80,8 @@ struct GatherColumns3dFunctor<GPUDevice, T, IndT>
                     const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstMatrix& indices,
                     typename TTypes<T>::Matrix& output,
-                    const bool& padding)
+                    const bool& padding,                                                \
+                    const T pad_elem)
   {
     //--Get rows and cols size of params and indices--//
     const int64 params_rows = params.dimension(0);
@@ -90,14 +106,14 @@ struct GatherColumns3dFunctor<GPUDevice, T, IndT>
     CudaLaunchConfig config = GetCudaLaunchConfig(output_size, d);
     if(padding)
     {
-      //--Declare padding element as a double, and set it to value 0.0--//
-      double pad_elem = 0.0;
-
       //--Since output has atlest one padded column,
       //  initialize output tensor with pad_element--//
-      cudaMemset(output.data(), 0, output_size*sizeof(T));
+      OutputPadInitKernel<T>
+          <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
+          output.data(), output_size, pad_elem);
 
-      //--Cuda kernal optimized for output with padded-columns--//
+      //--Call cuda kernal for gathering, optimized for output with
+      //  padded-columns--//
       GatherColumns3dPaddingOpKernel<T, IndT>
           <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
           params.data(), params_cols, indices.data(),
@@ -105,7 +121,8 @@ struct GatherColumns3dFunctor<GPUDevice, T, IndT>
     }
     else //--No Padding needed--//
     {
-      //--Cuda kernal optimized for output without padded-columns--//
+      //--Call cuda kernal for gathering, optimized for output without
+      //  padded-columns--//
       GatherColumns3dNoPaddingOpKernel<T, IndT>
           <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
           params.data(), params_cols, indices.data(),

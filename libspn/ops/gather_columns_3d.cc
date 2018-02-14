@@ -16,6 +16,7 @@ REGISTER_OP("GatherColumns3d")
     .Input("indices: IndT")
     .Output("output: T")
     .Attr("padding: bool = false")
+    .Attr("pad_elem: float = 0.0")
     .Attr("T: realnumbertype")
     .Attr("IndT: {int32, int64}")
     .SetShapeFn([](InferenceContext* ctx) {
@@ -54,7 +55,9 @@ class GatherColumns3dOp : public OpKernel
     OP_REQUIRES_OK(ctx,
                    ctx->MatchSignature({data_t, index_t}, {data_t}));
 
+    //--Grab attributes--//
     OP_REQUIRES_OK(ctx, ctx->GetAttr("padding", &padding));
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("pad_elem", &pad_elem));
   }
 
   void Compute(OpKernelContext* ctx) override
@@ -133,11 +136,12 @@ class GatherColumns3dOp : public OpKernel
     functor::GatherColumns3dFunctor<Device, T, IndT> functor;
 
     OP_REQUIRES_OK(ctx, functor(ctx->eigen_device<Device>(), params_tensor,
-                                indices_tensor, output_tensor, padding));
+                                indices_tensor, output_tensor, padding, (T)pad_elem));
   }
 
  private:
   bool padding;
+  float pad_elem;
 };
 
 #define REGISTER_GATHERCOLUMNS3D_ALL(dev, type, index_type)         \
