@@ -64,17 +64,17 @@ class SumsLayer(OpNode):
             len(v.indices) if v and v.indices else v.node.get_out_size() if v else 0
             for v in self._values)
 
-        self._value_input_sizes = n_sums_or_sizes
+        self._sum_input_sizes = n_sums_or_sizes
         if isinstance(n_sums_or_sizes, int):
-            self._value_input_sizes = [_sum_index_lengths // n_sums_or_sizes] * n_sums_or_sizes
+            self._sum_input_sizes = [_sum_index_lengths // n_sums_or_sizes] * n_sums_or_sizes
         elif n_sums_or_sizes and sum(n_sums_or_sizes) != _sum_index_lengths:
             raise StructureError("The specified total number of sums is incompatible with the value"
                                  " input indices. \n"
                                  "Total number of sums: {}, total indices in value inputs: "
                                  "{}".format(sum(n_sums_or_sizes), _sum_index_lengths))
         elif not n_sums_or_sizes:
-            self._value_input_sizes = [len(v.indices) if v.indices else v.node.get_out_size()
-                                       for v in self._values]
+            self._sum_input_sizes = [len(v.indices) if v.indices else v.node.get_out_size()
+                                     for v in self._values]
         self._must_gather_for_mpe_path = False
 
     @property
@@ -83,8 +83,8 @@ class SumsLayer(OpNode):
         Constructs mask that could be used to cancel out 'columns' that are padded as a result of
         varying reduction sizes. Returns a Boolean mask.
         """
-        max_size = max(self._value_input_sizes)
-        sizes_col = np.asarray(self._value_input_sizes).reshape((self._num_sums, 1))
+        max_size = max(self._sum_input_sizes)
+        sizes_col = np.asarray(self._sum_input_sizes).reshape((self._num_sums, 1))
         index_row = np.arange(max_size).reshape((1, max_size))
 
         # Use broadcasting
@@ -93,7 +93,7 @@ class SumsLayer(OpNode):
     @property
     def _num_sums(self):
         """ The number of sums modeled """
-        return len(self._value_input_sizes)
+        return len(self._sum_input_sizes)
 
     # TODO
     def serialize(self):
@@ -213,13 +213,16 @@ class SumsLayer(OpNode):
             raise StructureError("%s is missing input values" % self)
         if name is None:
             name = self._name + "_Weights"
-        # Count all input values
-        input_sizes = input_sizes or self._value_input_sizes
+        # Set sum node sizes either from input or from inferred _sum_node_sizes
+        input_sizes = input_sizes or self._sum_input_sizes
+        num_sums = len(input_sizes)
 
         if isinstance(init_value, int) and init_value == 1:
+            # If an int, just broadcast its value to the sum dimensions
             init_value = utils.broadcast_value(
-                1, (self._num_sums, max(input_sizes)), dtype=conf.dtype)
+                1, (num_sums, max(input_sizes)), dtype=conf.dtype)
         elif hasattr(init_value, '__iter__'):
+            # If the init value is iterable, check if number of elements matches number of
             if np.asarray(init_value).size == sum(input_sizes):
                 v = np.zeros(self._num_sums * max(input_sizes))
                 v[self._mask.reshape((-1,))] = np.asarray(init_value).reshape((-1,))
@@ -228,12 +231,13 @@ class SumsLayer(OpNode):
                 raise ValueError("Incorrect initializer shape, should be ")
         else:
             raise ValueError("Initialization value {} of type {} not usable, use an int or an "
-                             "iterable of correct size".format(init_value, type(init_value)))
+                             "iterable of size {}".format(init_value, type(init_value),
+                                                          sum(input_sizes)))
 
         # Generate weights
         weights = Weights(init_value=init_value,
-                          num_weights=max(self._value_input_sizes),
-                          num_sums=self._num_sums,
+                          num_weights=max(input_sizes),
+                          num_sums=len(input_sizes),
                           trainable=trainable, name=name)
         self.set_weights(weights)
         return weights
@@ -259,7 +263,7 @@ class SumsLayer(OpNode):
             name = self._name + "_IVs"
 
         ivs = IVs(feed=feed, num_vars=self._num_sums,
-                  num_vals=max(self._value_input_sizes),
+                  num_vals=max(self._sum_input_sizes),
                   name=name)
         self.set_ivs(ivs)
         return ivs
@@ -277,16 +281,15 @@ class SumsLayer(OpNode):
         _, ivs_scopes, *value_scopes = self._gather_input_scopes(weight_scopes,
                                                                  ivs_scopes,
                                                                  *value_scopes)
-        flat_value_scopes = list(chain.from_iterable(value_scopes))
-        sublist_size = int(len(flat_value_scopes) / self._num_sums)
+        flat_value_scopes = np.asarray(list(chain.from_iterable(value_scopes)))
+        split_indices = np.cumsum(self._sum_input_sizes)[:-1]
         # Divide gathered value scopes into sublists, one per modelled Sum node
-        value_scopes_sublists = [flat_value_scopes[i:i + sublist_size] for i in
-                                 range(0, len(flat_value_scopes), sublist_size)]
+        value_scopes_sublists = [arr.tolist() for arr in
+                                 np.split(flat_value_scopes, split_indices)]
         if self._ivs:
-            sublist_size = int(len(ivs_scopes) / self._num_sums)
             # Divide gathered ivs scopes into sublists, one per modelled Sum node
-            ivs_scopes_sublists = [ivs_scopes[i:i + sublist_size] for i in
-                                   range(0, len(ivs_scopes), sublist_size)]
+            ivs_scopes_sublists = [arr.tolist() for arr in
+                                   np.split(ivs_scopes, split_indices)]
             # Add respective ivs scope to value scope list of each Sum node
             for val, ivs in zip(value_scopes_sublists, ivs_scopes_sublists):
                 val.extend(ivs)
@@ -303,7 +306,11 @@ class SumsLayer(OpNode):
         if (any(s is None for s in value_scopes_)
             or (self._ivs and ivs_scopes_ is None)):
             return None
-        flat_value_scopes = list(chain.from_iterable(value_scopes_))
+
+        # Split the flat value scopes based on value input sizes
+        split_indices = np.cumsum(self._sum_input_sizes)[:-1]
+        flat_value_scopes = np.asarray(list(chain.from_iterable(value_scopes_)))
+
         # IVs
         if self._ivs:
             # Verify number of IVs
@@ -312,15 +319,21 @@ class SumsLayer(OpNode):
                                      "not match for %s"
                                      % (len(ivs_scopes_), len(flat_value_scopes),
                                         self))
-            # Check if scope of all IVs is just one and the same variable
-            if len(Scope.merge_scopes(ivs_scopes_)) > self._num_sums:
+
+            # Go over IVs involved for each sum. Scope size should be exactly one
+            for iv_scopes_for_sum in np.split(ivs_scopes_, split_indices):
+                if len(Scope.merge_scopes(iv_scopes_for_sum)) != 1:
+                    return None
+
+        # Go over value input scopes for each sum being modeled. Within a single sum, the scope of
+        # all the inputs should be the same
+        for scope_slice in np.split(flat_value_scopes, split_indices):
+            first_scope = scope_slice[0]
+            if any(s != first_scope for s in scope_slice[1:]):
+                SumsLayer.info("%s is not complete with input value scopes %s",
+                               self, flat_value_scopes)
                 return None
-        # Check sum for completeness wrt values
-        first_scope = flat_value_scopes[0]
-        if any(s != first_scope for s in flat_value_scopes[1:]):
-            SumsLayer.info("%s is not complete with input value scopes %s",
-                           self, flat_value_scopes)
-            return None
+
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
 
     def _concatenate_values_and_indices(self, value_tensors):
@@ -335,7 +348,7 @@ class SumsLayer(OpNode):
 
         tensor_offset = 0
         for ti, (v, t) in enumerate(zip(self._values, value_tensors)):
-            # Get indices. If no there, will be [0, 1, ... , len-1]
+            # Get indices. If not there, will be [0, 1, ... , len-1]
             indices = v.indices if v.indices else np.arange(v.node.get_out_size()).tolist()
             flat_col_indices.append(indices)
             # Just repeat the offset len(indices) times
@@ -348,14 +361,19 @@ class SumsLayer(OpNode):
 
         # Offset in flattened arrays
         offset = 0
-        max_size = max(self._value_input_sizes)
-        for size in self._value_input_sizes:
+        max_size = max(self._sum_input_sizes)
+        for size in self._sum_input_sizes:
             # Now indices can be found by adding up column indices and tensor offsets
             indices = flat_col_indices[offset:offset + size] + \
                       flat_tensor_offsets[offset:offset + size]
             # If there is padding within a single tensor, we have to perform an additional gather
             # step when computing the MPE path
             if size < max_size:
+                # TODO the above check should be made more strict by also requiring that the next
+                # input that ends up in the concatenated tensor is different from the current one.
+                # If this never happens (i.e. the flag below remains False) then we could split
+                # the tensors later on when scattering for MPE path while ignoring padded parts
+                # by also splitting there
                 self._must_gather_for_mpe_path = True
             # Combined indices contains an array for each reducible set of columns
             combined_indices.append(indices)
@@ -380,12 +398,15 @@ class SumsLayer(OpNode):
         reducible_values = utils.gather_cols_3d(values, indices, name="GatherToReducible")
 
         if weighted:
+            # Use component wise op for weighting
             reducible_values = cwise_op(reducible_values, weight_tensor)
         if self._ivs:
-            iv_reshape = (-1, self._num_sums, max(self._value_input_sizes))
+            # Reshape IVs and apply them component-wise
+            iv_reshape = (-1, self._num_sums, max(self._sum_input_sizes))
             ivs_tensor_reshaped = tf.reshape(ivs_tensor, iv_reshape)
             reducible_values = cwise_op(reducible_values, ivs_tensor_reshaped)
 
+        # Reduce on last axis
         return reduction_function(reducible_values)
 
     def _compute_value(self, weight_tensor, ivs_tensor, *value_tensors):
@@ -421,8 +442,9 @@ class SumsLayer(OpNode):
                                           num_out_cols=values_weighted.shape[2].value)
 
         _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
-        # Reshape max counts to a wide 2D tensor of shape 'Batch X (num_sums * num_vals)'
-        max_size = max(self._value_input_sizes)
+
+        # Reshape max counts to a wide 2D tensor of shape 'Batch X (num_sums * max_size)'
+        max_size = max(self._sum_input_sizes)
         reshape = (-1, self._num_sums * max_size)
         max_counts_reshaped = tf.reshape(max_counts, shape=reshape)
 
@@ -431,7 +453,7 @@ class SumsLayer(OpNode):
             # Will hold indices to gather
             indices = []
             offset = 0
-            for size in self._value_input_sizes:
+            for size in self._sum_input_sizes:
                 indices.extend([offset + i for i in range(size)])
                 offset += max_size
             # Gather so that padded parts are left out
