@@ -256,12 +256,6 @@ class TestMath(TestCase):
                                            len(params_with_zero.shape) == 1
                                            else params_with_zero[:, indices])
 
-                            #print("\noutput: \n", output)
-                            #print("\ntrue_output: \n", true_output)
-                            #print("\npad_elem: ", pad_elem)
-                            #print("\nparam_dtype: ", p_dt)
-                            #print("\nind_dtype: ", i_dt)
-
                             # Test Output values, shape and dtype
                             np.testing.assert_array_almost_equal(output,
                                                                  np.array(true_output))
