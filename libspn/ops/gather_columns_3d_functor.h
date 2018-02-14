@@ -6,6 +6,7 @@
 #include "tensorflow/core/framework/type_traits.h"
 #include "tensorflow/core/kernels/bounds_check.h"
 #include "tensorflow/core/lib/core/errors.h"
+#include "tensorflow/core/lib/gtl/inlined_vector.h"
 #include "tensorflow/core/platform/prefetch.h"
 #include "tensorflow/core/platform/types.h"
 
@@ -23,7 +24,8 @@ template <typename T, typename IndT>
 Status CopyAndPad(const typename TTypes<T>::ConstMatrix& params,
                   const typename TTypes<IndT>::ConstMatrix& indices,
                   typename TTypes<T>::Matrix& output,
-                  const bool& padding)
+                  const bool& padding,
+                  const T pad_elem)
 {
   //--Get rows and cols size of params and indices--//
   const int64 params_rows = params.dimension(0);
@@ -42,12 +44,8 @@ Status CopyAndPad(const typename TTypes<T>::ConstMatrix& params,
 
   if(padding)
   {
-    //--Declare padding element as a double, and set it to 0.0--//
-    double pad_elem = 0.0;
-
-    //--Since output has atlest one padded column,
-    //  mem-copy padding element to output tensor--//
-    memset(&output(0, 0), pad_elem, ((params_rows * indices_rows * indices_cols) * sizeof(T)));
+    //--Vector containing padding elements. Vector-size = num-indices-cols--//
+      gtl::InlinedVector<T, 4> pad_elem_vec(indices_cols, pad_elem);
 
     for (int row = 0; row < indices_rows; row++)
     {
@@ -59,8 +57,9 @@ Status CopyAndPad(const typename TTypes<T>::ConstMatrix& params,
           //--Check if indices[r][c] ∈ (0, num_out_cols]--//
           if (!FastBoundsCheck(indices(row, col), params_cols))
           {
-            //--If so - indicating a padded column - ignore rest of the
-            //  current row by breaking--//
+            //--If not - indicating a padded column - then copy the padding element
+            //  to the rest of the current row, and then breaking--//
+            memcpy(&output(current_row, col), &pad_elem_vec[0], ((indices_cols - col) * sizeof(T)));
             break;
           }
 
@@ -130,10 +129,11 @@ struct GatherColumns3dFunctorCPU
   Status operator()(const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstMatrix& indices,
                     typename TTypes<T>::Matrix& output,
-                    const bool& padding)
+                    const bool& padding,
+                    const T pad_elem)
   {
-    return CopyAndPad<T, IndT>(params, indices,
-                               output, padding);
+    return CopyAndPad<T, IndT>(params, indices, output,
+                               padding, pad_elem);
   }
 };
 
@@ -144,7 +144,8 @@ struct GatherColumns3dFunctor
                     const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstMatrix& indices,
                     typename TTypes<T>::Matrix& output,
-                    const bool& padding);
+                    const bool& padding,
+                    const T pad_elem);
 };
 
 template <typename T, typename IndT>
@@ -154,10 +155,11 @@ struct GatherColumns3dFunctor<CPUDevice, T, IndT>
                     const typename TTypes<T>::ConstMatrix& params,
                     const typename TTypes<IndT>::ConstMatrix& indices,
                     typename TTypes<T>::Matrix& output,
-                    const bool& padding)
+                    const bool& padding,
+                    const T pad_elem)
   {
-    return GatherColumns3dFunctorCPU<T, IndT>()(params, indices,
-                                                         output, padding);
+    return GatherColumns3dFunctorCPU<T, IndT>()(params, indices, output,
+                                                padding, pad_elem);
   }
 };
 

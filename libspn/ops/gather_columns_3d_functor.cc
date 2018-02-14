@@ -14,7 +14,8 @@ namespace functor
       const GPUDevice& dvc, const typename TTypes<T>::ConstMatrix& params, \
       const typename TTypes<IndT>::ConstMatrix& indices,                   \
       typename TTypes<T>::Matrix& output,                                  \
-      const bool& padding);                                                \
+      const bool& padding,                                                 \
+      const T pad_elem);                                                   \
   extern template struct GatherColumns3dFunctor<GPUDevice, T, IndT>;
 
 #define DECLARE_GPU_SPECS(T)         \

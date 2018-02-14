@@ -25,7 +25,7 @@ IndT CountAndCopy(typename TTypes<T>::ConstMatrix params,
   const int64 params_rows = params.dimension(0);
   const int64 params_cols = params.dimension(1);
 
-  if (params_cols == 1)
+  if (params_cols == 1 && indices.size() == 1)
   {
     if (indices(0) != 0)
     {
@@ -33,8 +33,8 @@ IndT CountAndCopy(typename TTypes<T>::ConstMatrix params,
     }
     else
     {
-      //--Single column tensor, indices must include it, so just copy params
-      // tensor to output tensor and return--//
+      //--Single column tensor, indices must include it, so if only one column
+      // is gathered, it must be an exact copy of the input--//
       memcpy(&output(0, 0), &params(0, 0), (params_rows * sizeof(T)));
       return -1;
     }

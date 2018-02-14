@@ -5,7 +5,7 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-from itertools import chain, combinations
+from itertools import chain, combinations, repeat
 import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode, Input
@@ -182,17 +182,13 @@ class Products(OpNode):
         value_sizes = self.get_input_sizes(*value_values)
         input_size_per_prod = sum(value_sizes) // self._num_prods
 
-        # (1) Split (num_prods)
-        split_counts = tf.split(counts, self._num_prods, axis=1)
+        # (1-3) Tile counts of each prod based on prod-input-size, by gathering
+        indices = list(chain.from_iterable(repeat(r, input_size_per_prod)
+                       for r in range(self._num_prods)))
+        gathered_counts = utils.gather_cols(counts, indices)
 
-        # (2) Tile (size_of_prods)
-        tiled_counts_list = [tf.tile(sc, [1, input_size_per_prod]) for sc in split_counts]
-
-        # (3) Concat
-        concated_counts = tf.concat(tiled_counts_list, axis=1)
-
-        # (4) Split (*value_sizes)
-        value_counts = tf.split(concated_counts, value_sizes, axis=1)
+        # (4) Split gathered countes based on value_sizes
+        value_counts = tf.split(gathered_counts, value_sizes, axis=1)
         counts_values_paired = [(v_count, v_value) for v_count, v_value in
                                 zip(value_counts, value_values)]
 
