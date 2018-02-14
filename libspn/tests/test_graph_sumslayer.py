@@ -244,9 +244,9 @@ class TestNodesSumsLayer(tf.test.TestCase):
         without IVs, and in log and non-log space
         """
         # Initialize dimensions
-        batch_size = 2
+        batch_size = 256
         total_size = np.sum(input_sizes)
-        fac = 2
+        fac = 5
 
         # Generate random arrays
         x = np.random.rand(batch_size, total_size * fac)
@@ -294,14 +294,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
                 op = tuple(o for i, o in enumerate(op) if i != 1)
             out = sess.run(op, feed_dict=feed_dict)[2 if ivs_node else 1:]
 
-        print(input_sizes, sum_sizes, ivs, log)
         for o, to in zip(out, true_outs):
-            print("out\n", o)
-            print("true_out\n", to)
-            print("shape\n", o.shape)
-            print("x\n", x)
-            print("w\n", w)
-            print("x * w\n")
             self.assertAllClose(o, to)
 
     @staticmethod
@@ -1562,115 +1555,91 @@ class TestNodesSumsLayer(tf.test.TestCase):
              [[(0.3*0.3)/0.7,  (0.6*0.2)/1.3],
               [(0.12*0.2)/0.7, (0.18*0.4)/1.3]])
 
-    def test_comput_scope(self):
+    def test_compute_scope(self):
         """Calculating scope of Sums"""
         # Create a graph
         v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
         v34 = spn.ContVars(num_vars=3, name="V34")
-        ivs_ss5 = spn.IVs(num_vars=2, num_vals=4)
-        ss1 = spn.SumsLayer((v12, [0, 1, 2, 3]), (v12, [1, 2, 5, 6]),
-                       (v12, [4, 5, 6, 7]), n_sums_or_sizes=3, name="Ss1")
-        ss1.generate_ivs()
-        ss2 = spn.SumsLayer((v12, [6, 7]), (v34, 0), n_sums_or_sizes=1, name="Ss2")
-        ss3 = spn.SumsLayer((v12, [3, 7]), (v34, 1), (v12, [4, 5, 6]), v34,
-                            n_sums_or_sizes=3, name="Ss3")
-        s1 = spn.SumsLayer((v34, [1, 2]), n_sums_or_sizes=1, name="S1")
-        s1.generate_ivs()
-        n1 = spn.Concat((ss1, [0, 2]), (ss2, 0), name="N1")
-        n2 = spn.Concat((ss1, 1), ss3, s1, name="N2")
-        p1 = spn.Product(ss2, (ss3, [1, 2]), name="P1")
-        n3 = spn.Concat((ss1, 0), ss2, (ss3, [0, 1]), s1,  name="N3")
-        p2 = spn.Product((ss3, [0, 2]), name="P2")
-        ss4 = spn.SumsLayer((n1, [1, 2]), (n2, 2), (n1, 0), (n2, 1), p1, (n2, [0, 2, 4]),
-                            n_sums_or_sizes=3, name="Ss4")
-        ss5 = spn.SumsLayer((n2, [1, 2, 3]), p1, p1, (n3, [0, 1, 2]), ivs=ivs_ss5,
-                            n_sums_or_sizes=2, name="Ss5")
-        ss6 = spn.SumsLayer((n3, [1, 2, 3, 4]), p2, n_sums_or_sizes=1, name="Ss6")
-        ss6.generate_ivs()
-        s2 = spn.SumsLayer((ss4, [0, 2]), (ss5, [1]), (ss6, 0), n_sums_or_sizes=1, name="S2")
-        s2.generate_ivs()
-        # Test
-        self.assertListEqual(v12.get_scope(),
-                             [spn.Scope(v12, 0), spn.Scope(v12, 0),
-                              spn.Scope(v12, 0), spn.Scope(v12, 0),
-                              spn.Scope(v12, 1), spn.Scope(v12, 1),
-                              spn.Scope(v12, 1), spn.Scope(v12, 1)])
-        self.assertListEqual(v34.get_scope(),
-                             [spn.Scope(v34, 0), spn.Scope(v34, 1),
-                              spn.Scope(v34, 2)])
-        self.assertListEqual(ss1.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(ss1.ivs.node, 0),
-                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(ss1.ivs.node, 1), spn.Scope(v12, 1) |
-                              spn.Scope(ss1.ivs.node, 2)])
-        self.assertListEqual(ss2.get_scope(),
-                             [spn.Scope(v12, 1) | spn.Scope(v34, 0)])
-        self.assertListEqual(ss3.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(v34, 1), spn.Scope(v12, 1),
-                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(v34, 2)])
-        self.assertListEqual(s1.get_scope(),
-                             [spn.Scope(v34, 1) | spn.Scope(v34, 2) |
-                              spn.Scope(s1.ivs.node, 0)])
-        self.assertListEqual(n1.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(ss1.ivs.node, 0),
-                              spn.Scope(v12, 1) | spn.Scope(ss1.ivs.node, 2),
-                              spn.Scope(v12, 1) | spn.Scope(v34, 0)])
-        self.assertListEqual(n2.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(ss1.ivs.node, 1), spn.Scope(v12, 0) |
-                              spn.Scope(v12, 1) | spn.Scope(v34, 1),
-                              spn.Scope(v12, 1), spn.Scope(v34, 0) |
-                              spn.Scope(v34, 1) | spn.Scope(v34, 2),
-                              spn.Scope(v34, 1) | spn.Scope(v34, 2) |
-                              spn.Scope(s1.ivs.node, 0)])
-        self.assertListEqual(p1.get_scope(),
-                             [spn.Scope(v12, 1) | spn.Scope(v34, 0) |
-                              spn.Scope(v34, 1) | spn.Scope(v34, 2)])
-        self.assertListEqual(n3.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(ss1.ivs.node, 0),
-                              spn.Scope(v12, 1) | spn.Scope(v34, 0),
-                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(v34, 1), spn.Scope(v12, 1),
-                              spn.Scope(v34, 1) | spn.Scope(v34, 2) |
-                              spn.Scope(s1.ivs.node, 0)])
-        self.assertListEqual(p2.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(v34, 2)])
-        self.assertListEqual(ss4.get_scope(),
-                             [spn.Scope(v12, 1) | spn.Scope(v34, 0) |
-                              spn.Scope(ss1.ivs.node, 2), spn.Scope(v12, 0) |
-                              spn.Scope(v12, 1) | spn.Scope(v34, 0) |
-                              spn.Scope(v34, 1) | spn.Scope(v34, 2) |
-                              spn.Scope(ss1.ivs.node, 0), spn.Scope(v12, 0) |
-                              spn.Scope(v12, 1) | spn.Scope(v34, 1) |
-                              spn.Scope(v34, 2) | spn.Scope(ss1.ivs.node, 1) |
-                              spn.Scope(s1.ivs.node, 0)])
-        self.assertListEqual(ss5.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(v34, 2) | spn.Scope(ss5.ivs.node, 0),
-                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(v34, 2) | spn.Scope(ss1.ivs.node, 0) |
-                              spn.Scope(ss5.ivs.node, 1)])
-        self.assertListEqual(ss6.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                             spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                             spn.Scope(v34, 2) | spn.Scope(s1.ivs.node, 0) |
-                             spn.Scope(ss6.ivs.node, 0)])
-        self.assertListEqual(s2.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                             spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                             spn.Scope(v34, 2) | spn.Scope(ss1.ivs.node, 0) |
-                             spn.Scope(ss1.ivs.node, 1) |
-                             spn.Scope(ss1.ivs.node, 2) |
-                             spn.Scope(s1.ivs.node, 0) |
-                             spn.Scope(ss5.ivs.node, 1) |
-                             spn.Scope(ss6.ivs.node, 0) |
-                             spn.Scope(s2.ivs.node, 0)])
+
+        scopes_per_node = {
+            v12: [spn.Scope(v12, 0), spn.Scope(v12, 0), spn.Scope(v12, 0), spn.Scope(v12, 0),
+                  spn.Scope(v12, 1), spn.Scope(v12, 1), spn.Scope(v12, 1), spn.Scope(v12, 1)],
+            v34: [spn.Scope(v34, 0), spn.Scope(v34, 1), spn.Scope(v34, 2)]
+        }
+
+        def generate_scopes_from_inputs(node, inputs, n_sums_or_sizes, ivs=False):
+            # Create a flat list of scopes, where the scope elements of a single input
+            # node are subsequent in the list
+            flat_scopes = []
+            size = 0
+            for inp in inputs:
+                if isinstance(inp, tuple) and inp[1]:
+                    input_indices = [inp[1]] if isinstance(inp[1], int) else inp[1]
+                    for i in input_indices:
+                        flat_scopes.append(scopes_per_node[inp[0]][i])
+                    size += len(input_indices)
+                elif not isinstance(inp, tuple):
+                    flat_scopes.extend(scopes_per_node[inp])
+                    size += len(scopes_per_node[inp])
+                else:
+                    flat_scopes.extend(scopes_per_node[inp[0]])
+                    size += len(scopes_per_node[inp[0]])
+            if isinstance(n_sums_or_sizes, int):
+                n_sums_or_sizes = n_sums_or_sizes * [size // n_sums_or_sizes]
+
+            new_scope = []
+            offset = 0
+            # For each sum generate the scope based on its size
+            for i, s in enumerate(n_sums_or_sizes):
+                scope = flat_scopes[offset]
+                for j in range(1, s):
+                    scope |= flat_scopes[j + offset]
+                offset += s
+                if ivs:
+                    scope |= spn.Scope(node.ivs.node, i)
+                new_scope.append(scope)
+            scopes_per_node[node] = new_scope
+
+        def sums_layer_and_test(inputs, n_sums_or_sizes, name, ivs=False):
+            """ Create a sums layer, generate its correct scope and test """
+            sums_layer = spn.SumsLayer(*inputs, n_sums_or_sizes=n_sums_or_sizes, name=name)
+            if ivs:
+                sums_layer.generate_ivs()
+            generate_scopes_from_inputs(sums_layer, inputs, n_sums_or_sizes, ivs=ivs)
+            self.assertListEqual(sums_layer.get_scope(), scopes_per_node[sums_layer])
+            return sums_layer
+
+        def concat_layer_and_test(inputs, name):
+            """ Create a concat node, generate its scopes and assert whether it is correct """
+            scope = []
+            for inp in inputs:
+                if isinstance(inp, tuple):
+                    indices = inp[1]
+                    if isinstance(inp[1], int):
+                        indices = [inp[1]]
+                    for i in indices:
+                        scope.append(scopes_per_node[inp[0]][i])
+                else:
+                    scope.extend(scopes_per_node[inp])
+            concat = spn.Concat(*inputs, name=name)
+            self.assertListEqual(concat.get_scope(), scope)
+            scopes_per_node[concat] = scope
+            return concat
+
+        ss1 = sums_layer_and_test(
+            [(v12, [0, 1, 2, 3]), (v12, [1, 2, 5, 6]), (v12, [4, 5, 6, 7])], 3, "Ss1", ivs=True)
+
+        ss2 = sums_layer_and_test([(v12, [6, 7]), (v34, 0)], n_sums_or_sizes=[1, 2], name="Ss2")
+        ss3 = sums_layer_and_test([(v12, [3, 7]), (v34, 1), (v12, [4, 5, 6]), v34],
+                              n_sums_or_sizes=[1, 2, 2, 2, 2], name="Ss3")
+
+        s1 = sums_layer_and_test([(v34, [1, 2])], n_sums_or_sizes=1, name="S1", ivs=True)
+        n1 = concat_layer_and_test([(ss1, [0, 2]), (ss2, 0)], name="N1")
+        n2 = concat_layer_and_test([(ss1, 1), ss3, s1], name="N2")
+        n3 = concat_layer_and_test([(ss1, 0), ss2, (ss3, [0, 1]), s1], name="N3")
+        ss4 = sums_layer_and_test([(ss1, [1, 2]), ss2], n_sums_or_sizes=[2, 1, 1], name="Ss4")
+        ss5 = sums_layer_and_test([(ss1, [0, 2]), (n3, [0, 1]), (ss3, [4, 2])],
+                                    n_sums_or_sizes=[3, 2, 1], name="Ss5")
 
     def test_compute_valid(self):
         """Calculating validity of Sums"""
@@ -1679,38 +1648,96 @@ class TestNodesSumsLayer(tf.test.TestCase):
         v34 = spn.ContVars(num_vars=2)
         s1 = spn.SumsLayer((v12, [0, 1, 2, 3]), (v12, [0, 1, 2, 3]),
                       (v12, [0, 1, 2, 3]), n_sums_or_sizes=3)
+        self.assertTrue(s1.is_valid())
+
         s2 = spn.SumsLayer((v12, [0, 1, 2, 4]), name="S2")
+        s2b = spn.SumsLayer((v12, [0, 1, 2, 4]), n_sums_or_sizes=[3, 1], name="S2b")
+        self.assertTrue(s2b.is_valid())
+        self.assertFalse(s2.is_valid())
+
         s3 = spn.SumsLayer((v12, [0, 1, 2, 3]), (v34, 0), (v12, [0, 1, 2, 3]),
                       (v34, 0), n_sums_or_sizes=2)
+        s3b = spn.SumsLayer((v12, [0, 1, 2, 3]), (v34, 0), (v12, [0, 1, 2, 3]),
+                      (v34, 0), n_sums_or_sizes=[4, 1, 4, 1])
+        s3c = spn.SumsLayer((v12, [0, 1, 2, 3]), (v34, 0), (v12, [0, 1, 2, 3]),
+                      (v34, 0), n_sums_or_sizes=[4, 1, 5])
+        self.assertFalse(s3.is_valid())
+        self.assertTrue(s3b.is_valid())
+        self.assertFalse(s3c.is_valid())
+
         p1 = spn.Product((v12, [0, 5]), (v34, 0))
         p2 = spn.Product((v12, [1, 6]), (v34, 0))
         p3 = spn.Product((v12, [1, 6]), (v34, 1))
+
         s4 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=2)
         s5 = spn.SumsLayer(p1, p3, p1, p3, p1, p3, n_sums_or_sizes=3)
-        self.assertTrue(v12.is_valid())
-        self.assertTrue(v34.is_valid())
-        self.assertTrue(s1.is_valid())
-        self.assertFalse(s2.is_valid())
-        self.assertFalse(s3.is_valid())
+        s6 = spn.SumsLayer(p1, p2, p3, n_sums_or_sizes=[2, 1])
+        s7 = spn.SumsLayer(p1, p2, p3, n_sums_or_sizes=[1, 2])
+        s8 = spn.SumsLayer(p1, p2, p3, p2, p1, n_sums_or_sizes=[2, 1, 2])
         self.assertTrue(s4.is_valid())
-        self.assertFalse(s5.is_valid())
+        self.assertFalse(s5.is_valid())  # p1 and p3 different scopes
+        self.assertTrue(s6.is_valid())
+        self.assertFalse(s7.is_valid())  # p2 and p3 different scopes
+        self.assertTrue(s8.is_valid())
         # With IVS
         s6 = spn.SumsLayer(p1, p2, p1, p2, p1, p2, n_sums_or_sizes=3)
         s6.generate_ivs()
         self.assertTrue(s6.is_valid())
+
         s7 = spn.SumsLayer(p1, p2, n_sums_or_sizes=1)
         s7.set_ivs(spn.ContVars(num_vars=2))
         self.assertFalse(s7.is_valid())
+
+        s7 = spn.SumsLayer(p1, p2, p3, n_sums_or_sizes=3)
+        s7.set_ivs(spn.ContVars(num_vars=3))
+        self.assertTrue(s7.is_valid())
+
+        s7 = spn.SumsLayer(p1, p2, p3, n_sums_or_sizes=[2, 1])
+        s7.set_ivs(spn.ContVars(num_vars=3))
+        self.assertFalse(s7.is_valid())
+
         s8 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=2)
         s8.set_ivs(spn.IVs(num_vars=3, num_vals=2))
-        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=2)
-        s9.set_ivs(spn.ContVars(num_vars=2))
         with self.assertRaises(spn.StructureError):
             s8.is_valid()
+
+        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=[1, 3])
+        s9.set_ivs(spn.ContVars(num_vars=2))
+        with self.assertRaises(spn.StructureError):
             s9.is_valid()
+
+        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=[1, 3])
+        s9.set_ivs(spn.ContVars(num_vars=3))
+        with self.assertRaises(spn.StructureError):
+            s9.is_valid()
+
+        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=2)
+        s9.set_ivs(spn.IVs(num_vars=1, num_vals=4))
+        self.assertTrue(s9.is_valid())
+
+        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=[1, 3])
+        s9.set_ivs(spn.IVs(num_vars=1, num_vals=4))
+        self.assertTrue(s9.is_valid())
+
+        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=[1, 3])
+        s9.set_ivs(spn.IVs(num_vars=2, num_vals=2))
+        self.assertFalse(s9.is_valid())
+
+        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=2)
+        s9.set_ivs(spn.IVs(num_vars=2, num_vals=2))
+        self.assertTrue(s9.is_valid())
+
+        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=[1, 2, 1])
+        s9.set_ivs(spn.IVs(num_vars=2, num_vals=2))
+        self.assertFalse(s9.is_valid())
+
         s10 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=2)
         s10.set_ivs((v12, [0, 3, 5, 7]))
         self.assertTrue(s10.is_valid())
+
+        s10 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=[1, 2, 1])
+        s10.set_ivs((v12, [0, 3, 5, 7]))
+        self.assertFalse(s10.is_valid())
 
     @parameterized.expand([('Non-log', False), ('Log', True)])
     def test_compute_mpe_path_noivs_single_sum(self, name, log):
