@@ -99,7 +99,7 @@ class SumsLayer(OpNode):
     def serialize(self):
         data = super().serialize()
         data['values'] = [(i.node.name, i.indices) for i in self._values]
-        data['num_sums'] = self._num_sums
+        data['sum_input_sizes'] = self._sum_input_sizes
         if self._weights:
             data['weights'] = (self._weights.node.name, self._weights.indices)
         if self._ivs:
@@ -110,7 +110,7 @@ class SumsLayer(OpNode):
     def deserialize(self, data):
         super().deserialize(data)
         self.set_values()
-        self._num_sums = data['num_sums']
+        self._sum_input_sizes = data['num_sums']
         self.set_weights()
         self.set_ivs()
 
@@ -336,24 +336,40 @@ class SumsLayer(OpNode):
 
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
 
-    def _concatenate_values_and_indices(self, value_tensors):
+    def _combine_values_and_indices(self, value_tensors):
         """
         Concatenates input tensors and returns the nested indices that are required for gathering
         all sum inputs to a reducible set of columns
         """
         # TODO, this does not do anything with uniqueness of input Tensors yet
+
+        # Chose list instead of dict to maintain order
+        unique_tensors = []
+        unique_offsets = []
+
         combined_indices = []
         flat_col_indices = []
         flat_tensor_offsets = []
 
         tensor_offset = 0
-        for ti, (v, t) in enumerate(zip(self._values, value_tensors)):
+        for value_inp, value_tensor in zip(self._values, value_tensors):
             # Get indices. If not there, will be [0, 1, ... , len-1]
-            indices = v.indices if v.indices else np.arange(v.node.get_out_size()).tolist()
+            indices = value_inp.indices if value_inp.indices else \
+                np.arange(value_inp.node.get_out_size()).tolist()
             flat_col_indices.append(indices)
-            # Just repeat the offset len(indices) times
-            flat_tensor_offsets.append([tensor_offset for _ in indices])
-            tensor_offset += t.shape[1].value
+            if value_tensor not in unique_tensors:
+                # Add the tensor and offsets ot unique
+                unique_tensors.append(value_tensor)
+                unique_offsets.append(tensor_offset)
+                # Add offsets
+                flat_tensor_offsets.append([tensor_offset for _ in indices])
+                tensor_offset += value_tensor.shape[1].value
+            else:
+                # Find offset from list
+                offset = unique_offsets[unique_tensors.index(value_tensor)]
+                # After this, no need to update tensor_offset, since the current value_tensor will
+                # wasn't added to unique
+                flat_tensor_offsets.append([offset for _ in indices])
 
         # Flatten the tensor offsets and column indices
         flat_tensor_offsets = np.asarray(list(chain(*flat_tensor_offsets)))
@@ -379,7 +395,7 @@ class SumsLayer(OpNode):
             combined_indices.append(indices)
             offset += size
 
-        return combined_indices, utils.concat_maybe(value_tensors, 1)
+        return combined_indices, utils.concat_maybe(unique_tensors, 1)
 
     def _compute_value_common(self, cwise_op, reduction_function, weight_tensor, ivs_tensor,
                               *value_tensors, weighted=True):
@@ -390,7 +406,7 @@ class SumsLayer(OpNode):
         if not self._weights:
             raise StructureError("%s is missing weights" % self)
         # Prepare values
-        indices, values = self._concatenate_values_and_indices(value_tensors)
+        indices, values = self._combine_values_and_indices(value_tensors)
         weight_tensor, ivs_tensor = self._gather_input_tensors(weight_tensor, ivs_tensor)
 
         # Create a 3D tensor with dimensions [batch, sum node, sum input]

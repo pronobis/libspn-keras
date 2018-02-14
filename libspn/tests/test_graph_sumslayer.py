@@ -188,14 +188,14 @@ class TestNodesSumsLayer(tf.test.TestCase):
                                    np.concatenate(outputs, axis=1))
 
     @parameterized.expand([
-        (input_sizes, sum_sizes, ivs, inference_type, log) for
-        input_sizes, sum_sizes, ivs, inference_type, log in
+        (input_sizes, sum_sizes, ivs, inference_type, log, same_input) for
+        input_sizes, sum_sizes, ivs, inference_type, log, same_input in
         itertools.product(
             INPUT_SIZES, SUM_SIZES, [False, True],
-            [spn.InferenceType.MARGINAL, spn.InferenceType.MPE], [False, True])
+            [spn.InferenceType.MARGINAL, spn.InferenceType.MPE], [False, True], [False, True])
     ])
     def test_sumslayer_varying_sizes_values(self, input_sizes, sum_sizes, ivs, inference_type,
-                                            log):
+                                            log, same_input):
         """
         Tests the SumsLayer value computation for different input sizes, sum sizes, inference types,
         with and without IVs, and in log and non-log space.
@@ -212,7 +212,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         # Get feed dict, IV numeric value list, an IV node, the numeric inputs and the SPN input
         # tuples
         feed_dict, ivs_list, ivs_node, numpy_inputs, spn_inputs = self.sumslayer_common(
-            batch_size, fac, x, ivs, input_sizes, sum_sizes)
+            batch_size, fac, x, ivs, input_sizes, sum_sizes, same_input=same_input)
 
         # Build SumsLayer
         n = spn.SumsLayer(*spn_inputs, n_sums_or_sizes=sum_sizes, ivs=ivs_node)
@@ -233,12 +233,12 @@ class TestNodesSumsLayer(tf.test.TestCase):
         self.assertAllClose(true_out, out)
 
     @parameterized.expand([
-        (input_sizes, sum_sizes, ivs, log) for
-        input_sizes, sum_sizes, ivs, log in
+        (input_sizes, sum_sizes, ivs, log, same_input) for
+        input_sizes, sum_sizes, ivs, log, same_input in
         itertools.product(
-            INPUT_SIZES, SUM_SIZES, [False, True], [False, True])
+            INPUT_SIZES, SUM_SIZES, [False, True], [False, True], [False, True])
     ])
-    def test_sumslayer_varying_sizes_mpe_path(self, input_sizes, sum_sizes, ivs, log):
+    def test_sumslayer_varying_sizes_mpe_path(self, input_sizes, sum_sizes, ivs, log, same_input):
         """
         Tests the SumsLayer MPE path computation for different input sizes, sum sizes, with and
         without IVs, and in log and non-log space
@@ -256,7 +256,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         # Get feed dict, IV numeric value list, an IV node, the numeric inputs and the SPN input
         # tuples
         feed_dict, ivs_list, ivs_node, numpy_inputs, spn_inputs = self.sumslayer_common(
-            batch_size, fac, x, ivs, input_sizes, sum_sizes)
+            batch_size, fac, x, ivs, input_sizes, sum_sizes, same_input=same_input)
 
         # Compute the true output using numpy
         true_outs = sums_layer_mpe_path_numpy(numpy_inputs, sum_sizes, w, counts,
@@ -298,7 +298,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
             self.assertAllClose(o, to)
 
     @staticmethod
-    def sumslayer_common(batch_size, fac, x, ivs, input_sizes, sum_sizes):
+    def sumslayer_common(batch_size, fac, x, ivs, input_sizes, sum_sizes, same_input=False):
         # Lists that will hold nodes or values
         numpy_inputs = []
         ivs_list = []
@@ -306,24 +306,35 @@ class TestNodesSumsLayer(tf.test.TestCase):
         feed_dict = {}
         # Offset to use for determining
         offset = 0
+        node = None
         for s in input_sizes:
             slice_size = s * fac
 
             # Pick some random indices
             ind = [int(i) for i in np.random.choice(slice_size, s, replace=False)]
+            if not same_input:
+                # Append the value-indices tuple to numpy_inputs
+                value = x[:, offset:offset + slice_size]
+                numpy_inputs.append((value, ind))
+                # Append the node-indices tuple spn_inputs
+                node = spn.ContVars(num_vars=slice_size)
+                spn_inputs.append((node, ind))
 
-            # Append the value-indices tuple to numpy_inputs
-            value = x[:, offset:offset + slice_size]
-            numpy_inputs.append((value, ind))
-            # Append the node-indices tuple spn_inputs
-            node = spn.ContVars(num_vars=slice_size)
-            spn_inputs.append((node, ind))
+                # Update feed_dict
+                feed_dict[node] = value
 
-            # Update feed_dict
-            feed_dict[node] = value
+                # Update offset
+                offset += slice_size
+            else:
+                max_size = max(input_sizes) * fac
+                value = x[:, :max_size]
+                numpy_inputs.append((value, ind))
+                if node is None:
+                    node = spn.ContVars(num_vars=max_size)
+                spn_inputs.append((node, ind))
 
-            # Update offset
-            offset += slice_size
+                # Update feed_dict
+                feed_dict[node] = value
 
         if ivs:
             for s in sum_sizes:
