@@ -15,13 +15,16 @@ from parameterized import parameterized
 import itertools
 
 
-def _extend_with_2D(ts, indices=None, n_stack=2):
-    if ts:
-        indices = indices or list(range(len(ts[0])))
+def _broadcast_to_2D(test_inputs, subset_indices=None, n_stack=2):
+    # Subset indices is either specified or set to [0, ..., len(inputs)-1]
+    subset_indices = subset_indices or list(range(len(test_inputs[0])))
     ret = []
-    ret.extend(ts)
-    for t in ts:
-        ret.append(tuple(np.asarray(n_stack * [e]) if i in indices else e for i, e in enumerate(t)))
+    for test_input in test_inputs:
+        # Append a tuple with n_stack repetitions if the index of the original element index is in
+        # subset_indices
+        ret.append(tuple(np.asarray(n_stack*[elem]) if ind in subset_indices else elem
+                         for ind, elem in enumerate(test_input)))
+        ret.append(test_input)
     return ret
 
 
@@ -71,7 +74,7 @@ class TestMath(TestCase):
             spn.utils.gather_cols(tf.constant([10, 11, 12]),
                                   [0.1, 3, 2])
 
-    @parameterized.expand(itertools.product(_extend_with_2D(
+    @parameterized.expand(itertools.product(_broadcast_to_2D(
         [   # param, indices and truth
             ([10], [0, 0, 0], [10, 10, 10]),            # single column input
             ([10.0], [0], [10.0]),
@@ -79,16 +82,16 @@ class TestMath(TestCase):
             ([10, 11, 12], [0, 2], [10, 12]),           # multiple col output
             ([12, 11, 10], [2, 1, 0], [10, 11, 12]),
             ([10, 11, 12], [0, 1, 2], [10, 11, 12])
-        ], indices=[0, 2]),
-        # dtype_in                # dtype index         # gpu
-        [tf.float32, tf.float64], [tf.int32, tf.int64], [True, False]
+        ], subset_indices=[0, 2]),
+        # dtype_in                # dtype index         # gpu          # custom op
+        [tf.float32, tf.float64], [tf.int32, tf.int64], [True, False], [True, False]
     ))
-    def test_gather_columns(self, test_triplet, dtype_in, dtype_index, gpu):
+    def test_gather_columns(self, test_triplet, dtype_in, dtype_index, gpu, custom_op):
         params, indices, truth = test_triplet
         with self.test_session(force_gpu=gpu) as sess:
             indices = np.asarray(indices, dtype=dtype_index.as_numpy_dtype)
             params = tf.constant(params, dtype=dtype_in)
-            spn.conf.custom_gather_cols = False
+            spn.conf.custom_gather_cols = custom_op
             op = spn.utils.gather_cols(params, indices)
             out = sess.run(op)
             self.assertAllClose(out, truth)
