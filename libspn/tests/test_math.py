@@ -263,25 +263,6 @@ class TestMath(TestCase):
                             np.testing.assert_array_equal(op.get_shape(),
                                                           list(np.array(true_output).shape))
 
-        # With padding
-        # 1D params
-        test(params_shape=(6,), indices_shape=(4, 5),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        # 2D params with single row
-        test(params_shape=(1, 6), indices_shape=(4, 5),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
-        # 2D params with multiple rows and columns
-        test(params_shape=(3, 6), indices_shape=(4, 5),
-             param_dtype=[tf.float32, tf.float64, tf.int32, tf.int64],
-             ind_dtype=[np.int32, np.int64],
-             use_gpu=True)
-
         # List of params shapes
         params_shapes = [(6, ),   # 1D params
                          (1, 6),  # 2D params with single row
