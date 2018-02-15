@@ -7,19 +7,18 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-import tensorflow as tf
-import numpy as np
-from context import libspn as spn
-import time
 import argparse
-import colorama as col
-import sys
-from tensorflow.python.client import timeline
-import os
 import itertools
 import random
-from tensorflow.python.profiler.option_builder import ProfileOptionBuilder
-from google.protobuf import text_format
+import time
+
+import colorama as col
+import numpy as np
+import tensorflow as tf
+from context import libspn as spn
+
+from libspn.tests.profiler import profile_report
+
 col.init()
 
 red = col.Fore.RED
@@ -316,7 +315,8 @@ class PerformanceTest:
                     spn.InferenceType.MPE else ("_MARGINAL-LOG" if log else "_MARGINAL")
                 fnm_suffix += ("_IV" if ivs is not None else "")
                 # Create a profiling report
-                self.profile_report(sess, ops, feed_dict, fnm_suffix)
+                profile_report(sess, ops, feed_dict, self.profiles_dir,
+                               "sum_value_varying_sizes", fnm_suffix)
 
         # Return stats
         return OpTestResult(op_name, on_gpu, graph_size, ("Yes"),
@@ -329,45 +329,6 @@ class PerformanceTest:
         true_out = sums_layer_value_numpy(numpy_inputs, sum_sizes_np, w,
                                           ivs=ivs_per_sum, inference_type=inf_type)
         return true_out
-
-    def profile_report(self, sess, ops, feed_dict, filename_suffix):
-        # Build a profiler
-        profiler = tf.profiler.Profiler(sess.graph)
-
-        # Run the graph while fetching metadata
-        options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-        run_metadata = tf.RunMetadata()
-        sess.run(ops, feed_dict=feed_dict, options=options, run_metadata=run_metadata)
-
-        # Create the Timeline object, and write it to a json file
-        fetched_timeline = timeline.Timeline(run_metadata.step_stats)
-        chrome_trace = fetched_timeline.generate_chrome_trace_format()
-        if not os.path.exists(self.profiles_dir):
-            os.makedirs(self.profiles_dir)
-
-        # Use the TF profiler and create a report on Name Scope, Python functions and overall Graph
-        profiler.add_step(0, run_metadata)
-        for infix, fn in zip(
-            ["NAME_SCOPE", "GRAPH", "PYTHON"],
-            [profiler.profile_name_scope, profiler.profile_graph, profiler.profile_python]
-        ):
-            # Build options and run the profiling function
-            opts = ProfileOptionBuilder(ProfileOptionBuilder.time_and_memory()) \
-                .with_step(0) \
-                .with_timeline_output(
-                '%s/timeline_value_%s_%s.json' % (self.profiles_dir, infix, filename_suffix)) \
-                .build()
-            fn(options=opts)
-
-        # Export default report on Operations
-        with open('%s/timeline_value_OPERATIONS_%s.json' %
-                          (self.profiles_dir, filename_suffix), 'w') as f:
-            f.write(chrome_trace)
-
-        ret = tf.profiler.advise(sess.graph, run_metadata)
-        with open("%s/profiler_advise_%s.txt" % (self.profiles_dir,
-            filename_suffix), 'w') as f:
-            f.write(text_format.MessageToString(ret))
 
     def _repeat_elements(self, numpy_inputs):
         numpy_inputs = list(itertools.chain(*[list(itertools.repeat(np_in, self.num_parallel))
