@@ -217,23 +217,21 @@ class SumsLayer(OpNode):
         input_sizes = input_sizes or self._sum_input_sizes
         num_sums = len(input_sizes)
 
+        v = np.zeros(self._num_sums * max(input_sizes))
         if isinstance(init_value, int) and init_value == 1:
             # If an int, just broadcast its value to the sum dimensions
-            init_value = utils.broadcast_value(
-                1, (num_sums, max(input_sizes)), dtype=conf.dtype)
+            v[self._mask.reshape((-1,))] = np.asarray(init_value).reshape((-1,))
         elif hasattr(init_value, '__iter__'):
             # If the init value is iterable, check if number of elements matches number of
             if np.asarray(init_value).size == sum(input_sizes):
-                v = np.zeros(self._num_sums * max(input_sizes))
                 v[self._mask.reshape((-1,))] = np.asarray(init_value).reshape((-1,))
-                init_value = v.reshape((self._num_sums, max(input_sizes)))
             elif np.asarray(init_value).size != self._num_sums * max(input_sizes):
                 raise ValueError("Incorrect initializer shape, should be ")
         else:
             raise ValueError("Initialization value {} of type {} not usable, use an int or an "
                              "iterable of size {}".format(init_value, type(init_value),
                                                           sum(input_sizes)))
-
+        init_value = v.reshape((self._num_sums, max(input_sizes)))
         # Generate weights
         weights = Weights(init_value=init_value,
                           num_weights=max(input_sizes),
@@ -341,8 +339,6 @@ class SumsLayer(OpNode):
         Concatenates input tensors and returns the nested indices that are required for gathering
         all sum inputs to a reducible set of columns
         """
-        # TODO, this does not do anything with uniqueness of input Tensors yet
-
         # Chose list instead of dict to maintain order
         unique_tensors = []
         unique_offsets = []
