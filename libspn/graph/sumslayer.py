@@ -358,7 +358,8 @@ class SumsLayer(OpNode):
         Concatenates input tensors and returns the nested indices that are required for gathering
         all sum inputs to a reducible set of columns
         """
-        # Chose list instead of dict to maintain order
+        # Ordered dict since we want the offsets per tensor, but we also want the order of
+        # occurrence for concatenation later
         unique_tensors_offsets_dict = OrderedDict()
 
         # Initialize lists to hold column indices and tensor indices
@@ -369,23 +370,23 @@ class SumsLayer(OpNode):
             # Get indices. If not there, will be [0, 1, ... , len-1]
             indices = value_inp.indices if value_inp.indices else \
                 np.arange(value_inp.node.get_out_size()).tolist()
-            column_indices.append(indices)
+            column_indices.extend(indices)
             if value_tensor not in unique_tensors_offsets_dict:
                 # Add the tensor and offsets ot unique
                 unique_tensors_offsets_dict[value_tensor] = tensor_offset
                 # Add offsets
-                tensor_offsets.append([tensor_offset for _ in indices])
+                tensor_offsets.extend([tensor_offset for _ in indices])
                 tensor_offset += value_tensor.shape[1].value
             else:
-                # Find offset from list
+                # Find offset from dict
                 offset = unique_tensors_offsets_dict[value_tensor]
                 # After this, no need to update tensor_offset, since the current value_tensor
                 # wasn't added to unique
-                tensor_offsets.append([offset for _ in indices])
+                tensor_offsets.extend([offset for _ in indices])
 
         # Flatten the tensor offsets and column indices
-        flat_tensor_offsets = np.asarray(list(chain(*tensor_offsets)))
-        flat_col_indices = np.asarray(list(chain(*column_indices)))
+        flat_tensor_offsets = np.asarray(tensor_offsets)
+        flat_col_indices = np.asarray(column_indices)
 
         # Offset in flattened arrays
         offset = 0
