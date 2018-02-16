@@ -16,10 +16,10 @@ from libspn import utils
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
 from libspn import conf
-import operator
 import functools
 from libspn.utils.serialization import register_serializable
 import numpy as np
+from collections import OrderedDict
 
 
 @register_serializable
@@ -59,41 +59,42 @@ class SumsLayer(OpNode):
         self.set_weights(weights)
         self.set_ivs(ivs)
 
-        # self._value_indices = [v.indices if v else None for v in values]
         _sum_index_lengths = sum(
             len(v.indices) if v and v.indices else v.node.get_out_size() if v else 0
             for v in self._values)
 
-        self._sum_input_sizes = n_sums_or_sizes
         if isinstance(n_sums_or_sizes, int):
+            # Check if we can evenly divide the selected value inputs over the sums being modeled
+            if not _sum_index_lengths % n_sums_or_sizes == 0:
+                raise StructureError("Cannot divide total number of value inputs ({}) over the "
+                                     "requested  number of sums ({})."
+                                     .format(_sum_index_lengths, n_sums_or_sizes))
+            if n_sums_or_sizes == 0:
+                raise ZeroDivisionError("Attempted to divide by zero. Please specify a "
+                                        "non-zero number of sums.")
             self._sum_input_sizes = [_sum_index_lengths // n_sums_or_sizes] * n_sums_or_sizes
-        elif n_sums_or_sizes and sum(n_sums_or_sizes) != _sum_index_lengths:
-            raise StructureError("The specified total number of sums is incompatible with the value"
-                                 " input indices. \n"
-                                 "Total number of sums: {}, total indices in value inputs: "
-                                 "{}".format(sum(n_sums_or_sizes), _sum_index_lengths))
-        elif not n_sums_or_sizes:
+        elif isinstance(n_sums_or_sizes, list) and \
+                all(isinstance(elem, int) for elem in n_sums_or_sizes):
+            # A list of sum sizes is given
+            self._sum_input_sizes = n_sums_or_sizes
+            if n_sums_or_sizes and sum(n_sums_or_sizes) != _sum_index_lengths:
+                raise StructureError(
+                    "The specified total number of sums is incompatible with the value input "
+                    "indices. \nTotal number of sums: {}, total indices in value inputs: "
+                    "{}".format(sum(n_sums_or_sizes), _sum_index_lengths))
+        elif n_sums_or_sizes is None:
+            # Sum input sizes is set to size of each value input
             self._sum_input_sizes = [len(v.indices) if v.indices else v.node.get_out_size()
                                      for v in self._values]
+        else:
+            raise ValueError("The value of n_sums_or_sizes must be an int or a list of ints.")
+
+        # Set the total number of sums being modeled
+        self._num_sums = len(self._sum_input_sizes)
+
+        # This flag is set for potential optimization of MPE path computation
         self._must_gather_for_mpe_path = False
 
-    @property
-    def _mask(self):
-        """
-        Constructs mask that could be used to cancel out 'columns' that are padded as a result of
-        varying reduction sizes. Returns a Boolean mask.
-        """
-        max_size = max(self._sum_input_sizes)
-        sizes_col = np.asarray(self._sum_input_sizes).reshape((self._num_sums, 1))
-        index_row = np.arange(max_size).reshape((1, max_size))
-
-        # Use broadcasting
-        return index_row < sizes_col
-
-    @property
-    def _num_sums(self):
-        """ The number of sums modeled """
-        return len(self._sum_input_sizes)
 
     # TODO
     def serialize(self):
@@ -110,15 +111,14 @@ class SumsLayer(OpNode):
     def deserialize(self, data):
         super().deserialize(data)
         self.set_values()
-        self._sum_input_sizes = data['num_sums']
+        self._sum_input_sizes = data['sum_input_sizes']
         self.set_weights()
         self.set_ivs()
 
     # TODO
     def deserialize_inputs(self, data, nodes_by_name):
         super().deserialize_inputs(data, nodes_by_name)
-        self._values = tuple(Input(nodes_by_name[nn], i)
-                             for nn, i in data['values'])
+        self._values = tuple(Input(nodes_by_name[nn], i) for nn, i in data['values'])
         weights = data.get('weights', None)
         if weights:
             self._weights = Input(nodes_by_name[weights[0]], weights[1])
@@ -187,6 +187,18 @@ class SumsLayer(OpNode):
         """
         self._values = self._values + self._parse_inputs(*values)
 
+    def _build_mask(self):
+        """
+        Constructs mask that could be used to cancel out 'columns' that are padded as a result of
+        varying reduction sizes. Returns a Boolean mask.
+        """
+        max_size = max(self._sum_input_sizes)
+        sizes = np.asarray(self._sum_input_sizes).reshape((self._num_sums, 1))
+        indices = np.arange(max_size).reshape((1, max_size))
+
+        # Use broadcasting
+        return indices < sizes
+
     def generate_weights(self, init_value=1, trainable=True,
                          input_sizes=None, name=None):
         """Generate a weights node matching this sum node and connect it to
@@ -213,29 +225,36 @@ class SumsLayer(OpNode):
             raise StructureError("%s is missing input values" % self)
         if name is None:
             name = self._name + "_Weights"
-        # Set sum node sizes either from input or from inferred _sum_node_sizes
-        input_sizes = input_sizes or self._sum_input_sizes
-        num_sums = len(input_sizes)
+        # Set sum node sizes either from input or from inferred _sum_input_sizes
+        sum_input_sizes = input_sizes or self._sum_input_sizes
+        max_size = max(sum_input_sizes)
+        sum_size = sum(sum_input_sizes)
 
-        v = np.zeros(self._num_sums * max(input_sizes))
+        # Mask is used to select the indices to assign the value to, since the weights tensor can
+        # be larger than the total number of weights being modeled due to padding
+        mask = self._build_mask().reshape((-1,))
+
+        init_padded_flat = np.zeros(self._num_sums * max_size)
         if isinstance(init_value, int) and init_value == 1:
             # If an int, just broadcast its value to the sum dimensions
-            v[self._mask.reshape((-1,))] = np.asarray(init_value).reshape((-1,))
+            init_padded_flat[mask] = init_value
         elif hasattr(init_value, '__iter__'):
             # If the init value is iterable, check if number of elements matches number of
-            if np.asarray(init_value).size == sum(input_sizes):
-                v[self._mask.reshape((-1,))] = np.asarray(init_value).reshape((-1,))
-            elif np.asarray(init_value).size != self._num_sums * max(input_sizes):
-                raise ValueError("Incorrect initializer shape, should be ")
+            init_flat = np.asarray(init_value).reshape((-1,))
+            if init_flat.size == sum_size:
+                init_padded_flat[mask] = init_flat
+            else:
+                raise ValueError("Incorrect initializer size {}, use an int or an iterable of size"
+                                 " {}.".format(init_flat.size, sum_size))
         else:
             raise ValueError("Initialization value {} of type {} not usable, use an int or an "
-                             "iterable of size {}".format(init_value, type(init_value),
-                                                          sum(input_sizes)))
-        init_value = v.reshape((self._num_sums, max(input_sizes)))
+                             "iterable of size {}."
+                             .format(init_value, type(init_value), sum_size))
         # Generate weights
+        init_value = init_padded_flat.reshape((self._num_sums, max_size))
         weights = Weights(init_value=init_value,
-                          num_weights=max(input_sizes),
-                          num_sums=len(input_sizes),
+                          num_weights=max_size,
+                          num_sums=len(sum_input_sizes),
                           trainable=trainable, name=name)
         self.set_weights(weights)
         return weights
@@ -302,7 +321,7 @@ class SumsLayer(OpNode):
                                                                    *value_scopes)
         # If already invalid, return None
         if (any(s is None for s in value_scopes_)
-            or (self._ivs and ivs_scopes_ is None)):
+                or (self._ivs and ivs_scopes_ is None)):
             return None
 
         # Split the flat value scopes based on value input sizes
@@ -340,40 +359,38 @@ class SumsLayer(OpNode):
         all sum inputs to a reducible set of columns
         """
         # Chose list instead of dict to maintain order
-        unique_tensors = []
-        unique_offsets = []
+        unique_tensors_offsets_dict = OrderedDict()
 
-        combined_indices = []
-        flat_col_indices = []
-        flat_tensor_offsets = []
-
+        # Initialize lists to hold column indices and tensor indices
+        column_indices = []
+        tensor_offsets = []
         tensor_offset = 0
         for value_inp, value_tensor in zip(self._values, value_tensors):
             # Get indices. If not there, will be [0, 1, ... , len-1]
             indices = value_inp.indices if value_inp.indices else \
                 np.arange(value_inp.node.get_out_size()).tolist()
-            flat_col_indices.append(indices)
-            if value_tensor not in unique_tensors:
+            column_indices.append(indices)
+            if value_tensor not in unique_tensors_offsets_dict:
                 # Add the tensor and offsets ot unique
-                unique_tensors.append(value_tensor)
-                unique_offsets.append(tensor_offset)
+                unique_tensors_offsets_dict[value_tensor] = tensor_offset
                 # Add offsets
-                flat_tensor_offsets.append([tensor_offset for _ in indices])
+                tensor_offsets.append([tensor_offset for _ in indices])
                 tensor_offset += value_tensor.shape[1].value
             else:
                 # Find offset from list
-                offset = unique_offsets[unique_tensors.index(value_tensor)]
-                # After this, no need to update tensor_offset, since the current value_tensor will
+                offset = unique_tensors_offsets_dict[value_tensor]
+                # After this, no need to update tensor_offset, since the current value_tensor
                 # wasn't added to unique
-                flat_tensor_offsets.append([offset for _ in indices])
+                tensor_offsets.append([offset for _ in indices])
 
         # Flatten the tensor offsets and column indices
-        flat_tensor_offsets = np.asarray(list(chain(*flat_tensor_offsets)))
-        flat_col_indices = np.asarray(list(chain(*flat_col_indices)))
+        flat_tensor_offsets = np.asarray(list(chain(*tensor_offsets)))
+        flat_col_indices = np.asarray(list(chain(*column_indices)))
 
         # Offset in flattened arrays
         offset = 0
         max_size = max(self._sum_input_sizes)
+        nested_indices = []
         for size in self._sum_input_sizes:
             # Now indices can be found by adding up column indices and tensor offsets
             indices = flat_col_indices[offset:offset + size] + \
@@ -388,10 +405,11 @@ class SumsLayer(OpNode):
                 # by also splitting there
                 self._must_gather_for_mpe_path = True
             # Combined indices contains an array for each reducible set of columns
-            combined_indices.append(indices)
+            nested_indices.append(indices)
             offset += size
 
-        return combined_indices, utils.concat_maybe(unique_tensors, 1)
+        unique_tensors = list(unique_tensors_offsets_dict.keys())
+        return nested_indices, utils.concat_maybe(unique_tensors, axis=1)
 
     def _compute_value_common(self, cwise_op, reduction_function, weight_tensor, ivs_tensor,
                               *value_tensors, weighted=True):
