@@ -330,7 +330,7 @@ class Node(ABC):
                                         node._compute_valid(*args)))
                 is not None)
 
-    @functools.lru_cache(maxsize=1)
+    @functools.lru_cache()
     def get_value(self, inference_type=None):
         """Assemble TF operations computing the value of the SPN rooted in
         this node.
@@ -349,7 +349,7 @@ class Node(ABC):
         from libspn.inference.value import Value
         return Value(inference_type).get_value(self)
 
-    @functools.lru_cache(maxsize=1)
+    @functools.lru_cache()
     def get_log_value(self, inference_type=None):
         """Assemble TF operations computing the log value of the SPN rooted in
         this node.
@@ -656,6 +656,7 @@ class OpNode(Node):
                      else [s[index] for index in inpt.indices]
                      for (inpt, s) in zip(self.inputs, input_scopes))
 
+    @functools.lru_cache()
     def _gather_input_tensors(self, *input_tensors):
         """For each input, gather the elements of the tensor output by the
         input node. The elements indicated by the input indices are gathered

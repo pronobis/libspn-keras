@@ -362,8 +362,6 @@ class PerformanceTestMPEPath(PerformanceTest):
                     # for o, to in zip(out, true_out):
                     np.testing.assert_array_almost_equal(out, true_out)
                 except AssertionError:
-                    print("out", out)
-                    print(true_out)
                     output_correct = False
                     self.test_failed = True
 
