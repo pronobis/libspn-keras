@@ -395,10 +395,6 @@ class SumsLayer(OpNode):
         tensor_offsets = []
         tensor_offset = 0
 
-        sum_sizes = deque(self._sum_input_sizes)
-
-        current_sum_size = sum_sizes.popleft() if pad_flat else None
-
         for value_inp, value_tensor in zip(self._values, value_tensors):
             # Get indices. If not there, will be [0, 1, ... , len-1]
             indices = value_inp.indices if value_inp.indices else \
@@ -431,9 +427,26 @@ class SumsLayer(OpNode):
         if not self._weights:
             raise StructureError("%s is missing weights" % self)
         # Prepare values
-        indices, values = self._combine_values_and_indices(value_tensors)
         weight_tensor, ivs_tensor = self._gather_input_tensors(weight_tensor, ivs_tensor)
 
+        # Builds reducible value tensor
+        reducible_values = self._reducible_values(value_tensors)
+
+        if weighted:
+            # Use component wise op for weighting
+            reducible_values = cwise_op(reducible_values, weight_tensor)
+        if self._ivs:
+            # Reshape IVs and apply them component-wise
+            iv_reshape = (-1, self._num_sums, max(self._sum_input_sizes))
+            ivs_tensor_reshaped = tf.reshape(ivs_tensor, iv_reshape)
+            reducible_values = cwise_op(reducible_values, ivs_tensor_reshaped)
+
+        # Reduce on last axis
+        return reduction_function(reducible_values)
+
+    @functools.lru_cache()
+    def _reducible_values(self, value_tensors):
+        indices, values = self._combine_values_and_indices(value_tensors)
         # Create a 3D tensor with dimensions [batch, sum node, sum input]
         # The last axis will have zeros when the sum size is less than the max sum size
         if all(np.array_equal(indices[0], ind) for ind in indices):
@@ -447,18 +460,7 @@ class SumsLayer(OpNode):
                                           (-1, self._num_sums, self._sum_input_sizes[0]))
         else:
             reducible_values = utils.gather_cols_3d(values, indices, name="GatherToReducible")
-
-        if weighted:
-            # Use component wise op for weighting
-            reducible_values = cwise_op(reducible_values, weight_tensor)
-        if self._ivs:
-            # Reshape IVs and apply them component-wise
-            iv_reshape = (-1, self._num_sums, max(self._sum_input_sizes))
-            ivs_tensor_reshaped = tf.reshape(ivs_tensor, iv_reshape)
-            reducible_values = cwise_op(reducible_values, ivs_tensor_reshaped)
-
-        # Reduce on last axis
-        return reduction_function(reducible_values)
+        return reducible_values
 
     def _compute_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes value in non-log space """
@@ -485,7 +487,7 @@ class SumsLayer(OpNode):
             tf.add, reduce_max, weight_tensor, ivs_tensor, *value_tensors)
 
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
-                                 ivs_value, *value_values, sum_counts=False):
+                                 ivs_value, *value_values, sum_counts=True):
         """ Common operations for log and non-log MPE path """
         # Propagate the counts to the max value
         max_indices = tf.argmax(values_weighted, dimension=2)
@@ -514,8 +516,9 @@ class SumsLayer(OpNode):
                 flat_padding_mask = np.concatenate(padding_mask).astype(np.bool)
 
                 # Determine sparse indices
-                rows = np.arange(flat_padding_mask.size)[flat_padding_mask.astype(np.bool)]
-                columns = flat_col_indices + flat_tensor_offsets  # + flat_padding_offset
+                rows = np.arange(flat_padding_mask.size)[flat_padding_mask]
+                columns = flat_col_indices + flat_tensor_offsets
+                # Sort rows and columns in row-major order
                 rows, columns = zip(*sorted(zip(rows, columns), key=operator.itemgetter(0, 1)))
 
                 # Determine dense shape
@@ -528,28 +531,9 @@ class SumsLayer(OpNode):
                 # *rows* of these non-zero elements
                 sum_counts_mat = np.zeros(dense_shape, dtype=np.float32)
                 sum_counts_mat[rows, columns] = np.ones(flat_col_indices.size)
-                # #
-                # rows, columns = zip(*sorted(zip(rows, columns), key=operator.itemgetter(1, 0)))
-                #
-                # sum_counts_sparse = tf.SparseTensor(
-                #     indices=np.stack((columns, rows), axis=1),
-                #     values=np.ones(flat_col_indices.size, dtype=np.float32),
-                #     dense_shape=dense_shape[::-1])
-
-                # Convert to dense, see also tensorflow/python/framework/sparse_tensor.py
-                # sum_counts_mat = tf.to_float(tf.sparse_tensor_to_dense(sum_counts_mat))
 
                 # The flag b_is_sparse=True will invoke a TF kernel optimized for sparse matrices
-                # with tf.device("/cpu:0"):
-                #     max_counts_reshaped = tf.sparse_matmul(
-                #         max_counts_reshaped, sum_counts_mat,
-                #         a_is_sparse=False, b_is_sparse=True)
-                max_counts_reshaped = tf.matmul(max_counts_reshaped, sum_counts_mat,
-                                                b_is_sparse=False)
-                # max_counts_reshaped = tf.transpose(
-                #     tf.sparse_tensor_dense_matmul(sum_counts_sparse, max_counts_reshaped,
-                #                                   adjoint_b=True)
-                # )
+                max_counts_reshaped = tf.matmul(max_counts_reshaped, sum_counts_mat)
 
                 # Potentially split the result
                 max_counts_split = tf.split(max_counts_reshaped, unique_tensor_sizes, axis=1) \
@@ -584,7 +568,7 @@ class SumsLayer(OpNode):
             *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
 
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
-                          add_random=None, use_unweighted=False, sum_counts=False):
+                          add_random=None, use_unweighted=False, sum_counts=True):
         values_selected_weighted = self._compute_value_common(
             tf.multiply, lambda x: x, weight_value, ivs_value, *value_values)
         return self._compute_mpe_path_common(values_selected_weighted, counts,
@@ -593,7 +577,7 @@ class SumsLayer(OpNode):
 
     def _compute_log_mpe_path(self, counts, weight_value, ivs_value,
                               *value_values, add_random=None,
-                              use_unweighted=False, sum_counts=False):
+                              use_unweighted=False, sum_counts=True):
         # Get weighted, IV selected values
         values_reshaped = self._compute_value_common(
             tf.add, lambda x: x, weight_value, ivs_value, *value_values, weighted=False)
