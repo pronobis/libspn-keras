@@ -1518,16 +1518,16 @@ class TestNodesSums(unittest.TestCase):
         counts = tf.placeholder(tf.float32, shape=(None, 2))
         if log:
             op = s._compute_log_mpe_path(tf.identity(counts),
-                                     w.get_log_value(),
-                                     iv.get_log_value(),
-                                     v12.get_log_value(),
-                                     v34.get_log_value(),
-                                     v12.get_log_value(),
-                                     v5.get_log_value(),
-                                     v12.get_log_value(),
-                                     v34.get_log_value(),
-                                     v12.get_log_value(),
-                                     v5.get_log_value())
+                                         w.get_log_value(),
+                                         iv.get_log_value(),
+                                         v12.get_log_value(),
+                                         v34.get_log_value(),
+                                         v12.get_log_value(),
+                                         v5.get_log_value(),
+                                         v12.get_log_value(),
+                                         v34.get_log_value(),
+                                         v12.get_log_value(),
+                                         v5.get_log_value())
         else:
             op = s._compute_mpe_path(tf.identity(counts),
                                      w.get_value(),
