@@ -95,6 +95,7 @@ def build_iv_mask(inputs_selected, inputs_to_reduce, ivs, sums_sizes):
 class Ops:
     @staticmethod
     def sum(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
+        """ Creates the graph using only Sum nodes """
         sum_nodes = []
         for ind in sum_indices:
             sum_nodes.extend([spn.Sum((inputs, ind)) for _ in range(repetitions)])
@@ -108,6 +109,7 @@ class Ops:
 
     @staticmethod
     def _build_root_and_value(inf_type, log, sum_nodes):
+        """ Connects the sum node outputs to a single root as a way of grouping Ops """
         root = spn.Sum(*sum_nodes)
         root.generate_weights()
         if log:
@@ -118,6 +120,7 @@ class Ops:
 
     @staticmethod
     def par_sums(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
+        """ Creates the graph using only ParSum nodes """
         parallel_sum_nodes = []
         for ind in sum_indices:
             parallel_sum_nodes.append(spn.ParSums((inputs, ind), num_sums=repetitions))
@@ -131,6 +134,7 @@ class Ops:
 
     @staticmethod
     def sums_layer(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
+        """ Creates the graph using a SumsLayer node """
         repeated_inputs = []
         repeated_sum_sizes = []
         for ind in sum_indices:
@@ -235,24 +239,25 @@ class PerformanceTest:
         # Print
         print2("--> %s: on_gpu=%s, inputs_shape=%s, indices=%s, inference=%s, log=%s, IVs=%s"
                % (op_name, on_gpu, inputs.shape, ("No" if sum_indices is None else "Yes"),
-                ("MPE" if inf_type == spn.InferenceType.MPE else "MARGINAL"), log,
-                ("No" if ivs is None else "Yes")), self.file)
+                  ("MPE" if inf_type == spn.InferenceType.MPE else "MARGINAL"), log,
+                  ("No" if ivs is None else "Yes")), self.file)
 
         input_size = inputs.shape[1]
 
         # Create graph
         tf.reset_default_graph()
-        sum_sizes = [len(ind) for ind in sum_indices]
 
+        # Compute the true output
+        sum_sizes = [len(ind) for ind in sum_indices]
         ivs_per_sum = np.split(ivs, ivs.shape[1], axis=1) if ivs is not None \
             else None
         sum_sizes_np = self._repeat_elements(sum_sizes)
-
         true_out = self._true_out(inf_type, inputs, ivs_per_sum, sum_indices, sum_sizes,
                                   sum_sizes_np)
         if log:
             true_out = np.log(true_out)
 
+        # Set up the graph
         with tf.device(device_name):
             # Create input
             inputs_pl = spn.ContVars(num_vars=input_size)
@@ -278,7 +283,6 @@ class PerformanceTest:
             start_time = time.time()
             init_ops, ops = op_fun(
                 inputs_pl, sum_indices, self.num_parallel, inf_type, log, ivs=ivs_pl)
-
             setup_time = time.time() - start_time
 
         # Get num of graph ops
@@ -324,16 +328,21 @@ class PerformanceTest:
                             weights_init_time, run_times, output_correct)
 
     def _true_out(self, inf_type, inputs, ivs_per_sum, sum_indices, sum_sizes, sum_sizes_np):
+        """ Computes true output """
         numpy_inputs = self._repeat_elements([(inputs, ind) for ind in sum_indices])
         w = np.ones(sum(sum_sizes) * self.num_parallel)
         true_out = sums_layer_value_numpy(numpy_inputs, sum_sizes_np, w,
                                           ivs=ivs_per_sum, inference_type=inf_type)
         return true_out
 
-    def _repeat_elements(self, numpy_inputs):
-        numpy_inputs = list(itertools.chain(*[list(itertools.repeat(np_in, self.num_parallel))
-                                              for np_in in numpy_inputs]))
-        return numpy_inputs
+    def _repeat_elements(self, arr):
+        """
+        Repeats the elements int the input array, e.g.
+        [1, 2, 3] -> [1, 1, 1, 2, 2, 2, 3, 3, 3]
+        """
+        ret = list(itertools.chain(*[list(itertools.repeat(np_in, self.num_parallel))
+                                     for np_in in arr]))
+        return ret
 
     def _run_test(self, test_name, op_funs, inputs, indices, ivs, inf_type, log):
         """Run a single test for multiple ops and devices."""

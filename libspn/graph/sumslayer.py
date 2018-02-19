@@ -19,7 +19,9 @@ from libspn import conf
 import functools
 from libspn.utils.serialization import register_serializable
 import numpy as np
-from collections import OrderedDict
+from collections import OrderedDict, deque
+import operator
+import itertools
 
 
 @register_serializable
@@ -94,7 +96,6 @@ class SumsLayer(OpNode):
 
         # This flag is set for potential optimization of MPE path computation
         self._must_gather_for_mpe_path = False
-
 
     # TODO
     def serialize(self):
@@ -358,35 +359,8 @@ class SumsLayer(OpNode):
         Concatenates input tensors and returns the nested indices that are required for gathering
         all sum inputs to a reducible set of columns
         """
-        # Ordered dict since we want the offsets per tensor, but we also want the order of
-        # occurrence for concatenation later
-        unique_tensors_offsets_dict = OrderedDict()
-
-        # Initialize lists to hold column indices and tensor indices
-        column_indices = []
-        tensor_offsets = []
-        tensor_offset = 0
-        for value_inp, value_tensor in zip(self._values, value_tensors):
-            # Get indices. If not there, will be [0, 1, ... , len-1]
-            indices = value_inp.indices if value_inp.indices else \
-                np.arange(value_inp.node.get_out_size()).tolist()
-            column_indices.extend(indices)
-            if value_tensor not in unique_tensors_offsets_dict:
-                # Add the tensor and offsets ot unique
-                unique_tensors_offsets_dict[value_tensor] = tensor_offset
-                # Add offsets
-                tensor_offsets.extend([tensor_offset for _ in indices])
-                tensor_offset += value_tensor.shape[1].value
-            else:
-                # Find offset from dict
-                offset = unique_tensors_offsets_dict[value_tensor]
-                # After this, no need to update tensor_offset, since the current value_tensor
-                # wasn't added to unique
-                tensor_offsets.extend([offset for _ in indices])
-
-        # Flatten the tensor offsets and column indices
-        flat_tensor_offsets = np.asarray(tensor_offsets)
-        flat_col_indices = np.asarray(column_indices)
+        flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
+            self._flat_indices_offsets_and_unique_tensors(value_tensors)
 
         # Offset in flattened arrays
         offset = 0
@@ -412,6 +386,42 @@ class SumsLayer(OpNode):
         unique_tensors = list(unique_tensors_offsets_dict.keys())
         return nested_indices, utils.concat_maybe(unique_tensors, axis=1)
 
+    def _flat_indices_offsets_and_unique_tensors(self, value_tensors, pad_flat=False):
+        # Ordered dict since we want the offsets per tensor, but we also want the order of
+        # occurrence for concatenation later
+        unique_tensors_offsets_dict = OrderedDict()
+        # Initialize lists to hold column indices and tensor indices
+        column_indices = []
+        tensor_offsets = []
+        tensor_offset = 0
+
+        sum_sizes = deque(self._sum_input_sizes)
+
+        current_sum_size = sum_sizes.popleft() if pad_flat else None
+
+        for value_inp, value_tensor in zip(self._values, value_tensors):
+            # Get indices. If not there, will be [0, 1, ... , len-1]
+            indices = value_inp.indices if value_inp.indices else \
+                np.arange(value_inp.node.get_out_size()).tolist()
+            column_indices.extend(indices)
+            if value_tensor not in unique_tensors_offsets_dict:
+                # Add the tensor and offsets ot unique
+                unique_tensors_offsets_dict[value_tensor] = tensor_offset
+                # Add offsets
+                tensor_offsets.extend([tensor_offset for _ in indices])
+                tensor_offset += value_tensor.shape[1].value
+            else:
+                # Find offset from dict
+                offset = unique_tensors_offsets_dict[value_tensor]
+                # After this, no need to update tensor_offset, since the current value_tensor
+                # wasn't added to unique
+                tensor_offsets.extend([offset for _ in indices])
+
+        # Flatten the tensor offsets and column indices
+        flat_tensor_offsets = np.asarray(tensor_offsets)
+        flat_col_indices = np.asarray(column_indices)
+        return flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict
+
     def _compute_value_common(self, cwise_op, reduction_function, weight_tensor, ivs_tensor,
                               *value_tensors, weighted=True):
         """ Common actions when computing value. """
@@ -426,7 +436,17 @@ class SumsLayer(OpNode):
 
         # Create a 3D tensor with dimensions [batch, sum node, sum input]
         # The last axis will have zeros when the sum size is less than the max sum size
-        reducible_values = utils.gather_cols_3d(values, indices, name="GatherToReducible")
+        if all(np.array_equal(indices[0], ind) for ind in indices):
+            # In case all sum nodes model the same sum, we can just use broadcasting
+            reducible_values = tf.reshape(utils.gather_cols(values, indices[0]),
+                                          (-1, 1, self._sum_input_sizes[0]))
+        elif len(set(self._sum_input_sizes)) == 1:
+            # In case all sum sizes are the same, use gather and reshape accordingly
+            indices_flat = list(itertools.chain(*indices))
+            reducible_values = tf.reshape(utils.gather_cols(values, indices_flat),
+                                          (-1, self._num_sums, self._sum_input_sizes[0]))
+        else:
+            reducible_values = utils.gather_cols_3d(values, indices, name="GatherToReducible")
 
         if weighted:
             # Use component wise op for weighting
@@ -465,7 +485,7 @@ class SumsLayer(OpNode):
             tf.add, reduce_max, weight_tensor, ivs_tensor, *value_tensors)
 
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
-                                 ivs_value, *value_values):
+                                 ivs_value, *value_values, sum_counts=False):
         """ Common operations for log and non-log MPE path """
         # Propagate the counts to the max value
         max_indices = tf.argmax(values_weighted, dimension=2)
@@ -478,6 +498,69 @@ class SumsLayer(OpNode):
         max_size = max(self._sum_input_sizes)
         reshape = (-1, self._num_sums * max_size)
         max_counts_reshaped = tf.reshape(max_counts, shape=reshape)
+
+        if sum_counts:
+            flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
+                self._flat_indices_offsets_and_unique_tensors(value_values)
+            unique_tensors = list(unique_tensors_offsets_dict.keys())
+            if len(unique_tensors) < len(value_values):
+                # Compute mask for selecting the non-zero rows in sparse matrix
+                padding_mask = []
+                for i, size in enumerate(self._sum_input_sizes):
+                    padding_mask.append(np.ones(size, dtype=np.int64))
+                    if max_size - size > 0:
+                        sub_mask = np.zeros(max_size - size, dtype=np.int64)
+                        padding_mask.append(sub_mask)
+                flat_padding_mask = np.concatenate(padding_mask).astype(np.bool)
+
+                # Determine sparse indices
+                rows = np.arange(flat_padding_mask.size)[flat_padding_mask.astype(np.bool)]
+                columns = flat_col_indices + flat_tensor_offsets  # + flat_padding_offset
+                rows, columns = zip(*sorted(zip(rows, columns), key=operator.itemgetter(0, 1)))
+
+                # Determine dense shape
+                unique_tensor_sizes = [tensor.shape[1].value for tensor in unique_tensors]
+                dense_shape = (flat_padding_mask.size, sum(unique_tensor_sizes))
+
+                # In this tensor, *zero* rows are aligned with padded columns in
+                # max_counts_reshaped. Some columns will have multiple non-zero elements, in which
+                # case we sum the columns from max_counts_reshaped that correspond to the
+                # *rows* of these non-zero elements
+                sum_counts_mat = np.zeros(dense_shape, dtype=np.float32)
+                sum_counts_mat[rows, columns] = np.ones(flat_col_indices.size)
+                # #
+                # rows, columns = zip(*sorted(zip(rows, columns), key=operator.itemgetter(1, 0)))
+                #
+                # sum_counts_sparse = tf.SparseTensor(
+                #     indices=np.stack((columns, rows), axis=1),
+                #     values=np.ones(flat_col_indices.size, dtype=np.float32),
+                #     dense_shape=dense_shape[::-1])
+
+                # Convert to dense, see also tensorflow/python/framework/sparse_tensor.py
+                # sum_counts_mat = tf.to_float(tf.sparse_tensor_to_dense(sum_counts_mat))
+
+                # The flag b_is_sparse=True will invoke a TF kernel optimized for sparse matrices
+                # with tf.device("/cpu:0"):
+                #     max_counts_reshaped = tf.sparse_matmul(
+                #         max_counts_reshaped, sum_counts_mat,
+                #         a_is_sparse=False, b_is_sparse=True)
+                max_counts_reshaped = tf.matmul(max_counts_reshaped, sum_counts_mat,
+                                                b_is_sparse=False)
+                # max_counts_reshaped = tf.transpose(
+                #     tf.sparse_tensor_dense_matmul(sum_counts_sparse, max_counts_reshaped,
+                #                                   adjoint_b=True)
+                # )
+
+                # Potentially split the result
+                max_counts_split = tf.split(max_counts_reshaped, unique_tensor_sizes, axis=1) \
+                    if len(unique_tensors) > 1 else [max_counts_reshaped]
+
+                # In this case, we already 'scattered' the counts, so we only do it explicitly for
+                # our weights and IVs
+                return self._scatter_to_input_tensors(
+                    (max_counts, weight_value),  # Weights
+                    (max_counts_reshaped, ivs_value),  # IVs
+                ) + tuple(max_counts_split)
 
         # This flag is set to True if we have had to pad within an input
         if self._must_gather_for_mpe_path:
@@ -501,15 +584,16 @@ class SumsLayer(OpNode):
             *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
 
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
-                          add_random=None, use_unweighted=False):
+                          add_random=None, use_unweighted=False, sum_counts=False):
         values_selected_weighted = self._compute_value_common(
             tf.multiply, lambda x: x, weight_value, ivs_value, *value_values)
         return self._compute_mpe_path_common(values_selected_weighted, counts,
-                                             weight_value, ivs_value, *value_values)
+                                             weight_value, ivs_value, *value_values,
+                                             sum_counts=sum_counts)
 
     def _compute_log_mpe_path(self, counts, weight_value, ivs_value,
                               *value_values, add_random=None,
-                              use_unweighted=False):
+                              use_unweighted=False, sum_counts=False):
         # Get weighted, IV selected values
         values_reshaped = self._compute_value_common(
             tf.add, lambda x: x, weight_value, ivs_value, *value_values, weighted=False)
@@ -531,4 +615,5 @@ class SumsLayer(OpNode):
         # /ADDING RANDOM NUMBERS
 
         return self._compute_mpe_path_common(
-            values_weighted, counts, weight_value, ivs_value, *value_values)
+            values_weighted, counts, weight_value, ivs_value, *value_values,
+            sum_counts=sum_counts)
