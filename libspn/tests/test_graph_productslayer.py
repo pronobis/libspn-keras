@@ -12,6 +12,7 @@ import tensorflow as tf
 import numpy as np
 import random
 import collections
+import itertools
 from context import libspn as spn
 
 
@@ -23,11 +24,12 @@ class TestNodesProductsLayer(unittest.TestCase):
     def test_compute_vals(self):
         """Calculating value of ProductsLayer"""
 
-        def test(input_sizes, num_or_size_prods, batch_size=7, indexed=True):
+        def test(input_sizes, num_or_size_prods, batch_size=7, single_input=False,
+                 indexed=True):
             self.tearDown()
             with self.subTest(input_sizes=input_sizes, batch_size=batch_size,
                               num_or_size_prods=num_or_size_prods,
-                              indexed=indexed):
+                              single_input=single_input, indexed=indexed):
                 # Calculate num-prods or prod-input-size, based on type and
                 # values of the parameter 'num_or_size_prods'
                 if isinstance(num_or_size_prods, int):
@@ -42,25 +44,42 @@ class TestNodesProductsLayer(unittest.TestCase):
                 inputs = []
                 indices = []
                 inputs_feed = collections.OrderedDict()
-                # Create ContVar inputs of random size each
-                for i_size in input_sizes:
-                    if indexed:
-                        # Choose a random size for an input node
-                        num_vars = np.random.randint(low=i_size, high=i_size+5)
-                    else:
-                        num_vars = i_size
+                if single_input:
+                    # Size of the only input variable - would be = size of the
+                    # biggest product modelled
+                    num_vars = max(prod_input_sizes)
 
                     # Create a ContVars input node
-                    inputs.append(spn.ContVars(num_vars=num_vars))
-                    if indexed:
-                        # Generate random indices for the created input
-                        indices.append(random.sample(range(num_vars), k=i_size))
-                    else:
-                        indices.append(None)
+                    input_var = spn.ContVars(num_vars=num_vars)
+                    inputs = list(itertools.repeat(input_var, len(prod_input_sizes)))
 
-                    # Generate random values for the inputs feed
-                    inputs_feed[inputs[-1]] = \
-                        np.random.random((batch_size, num_vars))
+                    # Generate random input-indices for each product modelled,
+                    # based on product-input-sizes
+                    indices = [random.sample(range(num_vars), k=p_size)
+                               for p_size in prod_input_sizes]
+
+                    # Generate random values for the input feed
+                    inputs_feed[input_var] = np.random.random((batch_size, num_vars))
+                else:
+                    # Create ContVar inputs of random size each
+                    for i_size in input_sizes:
+                        if indexed:
+                            # Choose a random size for an input node
+                            num_vars = np.random.randint(low=i_size, high=i_size+5)
+                        else:
+                            num_vars = i_size
+
+                        # Create a ContVars input node
+                        inputs.append(spn.ContVars(num_vars=num_vars))
+                        if indexed:
+                            # Generate random indices for the created input
+                            indices.append(random.sample(range(num_vars), k=i_size))
+                        else:
+                            indices.append(None)
+
+                        # Generate random values for the inputs feed
+                        inputs_feed[inputs[-1]] = \
+                            np.random.random((batch_size, num_vars))
 
                 # Create the ProductsLayer node
                 p = spn.ProductsLayer(*list(zip(inputs, indices)),
@@ -86,9 +105,13 @@ class TestNodesProductsLayer(unittest.TestCase):
 
                 # Calculate true-output
                 # Concat all inputs_feed into a single matrix
-                concatenated_inputs = np.hstack([(i_feed[:, ind] if indexed else
-                                                  i_feed) for (key, i_feed), ind in
-                                                 zip(inputs_feed.items(), indices)])
+                if single_input:
+                    concatenated_inputs = np.hstack([inputs_feed[input_var][:, ind]
+                                                     for ind in indices])
+                else:
+                    concatenated_inputs = np.hstack([(i_feed[:, ind] if indexed else
+                                                      i_feed) for (key, i_feed), ind in
+                                                    zip(inputs_feed.items(), indices)])
                 # Split concatenated-inputs based on product-size
                 inputs_per_prod = np.hsplit(concatenated_inputs, np.cumsum(prod_input_sizes))
                 del inputs_per_prod[-1]
@@ -141,8 +164,9 @@ class TestNodesProductsLayer(unittest.TestCase):
             for n_prod in num_or_size_prods:
                 for i_size in input_sizes:
                     for b_size in batch_sizes:
-                        test(i_size, n_prod, b_size, indexed=True)
-                        test(i_size, n_prod, b_size, indexed=False)
+                        test(i_size, n_prod, b_size, single_input=True, indexed=True)
+                        test(i_size, n_prod, b_size, single_input=False, indexed=True)
+                        test(i_size, n_prod, b_size, single_input=False, indexed=False)
 
         # Run all test case combinations
         unit_value_product_test_cases()
@@ -317,9 +341,12 @@ class TestNodesProductsLayer(unittest.TestCase):
         """Calculating path of ProductsLayer"""
         num_vals = 2
 
-        def test(input_sizes, num_or_size_prods, batch_size=7, indexed=True):
+        def test(input_sizes, num_or_size_prods, batch_size=7, single_input=False,
+                 indexed=True):
             self.tearDown()
-            with self.subTest(input_sizes=input_sizes, num_or_size_prods=num_or_size_prods):
+            with self.subTest(input_sizes=input_sizes, batch_size=batch_size,
+                              num_or_size_prods=num_or_size_prods,
+                              single_input=single_input, indexed=indexed):
                 # Calculate num-prods or prod-input-size, based on type and
                 # values of the parameter 'num_or_size_prods'
                 if isinstance(num_or_size_prods, int):
@@ -332,32 +359,57 @@ class TestNodesProductsLayer(unittest.TestCase):
                 inputs = []
                 indices = []
                 true_outputs = []
-                # Create randon (IVs or ContVar) inputs or random size each
-                for i_size in input_sizes:
-                    if indexed:
-                        # Choose a random size for an input node
-                        num_vars = np.random.randint(low=i_size, high=i_size+5)
-                    else:
-                        num_vars = i_size
-                    # Randomly choose to create either a IVs or a ContVar input
-                    if random.choice([True, False]):
-                        # Create an IVs input node
-                        inputs.append(spn.IVs(num_vars=num_vars,
-                                              num_vals=num_vals))
-                        # Generate random indices for the created input
-                        indices.append(random.sample(range(num_vars*num_vals),
-                                                     k=i_size))
-                        # Create a Zeros matrix, with the same size as the created
-                        # input node
-                        true_outputs.append(np.zeros((batch_size, num_vars*num_vals)))
-                    else:
-                        # Create anContVars input node
-                        inputs.append(spn.ContVars(num_vars=num_vars))
-                        # Generate random indices for the created input
-                        indices.append(random.sample(range(num_vars), k=i_size))
-                        # Create a Zeros matrix, with the same size as the created
-                        # input node
-                        true_outputs.append(np.zeros((batch_size, num_vars)))
+                if single_input:
+                    # Size of the only input variable - would be = size of the
+                    # biggest product modelled
+                    num_vars = max(prod_input_sizes)
+
+                    # Randomly choose to create either an IVs or a ContVars node
+                    contvar = random.choice([True, False])
+
+                    # Create an input node
+                    input_var = spn.ContVars(num_vars=num_vars) if contvar else \
+                        spn.IVs(num_vars=num_vars, num_vals=num_vals)
+                    inputs = list(itertools.repeat(input_var, len(prod_input_sizes)))
+
+                    # Generate random input-indices for each product modelled,
+                    # based on product-input-sizes
+                    indices = [random.sample(range(num_vars if contvar else
+                               num_vars*num_vals), k=p_size) for p_size in
+                               prod_input_sizes]
+
+                    # Create Zeros matrices, with the same size as the created
+                    # input node, one per product modelled
+                    true_outputs = [np.zeros((batch_size, num_vars if contvar else
+                                    num_vars*num_vals)) for _ in prod_input_sizes]
+                else:
+                    # Create random (IVs or ContVar) inputs of random size each
+                    for i_size in input_sizes:
+                        if indexed:
+                            # Choose a random size for an input node
+                            num_vars = np.random.randint(low=i_size, high=i_size+5)
+                        else:
+                            num_vars = i_size
+                        # Randomly choose to create either a IVs or a ContVar input
+                        if random.choice([True, False]):
+                            # Create an IVs input node
+                            inputs.append(spn.IVs(num_vars=num_vars,
+                                                  num_vals=num_vals))
+                            # Generate random indices for the created input
+                            indices.append(random.sample(range(num_vars*num_vals),
+                                                         k=i_size))
+                            # Create a Zeros matrix, with the same size as the
+                            # created input node
+                            true_outputs.append(np.zeros((batch_size,
+                                                          num_vars*num_vals)))
+                        else:
+                            # Create anContVars input node
+                            inputs.append(spn.ContVars(num_vars=num_vars))
+                            # Generate random indices for the created input
+                            indices.append(random.sample(range(num_vars), k=i_size))
+                            # Create a Zeros matrix, with the same size as the
+                            # created input node
+                            true_outputs.append(np.zeros((batch_size, num_vars)))
 
                 # Create the ProductsLayer node
                 p = spn.ProductsLayer(*list(zip(inputs, indices)),
@@ -390,8 +442,12 @@ class TestNodesProductsLayer(unittest.TestCase):
                 concatenated_counts = np.concatenate(tiled_counts_list, axis=1)
 
                 # (4) Split the concatenated counts matrix into input-sizes
-                value_counts = np.split(concatenated_counts, np.cumsum(input_sizes),
-                                        axis=1)
+                if single_input:
+                    value_counts = np.split(concatenated_counts,
+                                            np.cumsum(prod_input_sizes), axis=1)
+                else:
+                    value_counts = np.split(concatenated_counts,
+                                            np.cumsum(input_sizes), axis=1)
 
                 # (5) Scatter each count matrix to inputs
                 for t_out, i_indices, v_counts in zip(true_outputs, indices,
@@ -436,8 +492,9 @@ class TestNodesProductsLayer(unittest.TestCase):
             for n_prod in num_or_size_prods:
                 for i_size in input_sizes:
                     for b_size in batch_sizes:
-                        test(i_size, n_prod, b_size, indexed=True)
-                        test(i_size, n_prod, b_size, indexed=False)
+                        test(i_size, n_prod, b_size, single_input=True, indexed=True)
+                        test(i_size, n_prod, b_size, single_input=False, indexed=True)
+                        test(i_size, n_prod, b_size, single_input=False, indexed=False)
 
         # Run all test case combinations
         unit_value_product_test_cases()
