@@ -54,7 +54,7 @@ class SumsLayer(OpNode):
     info = logger.info
 
     def __init__(self, *values, n_sums_or_sizes=None, weights=None, ivs=None,
-                 inference_type=InferenceType.MARGINAL, name="Sums"):
+                 inference_type=InferenceType.MARGINAL, name="SumsLayer"):
         super().__init__(inference_type, name)
 
         self.set_values(*values)
@@ -386,7 +386,7 @@ class SumsLayer(OpNode):
         unique_tensors = list(unique_tensors_offsets_dict.keys())
         return nested_indices, utils.concat_maybe(unique_tensors, axis=1)
 
-    def _flat_indices_offsets_and_unique_tensors(self, value_tensors, pad_flat=False):
+    def _flat_indices_offsets_and_unique_tensors(self, value_tensors):
         # Ordered dict since we want the offsets per tensor, but we also want the order of
         # occurrence for concatenation later
         unique_tensors_offsets_dict = OrderedDict()
@@ -491,6 +491,7 @@ class SumsLayer(OpNode):
         """ Common operations for log and non-log MPE path """
         # Propagate the counts to the max value
         max_indices = tf.argmax(values_weighted, dimension=2)
+
         max_counts = utils.scatter_values(params=counts, indices=max_indices,
                                           num_out_cols=values_weighted.shape[2].value)
 
@@ -499,9 +500,10 @@ class SumsLayer(OpNode):
         # Reshape max counts to a wide 2D tensor of shape 'Batch X (num_sums * max_size)'
         max_size = max(self._sum_input_sizes)
         reshape = (-1, self._num_sums * max_size)
+
         max_counts_reshaped = tf.reshape(max_counts, shape=reshape)
 
-        if sum_counts:
+        if conf.add_counts_in_sums_layer:
             flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
                 self._flat_indices_offsets_and_unique_tensors(value_values)
             unique_tensors = list(unique_tensors_offsets_dict.keys())
@@ -541,10 +543,24 @@ class SumsLayer(OpNode):
 
                 # In this case, we already 'scattered' the counts, so we only do it explicitly for
                 # our weights and IVs
+                max_counts_split_with_None = []
+                max_counts_split = deque(max_counts_split)
+                unique_tensors = deque(unique_tensors)
+                next_tensor = unique_tensors.popleft()
+                for tensor in value_values:
+                    if tensor == next_tensor:
+                        max_counts_split_with_None.append(max_counts_split.popleft())
+                        if unique_tensors:
+                            next_tensor = unique_tensors.popleft()
+                        else:
+                            next_tensor = None
+                    else:
+                        max_counts_split_with_None.append(None)
+
                 return self._scatter_to_input_tensors(
                     (max_counts, weight_value),  # Weights
                     (max_counts_reshaped, ivs_value),  # IVs
-                ) + tuple(max_counts_split)
+                ) + tuple(max_counts_split_with_None)
 
         # This flag is set to True if we have had to pad within an input
         if self._must_gather_for_mpe_path:

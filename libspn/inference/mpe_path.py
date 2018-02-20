@@ -60,6 +60,7 @@ class MPEPath:
         """
         def down_fun(node, parent_vals):
             # Sum up all parent vals
+            parent_vals = [pv for pv in parent_vals if pv is not None]
             if len(parent_vals) > 1:
                 summed = tf.add_n(parent_vals, name=node.name + "_add")
             else:
