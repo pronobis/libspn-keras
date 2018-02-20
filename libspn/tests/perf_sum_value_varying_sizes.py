@@ -153,8 +153,8 @@ class Ops:
 class OpTestResult:
     """Result of a single test of a single op."""
 
-    def __init__(self, op_name, on_gpu, graph_size, indices, ivs, setup_time,
-                 weights_init_time, run_times, output_correct, single_input):
+    def __init__(self, op_name, on_gpu, graph_size, indices, ivs, setup_time, weights_init_time,
+                 run_times, output_correct):
         self.op_name = op_name
         self.on_gpu = on_gpu
         self.graph_size = graph_size
@@ -164,7 +164,6 @@ class OpTestResult:
         self.weights_init_time = weights_init_time
         self.run_times = run_times
         self.output_correct = output_correct
-        self.single_input = single_input
 
 
 class TestResults:
@@ -177,19 +176,19 @@ class TestResults:
 
     def print(self, file):
         def get_header(dev):
-            return ("%3s %11s %5s %5s %5s %11s %15s %15s %14s %10s %15s" %
+            return ("%3s %11s %5s %5s %5s %11s %15s %15s %14s %10s" %
                     (dev, 'op', 'size', 'indices', 'ivs', 'setup_time',
                      'weights_init_time', 'first_run_time', 'rest_run_time',
-                     'correct', 'single_input'))
+                     'correct'))
 
         def get_res(res):
             """Helper function printing a single result."""
-            return ("%15s %5d %5s %7s %11.2f %15.2f %15.2f %14.2f %10s %15s" %
+            return ("%15s %5d %7s %5s %11.2f %17.2f %15.2f %14.2f %10s" %
                     (res.op_name, res.graph_size, res.indices, res.ivs,
                      res.setup_time * 1000, res.weights_init_time * 1000,
                      res.run_times[0] * 1000,
                      np.mean(res.run_times[1:]) * 1000,
-                     res.output_correct, res.single_input))
+                     res.output_correct))
 
         # Print results
         print1("\n-----------------------", file)
@@ -324,9 +323,8 @@ class PerformanceTest:
                                "sum_value_varying_sizes", fnm_suffix)
 
         # Return stats
-        return OpTestResult(op_name, on_gpu, graph_size, ("Yes"),
-                            ("No" if ivs is None else "Yes"), setup_time,
-                            weights_init_time, run_times, output_correct, None)
+        return OpTestResult(op_name, on_gpu, graph_size, ("Yes"), ("No" if ivs is None else "Yes"),
+                            setup_time, weights_init_time, run_times, output_correct)
 
     def _true_out(self, inf_type, inputs, ivs_per_sum, sum_indices, sum_sizes, sum_sizes_np):
         """ Computes true output """
