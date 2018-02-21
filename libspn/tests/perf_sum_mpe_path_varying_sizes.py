@@ -16,6 +16,7 @@ import colorama as col
 import numpy as np
 import tensorflow as tf
 from context import libspn as spn
+import importlib
 
 
 from libspn.tests.profiler import profile_report
@@ -103,12 +104,14 @@ class Ops:
     @staticmethod
     def sums_layer(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
         """ Creates the graph using a SumsLayer node """
+        spn.conf.lru_size = 0
         return Ops._sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
                                       add_counts_in_sums_layer=False)
 
     @staticmethod
     def sums_layer_v2(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
         """ Creates the graph using a SumsLayer node """
+        spn.conf.lru_size = 0
         return Ops._sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
                                       add_counts_in_sums_layer=True)
 

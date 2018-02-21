@@ -415,6 +415,7 @@ class SumsLayer(OpNode):
         flat_col_indices = np.asarray(column_indices)
         return flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict
 
+    @functools.lru_cache()
     def _compute_value_common(self, cwise_op, reduction_fn, weight_tensor, ivs_tensor,
                               *value_tensors, weighted=True):
         """ Common actions when computing value. """
@@ -429,17 +430,30 @@ class SumsLayer(OpNode):
         # Builds reducible value tensor
         reducible_values = self._reducible_values(value_tensors)
 
+        # First apply IV, then weights. It might be that unweighted is used in MPE
+        reducible_values = self._apply_IVs(cwise_op, ivs_tensor, reducible_values)
+
+        # Apply weighting
         if weighted:
             # Use component wise op for weighting
-            reducible_values = cwise_op(reducible_values, weight_tensor)
+            reducible_values = self._apply_weighting(cwise_op, reducible_values, weight_tensor)
+
+        # Reduce on last axis
+        return reduction_fn(reducible_values)
+
+    @functools.lru_cache()
+    def _apply_weighting(self, cwise_op, reducible_values, weight_tensor):
+        reducible_values = cwise_op(reducible_values, weight_tensor)
+        return reducible_values
+
+    @functools.lru_cache()
+    def _apply_IVs(self, cwise_op, ivs_tensor, reducible_values):
         if self._ivs:
             # Reshape IVs and apply them component-wise
             iv_reshape = (-1, self._num_sums, max(self._sum_input_sizes))
             ivs_tensor_reshaped = tf.reshape(ivs_tensor, iv_reshape)
             reducible_values = cwise_op(reducible_values, ivs_tensor_reshaped)
-
-        # Reduce on last axis
-        return reduction_fn(reducible_values)
+        return reducible_values
 
     @functools.lru_cache()
     def _reducible_values(self, value_tensors):
@@ -601,7 +615,7 @@ class SumsLayer(OpNode):
 
         # WARN USING UNWEIGHTED VALUE
         if not use_unweighted or any(v.node.is_var for v in self._values):
-            values_weighted = values_reshaped + weight_value
+            values_weighted = self._apply_weighting(tf.add, values_reshaped, weight_value)
         else:
             values_weighted = values_reshaped
         # / USING UNWEIGHTED VALUE
