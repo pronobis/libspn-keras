@@ -6,6 +6,8 @@
 # ------------------------------------------------------------------------
 
 from itertools import chain
+
+import functools
 import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode, Input
@@ -252,7 +254,9 @@ class Sum(OpNode):
             return None
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
 
-    def _compute_value_common(self, weight_tensor, ivs_tensor, *value_tensors):
+    @functools.lru_cache()
+    def _compute_value_common(self, cwise_op, weight_tensor, ivs_tensor, *value_tensors,
+                              weighted=True):
         """Common actions when computing value."""
         # Check inputs
         if not self._values:
@@ -263,33 +267,33 @@ class Sum(OpNode):
         weight_tensor, ivs_tensor, *value_tensors = self._gather_input_tensors(
             weight_tensor, ivs_tensor, *value_tensors)
         values = utils.concat_maybe(value_tensors, 1)
-        return weight_tensor, ivs_tensor, values
+
+        # Component wise application of IVs
+        values_selected = cwise_op(values, ivs_tensor) if self._ivs else values
+
+        # Component wise application of weights
+        values_weighted = cwise_op(values_selected, weight_tensor) if weighted else values_selected
+
+        return weight_tensor, ivs_tensor, values_weighted
 
     def _compute_value(self, weight_tensor, ivs_tensor, *value_tensors):
-        weight_tensor, ivs_tensor, values = self._compute_value_common(
-            weight_tensor, ivs_tensor, *value_tensors)
-        values_selected = values * ivs_tensor if self._ivs else values
+        weight_tensor, ivs_tensor, values_selected = self._compute_value_common(
+            tf.multiply, weight_tensor, ivs_tensor, *value_tensors, weighted=False)
         return tf.matmul(values_selected, tf.reshape(weight_tensor, [-1, 1]))
 
     def _compute_log_value(self, weight_tensor, ivs_tensor, *value_tensors):
-        weight_tensor, ivs_tensor, values = self._compute_value_common(
-            weight_tensor, ivs_tensor, *value_tensors)
-        values_selected = values + ivs_tensor if self._ivs else values
-        values_weighted = values_selected + weight_tensor
+        weight_tensor, ivs_tensor, values_weighted = self._compute_value_common(
+            tf.add, weight_tensor, ivs_tensor, *value_tensors, weighted=True)
         return utils.reduce_log_sum(values_weighted)
 
     def _compute_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
-        weight_tensor, ivs_tensor, values = self._compute_value_common(
-            weight_tensor, ivs_tensor, *value_tensors)
-        values_selected = values * ivs_tensor if self._ivs else values
-        values_weighted = values_selected * weight_tensor
+        weight_tensor, ivs_tensor, values_weighted = self._compute_value_common(
+            tf.multiply, weight_tensor, ivs_tensor, *value_tensors, weighted=True)
         return tf.reduce_max(values_weighted, 1, keep_dims=True)
 
     def _compute_log_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
-        weight_tensor, ivs_tensor, values = self._compute_value_common(
-            weight_tensor, ivs_tensor, *value_tensors)
-        values_selected = values + ivs_tensor if self._ivs else values
-        values_weighted = values_selected + weight_tensor
+        weight_tensor, ivs_tensor, values_weighted = self._compute_value_common(
+            tf.add, weight_tensor, ivs_tensor, *value_tensors, weighted=True)
         return tf.reduce_max(values_weighted, 1, keep_dims=True)
 
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
@@ -309,25 +313,17 @@ class Sum(OpNode):
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
                           add_random=None, use_unweighted=False):
         # Get weighted, IV selected values
-        weight_value, ivs_value, values = self._compute_value_common(
-            weight_value, ivs_value, *value_values)
-        values_selected = values * ivs_value if self._ivs else values
-        values_weighted = values_selected * weight_value
+        weight_value, ivs_value, values_weighted = self._compute_value_common(
+            tf.multiply, weight_value, ivs_value, *value_values, weighted=True)
         return self._compute_mpe_path_common(
             values_weighted, counts, weight_value, ivs_value, *value_values)
 
     def _compute_log_mpe_path(self, counts, weight_value, ivs_value, *value_values,
                               add_random=None, use_unweighted=False):
         # Get weighted, IV selected values
-        weight_value, ivs_value, values = self._compute_value_common(
-            weight_value, ivs_value, *value_values)
-        values_selected = values + ivs_value if self._ivs else values
-
-        # WARN USING UNWEIGHTED VALUE
-        if not use_unweighted or any(v.node.is_var for v in self._values):
-            values_weighted = values_selected + weight_value
-        else:
-            values_weighted = values_selected
+        weighted = not use_unweighted or any(v.node.is_var for v in self._values)
+        weight_value, ivs_value, values_weighted = self._compute_value_common(
+            tf.add, weight_value, ivs_value, *value_values, weighted=weighted)
 
         # / USING UNWEIGHTED VALUE
 
