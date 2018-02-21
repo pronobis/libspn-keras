@@ -54,7 +54,7 @@ class SumsLayer(OpNode):
     info = logger.info
 
     def __init__(self, *values, n_sums_or_sizes=None, weights=None, ivs=None,
-                 inference_type=InferenceType.MARGINAL, name="SumsLayer"):
+                 inference_type=InferenceType.MARGINAL, name="SumsLayer", use_lru=True):
         super().__init__(inference_type, name)
 
         self.set_values(*values)
@@ -96,6 +96,8 @@ class SumsLayer(OpNode):
 
         # This flag is set for potential optimization of MPE path computation
         self._must_gather_for_mpe_path = False
+
+        self._use_lru = use_lru
 
     # TODO
     def serialize(self):
@@ -285,6 +287,9 @@ class SumsLayer(OpNode):
         self.set_ivs(ivs)
         return ivs
 
+    def vdummy(self):
+        return None if self._use_lru else np.random.rand()
+
     @property
     def _const_out_size(self):
         return True
@@ -417,7 +422,7 @@ class SumsLayer(OpNode):
 
     @functools.lru_cache()
     def _compute_value_common(self, cwise_op, reduction_fn, weight_tensor, ivs_tensor,
-                              *value_tensors, weighted=True):
+                              *value_tensors, weighted=True, dummy=None):
         """ Common actions when computing value. """
         # Check inputs
         if not self._values:
@@ -428,26 +433,28 @@ class SumsLayer(OpNode):
         weight_tensor, ivs_tensor = self._gather_input_tensors(weight_tensor, ivs_tensor)
 
         # Builds reducible value tensor
-        reducible_values = self._reducible_values(value_tensors)
+        reducible_values = self._reducible_values(value_tensors, dummy=self.vdummy())
 
         # First apply IV, then weights. It might be that unweighted is used in MPE
-        reducible_values = self._apply_IVs(cwise_op, ivs_tensor, reducible_values)
+        reducible_values = self._apply_IVs(cwise_op, ivs_tensor, reducible_values,
+                                           dummy=self.vdummy())
 
         # Apply weighting
         if weighted:
             # Use component wise op for weighting
-            reducible_values = self._apply_weighting(cwise_op, reducible_values, weight_tensor)
+            reducible_values = self._apply_weighting(cwise_op, reducible_values, weight_tensor,
+                                                     dummy=self.vdummy())
 
         # Reduce on last axis
         return reduction_fn(reducible_values)
 
     @functools.lru_cache()
-    def _apply_weighting(self, cwise_op, reducible_values, weight_tensor):
+    def _apply_weighting(self, cwise_op, reducible_values, weight_tensor, dummy=None):
         reducible_values = cwise_op(reducible_values, weight_tensor)
         return reducible_values
 
     @functools.lru_cache()
-    def _apply_IVs(self, cwise_op, ivs_tensor, reducible_values):
+    def _apply_IVs(self, cwise_op, ivs_tensor, reducible_values, dummy=None):
         if self._ivs:
             # Reshape IVs and apply them component-wise
             iv_reshape = (-1, self._num_sums, max(self._sum_input_sizes))
@@ -456,7 +463,7 @@ class SumsLayer(OpNode):
         return reducible_values
 
     @functools.lru_cache()
-    def _reducible_values(self, value_tensors):
+    def _reducible_values(self, value_tensors, dummy=None):
         indices, values = self._combine_values_and_indices(value_tensors)
         # Create a 3D tensor with dimensions [batch, sum node, sum input]
         # The last axis will have zeros when the sum size is less than the max sum size
@@ -477,25 +484,30 @@ class SumsLayer(OpNode):
         """ Computes value in non-log space """
         reduce_sum = functools.partial(tf.reduce_sum, axis=2)
         return self._compute_value_common(
-            tf.multiply, reduce_sum, weight_tensor, ivs_tensor, *value_tensors)
+            tf.multiply, reduce_sum, weight_tensor, ivs_tensor, *value_tensors, dummy=self.vdummy(),
+            weighted=True)
 
     def _compute_log_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes value in log space """
         reduce_logsum = functools.partial(utils.reduce_log_sum_3D, transpose=False)
         return self._compute_value_common(
-            tf.add, reduce_logsum, weight_tensor, ivs_tensor, *value_tensors)
+            tf.add, reduce_logsum, weight_tensor, ivs_tensor, *value_tensors, dummy=self.vdummy(),
+            weighted=True)
 
     def _compute_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes MPE value in non-log space """
         reduce_max = functools.partial(tf.reduce_max, axis=2)
         return self._compute_value_common(
-            tf.multiply, reduce_max, weight_tensor, ivs_tensor, *value_tensors)
+            tf.multiply, reduce_max, weight_tensor, ivs_tensor, *value_tensors, dummy=self.vdummy(),
+            weighted=True)
 
     def _compute_log_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes MPE value in log space """
         reduce_max = functools.partial(tf.reduce_max, axis=2)
         return self._compute_value_common(
-            tf.add, reduce_max, weight_tensor, ivs_tensor, *value_tensors)
+            tf.add, reduce_max, weight_tensor, ivs_tensor, *value_tensors, dummy=self.vdummy(),
+            weighted=True
+        )
 
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
                                  ivs_value, *value_values, sum_counts=True):
@@ -610,15 +622,10 @@ class SumsLayer(OpNode):
                               *value_values, add_random=None,
                               use_unweighted=False, sum_counts=True):
         # Get weighted, IV selected values
-        values_reshaped = self._compute_value_common(
-            tf.add, lambda x: x, weight_value, ivs_value, *value_values, weighted=False)
-
-        # WARN USING UNWEIGHTED VALUE
-        if not use_unweighted or any(v.node.is_var for v in self._values):
-            values_weighted = self._apply_weighting(tf.add, values_reshaped, weight_value)
-        else:
-            values_weighted = values_reshaped
-        # / USING UNWEIGHTED VALUE
+        weighted = not use_unweighted or any(v.node.is_var for v in self._values)
+        values_weighted = self._compute_value_common(
+            tf.add, lambda x: x, weight_value, ivs_value, *value_values, weighted=weighted,
+            dummy=self.vdummy())
 
         # WARN ADDING RANDOM NUMBERS
         if add_random is not None:

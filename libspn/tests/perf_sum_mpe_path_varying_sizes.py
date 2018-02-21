@@ -116,8 +116,15 @@ class Ops:
                                       add_counts_in_sums_layer=True)
 
     @staticmethod
+    def sums_layer_v3(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
+        """ Creates the graph using a SumsLayer node """
+        spn.conf.lru_size = 0
+        return Ops._sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
+                                      add_counts_in_sums_layer=True, use_lru=True)
+
+    @staticmethod
     def _sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
-                           add_counts_in_sums_layer=True):
+                           add_counts_in_sums_layer=True, use_lru=False):
         repeated_inputs = []
         repeated_sum_sizes = []
         offset = 0
@@ -131,7 +138,8 @@ class Ops:
 
         # Globally configure to add up the sums before passing on the values to children
         spn.conf.add_counts_in_sums_layer = add_counts_in_sums_layer
-        sums_layer = spn.SumsLayer(*repeated_inputs, n_sums_or_sizes=repeated_sum_sizes)
+        sums_layer = spn.SumsLayer(*repeated_inputs, n_sums_or_sizes=repeated_sum_sizes,
+                                   use_lru=use_lru)
         weights = sums_layer.generate_weights()
         if ivs:
             sums_layer.set_ivs(*ivs)
@@ -174,7 +182,7 @@ class PerformanceTestMPEPath(PerformanceTest):
         # Compute the true output, involves grouping together individual sum counts. This is
         # different for each of the Ops considered
         max_size = max(sum_sizes)
-        if op_fun in [Ops.sums_layer, Ops.sums_layer_v2]:
+        if op_fun in [Ops.sums_layer, Ops.sums_layer_v2, Ops.sums_layer_v3]:
             padded = [np.concatenate(
                 (o, np.zeros((self.batch_size, max_size - o.shape[1]))),
                 axis=1) for o in true_out]
@@ -187,7 +195,7 @@ class PerformanceTestMPEPath(PerformanceTest):
         # Set up the graph
         with tf.device(device_name):
             # Create input placeholders
-            if op_fun in [Ops.sums_layer, Ops.sums_layer_v2]:
+            if op_fun in [Ops.sums_layer, Ops.sums_layer_v2, Ops.sums_layer_v3]:
                 # For the sums layer graphs, we use a single ContVars input
                 input_size = sum(inp.shape[1] for inp in inputs)
                 inputs_pl = [spn.ContVars(num_vars=input_size)]
@@ -304,7 +312,8 @@ class PerformanceTestMPEPath(PerformanceTest):
             name = 'InferenceType: {}{}'.format(
                 "MARGINAL" if inf_type == spn.InferenceType.MARGINAL else "MPE",
                 "-LOG" if log else "")
-            r = self._run_test(name, [Ops.par_sums, Ops.sums_layer, Ops.sums_layer_v2],
+            r = self._run_test(name,
+                               [Ops.par_sums, Ops.sums_layer, Ops.sums_layer_v2, Ops.sums_layer_v3],
                                4 * [sum_inputs], 4 * [sum_indices], 4 * [iv],
                                inf_type=inf_type, log=log)
             results.append(r)
