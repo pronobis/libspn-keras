@@ -280,8 +280,7 @@ class SumsLayer(OpNode):
         if name is None:
             name = self._name + "_IVs"
 
-        ivs = IVs(feed=feed, num_vars=self._num_sums,
-                  num_vals=max(self._sum_input_sizes),
+        ivs = IVs(feed=feed, num_vars=self._num_sums, num_vals=max(self._sum_input_sizes),
                   name=name)
         self.set_ivs(ivs)
         return ivs
@@ -359,32 +358,30 @@ class SumsLayer(OpNode):
         Concatenates input tensors and returns the nested indices that are required for gathering
         all sum inputs to a reducible set of columns
         """
+        # Get flattened column indices and tensor offsets. The tensor offsets are indicating at
+        # which index on axis 1 the tensors will end up in the concatenation of the unique tensors
         flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
             self._flat_indices_offsets_and_unique_tensors(value_tensors)
 
         # Offset in flattened arrays
         offset = 0
         max_size = max(self._sum_input_sizes)
-        nested_indices = []
+        nested_multi_sum_indices = []
         for size in self._sum_input_sizes:
             # Now indices can be found by adding up column indices and tensor offsets
-            indices = flat_col_indices[offset:offset + size] + \
+            single_sum_indices = flat_col_indices[offset:offset + size] + \
                       flat_tensor_offsets[offset:offset + size]
             # If there is padding within a single tensor, we have to perform an additional gather
             # step when computing the MPE path
             if size < max_size:
-                # TODO the above check should be made more strict by also requiring that the next
-                # input that ends up in the concatenated tensor is different from the current one.
-                # If this never happens (i.e. the flag below remains False) then we could split
-                # the tensors later on when scattering for MPE path while ignoring padded parts
-                # by also splitting there
                 self._must_gather_for_mpe_path = True
             # Combined indices contains an array for each reducible set of columns
-            nested_indices.append(indices)
+            nested_multi_sum_indices.append(single_sum_indices)
             offset += size
 
+        # Concatenate the unique tensors
         unique_tensors = list(unique_tensors_offsets_dict.keys())
-        return nested_indices, utils.concat_maybe(unique_tensors, axis=1)
+        return nested_multi_sum_indices, utils.concat_maybe(unique_tensors, axis=1)
 
     def _flat_indices_offsets_and_unique_tensors(self, value_tensors):
         # Ordered dict since we want the offsets per tensor, but we also want the order of
@@ -418,7 +415,7 @@ class SumsLayer(OpNode):
         flat_col_indices = np.asarray(column_indices)
         return flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict
 
-    def _compute_value_common(self, cwise_op, reduction_function, weight_tensor, ivs_tensor,
+    def _compute_value_common(self, cwise_op, reduction_fn, weight_tensor, ivs_tensor,
                               *value_tensors, weighted=True):
         """ Common actions when computing value. """
         # Check inputs
@@ -442,7 +439,7 @@ class SumsLayer(OpNode):
             reducible_values = cwise_op(reducible_values, ivs_tensor_reshaped)
 
         # Reduce on last axis
-        return reduction_function(reducible_values)
+        return reduction_fn(reducible_values)
 
     @functools.lru_cache()
     def _reducible_values(self, value_tensors):
@@ -504,6 +501,8 @@ class SumsLayer(OpNode):
         max_counts_reshaped = tf.reshape(max_counts, shape=reshape)
 
         if conf.add_counts_in_sums_layer:
+            # Get the flat indices for the columns for each input and the tensor offsets in the
+            # concatenation of the unique tensors
             flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
                 self._flat_indices_offsets_and_unique_tensors(value_values)
             unique_tensors = list(unique_tensors_offsets_dict.keys())
@@ -527,14 +526,14 @@ class SumsLayer(OpNode):
                 unique_tensor_sizes = [tensor.shape[1].value for tensor in unique_tensors]
                 dense_shape = (flat_padding_mask.size, sum(unique_tensor_sizes))
 
-                # In this tensor, *zero* rows are aligned with padded columns in
+                # In this matrix, *zero* rows are aligned with padded columns in
                 # max_counts_reshaped. Some columns will have multiple non-zero elements, in which
                 # case we sum the columns from max_counts_reshaped that correspond to the
                 # *rows* of these non-zero elements
                 sum_counts_mat = np.zeros(dense_shape, dtype=np.float32)
                 sum_counts_mat[rows, columns] = np.ones(flat_col_indices.size)
 
-                # The flag b_is_sparse=True will invoke a TF kernel optimized for sparse matrices
+                # Sum the counts per unique input tensor using the matrix that we just constructed
                 max_counts_reshaped = tf.matmul(max_counts_reshaped, sum_counts_mat)
 
                 # Potentially split the result
@@ -542,7 +541,9 @@ class SumsLayer(OpNode):
                     if len(unique_tensors) > 1 else [max_counts_reshaped]
 
                 # In this case, we already 'scattered' the counts, so we only do it explicitly for
-                # our weights and IVs
+                # our weights and IVs. Currently, the algorithms for up and down traversal of the
+                # graph expect a counts tensor coming from each parent when computing the MPE path.
+                # The code below is part of a hacky workaround by putting 'None's for any
                 max_counts_split_with_None = []
                 max_counts_split = deque(max_counts_split)
                 unique_tensors = deque(unique_tensors)
