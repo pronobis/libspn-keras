@@ -19,12 +19,16 @@ from libspn.utils.serialization import register_serializable
 
 @register_serializable
 class ProductsLayer(OpNode):
-    """A node representing a multiple products in an SPN.
+    """A node representing all products in a layer in an SPN.
 
     Args:
         *values (input_like): Inputs providing input values to this node.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_prods (int): Number of Product ops modelled by this node.
+        num_or_size_prods (int or list of int):
+            Int: Number of product ops modelled by this node. In which case, all
+            the products modelled will have a common size.
+            List: Size of each product op modelled by this node. Number of
+            products modelled would be the length of the list.
         name (str): Name of the node.
     """
 
@@ -36,17 +40,18 @@ class ProductsLayer(OpNode):
         super().__init__(InferenceType.MARGINAL, name)
         self.set_values(*values)
 
+        # Total size of value input_size
         total_values_size = sum(
             len(v.indices) if v and v.indices else v.node.get_out_size() if v else 0
             for v in self._values)
 
-        if isinstance(num_or_size_prods, int):
+        if isinstance(num_or_size_prods, int):  # Total number of prodcut ops to be modelled
             if not num_or_size_prods > 0:
                 raise StructureError("In %s 'num_or_size_prods': %s need to be > 0"
                                      % self, num_or_size_prods)
             self._num_prods = num_or_size_prods
             self._prod_input_sizes = [total_values_size // self._num_prods] * self._num_prods
-        elif isinstance(num_or_size_prods, list):
+        elif isinstance(num_or_size_prods, list):  # Size of each modelled product op
             if not len(num_or_size_prods) > 0:
                 raise StructureError("In %s 'num_or_size_prods': %s cannot be an empty list"
                                      % self, num_or_size_prods)
@@ -221,22 +226,13 @@ class ProductsLayer(OpNode):
             raise StructureError("%s is missing input values." % self)
         # Prepare values
         if self._num_prods > 1:
-            if all(s == self._prod_input_sizes[0] for s in self._prod_input_sizes):
-                # All products modelled have the same input size
-                # Gather input tensors
-                value_tensors = self._gather_input_tensors(*value_tensors)
-                concat_tensor = utils.concat_maybe(value_tensors, 1)
-                # Reshape to [batch, num-prods, prod-input-size]
-                reshape = (-1, self._num_prods, self._prod_input_sizes[0])
-                reshaped_tensor = tf.reshape(concat_tensor, shape=reshape)
-                return reshaped_tensor
-            else:
-                indices, value_tensor = self._combine_values_and_indices(value_tensors)
-                # Create a 3D tensor with dimensions [batch, num-prods, max-prod-input-sizes]
-                # The last axis will have ones when the prod-input-size < max-prod-input-sizes
-                reducible_values = utils.gather_cols_3d(value_tensor, indices,
-                                                        pad_elem=padding_value)
-                return reducible_values
+            indices, value_tensor = self._combine_values_and_indices(value_tensors)
+            # Create a 3D tensor with dimensions [batch, num-prods, max-prod-input-sizes]
+            # The last axis will have zeros or ones (for log or non-log) when the
+            # prod-input-size < max-prod-input-sizes
+            reducible_values = utils.gather_cols_3d(value_tensor, indices,
+                                                    pad_elem=padding_value)
+            return reducible_values
         else:
             # Gather input tensors
             value_tensors = self._gather_input_tensors(*value_tensors)
