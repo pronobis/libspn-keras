@@ -31,6 +31,33 @@ green = col.Fore.GREEN
 yellow = col.Fore.YELLOW
 magenta = col.Fore.MAGENTA
 
+def assert_all_close(a, b, rtol=1e-6, atol=1e-6, msg=None):
+    if not np.allclose(a, b, rtol=rtol, atol=atol):
+        # Prints more details than np.testing.assert_allclose.
+        #
+        # NOTE: numpy.allclose (and numpy.testing.assert_allclose)
+        # checks whether two arrays are element-wise equal within a
+        # tolerance. The relative difference (rtol * abs(b)) and the
+        # absolute difference atol are added together to compare against
+        # the absolute difference between a and b.  Here, we want to
+        # print out which elements violate such conditions.
+        cond = np.logical_or(
+            np.abs(a - b) > atol + rtol * np.abs(b), np.isnan(a) != np.isnan(b))
+        if a.ndim:
+            x = a[np.where(cond)]
+            y = b[np.where(cond)]
+            print("not close where = ", np.where(cond))
+        else:
+            # np.where is broken for scalars
+            x, y = a, b
+        print("not close lhs = ", x)
+        print("not close rhs = ", y)
+        print("not close dif = ", np.abs(x - y))
+        print("not close tol = ", atol + rtol * np.abs(y))
+        print("dtype = %s, shape = %s" % (a.dtype, a.shape))
+        np.testing.assert_allclose(a, b, rtol=rtol, atol=atol, err_msg=msg)
+
+
 
 def print1(str, file, color=yellow):
     if file:
@@ -248,7 +275,7 @@ class PerformanceTestMPEPath(PerformanceTest):
                 # Test value
                 try:
                     for o, to in zip(out, true_out):
-                        np.testing.assert_array_almost_equal(o, to)
+                        assert_all_close(o, to)
                 except AssertionError:
                     output_correct = False
                     self.test_failed = True
