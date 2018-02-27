@@ -21,6 +21,6 @@ custom_scatter_cols = True
 :meth:`~libspn.utils.scatter_cols`."""
 
 memoization = True
-"""Whether to use LRU caches to function 
+"""Whether to use LRU caches to function
 return values in successive calls for reduced
 graph size."""
