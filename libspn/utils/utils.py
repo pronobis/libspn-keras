@@ -5,8 +5,6 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 """LibSPN tools and utilities."""
-
-from functools import update_wrapper, _CacheInfo
 import libspn as spn
 
 
@@ -17,11 +15,13 @@ def decode_bytes_array(arr):
     else:
         return arr
 
+
 class _HashedSeq(list):
     """ This class guarantees that hash() will be called no more than once
-        per element.  This is important because the lru_cache() will hash
+        per element.  This is important because the memoize() will hash
         the key multiple times on a cache miss.
 
+        Implementation taken from functools package
     """
 
     __slots__ = 'hashvalue'
@@ -33,10 +33,10 @@ class _HashedSeq(list):
     def __hash__(self):
         return self.hashvalue
 
-def _make_key(args, kwds, typed,
-             kwd_mark = (object(),),
-             fasttypes = {int, str, frozenset, type(None)},
-             sorted=sorted, tuple=tuple, type=type, len=len):
+
+def _make_key(args, kwds, typed, kwd_mark=(object(),),
+              fasttypes={int, str, frozenset, type(None)},
+              sorted=sorted, tuple=tuple, type=type, len=len):
     """Make a cache key from optionally typed positional and keyword arguments
 
     The key is constructed in a way that is flat as possible rather than
@@ -46,6 +46,7 @@ def _make_key(args, kwds, typed,
     its hash value, then that argument is returned without a wrapper.  This
     saves space and improves lookup speed.
 
+    Implementation taken from functools package
     """
     key = args
     if kwds:
@@ -62,12 +63,12 @@ def _make_key(args, kwds, typed,
     return _HashedSeq(key)
 
 
-
 def memoize(f):
+    """ Allows for memoization that can be configured with spn.conf.memoization """
     memo = {}
 
     def helper(*args, **kwargs):
-        if not spn.conf.lru_cache:
+        if not spn.conf.memoization:
             return f(*args, **kwargs)
         key = _make_key(args, kwargs, typed=True)
         if key not in memo:

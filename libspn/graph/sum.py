@@ -7,7 +7,6 @@
 
 from itertools import chain
 
-import functools
 import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode, Input
