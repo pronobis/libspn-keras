@@ -19,3 +19,8 @@ custom_gather_cols = True
 custom_scatter_cols = True
 """Whether to use custom op for implementing
 :meth:`~libspn.utils.scatter_cols`."""
+
+lru_cache = True
+"""Whether to use LRU caches to function 
+return values in successive calls for reduced
+graph size."""

@@ -8,6 +8,7 @@
 # Import public interface of the library
 
 from .utils import decode_bytes_array
+from .utils import memoize
 from .math import gather_cols
 from .math import scatter_cols
 from .math import ValueType
@@ -32,7 +33,7 @@ from .serialization import str2type, type2str
 from .enum import Enum
 
 # All
-__all__ = ['decode_bytes_array',
+__all__ = ['decode_bytes_array', 'memoize',
            'scatter_cols', 'gather_cols', 'ValueType',
            'broadcast_value', 'normalize_tensor',
            'reduce_log_sum', 'concat_maybe', 'split_maybe',

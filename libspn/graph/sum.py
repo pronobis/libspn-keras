@@ -254,7 +254,7 @@ class Sum(OpNode):
             return None
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
 
-    @functools.lru_cache()
+    @utils.memoize
     def _compute_value_common(self, cwise_op, weight_tensor, ivs_tensor, *value_tensors,
                               weighted=True):
         """Common actions when computing value."""
