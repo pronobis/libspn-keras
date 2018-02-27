@@ -425,7 +425,7 @@ class PerformanceTest:
                 file_name += ("_SINGLE-INPUT" if (op_fun is Ops.products_layer
                               and single_input is True) else "")
 
-                with open('%s/timeline_path_%s.json' % (self.profiles_dir,
+                with open('%s/timeline_value_%s.json' % (self.profiles_dir,
                           file_name), 'w') as f:
                     f.write(chrome_trace)
 
