@@ -20,6 +20,7 @@ import os
 import random
 col.init()
 
+
 red = col.Fore.RED
 blue = col.Fore.BLUE
 green = col.Fore.GREEN
@@ -170,10 +171,12 @@ class Ops:
                 # Create permuted indices based on number and size of inputs
                 inds = map(int, np.arange(n_inp_cols))
                 permuted_inds = list(product(inds, repeat=n_inps))
-                offsets = np.array(list(range(0, (n_inps * n_inp_cols), n_inp_cols))) + outer_offset
+                offsets = \
+                    np.array(list(range(0, (n_inps * n_inp_cols), n_inp_cols))) \
+                    + outer_offset
                 outer_offset += n_inps * n_inp_cols
                 for perm_inds in permuted_inds:
-                    permuted_inds_list.append([p_ind + os for p_ind, os in
+                    permuted_inds_list.append([p_ind + off for p_ind, off in
                                                zip(list(perm_inds), offsets)])
 
             # Content of list object 'perm_inds' needs to be of type int, if not
@@ -236,9 +239,9 @@ class TestResults:
                      np.mean(res.run_times[1:]) * 1000, res.output_correct))
 
         # Print results
-        print1("\n-----------------------", file)
+        print1("\n-----------------------------", file)
         print1("%s" % self.test_name, file)
-        print1("-----------------------", file)
+        print1("-----------------------------", file)
         print1(get_header("CPU"), file)
         for res in sorted(self.cpu_results, key=lambda x: len(x.op_name)):
             print1(get_res(res), file, (red if res.op_name is "product" else
@@ -256,16 +259,13 @@ class TestResults:
 
 class PerformanceTest:
 
-    def __init__(self, num_inputs, batch_size, num_input_cols, num_ops, num_runs,
+    def __init__(self, num_input_rows, num_input_cols, num_batches, num_runs,
                  without_cpu, without_gpu, without_product, without_products,
                  without_indices, without_single_input, log_devs, profile,
                  profiles_dir, file):
-        self.num_inputs = num_inputs
-        self.batch_size = batch_size
+        self.num_input_rows = num_input_rows
         self.num_input_cols = num_input_cols
-        self.num_prods = [pow(n_inp_cols, n_inps) for n_inps, n_inp_cols in
-                          zip(num_inputs, num_input_cols)]
-        self.num_ops = num_ops
+        self.num_batches = num_batches
         self.num_runs = num_runs
         self.without_cpu = without_cpu
         self.without_gpu = without_gpu
@@ -280,15 +280,13 @@ class PerformanceTest:
         self.test_failed = False
 
         print1("Params:", file)
-        print1("- num_inputs=%s" % num_inputs, file)
-        print1("- batch_size=%s" % batch_size, file)
+        print1("- num_input_rows=%s" % num_input_rows, file)
         print1("- num_input_cols=%s" % num_input_cols, file)
-        print1("- num_prods=%s" % self.num_prods, file)
-        print1("- num_ops=%s" % num_ops, file)
+        print1("- num_batches=%s" % num_batches, file)
         print1("- num_runs=%s" % num_runs, file)
         print1("", file=file)
 
-    def _true_output(self, inputs, indices=None, inf_type=None):
+    def _true_output(self, inputs, num_inputs, num_prods, indices=None, inf_type=None):
         if inf_type == spn.InferenceType.MARGINAL:
             np_sum_op = np.sum
         elif inf_type == spn.InferenceType.MPE:
@@ -298,7 +296,7 @@ class PerformanceTest:
 
         products_output = []
 
-        for inps, n_inps, n_inp_cols in zip(inputs, self.num_inputs,
+        for inps, n_inps, n_inp_cols in zip(inputs, num_inputs,
                                             self.num_input_cols):
             # Create permuted indices based on number and size of inputs
             inds = map(int, np.arange(n_inp_cols))
@@ -315,10 +313,10 @@ class PerformanceTest:
                                                   in permuted_inds_list], axis=1))
 
         products_output = np.concatenate(products_output, axis=1)
-        root_weight = 1.0 / sum(self.num_prods)
+        root_weight = 1.0 / sum(num_prods)
         return np_sum_op(products_output * root_weight, axis=1, keepdims=True)
 
-    def _run_op_test(self, op_fun, inputs, indices=None, single_input=False,
+    def _run_op_test(self, op_fun, inputs, num_inputs, indices=None, single_input=False,
                      log=False, on_gpu=True, inf_type=spn.InferenceType.MARGINAL):
         """Run a single test for a single op."""
         # Preparations
@@ -327,30 +325,35 @@ class PerformanceTest:
 
         # Print
         print2("--> %s: on_gpu=%s, num_inputs=%s, inputs_shape=%s, inference=%s, log=%s"
-               % (op_name, on_gpu, self.num_inputs, inputs[0][0].shape, ("MPE" if
+               % (op_name, on_gpu, num_inputs, inputs[0][0].shape, ("MPE" if
                   inf_type == spn.InferenceType.MPE else "MARGINAL"), log),
                self.file)
 
+        # Decern number of products modelled in each node
+        num_prods = [pow(n_inp_cols, n_inps) for n_inps, n_inp_cols in
+                     zip(num_inputs, self.num_input_cols)]
+
         # Compute true output
-        true_out = self._true_output(inputs, indices, inf_type)
+        true_out = self._true_output(inputs, num_inputs, num_prods, indices,
+                                     inf_type)
 
         # Create graph
         tf.reset_default_graph()
         with tf.device(device_name):
             # Create inputs
             if single_input:
-                num_inputs_array = np.array(self.num_inputs)
+                num_inputs_array = np.array(num_inputs)
                 num_input_cols_array = np.array(self.num_input_cols)
                 num_vars = int(np.sum(num_inputs_array * num_input_cols_array))
                 inputs_pl = spn.ContVars(num_vars=num_vars)
             else:
                 inputs_pl = [[spn.ContVars(num_vars=n_inp_cols) for _ in
                               range(n_inps)] for n_inps, n_inp_cols in
-                             zip(self.num_inputs, self.num_input_cols)]
+                             zip(num_inputs, self.num_input_cols)]
             # Create ops
             start_time = time.time()
-            init_ops, ops = op_fun(inputs_pl, self.num_inputs, self.num_input_cols,
-                                   self.num_prods, inf_type, indices, log)
+            init_ops, ops = op_fun(inputs_pl, num_inputs, self.num_input_cols,
+                                   num_prods, inf_type, indices, log)
             setup_time = time.time() - start_time
         # Get num of graph ops
         graph_size = len(tf.get_default_graph().get_operations())
@@ -361,18 +364,37 @@ class PerformanceTest:
                 log_device_placement=self.log_devs)) as sess:
             # Initialize weights of all the sum nodes in the graph
             init_ops.run()
-            # Create feed dictionary
-            if single_input:
-                feed = {inputs_pl: np.concatenate(list(chain(*inputs)), axis=1)}
-            else:
+            if op_fun is not Ops.products_layer:
+                # Create feed dictionary
                 feed = {inp_pl: inp for inp_pl, inp in zip(chain(*inputs_pl),
                                                            chain(*inputs))}
+            else:
+                concatenated_input = np.concatenate(list(chain(*inputs)), axis=1)
             run_times = []
+            batch_size = self.num_input_rows // self.num_batches
             for n in range(self.num_runs):
                 # Run
-                start_time = time.time()
-                out = sess.run(ops, feed_dict=feed)
-                run_times.append(time.time() - start_time)
+                if op_fun is Ops.products_layer:
+                    outputs = []
+                    start_time = time.time()
+                    for i in range(self.num_batches):
+                        start = i * batch_size
+                        stop = (i + 1) * batch_size
+                        # Create feed dictionary
+                        if single_input:
+                            feed = {inputs_pl: concatenated_input[start:stop, :]}
+                        else:
+                            feed = {inp_pl: inp[start:stop, :] for inp_pl, inp
+                                    in zip(chain(*inputs_pl), chain(*inputs))}
+                        out = sess.run(ops, feed_dict=feed)
+                        outputs.append(out)
+                    run_times.append(time.time() - start_time)
+                    out = np.vstack(outputs)
+                else:
+                    start_time = time.time()
+                    out = sess.run(ops, feed_dict=feed)
+                    run_times.append(time.time() - start_time)
+
                 # Test value
                 try:
                     np.testing.assert_array_almost_equal(out, (np.log(true_out)
@@ -400,8 +422,10 @@ class PerformanceTest:
                 file_name += ("_MPE-LOG" if log else "_MPE") if inf_type == \
                     spn.InferenceType.MPE else ("_MARGINAL-LOG" if log else
                                                 "_MARGINAL")
+                file_name += ("_SINGLE-INPUT" if (op_fun is Ops.products_layer
+                              and single_input is True) else "")
 
-                with open('%s/timeline_value_%s.json' % (self.profiles_dir,
+                with open('%s/timeline_path_%s.json' % (self.profiles_dir,
                           file_name), 'w') as f:
                     f.write(chrome_trace)
 
@@ -412,45 +436,58 @@ class PerformanceTest:
                              is True) else "No"), setup_time, run_times,
                             output_correct)
 
-    def _run_test(self, test_name, op_funs, inputs, indices, inf_type, log):
+    def _run_test(self, test_name, op_funs, inputs, num_inputs, indices, inf_type,
+                  log):
         """Run a single test for multiple ops and devices."""
+
+        # Atleast two inputs are needed for modelling multiple products in PermProducts
+        if not all(n_inp >= 2 for n_inp in num_inputs):
+            sys.exit('ERROR: All num_inputs must be >= 2')
+
+        # num_inputs and num_input_cols should be of the same length
+        if len(num_inputs) != len(self.num_input_cols):
+            sys.exit('Error: Lengths of num_inputs and num_input_cols must be'
+                     'the same!')
+
         cpu_results = []
         gpu_results = []
         for op_fun in op_funs:
             if not self.without_cpu:
                 cpu_results.append(
-                    self._run_op_test(op_fun, inputs, indices=None,
+                    self._run_op_test(op_fun, inputs, num_inputs, indices=None,
                                       single_input=False, log=log, on_gpu=False,
                                       inf_type=inf_type))
                 # PermProds with indices
                 if op_fun is Ops.perm_products and not self.without_indices:
                         cpu_results.append(
-                            self._run_op_test(op_fun, inputs, indices,
+                            self._run_op_test(op_fun, inputs, num_inputs, indices,
                                               single_input=False, log=log,
                                               on_gpu=False, inf_type=inf_type))
                 # ProductsLayer with single-input
                 if op_fun is Ops.products_layer and not self.without_single_input:
                         cpu_results.append(
-                            self._run_op_test(op_fun, inputs, indices=None,
-                                              single_input=True, log=log,
-                                              on_gpu=False, inf_type=inf_type))
+                            self._run_op_test(op_fun, inputs, num_inputs,
+                                              indices=None, single_input=True,
+                                              log=log, on_gpu=False,
+                                              inf_type=inf_type))
             if not self.without_gpu:
                 gpu_results.append(
-                    self._run_op_test(op_fun, inputs, indices=None,
+                    self._run_op_test(op_fun, inputs, num_inputs, indices=None,
                                       single_input=False, log=log, on_gpu=True,
                                       inf_type=inf_type))
                 # PermProds with indices
                 if op_fun is Ops.perm_products and not self.without_indices:
                         gpu_results.append(
-                            self._run_op_test(op_fun, inputs, indices,
+                            self._run_op_test(op_fun, inputs, num_inputs, indices,
                                               single_input=False, log=log,
                                               on_gpu=True, inf_type=inf_type))
                 # ProductsLayer with single-input
                 if op_fun is Ops.products_layer and not self.without_single_input:
                         gpu_results.append(
-                            self._run_op_test(op_fun, inputs, indices=None,
-                                              single_input=True, log=log,
-                                              on_gpu=True, inf_type=inf_type))
+                            self._run_op_test(op_fun, inputs, num_inputs,
+                                              indices=None, single_input=True,
+                                              log=log, on_gpu=True,
+                                              inf_type=inf_type))
         return TestResults(test_name, cpu_results, gpu_results)
 
     def run(self):
@@ -458,27 +495,56 @@ class PerformanceTest:
         print1("Running tests:", self.file)
         results = []
 
-        inputs = [[np.random.rand(self.batch_size, n_inp_cols) for _ in
-                  range(n_inps)] for n_inps, n_inp_cols in zip(self.num_inputs,
+        num_inputs = [2] * 10
+        inputs = [[np.random.rand(self.num_input_rows, n_inp_cols) for _ in
+                  range(n_inps)] for n_inps, n_inp_cols in zip(num_inputs,
                   self.num_input_cols)]
         indices = [[random.sample(range(n_inp_cols), k=n_inp_cols) for _ in
                     range(n_inps)] for n_inps, n_inp_cols in
-                   zip(self.num_inputs, self.num_input_cols)]
+                   zip(num_inputs, self.num_input_cols)]
 
-        r = self._run_test('InferenceType: MARGINAL',
+        r = self._run_test(('NON-PADDED\nInferenceType: MARGINAL\n'
+                            'num_inputs: %s' % num_inputs),
                            [] + ([Ops.product] if not self.without_product else [])
                            + ([Ops.products] if not self.without_products else [])
                            + [Ops.perm_products, Ops.products_layer],
-                           inputs, indices, inf_type=spn.InferenceType.MARGINAL,
-                           log=False)
+                           inputs, num_inputs, indices,
+                           inf_type=spn.InferenceType.MARGINAL, log=False)
         results.append(r)
 
-        r = self._run_test('InferenceType: MARGINAL-LOG',
+        r = self._run_test(('NON-PADDED\nInferenceType: MARGINAL-LOG\n'
+                            'num_inputs: %s' % num_inputs),
                            [] + ([Ops.product] if not self.without_product else [])
                            + ([Ops.products] if not self.without_products else [])
                            + [Ops.perm_products, Ops.products_layer],
-                           inputs, indices, inf_type=spn.InferenceType.MARGINAL,
-                           log=True)
+                           inputs, num_inputs, indices,
+                           inf_type=spn.InferenceType.MARGINAL, log=True)
+        results.append(r)
+
+        num_inputs = [2, 3, 4, 5, 4, 3, 2, 3, 4, 5]
+        inputs = [[np.random.rand(self.num_input_rows, n_inp_cols) for _ in
+                  range(n_inps)] for n_inps, n_inp_cols in zip(num_inputs,
+                  self.num_input_cols)]
+        indices = [[random.sample(range(n_inp_cols), k=n_inp_cols) for _ in
+                    range(n_inps)] for n_inps, n_inp_cols in
+                   zip(num_inputs, self.num_input_cols)]
+
+        r = self._run_test(('PADDED\nInferenceType: MARGINAL\n'
+                            'num_inputs: %s' % num_inputs),
+                           [] + ([Ops.product] if not self.without_product else [])
+                           + ([Ops.products] if not self.without_products else [])
+                           + [Ops.perm_products, Ops.products_layer],
+                           inputs, num_inputs, indices,
+                           inf_type=spn.InferenceType.MARGINAL, log=False)
+        results.append(r)
+
+        r = self._run_test(('PADDED\nInferenceType: MARGINAL-LOG\n'
+                            'num_inputs: %s' % num_inputs),
+                           [] + ([Ops.product] if not self.without_product else [])
+                           + ([Ops.products] if not self.without_products else [])
+                           + [Ops.perm_products, Ops.products_layer],
+                           inputs, num_inputs, indices,
+                           inf_type=spn.InferenceType.MARGINAL, log=True)
         results.append(r)
 
         # Print results
@@ -492,12 +558,12 @@ class PerformanceTest:
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num-inputs', default=[3] * 10, type=list,
-                        help="Num of input nodes")
-    parser.add_argument('--batch-size', default=1000, type=int,
+    parser.add_argument('--num-input-rows', default=1000, type=int,
                         help="Num of rows of inputs")
-    parser.add_argument('--num-input-cols', default=[5] * 10, type=list,
+    parser.add_argument('--num-input-cols', default=[4] * 10, type=list,
                         help="Num of cols of inputs")
+    parser.add_argument('--num-batches', default=1, type=int,
+                        help="Num of mini batches for ProductsLayer evaluation")
     parser.add_argument('--num-runs', default=50, type=int,
                         help="Number of times each test is run")
     parser.add_argument('--log-devices', action='store_true',
@@ -522,18 +588,10 @@ def main():
                         help="Save results to file")
     args = parser.parse_args()
 
-    # Atleast two inputs are needed for modelling multiple products in PermProducts
-    if not all(n_inp >= 2 for n_inp in args.num_inputs):
-        sys.exit('ERROR: All num_inputs must be >= 2')
-
     # Atleast two columns per input are needed for modelling multiple products
     # in PermProducts
     if not all(n_inp_cols >= 2 for n_inp_cols in args.num_input_cols):
         sys.exit('ERROR: All num_input_cols must be >= 2')
-
-    # Atleast two inputs are needed for modelling multiple products in PermProducts
-    if len(args.num_inputs) != len(args.num_input_cols):
-        sys.exit('Lengths of num_inputs and num_input_cols must be the same!')
 
     # Open a file
     f = None
@@ -541,12 +599,11 @@ def main():
         f = open(args.save_to, 'w')
 
     try:
-        t = PerformanceTest(args.num_inputs, args.batch_size, args.num_input_cols,
-                            len(args.num_inputs), args.num_runs, args.without_cpu,
-                            args.without_gpu, args.without_product,
-                            args.without_products, args.without_indices,
-                            args.without_single_input, args.log_devices,
-                            args.profile, args.profiles_dir, f)
+        t = PerformanceTest(args.num_input_rows, args.num_input_cols, args.num_batches,
+                            args.num_runs, args.without_cpu, args.without_gpu,
+                            args.without_product, args.without_products,
+                            args.without_indices, args.without_single_input,
+                            args.log_devices, args.profile, args.profiles_dir, f)
         t.run()
     finally:
         if f is not None:
