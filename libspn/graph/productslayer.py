@@ -5,9 +5,10 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-from itertools import chain, combinations, repeat
 import numpy as np
 import tensorflow as tf
+from collections import OrderedDict, defaultdict
+from itertools import chain, combinations
 from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode, Input
 from libspn.inference.type import InferenceType
@@ -171,8 +172,8 @@ class ProductsLayer(OpNode):
 
     def _combine_values_and_indices(self, value_tensors):
         """
-        Concatenates input tensors and returns the nested indices that are required for gathering
-        all sum inputs to a reducible set of columns
+        Concatenates input tensors and returns the nested indices that are
+        required for gathering all product inputs to a reducible set of columns.
         """
         # Chose list instead of dict to maintain order
         unique_tensors = []
@@ -254,26 +255,120 @@ class ProductsLayer(OpNode):
     def _compute_log_mpe_value(self, *value_tensors):
         return self._compute_log_value(*value_tensors)
 
-    def _compute_mpe_path(self, counts, *value_values, add_random=False, use_unweighted=False):
+    def _collect_count_indices_per_input(self):
+        """
+        For every unique (input, index) pair in the node's values list, collects
+        and returns all column-indices of the counts tensor, for which the unique
+        pair is a child of.
+        """
+        # Create a list of each input, paired with all the indices assosiated
+        # with it
+        # Eg: self._values = [(A, [0, 2, 3]),
+        #                     (B, 1),
+        #                     (A, None),
+        #                     (B, [1, 2])]
+        # expanded_inputs_list = [(A, 0), (A, 2), (A, 3),
+        #                         (B, 1),
+        #                         (A, 0), (A, 1), (A, 2), (A, 3),
+        #                         (B, 1), (B, 2)]
+        expanded_inputs_list = []
+        for inp in self._values:
+            if inp.indices is None:
+                for i in range(inp.node.get_out_size()):
+                    expanded_inputs_list.append((inp.node, i))
+            elif isinstance(inp.indices, list):
+                for i in inp.indices:
+                    expanded_inputs_list.append((inp.node, i))
+            elif isinstance(inp.indices, int):
+                expanded_inputs_list.append((inp.node, inp.indices))
+
+        # Create a list grouping together all inputs to each product modelled
+        # Eg: self._prod_input_sizes = [2, 3, 2, 1, 2]
+        #     prod_inputs_lists = [[(A, 0), (A, 2)],        # Prod-0
+        #                          [(A, 3), (B, 1),(A, 0)], # Prod-1
+        #                          [(A, 1), (A, 2)],        # Prod-2
+        #                          [(A, 3)],                # Prod-3
+        #                          [(B, 1), (B, 2)]]        # Prod-4
+        prod_input_sizes = np.cumsum(np.array(self._prod_input_sizes)).tolist()
+        prod_input_sizes.insert(0, 0)
+        prod_inputs_lists = [expanded_inputs_list[start:stop] for start, stop in
+                             zip(prod_input_sizes[:-1], prod_input_sizes[1:])]
+
+        # Create a dictionary with each unique input and index pair as it's key,
+        # and a list of product-indices as the corresponding value
+        # Eg: unique_inps_inds_dict = {(A, 0): [0, 1], # Prod-0 and  Prod-1
+        #                              (A, 1): [2],    # Prod-2
+        #                              (A, 2): [0, 2], # Prod-0 and  Prod-2
+        #                              (A, 3): [1],    # Prod-1
+        #                              (B, 1): [1, 4], # Prod-1 and  Prod-4
+        #                              (B, 2): [4]}    # Prod-4
+        unique_inps_inds = defaultdict(list)
+        for idx, inps in enumerate(prod_inputs_lists):
+            for inp in inps:
+                unique_inps_inds[inp] += [idx]
+
+        # Sort dictionary based on key - Sorting ensures avoiding scatter op when
+        # the original inputs is passed without indices
+        unique_inps_inds = OrderedDict(sorted(unique_inps_inds.items()))
+
+        # Collect all product indices as a nested list of indices to gather from
+        # counts tensor
+        # Eg: gather_counts_indices = [[0, 1],
+        #                              [2],
+        #                              [0, 2],
+        #                              [1],
+        #                              [1, 4],
+        #                              [4]]
+        gather_counts_indices = [v for v in unique_inps_inds.values()]
+
+        # Create an ordered dictionary of unique inputs to this node as key,
+        # and a list of unique indices per input as the corresponding value
+        # Eg: unique_inps = {A: [0, 1, 2, 3]
+        #                    B: [1, 2]}
+        unique_inps = OrderedDict()
+        for inp, ind in unique_inps_inds.keys():
+            unique_inps[inp] = []
+        for inp, ind in unique_inps_inds.keys():
+            unique_inps[inp] += [ind]
+
+        return gather_counts_indices, unique_inps
+
+    def _compute_mpe_path(self, counts, *value_values, add_random=False,
+                          use_unweighted=False):
         # Check inputs
         if not self._values:
             raise StructureError("%s is missing input values." % self)
 
-        value_sizes = self.get_input_sizes(*value_values)
+        # For each unique (input, index) pair in the values list, collect counts
+        # index of all counts for which the pair is a child of
+        gather_counts_indices, unique_inputs = self._collect_count_indices_per_input()
 
-        # (1-3) Tile counts of each prod based on prod-input-size, by gathering
-        indices = list(chain.from_iterable([repeat(r, p_inp_size) for r, p_inp_size
-                                           in zip(range(self._num_prods),
-                                                  self._prod_input_sizes)]))
-        gathered_counts = utils.gather_cols(counts, indices)
+        # Gather columns from the counts tensor, per unique (input, index) pair
+        reducible_values = utils.gather_cols_3d(counts, gather_counts_indices)
 
-        # (4) Split gathered countes based on value_sizes
-        value_counts = tf.split(gathered_counts, value_sizes, axis=1)
-        counts_values_paired = [(v_count, v_value) for v_count, v_value in
-                                zip(value_counts, value_values)]
+        # Sum gathered counts together per unique (input, index) pair
+        summed_counts = tf.reduce_sum(reducible_values, axis=-1)
 
-        # (5) scatter_cols (num_inputs)
-        return self._scatter_to_input_tensors(*counts_values_paired)
+        # For each unique input in the values list, calculate the number of
+        # unique indices
+        unique_inp_sizes = [len(v) for v in unique_inputs.values()]
 
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False, use_unweighted=False):
+        # Split the summed-counts tensor per unique input, based on input-sizes
+        unique_input_counts = tf.split(summed_counts, unique_inp_sizes, axis=1)
+
+        # Scatter each unique-counts tensor to the respective input, only once
+        # per unique input in the values list
+        scattered_counts = [None] * len(self._values)
+        for (node, inds), cnts in zip(unique_inputs.items(), unique_input_counts):
+            for i, (inp, val) in enumerate(zip(self._values, value_values)):
+                if inp.node == node:
+                    scattered_counts[i] = utils.scatter_cols(
+                        cnts, inds, int(val.get_shape()[0 if val.get_shape().ndims
+                                                        == 1 else 1]))
+                    break
+
+        return scattered_counts
+
+    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
+                              use_unweighted=False):
         return self._compute_mpe_path(counts, *value_values)

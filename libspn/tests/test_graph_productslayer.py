@@ -419,15 +419,17 @@ class TestNodesProductsLayer(unittest.TestCase):
                 counts = tf.placeholder(tf.float32, shape=(None, num_prods))
 
                 # Create mpe path op
-                op = p._compute_mpe_path(tf.identity(counts),
-                                         *[inp.get_value() for inp in inputs])
+                ops = p._compute_mpe_path(tf.identity(counts),
+                                          *[inp.get_value() for inp in inputs])
+
+                ops = [op for op in ops if op is not None]
 
                 # Generate random counts feed
                 coutnts_feed = np.random.randint(100, size=(batch_size, num_prods))
 
                 # Create a session and execute the generated op
                 with tf.Session() as sess:
-                    outputs = sess.run(op, feed_dict={counts: coutnts_feed})
+                    outputs = sess.run(ops, feed_dict={counts: coutnts_feed})
 
                 # Calculate true-output
                 # (1) Split counts into num_prod sub-matrices
@@ -453,6 +455,11 @@ class TestNodesProductsLayer(unittest.TestCase):
                 for t_out, i_indices, v_counts in zip(true_outputs, indices,
                                                       value_counts):
                     t_out[:, i_indices] = v_counts
+
+                # (6) Sum scattered counts together, for the single-input case
+                if single_input:
+                    true_outputs = np.sum(np.array(true_outputs), axis=0,
+                                          keepdims=True)
 
                 # Assert outputs with true_outputs
                 for out, t_out in zip(outputs, true_outputs):
