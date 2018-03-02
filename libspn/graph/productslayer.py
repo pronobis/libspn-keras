@@ -343,18 +343,28 @@ class ProductsLayer(OpNode):
         # index of all counts for which the pair is a child of
         gather_counts_indices, unique_inputs = self._collect_count_indices_per_input()
 
-        # Gather columns from the counts tensor, per unique (input, index) pair
-        reducible_values = utils.gather_cols_3d(counts, gather_counts_indices)
+        if self._num_prods > 1:
+            # Gather columns from the counts tensor, per unique (input, index) pair
+            reducible_values = utils.gather_cols_3d(counts, gather_counts_indices)
 
-        # Sum gathered counts together per unique (input, index) pair
-        summed_counts = tf.reduce_sum(reducible_values, axis=-1)
+            # Sum gathered counts together per unique (input, index) pair
+            summed_counts = tf.reduce_sum(reducible_values, axis=-1)
+        else:
+            # Calculate total inputs size
+            inputs_size = sum([v_input.get_size(v_value) for v_input, v_value in
+                               zip(self._values, value_values)])
+
+            # Tile counts only if input is larger than 1
+            summed_counts = (tf.tile(counts, [1, inputs_size]) if inputs_size > 1
+                             else counts)
 
         # For each unique input in the values list, calculate the number of
         # unique indices
         unique_inp_sizes = [len(v) for v in unique_inputs.values()]
 
         # Split the summed-counts tensor per unique input, based on input-sizes
-        unique_input_counts = tf.split(summed_counts, unique_inp_sizes, axis=1)
+        unique_input_counts = tf.split(summed_counts, unique_inp_sizes, axis=-1) \
+            if len(unique_inp_sizes) > 1 else [summed_counts]
 
         # Scatter each unique-counts tensor to the respective input, only once
         # per unique input in the values list
