@@ -142,13 +142,16 @@ class ProductsLayer(OpNode):
     def _compute_scope(self, *value_scopes):
         if not self._values:
             raise StructureError("%s is missing input values." % self)
-        value_scopes = list(chain.from_iterable(self._gather_input_scopes(
+        # Gather and flatten value scopes
+        flat_value_scopes = list(chain.from_iterable(self._gather_input_scopes(
                                                 *value_scopes)))
-        sublist_size = int(len(value_scopes) / self._num_prods)
-        # Divide gathered value scopes into sublists, one per modelled Product node.
-        value_scopes_sublists = [value_scopes[i:i+sublist_size] for i in
-                                 range(0, len(value_scopes), sublist_size)]
-        return [Scope.merge_scopes(vs) for vs in value_scopes_sublists]
+        # Divide gathered and flattened value scopes into sublists, one per
+        # modeled product op.
+        prod_input_sizes = np.cumsum(np.array(self._prod_input_sizes)).tolist()
+        prod_input_sizes.insert(0, 0)
+        value_scopes_lists = [flat_value_scopes[start:stop] for start, stop in
+                              zip(prod_input_sizes[:-1], prod_input_sizes[1:])]
+        return [Scope.merge_scopes(vsl) for vsl in value_scopes_lists]
 
     def _compute_valid(self, *value_scopes):
         if not self._values:
@@ -159,10 +162,13 @@ class ProductsLayer(OpNode):
             return None
         # Check product decomposability
         flat_value_scopes = list(chain.from_iterable(value_scopes_))
-        values_per_product = int(len(flat_value_scopes) / self._num_prods)
-        sub_value_scopes = [flat_value_scopes[i:(i + values_per_product)] for i in
-                            range(0, len(flat_value_scopes), values_per_product)]
-        for scopes in sub_value_scopes:
+        # Divide gathered and flattened value scopes into sublists, one per
+        # modeled product op.
+        prod_input_sizes = np.cumsum(np.array(self._prod_input_sizes)).tolist()
+        prod_input_sizes.insert(0, 0)
+        value_scopes_lists = [flat_value_scopes[start:stop] for start, stop in
+                              zip(prod_input_sizes[:-1], prod_input_sizes[1:])]
+        for scopes in value_scopes_lists:
             for s1, s2 in combinations(scopes, 2):
                 if s1 & s2:
                     ProductsLayer.info("%s is not decomposable with input value scopes %s",
