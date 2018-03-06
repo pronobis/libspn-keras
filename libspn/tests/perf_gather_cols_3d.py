@@ -11,6 +11,7 @@ import tensorflow as tf
 import numpy as np
 from random import shuffle
 from context import libspn as spn
+from itertools import chain
 import time
 import argparse
 import sys
@@ -42,8 +43,8 @@ class Ops:
         if padding:
             # Fill indices of padded columns with '-1'
             indices_cols = max([ind.size for ind in indices])
-            indices = [np.append(ind, np.ones(indices_cols-ind.size, dtype=ind.dtype)*-1)
-                       for ind in indices]
+            indices = [np.append(ind, np.ones(indices_cols-ind.size,
+                       dtype=ind.dtype)*-1) for ind in indices]
             # Convert the list of indices arrays to an indices matrix
             indices = np.vstack(indices)
         return spn.ops.gather_cols_3d(params, indices, padding)
@@ -57,27 +58,20 @@ class Ops:
                              spn.ops.gather_cols(params, ind)
                              for ind in indices], 1)
         else:
-            return tf.stack([spn.ops.gather_cols(params, ind) for ind in indices], 1)
+            return tf.reshape(spn.ops.gather_cols(params, list(chain.from_iterable(
+                              indices))), [-1, len(indices), len(indices[0])])
 
     def tf_gather(params, indices, padding):
-        def tf_reshape_gather_reshape(params, indices):
-            # Flatten a 2D params and indices, tf.gather and reshape back to 2D
-            p_shape = tf.shape(params)
-            p_flat = tf.reshape(params, [-1])
-            i_flat = tf.reshape(tf.reshape(tf.range(0, p_shape[0]) * p_shape[1],
-                                           [-1, 1]) + indices, [-1])
-            return tf.reshape(tf.gather(p_flat, i_flat), [p_shape[0], -1])
-
         if padding:
             indices_cols = max([ind.size for ind in indices])
-            return tf.stack([tf.pad(tf_reshape_gather_reshape(params, ind),
-                                    [[0, 0], [0, indices_cols-ind.size]])
+            return tf.stack([tf.pad(tf.gather(params, ind, axis=1),
+                             [[0, 0], [0, indices_cols-ind.size]])
                              if ind.size < indices_cols else
-                             tf_reshape_gather_reshape(params, ind)
+                             tf.gather(params, ind, axis=1)
                             for ind in indices], 1)
         else:
-            return tf.stack([tf_reshape_gather_reshape(params, ind)
-                            for ind in indices], 1)
+            return tf.reshape(tf.gather(params, list(chain.from_iterable(indices)),
+                                        axis=1), [-1, len(indices), len(indices[0])])
 
 
 class OpTestResult:
