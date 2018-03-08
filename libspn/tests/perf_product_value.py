@@ -28,6 +28,7 @@ yellow = col.Fore.YELLOW
 magenta = col.Fore.MAGENTA
 cyan = col.Fore.CYAN
 white = col.Fore.WHITE
+black = col.Fore.BLACK
 
 
 def print1(str, file, color=yellow):
@@ -86,9 +87,29 @@ class Ops:
             inputs = [[(inp, ind) for inp, ind in zip(inps, inds)] for inps, inds
                       in zip(inputs, indices)]
 
-        # Generate 'len(inputs)' PermProducts nodes, modeling 'n_prods' products
-        # within each
-        p = [spn.PermProducts(*inps) for inps in inputs]
+        if isinstance(inputs, list):  # Is a list of ContVars inputs - Multiple inputs
+            # Generate 'len(inputs)' PermProducts nodes, modeling 'n_prods' products
+            # within each
+            p = [spn.PermProducts(*inps) for inps in inputs]
+        else:  # Is a single input of type ContVars - A single input
+            num_inputs_array = np.array(num_inputs)
+            num_input_cols_array = np.array(num_input_cols)
+            num_cols = num_input_cols[0]
+            num_vars = int(np.sum(num_inputs_array * num_input_cols_array))
+
+            indices_list = [list(range(i, i+num_cols)) for i in range(0, num_vars,
+                                                                      num_cols)]
+            num_inputs_cumsum = np.cumsum(num_inputs_array).tolist()
+            num_inputs_cumsum.insert(0, 0)
+
+            inputs_list = [[(inputs, inds) for inds in indices_list[start:stop]]
+                           for start, stop in zip(num_inputs_cumsum[:-1],
+                                                  num_inputs_cumsum[1:])]
+
+            # Generate 'len(inputs)' PermProducts nodes, modeling 'n_prods'
+            # products within each, and inputs for each node emination from a
+            # commoninput source
+            p = [spn.PermProducts(*inps) for inps in inputs_list]
 
         # Connect all PermProducts nodes to a single root Sum node and generate
         # its weights
@@ -239,22 +260,27 @@ class TestResults:
                      np.mean(res.run_times[1:]) * 1000, res.output_correct))
 
         # Print results
-        print1("\n-----------------------------", file)
+        print()
+        print1("--------------------------------------------------------", file)
         print1("%s" % self.test_name, file)
-        print1("-----------------------------", file)
+        print1("--------------------------------------------------------", file)
         print1(get_header("CPU"), file)
         for res in sorted(self.cpu_results, key=lambda x: len(x.op_name)):
-            print1(get_res(res), file, (red if res.op_name is "product" else
-                   magenta if res.op_name is "products" else
-                   (blue if res.single_input is "Yes" else cyan) if res.op_name
-                   is "products_layer" else (green if res.indices is "No" else white)))
+            print1(get_res(res), file, (black if res.op_name is "product" else
+                   white if res.op_name is "products" else
+                   (green if res.single_input is "Yes" else cyan) if res.op_name
+                   is "products_layer" else (blue if res.indices is "No" else
+                                             (magenta if res.single_input is "No"
+                                              else red))))
 
         print1(get_header("GPU"), file)
         for res in sorted(self.gpu_results, key=lambda x: len(x.op_name)):
-            print1(get_res(res), file, (red if res.op_name is "product" else
-                   magenta if res.op_name is "products" else
-                   (blue if res.single_input is "Yes" else cyan) if res.op_name
-                   is "products_layer" else (green if res.indices is "No" else white)))
+            print1(get_res(res), file, (black if res.op_name is "product" else
+                   white if res.op_name is "products" else
+                   (green if res.single_input is "Yes" else cyan) if res.op_name
+                   is "products_layer" else (blue if res.indices is "No" else
+                                             (magenta if res.single_input is "No"
+                                              else red))))
 
 
 class PerformanceTest:
@@ -324,10 +350,11 @@ class PerformanceTest:
         device_name = '/gpu:0' if on_gpu else '/cpu:0'
 
         # Print
-        print2("--> %s: on_gpu=%s, num_inputs=%s, inputs_shape=%s, inference=%s, log=%s"
-               % (op_name, on_gpu, num_inputs, inputs[0][0].shape, ("MPE" if
-                  inf_type == spn.InferenceType.MPE else "MARGINAL"), log),
-               self.file)
+        print2("--> %s: on_gpu=%s, num_inputs=%s, inputs_shape=%s, indices=%s,\
+ single_input= %s, inference=%s, log=%s"
+               % (op_name, on_gpu, num_inputs, inputs[0][0].shape, ("False" if
+                  indices is None else "True"), single_input, ("MPE" if
+                  inf_type == spn.InferenceType.MPE else "MARGINAL"), log), self.file)
 
         # Decern number of products modelled in each node
         num_prods = [pow(n_inp_cols, n_inps) for n_inps, n_inp_cols in
@@ -364,7 +391,7 @@ class PerformanceTest:
                 log_device_placement=self.log_devs)) as sess:
             # Initialize weights of all the sum nodes in the graph
             init_ops.run()
-            if op_fun is not Ops.products_layer:
+            if op_fun is not Ops.products_layer and single_input is False:
                 # Create feed dictionary
                 feed = {inp_pl: inp for inp_pl, inp in zip(chain(*inputs_pl),
                                                            chain(*inputs))}
@@ -392,6 +419,9 @@ class PerformanceTest:
                     out = np.vstack(outputs)
                 else:
                     start_time = time.time()
+                    # Create feed dictionary
+                    if single_input:
+                        feed = {inputs_pl: concatenated_input}
                     out = sess.run(ops, feed_dict=feed)
                     run_times.append(time.time() - start_time)
 
@@ -431,10 +461,9 @@ class PerformanceTest:
 
         # Return stats
         return OpTestResult(op_name, on_gpu, graph_size, ("No" if (op_fun is
-                            Ops.perm_products and indices is None) else "Yes"),
-                            ("Yes" if (op_fun is Ops.products_layer and single_input
-                             is True) else "No"), setup_time, run_times,
-                            output_correct)
+                            Ops.perm_products and indices is None and single_input
+                            is False) else "Yes"), ("Yes" if single_input else
+                            "No"), setup_time, run_times, output_correct)
 
     def _run_test(self, test_name, op_funs, inputs, num_inputs, indices, inf_type,
                   log):
@@ -447,7 +476,7 @@ class PerformanceTest:
         # num_inputs and num_input_cols should be of the same length
         if len(num_inputs) != len(self.num_input_cols):
             sys.exit('Error: Lengths of num_inputs and num_input_cols must be'
-                     'the same!')
+                     ' the same!')
 
         cpu_results = []
         gpu_results = []
@@ -463,6 +492,13 @@ class PerformanceTest:
                             self._run_op_test(op_fun, inputs, num_inputs, indices,
                                               single_input=False, log=log,
                                               on_gpu=False, inf_type=inf_type))
+                # PermProds with single-input
+                if op_fun is Ops.perm_products:
+                        cpu_results.append(
+                            self._run_op_test(op_fun, inputs, num_inputs,
+                                              indices=None, single_input=True,
+                                              log=log, on_gpu=False,
+                                              inf_type=inf_type))
                 # ProductsLayer with single-input
                 if op_fun is Ops.products_layer and not self.without_single_input:
                         cpu_results.append(
@@ -481,6 +517,13 @@ class PerformanceTest:
                             self._run_op_test(op_fun, inputs, num_inputs, indices,
                                               single_input=False, log=log,
                                               on_gpu=True, inf_type=inf_type))
+                # PermProds with single-input
+                if op_fun is Ops.perm_products:
+                        gpu_results.append(
+                            self._run_op_test(op_fun, inputs, num_inputs,
+                                              indices=None, single_input=True,
+                                              log=log, on_gpu=True,
+                                              inf_type=inf_type))
                 # ProductsLayer with single-input
                 if op_fun is Ops.products_layer and not self.without_single_input:
                         gpu_results.append(
@@ -495,16 +538,18 @@ class PerformanceTest:
         print1("Running tests:", self.file)
         results = []
 
-        num_inputs = [2] * 10
+        num_inputs = [5] * 10
         inputs = [[np.random.rand(self.num_input_rows, n_inp_cols) for _ in
                   range(n_inps)] for n_inps, n_inp_cols in zip(num_inputs,
                   self.num_input_cols)]
         indices = [[random.sample(range(n_inp_cols), k=n_inp_cols) for _ in
                     range(n_inps)] for n_inps, n_inp_cols in
                    zip(num_inputs, self.num_input_cols)]
+        num_prods = [pow(n_inp_cols, n_inps) for n_inps, n_inp_cols in
+                     zip(num_inputs, self.num_input_cols)]
 
         r = self._run_test(('NON-PADDED\nInferenceType: MARGINAL\n'
-                            'num_inputs: %s' % num_inputs),
+                            'num_inputs: %s \nnum_prods: %s' % (num_inputs, num_prods)),
                            [] + ([Ops.product] if not self.without_product else [])
                            + ([Ops.products] if not self.without_products else [])
                            + [Ops.perm_products, Ops.products_layer],
@@ -513,7 +558,7 @@ class PerformanceTest:
         results.append(r)
 
         r = self._run_test(('NON-PADDED\nInferenceType: MARGINAL-LOG\n'
-                            'num_inputs: %s' % num_inputs),
+                            'num_inputs: %s \nnum_prods: %s' % (num_inputs, num_prods)),
                            [] + ([Ops.product] if not self.without_product else [])
                            + ([Ops.products] if not self.without_products else [])
                            + [Ops.perm_products, Ops.products_layer],
@@ -528,9 +573,11 @@ class PerformanceTest:
         indices = [[random.sample(range(n_inp_cols), k=n_inp_cols) for _ in
                     range(n_inps)] for n_inps, n_inp_cols in
                    zip(num_inputs, self.num_input_cols)]
+        num_prods = [pow(n_inp_cols, n_inps) for n_inps, n_inp_cols in
+                     zip(num_inputs, self.num_input_cols)]
 
         r = self._run_test(('PADDED\nInferenceType: MARGINAL\n'
-                            'num_inputs: %s' % num_inputs),
+                            'num_inputs: %s \nnum_prods: %s' % (num_inputs, num_prods)),
                            [] + ([Ops.product] if not self.without_product else [])
                            + ([Ops.products] if not self.without_products else [])
                            + [Ops.perm_products, Ops.products_layer],
@@ -539,7 +586,7 @@ class PerformanceTest:
         results.append(r)
 
         r = self._run_test(('PADDED\nInferenceType: MARGINAL-LOG\n'
-                            'num_inputs: %s' % num_inputs),
+                            'num_inputs: %s \nnum_prods: %s' % (num_inputs, num_prods)),
                            [] + ([Ops.product] if not self.without_product else [])
                            + ([Ops.products] if not self.without_products else [])
                            + [Ops.perm_products, Ops.products_layer],
@@ -560,7 +607,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--num-input-rows', default=1000, type=int,
                         help="Num of rows of inputs")
-    parser.add_argument('--num-input-cols', default=[4] * 10, type=list,
+    parser.add_argument('--num-input-cols', default=[5] * 10, type=list,
                         help="Num of cols of inputs")
     parser.add_argument('--num-batches', default=1, type=int,
                         help="Num of mini batches for ProductsLayer evaluation")
