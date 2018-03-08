@@ -24,7 +24,7 @@ custom_scatter_values = True
 """Whether to use custom op for implementing
 :meth:`~libspn.utils.scatter_values`."""
 
-add_counts_in_sums_layer = True
+sumslayer_count_with_matmul = True
 """Whether to add the counts inside a 
 SumsLayer while computing MPE path.
 """

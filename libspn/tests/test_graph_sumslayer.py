@@ -18,7 +18,7 @@ import operator
 
 
 INPUT_SIZES = [[10], [1] * 10, [2] * 5, [5, 5], [1, 2, 3, 4], [4, 3, 2, 1], [2, 1, 2, 3, 1, 1]]
-SUM_SIZES = [[10], [1] * 10, [2] * 5, [5, 5], [1, 2, 3, 4], [4, 3, 2, 1], [2, 1, 2, 3, 1, 1]]
+SUM_SIZES = [[1] * 10, [2] * 5, [5, 5], [1, 2, 3, 4], [4, 3, 2, 1], [2, 1, 2, 3, 1, 1]]
 
 
 def x_dot_w(xs, ws):
@@ -217,7 +217,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
             batch_size, fac, x, ivs, input_sizes, sum_sizes, same_input=same_input)
 
         # Build SumsLayer
-        n = spn.SumsLayer(*spn_inputs, n_sums_or_sizes=sum_sizes, ivs=ivs_node)
+        n = spn.SumsLayer(*spn_inputs, num_sums_or_sizes=sum_sizes, ivs=ivs_node)
         weight_node = n.generate_weights(w)
 
         with self.test_session() as sess:
@@ -235,20 +235,24 @@ class TestNodesSumsLayer(tf.test.TestCase):
         self.assertAllClose(true_out, out)
 
     @parameterized.expand([
-        (input_sizes, sum_sizes, ivs, log, same_input) for
-        input_sizes, sum_sizes, ivs, log, same_input in
+        (input_sizes, sum_sizes, ivs, log, same_input, count_matmul) for
+        input_sizes, sum_sizes, ivs, log, same_input, count_matmul in
         itertools.product(
-            INPUT_SIZES, SUM_SIZES, [False, True], [False, True], [True])
+            INPUT_SIZES, SUM_SIZES, [False, True], [False, True], [True], [False, True])
     ])
-    def test_sumslayer_varying_sizes_mpe_path(self, input_sizes, sum_sizes, ivs, log, same_input):
+    def test_sumslayer_varying_sizes_mpe_path(self, input_sizes, sum_sizes, ivs, log, same_input,
+                                              count_matmul):
         """
         Tests the SumsLayer MPE path computation for different input sizes, sum sizes, with and
         without IVs, and in log and non-log space
         """
+        print(input_sizes, sum_sizes)
         # Initialize dimensions
         batch_size = 2
         total_size = np.sum(input_sizes)
         fac = 2
+
+        spn.conf.sumslayer_count_with_matmul = count_matmul
 
         # Generate random arrays
         x = np.random.rand(batch_size, total_size * fac)
@@ -267,7 +271,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
             true_outs = [functools.reduce(operator.add, true_outs)]
 
         # Build SumsLayer
-        n = spn.SumsLayer(*spn_inputs, n_sums_or_sizes=sum_sizes, ivs=ivs_node)
+        n = spn.SumsLayer(*spn_inputs, num_sums_or_sizes=sum_sizes, ivs=ivs_node)
         weight_node = n.generate_weights(w)
 
         # Add counts
@@ -293,9 +297,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
                 op = n._compute_mpe_path(
                     tf.identity(counts_ph), w_val, iv_val, *value_input_vals
                 )
-            if ivs_node is None:
-                # Remove None op for IV
-                op = tuple(o for i, o in enumerate(op) if i != 1)
+            op = [o for o in op if o is not None]
             out = sess.run(op, feed_dict=feed_dict)[2 if ivs_node else 1:]
 
         for o, to in zip(out, true_outs):
@@ -361,7 +363,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         def test(values, num_sums, ivs, weights, feed, output):
             with self.subTest(values=values, num_sums=num_sums, ivs=ivs, weights=weights,
                               feed=feed):
-                n = spn.SumsLayer(*values, n_sums_or_sizes=num_sums, ivs=ivs)
+                n = spn.SumsLayer(*values, num_sums_or_sizes=num_sums, ivs=ivs)
                 w = n.generate_weights(weights)
                 op = n.get_value(spn.InferenceType.MARGINAL)
                 op_log = n.get_log_value(spn.InferenceType.MARGINAL)
@@ -488,7 +490,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         def test(values, num_sums, ivs, weights, feed, output):
             with self.subTest(values=values, num_sums=num_sums, ivs=ivs, weights=weights,
                               feed=feed):
-                n = spn.SumsLayer(*values, n_sums_or_sizes=num_sums, ivs=ivs)
+                n = spn.SumsLayer(*values, num_sums_or_sizes=num_sums, ivs=ivs)
                 n.generate_weights(weights)
                 op = n.get_value(spn.InferenceType.MARGINAL)
                 op_log = n.get_log_value(spn.InferenceType.MARGINAL)
@@ -993,10 +995,10 @@ class TestNodesSumsLayer(tf.test.TestCase):
 
     def test_compute_mpe_value(self):
         """Calculating MPE value of Sums."""
-        def test(values, n_sums_or_sizes, ivs, weights, feed, output):
-            with self.subTest(values=values, n_sums_or_sizes=n_sums_or_sizes, ivs=ivs,
+        def test(values, num_sums_or_sizes, ivs, weights, feed, output):
+            with self.subTest(values=values, num_sums_or_sizes=num_sums_or_sizes, ivs=ivs,
                               weights=weights, feed=feed):
-                n = spn.SumsLayer(*values, ivs=ivs, n_sums_or_sizes=n_sums_or_sizes)
+                n = spn.SumsLayer(*values, ivs=ivs, num_sums_or_sizes=num_sums_or_sizes)
                 n.generate_weights(weights)
                 op = n.get_value(spn.InferenceType.MPE)
                 op_log = n.get_log_value(spn.InferenceType.MPE)
@@ -1489,10 +1491,10 @@ class TestNodesSumsLayer(tf.test.TestCase):
 
     def test_compute_mpe_value_varsize(self):
         """Calculating MPE value of Sums."""
-        def test(values, n_sums_or_sizes, ivs, weights, feed, output):
-            with self.subTest(values=values, n_sums_or_sizes=n_sums_or_sizes, ivs=ivs,
+        def test(values, num_sums_or_sizes, ivs, weights, feed, output):
+            with self.subTest(values=values, num_sums_or_sizes=num_sums_or_sizes, ivs=ivs,
                               weights=weights, feed=feed):
-                n = spn.SumsLayer(*values, ivs=ivs, n_sums_or_sizes=n_sums_or_sizes)
+                n = spn.SumsLayer(*values, ivs=ivs, num_sums_or_sizes=num_sums_or_sizes)
                 n.generate_weights(weights)
                 op = n.get_value(spn.InferenceType.MPE)
                 op_log = n.get_log_value(spn.InferenceType.MPE)
@@ -1578,7 +1580,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
             v34: [spn.Scope(v34, 0), spn.Scope(v34, 1), spn.Scope(v34, 2)]
         }
 
-        def generate_scopes_from_inputs(node, inputs, n_sums_or_sizes, ivs=False):
+        def generate_scopes_from_inputs(node, inputs, num_sums_or_sizes, ivs=False):
             # Create a flat list of scopes, where the scope elements of a single input
             # node are subsequent in the list
             flat_scopes = []
@@ -1595,13 +1597,13 @@ class TestNodesSumsLayer(tf.test.TestCase):
                 else:
                     flat_scopes.extend(scopes_per_node[inp[0]])
                     size += len(scopes_per_node[inp[0]])
-            if isinstance(n_sums_or_sizes, int):
-                n_sums_or_sizes = n_sums_or_sizes * [size // n_sums_or_sizes]
+            if isinstance(num_sums_or_sizes, int):
+                num_sums_or_sizes = num_sums_or_sizes * [size // num_sums_or_sizes]
 
             new_scope = []
             offset = 0
             # For each sum generate the scope based on its size
-            for i, s in enumerate(n_sums_or_sizes):
+            for i, s in enumerate(num_sums_or_sizes):
                 scope = flat_scopes[offset]
                 for j in range(1, s):
                     scope |= flat_scopes[j + offset]
@@ -1611,12 +1613,12 @@ class TestNodesSumsLayer(tf.test.TestCase):
                 new_scope.append(scope)
             scopes_per_node[node] = new_scope
 
-        def sums_layer_and_test(inputs, n_sums_or_sizes, name, ivs=False):
+        def sums_layer_and_test(inputs, num_sums_or_sizes, name, ivs=False):
             """ Create a sums layer, generate its correct scope and test """
-            sums_layer = spn.SumsLayer(*inputs, n_sums_or_sizes=n_sums_or_sizes, name=name)
+            sums_layer = spn.SumsLayer(*inputs, num_sums_or_sizes=num_sums_or_sizes, name=name)
             if ivs:
                 sums_layer.generate_ivs()
-            generate_scopes_from_inputs(sums_layer, inputs, n_sums_or_sizes, ivs=ivs)
+            generate_scopes_from_inputs(sums_layer, inputs, num_sums_or_sizes, ivs=ivs)
             self.assertListEqual(sums_layer.get_scope(), scopes_per_node[sums_layer])
             return sums_layer
 
@@ -1640,17 +1642,17 @@ class TestNodesSumsLayer(tf.test.TestCase):
         ss1 = sums_layer_and_test(
             [(v12, [0, 1, 2, 3]), (v12, [1, 2, 5, 6]), (v12, [4, 5, 6, 7])], 3, "Ss1", ivs=True)
 
-        ss2 = sums_layer_and_test([(v12, [6, 7]), (v34, 0)], n_sums_or_sizes=[1, 2], name="Ss2")
+        ss2 = sums_layer_and_test([(v12, [6, 7]), (v34, 0)], num_sums_or_sizes=[1, 2], name="Ss2")
         ss3 = sums_layer_and_test([(v12, [3, 7]), (v34, 1), (v12, [4, 5, 6]), v34],
-                                  n_sums_or_sizes=[1, 2, 2, 2, 2], name="Ss3")
+                                  num_sums_or_sizes=[1, 2, 2, 2, 2], name="Ss3")
 
-        s1 = sums_layer_and_test([(v34, [1, 2])], n_sums_or_sizes=1, name="S1", ivs=True)
+        s1 = sums_layer_and_test([(v34, [1, 2])], num_sums_or_sizes=1, name="S1", ivs=True)
         concat_layer_and_test([(ss1, [0, 2]), (ss2, 0)], name="N1")
         concat_layer_and_test([(ss1, 1), ss3, s1], name="N2")
         n = concat_layer_and_test([(ss1, 0), ss2, (ss3, [0, 1]), s1], name="N3")
-        sums_layer_and_test([(ss1, [1, 2]), ss2], n_sums_or_sizes=[2, 1, 1], name="Ss4")
+        sums_layer_and_test([(ss1, [1, 2]), ss2], num_sums_or_sizes=[2, 1, 1], name="Ss4")
         sums_layer_and_test([(ss1, [0, 2]), (n, [0, 1]), (ss3, [4, 2])],
-                            n_sums_or_sizes=[3, 2, 1], name="Ss5")
+                            num_sums_or_sizes=[3, 2, 1], name="Ss5")
 
     def test_compute_valid(self):
         """Calculating validity of Sums"""
@@ -1658,20 +1660,20 @@ class TestNodesSumsLayer(tf.test.TestCase):
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         s1 = spn.SumsLayer((v12, [0, 1, 2, 3]), (v12, [0, 1, 2, 3]),
-                           (v12, [0, 1, 2, 3]), n_sums_or_sizes=3)
+                           (v12, [0, 1, 2, 3]), num_sums_or_sizes=3)
         self.assertTrue(s1.is_valid())
 
         s2 = spn.SumsLayer((v12, [0, 1, 2, 4]), name="S2")
-        s2b = spn.SumsLayer((v12, [0, 1, 2, 4]), n_sums_or_sizes=[3, 1], name="S2b")
+        s2b = spn.SumsLayer((v12, [0, 1, 2, 4]), num_sums_or_sizes=[3, 1], name="S2b")
         self.assertTrue(s2b.is_valid())
         self.assertFalse(s2.is_valid())
 
         s3 = spn.SumsLayer((v12, [0, 1, 2, 3]), (v34, 0), (v12, [0, 1, 2, 3]),
-                           (v34, 0), n_sums_or_sizes=2)
+                           (v34, 0), num_sums_or_sizes=2)
         s3b = spn.SumsLayer((v12, [0, 1, 2, 3]), (v34, 0), (v12, [0, 1, 2, 3]),
-                            (v34, 0), n_sums_or_sizes=[4, 1, 4, 1])
+                            (v34, 0), num_sums_or_sizes=[4, 1, 4, 1])
         s3c = spn.SumsLayer((v12, [0, 1, 2, 3]), (v34, 0), (v12, [0, 1, 2, 3]),
-                            (v34, 0), n_sums_or_sizes=[4, 1, 5])
+                            (v34, 0), num_sums_or_sizes=[4, 1, 5])
         self.assertFalse(s3.is_valid())
         self.assertTrue(s3b.is_valid())
         self.assertFalse(s3c.is_valid())
@@ -1680,82 +1682,83 @@ class TestNodesSumsLayer(tf.test.TestCase):
         p2 = spn.Product((v12, [1, 6]), (v34, 0))
         p3 = spn.Product((v12, [1, 6]), (v34, 1))
 
-        s4 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=2)
-        s5 = spn.SumsLayer(p1, p3, p1, p3, p1, p3, n_sums_or_sizes=3)
-        s6 = spn.SumsLayer(p1, p2, p3, n_sums_or_sizes=[2, 1])
-        s7 = spn.SumsLayer(p1, p2, p3, n_sums_or_sizes=[1, 2])
-        s8 = spn.SumsLayer(p1, p2, p3, p2, p1, n_sums_or_sizes=[2, 1, 2])
+        s4 = spn.SumsLayer(p1, p2, p1, p2, num_sums_or_sizes=2)
+        s5 = spn.SumsLayer(p1, p3, p1, p3, p1, p3, num_sums_or_sizes=3)
+        s6 = spn.SumsLayer(p1, p2, p3, num_sums_or_sizes=[2, 1])
+        s7 = spn.SumsLayer(p1, p2, p3, num_sums_or_sizes=[1, 2])
+        s8 = spn.SumsLayer(p1, p2, p3, p2, p1, num_sums_or_sizes=[2, 1, 2])
         self.assertTrue(s4.is_valid())
         self.assertFalse(s5.is_valid())  # p1 and p3 different scopes
         self.assertTrue(s6.is_valid())
         self.assertFalse(s7.is_valid())  # p2 and p3 different scopes
         self.assertTrue(s8.is_valid())
         # With IVS
-        s6 = spn.SumsLayer(p1, p2, p1, p2, p1, p2, n_sums_or_sizes=3)
+        s6 = spn.SumsLayer(p1, p2, p1, p2, p1, p2, num_sums_or_sizes=3)
         s6.generate_ivs()
         self.assertTrue(s6.is_valid())
 
-        s7 = spn.SumsLayer(p1, p2, n_sums_or_sizes=1)
+        s7 = spn.SumsLayer(p1, p2, num_sums_or_sizes=1)
         s7.set_ivs(spn.ContVars(num_vars=2))
         self.assertFalse(s7.is_valid())
 
-        s7 = spn.SumsLayer(p1, p2, p3, n_sums_or_sizes=3)
+        s7 = spn.SumsLayer(p1, p2, p3, num_sums_or_sizes=3)
         s7.set_ivs(spn.ContVars(num_vars=3))
         self.assertTrue(s7.is_valid())
 
-        s7 = spn.SumsLayer(p1, p2, p3, n_sums_or_sizes=[2, 1])
+        s7 = spn.SumsLayer(p1, p2, p3, num_sums_or_sizes=[2, 1])
         s7.set_ivs(spn.ContVars(num_vars=3))
         self.assertFalse(s7.is_valid())
 
-        s8 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=2)
+        s8 = spn.SumsLayer(p1, p2, p1, p2, num_sums_or_sizes=2)
         s8.set_ivs(spn.IVs(num_vars=3, num_vals=2))
         with self.assertRaises(spn.StructureError):
             s8.is_valid()
 
-        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=[1, 3])
+        s9 = spn.SumsLayer(p1, p2, p1, p2, num_sums_or_sizes=[1, 3])
         s9.set_ivs(spn.ContVars(num_vars=2))
         with self.assertRaises(spn.StructureError):
             s9.is_valid()
 
-        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=[1, 3])
+        s9 = spn.SumsLayer(p1, p2, p1, p2, num_sums_or_sizes=[1, 3])
         s9.set_ivs(spn.ContVars(num_vars=3))
         with self.assertRaises(spn.StructureError):
             s9.is_valid()
 
-        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=2)
+        s9 = spn.SumsLayer(p1, p2, p1, p2, num_sums_or_sizes=2)
         s9.set_ivs(spn.IVs(num_vars=1, num_vals=4))
         self.assertTrue(s9.is_valid())
 
-        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=[1, 3])
+        s9 = spn.SumsLayer(p1, p2, p1, p2, num_sums_or_sizes=[1, 3])
         s9.set_ivs(spn.IVs(num_vars=1, num_vals=4))
         self.assertTrue(s9.is_valid())
 
-        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=[1, 3])
+        s9 = spn.SumsLayer(p1, p2, p1, p2, num_sums_or_sizes=[1, 3])
         s9.set_ivs(spn.IVs(num_vars=2, num_vals=2))
         self.assertFalse(s9.is_valid())
 
-        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=2)
+        s9 = spn.SumsLayer(p1, p2, p1, p2, num_sums_or_sizes=2)
         s9.set_ivs(spn.IVs(num_vars=2, num_vals=2))
         self.assertTrue(s9.is_valid())
 
-        s9 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=[1, 2, 1])
+        s9 = spn.SumsLayer(p1, p2, p1, p2, num_sums_or_sizes=[1, 2, 1])
         s9.set_ivs(spn.IVs(num_vars=2, num_vals=2))
         self.assertFalse(s9.is_valid())
 
-        s10 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=2)
+        s10 = spn.SumsLayer(p1, p2, p1, p2, num_sums_or_sizes=2)
         s10.set_ivs((v12, [0, 3, 5, 7]))
         self.assertTrue(s10.is_valid())
 
-        s10 = spn.SumsLayer(p1, p2, p1, p2, n_sums_or_sizes=[1, 2, 1])
+        s10 = spn.SumsLayer(p1, p2, p1, p2, num_sums_or_sizes=[1, 2, 1])
         s10.set_ivs((v12, [0, 3, 5, 7]))
         self.assertFalse(s10.is_valid())
 
     @parameterized.expand([('Non-log', False), ('Log', True)])
     def test_compute_mpe_path_noivs_single_sum(self, name, log):
+        # TODO reconfigure...
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
-        s = spn.SumsLayer((v12, [0, 5]), v34, (v12, [3]), v5, n_sums_or_sizes=1)
+        s = spn.SumsLayer((v12, [0, 5]), v34, (v12, [3]), v5, num_sums_or_sizes=1)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
         if log:
@@ -1774,6 +1777,11 @@ class TestNodesSumsLayer(tf.test.TestCase):
                                      v34.get_value(),
                                      v12.get_value(),
                                      v5.get_value())
+
+        # Index 2 to skip weights and IVs +2 because of index of repeated input tensor
+        self.assertEqual(op[2+2], None)
+        op = [o for o in op if o is not None]
+
         init = w.initialize()
         counts_feed = [[10],
                        [11],
@@ -1795,10 +1803,10 @@ class TestNodesSumsLayer(tf.test.TestCase):
         with tf.Session() as sess:
             sess.run(init)
             # Skip the IVs op
-            out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
-                                                       v12: v12_feed,
-                                                       v34: v34_feed,
-                                                       v5: v5_feed})
+            out = sess.run(op, feed_dict={counts: counts_feed,
+                                          v12: v12_feed,
+                                          v34: v34_feed,
+                                          v5: v5_feed})
         # Weights
         np.testing.assert_array_almost_equal(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
@@ -1811,7 +1819,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
             out[1], np.array([[10., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.]],
+                              [0., 0., 0., 13., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
         np.testing.assert_array_almost_equal(
@@ -1822,28 +1830,23 @@ class TestNodesSumsLayer(tf.test.TestCase):
                              dtype=np.float32))
 
         np.testing.assert_array_almost_equal(
-            out[3], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 13., 0., 0., 0., 0.]],
-                             dtype=np.float32))
-
-        np.testing.assert_array_almost_equal(
-            out[4], np.array([[0.],
+            out[3], np.array([[0.],
                               [0.],
                               [12.],
                               [0.]],
                              dtype=np.float32))
 
-    @parameterized.expand([('Non-log', False), ('Log', True)])
-    def test_compute_mpe_path_noivs_multi_sums(self, name, log):
+    @parameterized.expand([tuple(s) for s in itertools.product([False, True], [False, True])])
+    def test_compute_mpe_path_noivs_multi_sums(self, log, matmul):
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
         s = spn.SumsLayer((v12, [0, 5]), v34, (v12, [3]), v5, (v12, [0, 5]), v34,
-                          (v12, [3]), v5, n_sums_or_sizes=2)
+                          (v12, [3]), v5, num_sums_or_sizes=2)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 2))
+
+        spn.conf.sumslayer_count_with_matmul = matmul
 
         if log:
             op = s._compute_log_mpe_path(tf.identity(counts),
@@ -1870,6 +1873,11 @@ class TestNodesSumsLayer(tf.test.TestCase):
                                      v12.get_value(),
                                      v5.get_value())
 
+        # Index 2 to skip weights and IVs + i because of index of repeated input tensor
+        print(op)
+        [self.assertEqual(op[2+i], None) for i in [2, 4, 5, 6, 7]]
+        op = [o for o in op if o is not None]
+
         init = w.initialize()
         counts_feed = [[10, 20],
                        [11, 21],
@@ -1891,10 +1899,10 @@ class TestNodesSumsLayer(tf.test.TestCase):
         with tf.Session() as sess:
             sess.run(init)
             # Skip the IVs op
-            out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
-                                                       v12: v12_feed,
-                                                       v34: v34_feed,
-                                                       v5: v5_feed})
+            out = sess.run(op, feed_dict={counts: counts_feed,
+                                          v12: v12_feed,
+                                          v34: v34_feed,
+                                          v5: v5_feed})
         # Weights
         np.testing.assert_array_almost_equal(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
@@ -1908,92 +1916,34 @@ class TestNodesSumsLayer(tf.test.TestCase):
                                           dtype=np.float32), [1, 0, 2]))
 
         np.testing.assert_array_almost_equal(
-            out[1], np.array([[10., 0., 0., 0., 0., 0., 0., 0.],
+            out[1], np.array([[30., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.]],
+                              [0., 0., 0., 36., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
         np.testing.assert_array_almost_equal(
             out[2], np.array([[0., 0.],
-                              [11., 0.],
+                              [32., 0.],
                               [0., 0.],
                               [0., 0.]],
                              dtype=np.float32))
 
         np.testing.assert_array_almost_equal(
-            out[3], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 13., 0., 0., 0., 0.]],
-                             dtype=np.float32))
-
-        np.testing.assert_array_almost_equal(
-            out[4], np.array([[0.],
+            out[3], np.array([[0.],
                               [0.],
-                              [12.],
+                              [34.],
                               [0.]],
                              dtype=np.float32))
-
-        np.testing.assert_array_almost_equal(
-            out[5], np.array([[20., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.]],
-                             dtype=np.float32))
-
-        np.testing.assert_array_almost_equal(
-            out[6], np.array([[0., 0.],
-                              [21., 0.],
-                              [0., 0.],
-                              [0., 0.]],
-                             dtype=np.float32))
-
-        np.testing.assert_array_almost_equal(
-            out[7], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 23., 0., 0., 0., 0.]],
-                             dtype=np.float32))
-
-        np.testing.assert_array_almost_equal(
-            out[8], np.array([[0.],
-                              [0.],
-                              [22.],
-                              [0.]],
-                             dtype=np.float32))
-    #
-    # def test_mask(self):
-    #     v12 = spn.IVs(num_vars=2, num_vals=4)
-    #     v34 = spn.ContVars(num_vars=2)
-    #     v5 = spn.ContVars(num_vars=1)
-    #     s = spn.SumsLayer((v12, [0, 5]), v34, (v12, [3]), v5)
-    #
-    #     out, out_log = s._mask, np.log(s._mask)
-    #
-    #     np.testing.assert_equal(
-    #         out,
-    #         [[1, 1],
-    #          [1, 1],
-    #          [1, 0],
-    #          [1, 0]]
-    #     )
-    #
-    #     np.testing.assert_equal(
-    #         out_log,
-    #         [[0, 0],
-    #          [0, 0],
-    #          [0, -float('inf')],
-    #          [0, -float('inf')]]
-    #     )
 
     @parameterized.expand([('Non-log', False), ('Log', True)])
     def test_compute_mpe_path_ivs_single_sum(self, name, log):
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
-        s = spn.SumsLayer((v12, [0, 5]), v34, (v12, [3]), v5, n_sums_or_sizes=1)
+        s = spn.SumsLayer((v12, [0, 5]), v34, (v12, [3]), v5, num_sums_or_sizes=1)
         iv = s.generate_ivs()
+        print(iv.get_value().shape)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
         if log:
@@ -2012,6 +1962,9 @@ class TestNodesSumsLayer(tf.test.TestCase):
                                      v34.get_value(),
                                      v12.get_value(),
                                      v5.get_value())
+        [self.assertEqual(op[2+i], None) for i in [2]]
+        op = [o for o in op if o is not None]
+
         init = w.initialize()
         counts_feed = [[10],
                        [11],
@@ -2068,21 +2021,21 @@ class TestNodesSumsLayer(tf.test.TestCase):
 
         # IVs
         np.testing.assert_array_almost_equal(
-            out[1], np.array([[10., 0., 0., 0., 0., 0.],
+            out[1], np.array([[[10., 0., 0., 0., 0., 0.],
                               [0., 0., 11., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 12.],
                               [0., 0., 0., 0., 13., 0.],
                               [0., 14., 0., 0., 0., 0.],
                               [0., 0., 15., 0., 0., 0.],
                               [0., 0., 0., 16., 0., 0.],
-                              [17., 0., 0., 0., 0., 0.]],
-                             dtype=np.float32))
+                              [17., 0., 0., 0., 0., 0.]]],
+                             dtype=np.float32).transpose(1, 0, 2))
 
         np.testing.assert_array_almost_equal(
             out[2], np.array([[10., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
+                              [0., 0., 0., 13., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 14., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
@@ -2101,18 +2054,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
                              dtype=np.float32))
 
         np.testing.assert_array_almost_equal(
-            out[4], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 13., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.]],
-                             dtype=np.float32))
-
-        np.testing.assert_array_almost_equal(
-            out[5], np.array([[0.],
+            out[4], np.array([[0.],
                               [0.],
                               [12.],
                               [0.],
@@ -2128,7 +2070,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
         s = spn.SumsLayer((v12, [0, 5]), v34, (v12, [3]), v5, (v12, [0, 5]), v34,
-                          (v12, [3]), v5, n_sums_or_sizes=2)
+                          (v12, [3]), v5, num_sums_or_sizes=2)
         iv = s.generate_ivs()
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 2))
@@ -2156,6 +2098,10 @@ class TestNodesSumsLayer(tf.test.TestCase):
                                      v34.get_value(),
                                      v12.get_value(),
                                      v5.get_value())
+
+        [self.assertEqual(op[2 + i], None) for i in [2, 4, 5, 6, 7]]
+        op = [o for o in op if o is not None]
+
         init = w.initialize()
         counts_feed = [[10, 20],
                        [11, 21],
@@ -2227,97 +2173,42 @@ class TestNodesSumsLayer(tf.test.TestCase):
 
         # IVs
         np.testing.assert_array_almost_equal(
-            out[1], np.array([[10., 0., 0., 0., 0., 0., 20., 0., 0., 0., 0., 0.],
+            out[1], np.array([[[10., 0., 0., 0., 0., 0., 20., 0., 0., 0., 0., 0.],
                               [0., 0., 11., 0., 0., 0., 0., 0., 21., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 12., 0., 0., 0., 0., 0., 22.],
                               [0., 0., 0., 0., 13., 0., 0., 0., 0., 0., 23., 0.],
                               [0., 14., 0., 0., 0., 0., 0., 24., 0., 0., 0., 0.],
                               [0., 0., 15., 0., 0., 0., 0., 0., 25., 0., 0., 0.],
                               [0., 0., 0., 16., 0., 0., 0., 0., 0., 26., 0., 0.],
-                              [17., 0., 0., 0., 0., 0., 27., 0., 0., 0., 0., 0.]],
-                             dtype=np.float32))
+                              [17., 0., 0., 0., 0., 0., 27., 0., 0., 0., 0., 0.]]],
+                             dtype=np.float32).transpose(1, 0, 2).reshape((8, 2, 6)))
 
         np.testing.assert_array_almost_equal(
-            out[2], np.array([[10., 0., 0., 0., 0., 0., 0., 0.],
+            out[2], np.array([[30., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
+                              [0., 0., 0., 36., 0., 0., 0., 0.],
+                              [0., 0., 0., 0., 0., 38., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 14., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [17., 0., 0., 0., 0., 0., 0., 0.]],
+                              [44., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
         np.testing.assert_array_almost_equal(
             out[3], np.array([[0., 0.],
-                              [11., 0.],
+                              [32., 0.],
                               [0., 0.],
                               [0., 0.],
                               [0., 0.],
-                              [15., 0.],
-                              [0., 16.],
+                              [40., 0.],
+                              [0., 42.],
                               [0., 0.]],
                              dtype=np.float32))
 
         np.testing.assert_array_almost_equal(
-            out[4], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 13., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.]],
-                             dtype=np.float32))
-
-        np.testing.assert_array_almost_equal(
-            out[5], np.array([[0.],
+            out[4], np.array([[0.],
                               [0.],
-                              [12.],
-                              [0.],
-                              [0.],
-                              [0.],
-                              [0.],
-                              [0.]],
-                             dtype=np.float32))
-
-        np.testing.assert_array_almost_equal(
-            out[6], np.array([[20., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 24., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [27., 0., 0., 0., 0., 0., 0., 0.]],
-                             dtype=np.float32))
-
-        np.testing.assert_array_almost_equal(
-            out[7], np.array([[0., 0.],
-                              [21., 0.],
-                              [0., 0.],
-                              [0., 0.],
-                              [0., 0.],
-                              [25., 0.],
-                              [0., 26.],
-                              [0., 0.]],
-                             dtype=np.float32))
-
-        np.testing.assert_array_almost_equal(
-            out[8], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 23., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.],
-                              [0., 0., 0., 0., 0., 0., 0., 0.]],
-                             dtype=np.float32))
-
-        np.testing.assert_array_almost_equal(
-            out[9], np.array([[0.],
-                              [0.],
-                              [22.],
+                              [34.],
                               [0.],
                               [0.],
                               [0.],

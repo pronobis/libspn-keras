@@ -19,20 +19,25 @@ from libspn import conf
 import functools
 from libspn.utils.serialization import register_serializable
 import numpy as np
-from collections import OrderedDict, deque
+from collections import OrderedDict, deque, defaultdict
 import operator
 import itertools
 
 
 @register_serializable
 class SumsLayer(OpNode):
-    """A node representing multiple sums in an SPN, where each sum has it's own
-    and seperate input.
+    """A node representing multiple sums in an SPN, where each sum possibly has it's own
+    and seperate input and the sums that are modeled can have differently sized inputs.
 
     Args:
         *values (input_like): Inputs providing input values to this node.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (int): Number of Sum ops modelled by this node.
+        num_sums_or_sizes (int or list of ints): Number of Sum ops modelled by
+            this node or the size of each sum in case of a list. Default is None.
+            If None, it will compute one sum per input. If int, it will attempt
+            to construct num_sums_or_sizes sums, each of size
+            total_input_size // num_sums_or_sizes. If a list of ints, it will
+            construct a sum for each size given in the list.
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
@@ -53,8 +58,8 @@ class SumsLayer(OpNode):
     logger = get_logger()
     info = logger.info
 
-    def __init__(self, *values, n_sums_or_sizes=None, weights=None, ivs=None,
-                 inference_type=InferenceType.MARGINAL, name="SumsLayer", use_lru=True):
+    def __init__(self, *values, num_sums_or_sizes=None, weights=None, ivs=None,
+                 inference_type=InferenceType.MARGINAL, name="SumsLayer"):
         super().__init__(inference_type, name)
 
         self.set_values(*values)
@@ -65,26 +70,26 @@ class SumsLayer(OpNode):
             len(v.indices) if v and v.indices else v.node.get_out_size() if v else 0
             for v in self._values)
 
-        if isinstance(n_sums_or_sizes, int):
+        if isinstance(num_sums_or_sizes, int):
             # Check if we can evenly divide the selected value inputs over the sums being modeled
-            if not _sum_index_lengths % n_sums_or_sizes == 0:
+            if not _sum_index_lengths % num_sums_or_sizes == 0:
                 raise StructureError("Cannot divide total number of value inputs ({}) over the "
                                      "requested  number of sums ({})."
-                                     .format(_sum_index_lengths, n_sums_or_sizes))
-            if n_sums_or_sizes == 0:
+                                     .format(_sum_index_lengths, num_sums_or_sizes))
+            if num_sums_or_sizes == 0:
                 raise ZeroDivisionError("Attempted to divide by zero. Please specify a "
                                         "non-zero number of sums.")
-            self._sum_input_sizes = [_sum_index_lengths // n_sums_or_sizes] * n_sums_or_sizes
-        elif isinstance(n_sums_or_sizes, list) and \
-                all(isinstance(elem, int) for elem in n_sums_or_sizes):
+            self._sum_input_sizes = [_sum_index_lengths // num_sums_or_sizes] * num_sums_or_sizes
+        elif isinstance(num_sums_or_sizes, list) and \
+                all(isinstance(elem, int) for elem in num_sums_or_sizes):
             # A list of sum sizes is given
-            self._sum_input_sizes = n_sums_or_sizes
-            if n_sums_or_sizes and sum(n_sums_or_sizes) != _sum_index_lengths:
+            self._sum_input_sizes = num_sums_or_sizes
+            if num_sums_or_sizes and sum(num_sums_or_sizes) != _sum_index_lengths:
                 raise StructureError(
                     "The specified total number of sums is incompatible with the value input "
                     "indices. \nTotal number of sums: {}, total indices in value inputs: "
-                    "{}".format(sum(n_sums_or_sizes), _sum_index_lengths))
-        elif n_sums_or_sizes is None:
+                    "{}".format(sum(num_sums_or_sizes), _sum_index_lengths))
+        elif num_sums_or_sizes is None:
             # Sum input sizes is set to size of each value input
             self._sum_input_sizes = [len(v.indices) if v.indices else v.node.get_out_size()
                                      for v in self._values]
@@ -96,8 +101,6 @@ class SumsLayer(OpNode):
 
         # This flag is set for potential optimization of MPE path computation
         self._must_gather_for_mpe_path = False
-
-        self._use_lru = use_lru
 
     # TODO
     def serialize(self):
@@ -287,9 +290,6 @@ class SumsLayer(OpNode):
         self.set_ivs(ivs)
         return ivs
 
-    def vdummy(self):
-        return None if self._use_lru else np.random.rand()
-
     @property
     def _const_out_size(self):
         return True
@@ -420,9 +420,8 @@ class SumsLayer(OpNode):
         flat_col_indices = np.asarray(column_indices)
         return flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict
 
-    @functools.lru_cache()
     def _compute_value_common(self, cwise_op, reduction_fn, weight_tensor, ivs_tensor,
-                              *value_tensors, weighted=True, dummy=None):
+                              *value_tensors, weighted=True):
         """ Common actions when computing value. """
         # Check inputs
         if not self._values:
@@ -433,28 +432,24 @@ class SumsLayer(OpNode):
         weight_tensor, ivs_tensor = self._gather_input_tensors(weight_tensor, ivs_tensor)
 
         # Builds reducible value tensor
-        reducible_values = self._reducible_values(value_tensors, dummy=self.vdummy())
+        reducible_values = self._reducible_values(value_tensors)
 
         # First apply IV, then weights. It might be that unweighted is used in MPE
-        reducible_values = self._apply_IVs(cwise_op, ivs_tensor, reducible_values,
-                                           dummy=self.vdummy())
+        reducible_values = self._apply_IVs(cwise_op, ivs_tensor, reducible_values)
 
         # Apply weighting
         if weighted:
             # Use component wise op for weighting
-            reducible_values = self._apply_weighting(cwise_op, reducible_values, weight_tensor,
-                                                     dummy=self.vdummy())
+            reducible_values = self._apply_weighting(cwise_op, reducible_values, weight_tensor)
 
         # Reduce on last axis
         return reduction_fn(reducible_values)
 
-    @functools.lru_cache()
-    def _apply_weighting(self, cwise_op, reducible_values, weight_tensor, dummy=None):
+    def _apply_weighting(self, cwise_op, reducible_values, weight_tensor):
         reducible_values = cwise_op(reducible_values, weight_tensor)
         return reducible_values
 
-    @functools.lru_cache()
-    def _apply_IVs(self, cwise_op, ivs_tensor, reducible_values, dummy=None):
+    def _apply_IVs(self, cwise_op, ivs_tensor, reducible_values):
         if self._ivs:
             # Reshape IVs and apply them component-wise
             iv_reshape = (-1, self._num_sums, max(self._sum_input_sizes))
@@ -462,8 +457,7 @@ class SumsLayer(OpNode):
             reducible_values = cwise_op(reducible_values, ivs_tensor_reshaped)
         return reducible_values
 
-    @functools.lru_cache()
-    def _reducible_values(self, value_tensors, dummy=None):
+    def _reducible_values(self, value_tensors):
         indices, values = self._combine_values_and_indices(value_tensors)
         # Create a 3D tensor with dimensions [batch, sum node, sum input]
         # The last axis will have zeros when the sum size is less than the max sum size
@@ -484,33 +478,106 @@ class SumsLayer(OpNode):
         """ Computes value in non-log space """
         reduce_sum = functools.partial(tf.reduce_sum, axis=2)
         return self._compute_value_common(
-            tf.multiply, reduce_sum, weight_tensor, ivs_tensor, *value_tensors, dummy=self.vdummy(),
-            weighted=True)
+            tf.multiply, reduce_sum, weight_tensor, ivs_tensor, *value_tensors, weighted=True)
 
     def _compute_log_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes value in log space """
         reduce_logsum = functools.partial(utils.reduce_log_sum_3D, transpose=False)
         return self._compute_value_common(
-            tf.add, reduce_logsum, weight_tensor, ivs_tensor, *value_tensors, dummy=self.vdummy(),
-            weighted=True)
+            tf.add, reduce_logsum, weight_tensor, ivs_tensor, *value_tensors, weighted=True)
 
     def _compute_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes MPE value in non-log space """
         reduce_max = functools.partial(tf.reduce_max, axis=2)
         return self._compute_value_common(
-            tf.multiply, reduce_max, weight_tensor, ivs_tensor, *value_tensors, dummy=self.vdummy(),
-            weighted=True)
+            tf.multiply, reduce_max, weight_tensor, ivs_tensor, *value_tensors, weighted=True)
 
     def _compute_log_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes MPE value in log space """
         reduce_max = functools.partial(tf.reduce_max, axis=2)
         return self._compute_value_common(
-            tf.add, reduce_max, weight_tensor, ivs_tensor, *value_tensors, dummy=self.vdummy(),
-            weighted=True
-        )
+            tf.add, reduce_max, weight_tensor, ivs_tensor, *value_tensors, weighted=True)
+
+    def _collect_count_indices_per_input(self):
+        """
+        For every unique (input, index) pair in the node's values list, collects
+        and returns all column-indices of the counts tensor, for which the unique
+        pair is a child of.
+        """
+        # Create a list of each input, paired with all the indices assosiated
+        # with it
+        # Eg: self._values = [(A, [0, 2, 3]),
+        #                     (B, 1),
+        #                     (A, None),
+        #                     (B, [1, 2])]
+        # expanded_inputs_list = [(A, 0), (A, 2), (A, 3),
+        #                         (B, 1),
+        #                         (A, 0), (A, 1), (A, 2), (A, 3),
+        #                         (B, 1), (B, 2)]
+        expanded_inputs_list = []
+        for inp in self._values:
+            if inp.indices is None:
+                for i in range(inp.node.get_out_size()):
+                    expanded_inputs_list.append((inp.node, i))
+            elif isinstance(inp.indices, list):
+                for i in inp.indices:
+                    expanded_inputs_list.append((inp.node, i))
+            elif isinstance(inp.indices, int):
+                expanded_inputs_list.append((inp.node, inp.indices))
+
+        # Create a list grouping together all inputs to each product modelled
+        # Eg: self._sum_input_sizes = [2, 3, 2, 1, 2]
+        #     prod_inputs_lists = [[(A, 0), (A, 2)],        # Prod-0
+        #                          [(A, 3), (B, 1),(A, 0)], # Prod-1
+        #                          [(A, 1), (A, 2)],        # Prod-2
+        #                          [(A, 3)],                # Prod-3
+        #                          [(B, 1), (B, 2)]]        # Prod-4
+        prod_input_sizes = np.cumsum(np.array(self._sum_input_sizes)).tolist()
+        prod_input_sizes.insert(0, 0)
+        prod_inputs_lists = [expanded_inputs_list[start:stop] for start, stop in
+                             zip(prod_input_sizes[:-1], prod_input_sizes[1:])]
+
+        # Create a dictionary with each unique input and index pair as it's key,
+        # and a list of product-indices as the corresponding value
+        # Eg: unique_inps_inds_dict = {(A, 0): [0, 1], # Prod-0 and  Prod-1
+        #                              (A, 1): [2],    # Prod-2
+        #                              (A, 2): [0, 2], # Prod-0 and  Prod-2
+        #                              (A, 3): [1],    # Prod-1
+        #                              (B, 1): [1, 4], # Prod-1 and  Prod-4
+        #                              (B, 2): [4]}    # Prod-4
+        unique_inps_inds = defaultdict(list)
+        for idx, inps in enumerate(prod_inputs_lists):
+            for inp in inps:
+                unique_inps_inds[inp] += [idx]
+
+        # Sort dictionary based on key - Sorting ensures avoiding scatter op when
+        # the original inputs is passed without indices
+        unique_inps_inds = OrderedDict(sorted(unique_inps_inds.items(), key=operator.itemgetter(0)))
+
+        # Collect all product indices as a nested list of indices to gather from
+        # counts tensor
+        # Eg: gather_counts_indices = [[0, 1],
+        #                              [2],
+        #                              [0, 2],
+        #                              [1],
+        #                              [1, 4],
+        #                              [4]]
+        gather_counts_indices = [v for v in unique_inps_inds.values()]
+
+        # Create an ordered dictionary of unique inputs to this node as key,
+        # and a list of unique indices per input as the corresponding value
+        # Eg: unique_inps = {A: [0, 1, 2, 3]
+        #                    B: [1, 2]}
+        unique_inps = OrderedDict()
+        for inp, ind in unique_inps_inds.keys():
+            unique_inps[inp] = []
+        for inp, ind in unique_inps_inds.keys():
+            unique_inps[inp] += [ind]
+
+        return gather_counts_indices, unique_inps
 
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
-                                 ivs_value, *value_values, sum_counts=True):
+                                 ivs_value, *value_values):
         """ Common operations for log and non-log MPE path """
         # Propagate the counts to the max value
         max_indices = tf.argmax(values_weighted, dimension=2)
@@ -526,7 +593,7 @@ class SumsLayer(OpNode):
 
         max_counts_reshaped = tf.reshape(max_counts, shape=reshape)
 
-        if conf.add_counts_in_sums_layer:
+        if conf.sumslayer_count_with_matmul:
             # Get the flat indices for the columns for each input and the tensor offsets in the
             # concatenation of the unique tensors
             flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
@@ -586,8 +653,73 @@ class SumsLayer(OpNode):
 
                 return self._scatter_to_input_tensors(
                     (max_counts, weight_value),  # Weights
-                    (max_counts_reshaped, ivs_value),  # IVs
+                    (max_counts, ivs_value),  # IVs
                 ) + tuple(max_counts_split_with_None)
+        else:
+            # TODO clean up the mess below...
+            flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
+                self._flat_indices_offsets_and_unique_tensors(value_values)
+
+            max_size = max(self._sum_input_sizes)
+            unique_tensor_gather_indices = OrderedDict()
+            unique_tensors_offsets_inverse = {v: k for k, v in unique_tensors_offsets_dict.items()}
+
+            sum_indices = []
+            for i, size in enumerate(self._sum_input_sizes):
+                sum_indices.extend([i for _ in range(size)])
+
+            for i, (col, tensor_offset, sum_index) in enumerate(zip(
+                    flat_col_indices, flat_tensor_offsets, sum_indices)):
+                tensor = unique_tensors_offsets_inverse[tensor_offset]
+                if tensor not in unique_tensor_gather_indices:
+                    unique_tensor_gather_indices[tensor] = defaultdict(list)
+                unique_tensor_gather_indices[tensor][col].append(i % max_size +
+                                                                 sum_index * max_size)
+
+            nested_gather_indices = []
+            unique_lens = []
+            tensor_scatter_indices = OrderedDict()
+            for tensor, col_to_gather_col in unique_tensor_gather_indices.items():
+                gather_indices_sub = []
+                tensor_scatter_indices[tensor] = []
+                for i in range(tensor.shape[1].value):
+                    if i in col_to_gather_col:
+                        gather_indices_sub.append(col_to_gather_col[i])
+                        tensor_scatter_indices[tensor].append(i)
+                unique_lens.append(len(gather_indices_sub))
+                nested_gather_indices.extend(gather_indices_sub)
+
+            # Gather columns from the counts tensor, per unique (input, index) pair
+            reducible_values = utils.gather_cols_3d(max_counts_reshaped, nested_gather_indices)
+
+            # Sum gathered counts together per unique (input, index) pair
+            summed_counts = tf.reduce_sum(reducible_values, axis=-1)
+            # Split the summed-counts tensor per unique input, based on input-sizes
+            unique_input_counts = tf.split(
+                summed_counts, unique_lens, axis=-1) \
+                if len(unique_lens) > 1 else [summed_counts]
+
+            max_counts_split_with_None = []
+            max_counts_split = deque(unique_input_counts)
+            unique_tensors = deque(unique_tensors_offsets_dict.keys())
+            next_tensor = unique_tensors.popleft()
+            for tensor in value_values:
+                if tensor == next_tensor:
+                    cnts = max_counts_split.popleft()
+                    scattered = utils.scatter_cols(
+                        cnts, tensor_scatter_indices[tensor], tensor.shape[1].value)
+                    max_counts_split_with_None.append(scattered)
+                    if unique_tensors:
+                        next_tensor = unique_tensors.popleft()
+                    else:
+                        next_tensor = None
+                else:
+                    max_counts_split_with_None.append(None)
+
+            return self._scatter_to_input_tensors(
+                (max_counts, weight_value),  # Weights
+                (max_counts, ivs_value),  # IVs
+            ) + tuple(max_counts_split_with_None)
 
         # This flag is set to True if we have had to pad within an input
         if self._must_gather_for_mpe_path:
@@ -607,7 +739,7 @@ class SumsLayer(OpNode):
         max_counts_split = tf.split(max_counts_reshaped, value_sizes, 1)
         return self._scatter_to_input_tensors(
             (max_counts, weight_value),  # Weights
-            (max_counts_reshaped, ivs_value),  # IVs
+            (max_counts, ivs_value),  # IVs
             *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
 
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
@@ -615,8 +747,7 @@ class SumsLayer(OpNode):
         values_selected_weighted = self._compute_value_common(
             tf.multiply, lambda x: x, weight_value, ivs_value, *value_values)
         return self._compute_mpe_path_common(values_selected_weighted, counts,
-                                             weight_value, ivs_value, *value_values,
-                                             sum_counts=sum_counts)
+                                             weight_value, ivs_value, *value_values)
 
     def _compute_log_mpe_path(self, counts, weight_value, ivs_value,
                               *value_values, add_random=None,
@@ -624,8 +755,7 @@ class SumsLayer(OpNode):
         # Get weighted, IV selected values
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
         values_weighted = self._compute_value_common(
-            tf.add, lambda x: x, weight_value, ivs_value, *value_values, weighted=weighted,
-            dummy=self.vdummy())
+            tf.add, lambda x: x, weight_value, ivs_value, *value_values, weighted=weighted)
 
         # WARN ADDING RANDOM NUMBERS
         if add_random is not None:
@@ -637,5 +767,4 @@ class SumsLayer(OpNode):
         # /ADDING RANDOM NUMBERS
 
         return self._compute_mpe_path_common(
-            values_weighted, counts, weight_value, ivs_value, *value_values,
-            sum_counts=sum_counts)
+            values_weighted, counts, weight_value, ivs_value, *value_values)

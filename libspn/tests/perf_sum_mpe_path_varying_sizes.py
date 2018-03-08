@@ -16,8 +16,6 @@ import colorama as col
 import numpy as np
 import tensorflow as tf
 from context import libspn as spn
-import importlib
-
 
 from libspn.tests.profiler import profile_report
 from libspn.tests.perf_sum_value_varying_sizes import sums_layer_numpy_common, OpTestResult, \
@@ -30,6 +28,7 @@ blue = col.Fore.BLUE
 green = col.Fore.GREEN
 yellow = col.Fore.YELLOW
 magenta = col.Fore.MAGENTA
+
 
 def assert_all_close(a, b, rtol=1e-6, atol=1e-6, msg=None):
     if not np.allclose(a, b, rtol=rtol, atol=atol):
@@ -56,7 +55,6 @@ def assert_all_close(a, b, rtol=1e-6, atol=1e-6, msg=None):
         print("not close tol = ", atol + rtol * np.abs(y))
         print("dtype = %s, shape = %s" % (a.dtype, a.shape))
         np.testing.assert_allclose(a, b, rtol=rtol, atol=atol, err_msg=msg)
-
 
 
 def print1(str, file, color=yellow):
@@ -112,7 +110,7 @@ def sums_layer_mpe_path_numpy(inputs, sums_sizes, weights, ivs=None,
 class Ops:
 
     @staticmethod
-    def par_sums(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
+    def par_w_inp(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
         """ Creates the graph using only ParSum nodes """
         parallel_sum_nodes = []
         for inp in inputs:
@@ -126,32 +124,52 @@ class Ops:
         mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=log)
         mpe_path_gen.get_mpe_path(root)
         path_op = [mpe_path_gen.counts[w] for w in weights]
+        input_counts = [mpe_path_gen.counts[inp] for inp in inputs]
+        return spn.initialize_weights(root), tf.tuple(path_op + input_counts)[:len(path_op)]
+
+
+    @staticmethod
+    def par_w(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
+        """ Creates the graph using only ParSum nodes """
+        parallel_sum_nodes = []
+        for inp in inputs:
+            parallel_sum_nodes.append(spn.ParSums(inp, num_sums=repetitions))
+        weights = [s.generate_weights() for s in parallel_sum_nodes]
+        if ivs:
+            [s.set_ivs(iv) for s, iv in zip(parallel_sum_nodes, ivs)]
+        root = spn.Sum(*parallel_sum_nodes)
+        root.generate_weights()
+
+        mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=log)
+        mpe_path_gen.get_mpe_path(root)
+        path_op = [mpe_path_gen.counts[w] for w in weights]
+        input_counts = [mpe_path_gen.counts[inp] for inp in inputs]
         return spn.initialize_weights(root), path_op
 
     @staticmethod
-    def sums_layer(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
+    def layer_cnt_gather(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
         """ Creates the graph using a SumsLayer node """
         spn.conf.lru_size = 0
         return Ops._sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
-                                      add_counts_in_sums_layer=False)
+                                      sumslayer_count_with_matmul=False)
 
     @staticmethod
-    def sums_layer_v2(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
+    def layer_cnt_matmul(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
         """ Creates the graph using a SumsLayer node """
         spn.conf.lru_size = 0
         return Ops._sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
-                                      add_counts_in_sums_layer=True)
+                                      sumslayer_count_with_matmul=True)
 
-    @staticmethod
-    def sums_layer_v3(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
-        """ Creates the graph using a SumsLayer node """
-        spn.conf.lru_size = 0
-        return Ops._sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
-                                      add_counts_in_sums_layer=True, use_lru=True)
+    # @staticmethod
+    # def sums_layer_v3(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
+    #     """ Creates the graph using a SumsLayer node """
+    #     spn.conf.lru_size = 0
+    #     return Ops._sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
+    #                                   add_counts_in_sums_layer=True, use_lru=True)
 
     @staticmethod
     def _sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
-                           add_counts_in_sums_layer=True, use_lru=False):
+                           sumslayer_count_with_matmul=True):
         repeated_inputs = []
         repeated_sum_sizes = []
         offset = 0
@@ -164,9 +182,8 @@ class Ops:
             offset += size
 
         # Globally configure to add up the sums before passing on the values to children
-        spn.conf.add_counts_in_sums_layer = add_counts_in_sums_layer
-        sums_layer = spn.SumsLayer(*repeated_inputs, n_sums_or_sizes=repeated_sum_sizes,
-                                   use_lru=use_lru)
+        spn.conf.sumslayer_count_with_matmul = sumslayer_count_with_matmul
+        sums_layer = spn.SumsLayer(*repeated_inputs, num_sums_or_sizes=repeated_sum_sizes)
         weights = sums_layer.generate_weights()
         if ivs:
             sums_layer.set_ivs(*ivs)
@@ -176,7 +193,7 @@ class Ops:
         # Then build MPE path Ops
         mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=log)
         mpe_path_gen.get_mpe_path(root)
-        path_op = [mpe_path_gen.counts[weights]]
+        path_op = [tf.tuple([mpe_path_gen.counts[weights], mpe_path_gen.counts[inputs[0]]])[0]]
         return spn.initialize_weights(root), path_op
 
 
@@ -209,12 +226,12 @@ class PerformanceTestMPEPath(PerformanceTest):
         # Compute the true output, involves grouping together individual sum counts. This is
         # different for each of the Ops considered
         max_size = max(sum_sizes)
-        if op_fun in [Ops.sums_layer, Ops.sums_layer_v2, Ops.sums_layer_v3]:
+        if op_fun in [Ops.layer_cnt_gather, Ops.layer_cnt_matmul]:
             padded = [np.concatenate(
                 (o, np.zeros((self.batch_size, max_size - o.shape[1]))),
                 axis=1) for o in true_out]
             true_out = [np.concatenate(padded, axis=1).reshape((-1, len(sum_sizes_np), max_size))]
-        if op_fun == Ops.par_sums:
+        if op_fun in [Ops.par_w, Ops.par_w_inp]:
             true_out = [np.concatenate(true_out[i:i+self.num_parallel], axis=1)
                         .reshape((self.batch_size, self.num_parallel, -1))
                         for i in range(0, len(true_out), self.num_parallel)]
@@ -222,7 +239,7 @@ class PerformanceTestMPEPath(PerformanceTest):
         # Set up the graph
         with tf.device(device_name):
             # Create input placeholders
-            if op_fun in [Ops.sums_layer, Ops.sums_layer_v2, Ops.sums_layer_v3]:
+            if op_fun in [Ops.layer_cnt_gather, Ops.layer_cnt_matmul]:
                 # For the sums layer graphs, we use a single ContVars input
                 input_size = sum(inp.shape[1] for inp in inputs)
                 inputs_pl = [spn.ContVars(num_vars=input_size)]
@@ -234,7 +251,7 @@ class PerformanceTestMPEPath(PerformanceTest):
 
             # Create placeholders for IVs
             if ivs is not None:
-                if op_fun is Ops.par_sums:
+                if op_fun in [Ops.par_w, Ops.par_w_inp]:
                     ivs_pl = [spn.IVs(num_vars=self.num_parallel, num_vals=len(ind))
                               for ind in sum_indices]
                     ivs = np.split(ivs, len(self.sum_sizes), axis=1)
@@ -246,6 +263,7 @@ class PerformanceTestMPEPath(PerformanceTest):
                     feed_dict[iv_pl] = iv
             else:
                 ivs_pl = None
+
             # Set up the actual operations for the MPE path
             start_time = time.time()
             init_ops, ops = op_fun(
@@ -253,6 +271,7 @@ class PerformanceTestMPEPath(PerformanceTest):
             )
             setup_time = time.time() - start_time
 
+        summary_writer = tf.summary.FileWriter('./tmp', graph=tf.get_default_graph())
         # Get num of graph ops
         graph_size = len(tf.get_default_graph().get_operations())
         # Run op multiple times
@@ -340,7 +359,7 @@ class PerformanceTestMPEPath(PerformanceTest):
                 "MARGINAL" if inf_type == spn.InferenceType.MARGINAL else "MPE",
                 "-LOG" if log else "")
             r = self._run_test(name,
-                               [Ops.par_sums, Ops.sums_layer, Ops.sums_layer_v2, Ops.sums_layer_v3],
+                               [Ops.layer_cnt_gather, Ops.layer_cnt_matmul, Ops.par_w, Ops.par_w_inp],
                                4 * [sum_inputs], 4 * [sum_indices], 4 * [iv],
                                inf_type=inf_type, log=log)
             results.append(r)
