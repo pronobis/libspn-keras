@@ -172,170 +172,173 @@ class TestNodesProductsLayer(unittest.TestCase):
         unit_value_product_test_cases()
         multiple_values_products_test_cases()
 
-    # def test_comput_scope(self):
-    #     """Calculating scope of ProductsLayer"""
-    #     # Create graph
-    #     v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
-    #     v34 = spn.ContVars(num_vars=2, name="V34")
-    #     s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
-    #     s1.generate_ivs()
-    #     s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
-    #     ps1 = spn.ProductsLayer((v12, [0, 7]), (v12, [3, 4]), v34, num_or_size_prods=3,
-    #                        name="Ps1")
-    #     n1 = spn.Concat(s1, s2, (ps1, [2]), name="N1")
-    #     n2 = spn.Concat((ps1, [0]), (ps1, [1]), name="N2")
-    #     s3 = spn.Sum(ps1, name="S3")
-    #     s3.generate_ivs()
-    #     ps2 = spn.ProductsLayer((n1, [0, 1]), (n1, 2), (n2, 0), n2, (n2, 1), s3,
-    #                        num_or_size_prods=4, name="Ps2")
-    #     s4 = spn.Sum((ps2, 0), n2, name="S4")
-    #     s5 = spn.Sum(ps2, name="S5")
-    #     s6 = spn.Sum((ps2, [1, 3]), name="S6")
-    #     s6.generate_ivs()
-    #     ps3 = spn.ProductsLayer(s4, (n1, 2), name="Ps3")
-    #     ps4 = spn.ProductsLayer(s4, s5, s6, s4, s5, s6, num_or_size_prods=2, name="Ps4")
-    #     # Test
-    #     self.assertListEqual(v12.get_scope(),
-    #                          [spn.Scope(v12, 0), spn.Scope(v12, 0),
-    #                           spn.Scope(v12, 0), spn.Scope(v12, 0),
-    #                           spn.Scope(v12, 1), spn.Scope(v12, 1),
-    #                           spn.Scope(v12, 1), spn.Scope(v12, 1)])
-    #     self.assertListEqual(v34.get_scope(),
-    #                          [spn.Scope(v34, 0), spn.Scope(v34, 1)])
-    #     self.assertListEqual(s1.get_scope(),
-    #                          [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0)])
-    #     self.assertListEqual(s2.get_scope(),
-    #                          [spn.Scope(v12, 1)])
-    #     self.assertListEqual(ps1.get_scope(),
-    #                          [spn.Scope(v12, 0) | spn.Scope(v12, 1),
-    #                           spn.Scope(v12, 0) | spn.Scope(v12, 1),
-    #                           spn.Scope(v34, 0) | spn.Scope(v34, 1)])
-    #     self.assertListEqual(n1.get_scope(),
-    #                          [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0),
-    #                           spn.Scope(v12, 1),
-    #                           spn.Scope(v34, 0) | spn.Scope(v34, 1)])
-    #     self.assertListEqual(n2.get_scope(),
-    #                          [spn.Scope(v12, 0) | spn.Scope(v12, 1),
-    #                           spn.Scope(v12, 0) | spn.Scope(v12, 1)])
-    #     self.assertListEqual(s3.get_scope(),
-    #                          [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-    #                           spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-    #                           spn.Scope(s3.ivs.node, 0)])
-    #     self.assertListEqual(ps2.get_scope(),
-    #                          [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-    #                           spn.Scope(s1.ivs.node, 0),
-    #                           spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-    #                           spn.Scope(v34, 0) | spn.Scope(v34, 1),
-    #                           spn.Scope(v12, 0) | spn.Scope(v12, 1),
-    #                           spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-    #                           spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-    #                           spn.Scope(s3.ivs.node, 0)])
-    #     self.assertListEqual(s4.get_scope(),
-    #                          [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-    #                           spn.Scope(s1.ivs.node, 0)])
-    #     self.assertListEqual(s5.get_scope(),
-    #                          [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-    #                           spn.Scope(s1.ivs.node, 0) | spn.Scope(v34, 0) |
-    #                           spn.Scope(v34, 1) | spn.Scope(s3.ivs.node, 0)])
-    #     self.assertListEqual(s6.get_scope(),
-    #                          [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-    #                           spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-    #                           spn.Scope(s3.ivs.node, 0) |
-    #                           spn.Scope(s6.ivs.node, 0)])
-    #     self.assertListEqual(ps3.get_scope(),
-    #                          [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-    #                           spn.Scope(s1.ivs.node, 0) |
-    #                           spn.Scope(v34, 0) | spn.Scope(v34, 1)])
-    #     self.assertListEqual(ps4.get_scope(),
-    #                          [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-    #                           spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-    #                           spn.Scope(s1.ivs.node, 0) |
-    #                           spn.Scope(s3.ivs.node, 0) |
-    #                           spn.Scope(s6.ivs.node, 0),
-    #                           spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-    #                           spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-    #                           spn.Scope(s1.ivs.node, 0) |
-    #                           spn.Scope(s3.ivs.node, 0) |
-    #                           spn.Scope(s6.ivs.node, 0)])
-    #
-    # def test_compute_valid(self):
-    #     """Calculating validity of ProductsLayer"""
-    #     v12 = spn.IVs(num_vars=2, num_vals=3)
-    #     v345 = spn.IVs(num_vars=3, num_vals=3)
-    #     v678 = spn.ContVars(num_vars=3)
-    #     v910 = spn.ContVars(num_vars=2)
-    #     p1 = spn.ProductsLayer((v12, 0), (v12, 4), (v12, 0), (v12, 5),
-    #                       (v12, 1), (v12, 4), (v12, 1), (v12, 5), num_or_size_prods=4)
-    #     p2 = spn.ProductsLayer((v12, 3), (v345, 0), (v12, 3), (v345, 1), (v12, 3), (v345, 2),
-    #                       (v12, 5), (v345, 0), (v12, 5), (v345, 1), (v12, 5), (v345, 2),
-    #                       num_or_size_prods=6)
-    #     p3 = spn.ProductsLayer((v345, 0), (v345, 3), (v345, 6), (v345, 0), (v345, 3),
-    #                       (v345, 7), (v345, 0), (v345, 3), (v345, 8), (v345, 0),
-    #                       (v345, 4), (v345, 6), (v345, 0), (v345, 4), (v345, 7),
-    #                       (v345, 0), (v345, 4), (v345, 8), (v345, 0), (v345, 5),
-    #                       (v345, 6), (v345, 0), (v345, 5), (v345, 7), (v345, 0),
-    #                       (v345, 5), (v345, 8), (v345, 1), (v345, 3), (v345, 6),
-    #                       (v345, 1), (v345, 3), (v345, 7), (v345, 1), (v345, 3),
-    #                       (v345, 8), (v345, 1), (v345, 4), (v345, 6), (v345, 1),
-    #                       (v345, 4), (v345, 7), (v345, 1), (v345, 4), (v345, 8),
-    #                       (v345, 1), (v345, 5), (v345, 6), (v345, 1), (v345, 5),
-    #                       (v345, 7), (v345, 1), (v345, 5), (v345, 8), (v345, 2),
-    #                       (v345, 3), (v345, 6), (v345, 2), (v345, 3), (v345, 7),
-    #                       (v345, 2), (v345, 3), (v345, 8), (v345, 2), (v345, 4),
-    #                       (v345, 6), (v345, 2), (v345, 4), (v345, 7), (v345, 2),
-    #                       (v345, 4), (v345, 8), (v345, 2), (v345, 5), (v345, 6),
-    #                       (v345, 2), (v345, 5), (v345, 7), (v345, 2), (v345, 5),
-    #                       (v345, 8), num_or_size_prods=27)
-    #     p4 = spn.ProductsLayer((v345, 6), (v678, 0), (v345, 6), (v678, 1),
-    #                       (v345, 8), (v678, 0), (v345, 8), (v678, 1), num_or_size_prods=4)
-    #     p5 = spn.ProductsLayer((v678, 1), (v910, 0), (v678, 1), (v910, 1), num_or_size_prods=2)
-    #     p6_1 = spn.ProductsLayer((v678, 0), (v910, 0), (v678, 0), (v910, 1),
-    #                         (v678, 1), (v910, 0), (v678, 1), (v910, 1),
-    #                         (v678, 2), (v910, 0), (v678, 2), (v910, 1), num_or_size_prods=6)
-    #     p6_2 = spn.ProductsLayer((v678, 0), (v910, 0), (v678, 1), (v910, 0),
-    #                         (v678, 1), (v910, 1), (v678, 2), (v910, 0), num_or_size_prods=4)
-    #     p7_1 = spn.ProductsLayer((v678, [0, 1, 2]))
-    #     p7_2 = spn.ProductsLayer(v678)
-    #     p8_1 = spn.ProductsLayer((v910, [0]), (v910, [1]))
-    #     p8_2 = spn.ProductsLayer(v910, num_or_size_prods=2)
-    #     self.assertTrue(p1.is_valid())
-    #     self.assertTrue(p2.is_valid())
-    #     self.assertTrue(p3.is_valid())
-    #     self.assertTrue(p4.is_valid())
-    #     self.assertTrue(p5.is_valid())
-    #     self.assertTrue(p6_1.is_valid())
-    #     self.assertTrue(p6_2.is_valid())
-    #     self.assertTrue(p7_1.is_valid())
-    #     self.assertTrue(p7_2.is_valid())
-    #     self.assertTrue(p8_1.is_valid())
-    #     self.assertTrue(p8_2.is_valid())
-    #     p9 = spn.ProductsLayer((v12, 0), (v12, 1), (v12, 0), (v12, 2),
-    #                       (v12, 1), (v12, 1), (v12, 1), (v12, 2), num_or_size_prods=4)
-    #     p10 = spn.ProductsLayer((v12, 3), (v345, 0), (v345, 0),
-    #                        (v12, 3), (v345, 0), (v345, 1),
-    #                        (v12, 3), (v345, 0), (v345, 2),
-    #                        (v12, 4), (v345, 0), (v345, 0),
-    #                        (v12, 4), (v345, 0), (v345, 1),
-    #                        (v12, 4), (v345, 0), (v345, 2),
-    #                        (v12, 5), (v345, 0), (v345, 0),
-    #                        (v12, 5), (v345, 0), (v345, 1),
-    #                        (v12, 5), (v345, 0), (v345, 2), num_or_size_prods=9)
-    #     p11_1 = spn.ProductsLayer((v345, 3), (v678, 0), (v678, 0),
-    #                          (v345, 5), (v678, 0), (v678, 0), num_or_size_prods=2)
-    #     p11_2 = spn.ProductsLayer((v345, 3), (v678, 0), (v678, 0),
-    #                          (v345, 5), (v678, 0), (v678, 0), num_or_size_prods=3)
-    #     p12 = spn.ProductsLayer((v910, 1), (v910, 1), num_or_size_prods=1)
-    #     p13_1 = spn.ProductsLayer((v910, 0), (v910, 0), (v910, 0), (v910, 1),
-    #                          (v910, 1), (v910, 0), (v910, 1), (v910, 1), num_or_size_prods=4)
-    #     p13_2 = spn.ProductsLayer((v910, 0), (v910, 0), (v910, 0), (v910, 1),
-    #                          (v910, 1), (v910, 0), (v910, 1), (v910, 1), num_or_size_prods=1)
-    #     self.assertFalse(p9.is_valid())
-    #     self.assertFalse(p10.is_valid())
-    #     self.assertFalse(p11_1.is_valid())
-    #     self.assertFalse(p11_2.is_valid())
-    #     self.assertFalse(p12.is_valid())
-    #     self.assertFalse(p13_1.is_valid())
-    #     self.assertFalse(p13_2.is_valid())
+    def test_comput_scope(self):
+        """Calculating scope of ProductsLayer"""
+        # Create graph
+        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
+        v34 = spn.ContVars(num_vars=2, name="V34")
+        s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
+        s1.generate_ivs()
+        s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
+        pl1 = spn.ProductsLayer((v12, [0, 5, 6, 7]), (v12, [3, 4]), v34,
+                                num_or_size_prods=[4, 3, 1], name="PL1")
+        n1 = spn.Concat(s1, s2, (pl1, [2]), name="N1")
+        n2 = spn.Concat((pl1, [0]), (pl1, [1]), name="N2")
+        s3 = spn.Sum(pl1, name="S3")
+        s3.generate_ivs()
+        pl2 = spn.ProductsLayer((n1, [0, 1]), (n1, 2), (n2, 0), (pl1, [1]), n2,
+                                s3, (n2, 1), s3, pl1, num_or_size_prods=[2, 3, 3, 5],
+                                name="PL2")
+        s4 = spn.Sum((pl2, 0), n2, name="S4")
+        s5 = spn.Sum(pl2, name="S5")
+        s6 = spn.Sum((pl2, [1, 3]), name="S6")
+        s6.generate_ivs()
+        pl3 = spn.ProductsLayer(s4, (n1, 2), num_or_size_prods=1, name="PL3")
+        pl4 = spn.ProductsLayer(s4, s5, s6, s4, s5, s6, num_or_size_prods=2, name="PL4")
+        # Test
+        self.assertListEqual(v12.get_scope(),
+                             [spn.Scope(v12, 0), spn.Scope(v12, 0),
+                              spn.Scope(v12, 0), spn.Scope(v12, 0),
+                              spn.Scope(v12, 1), spn.Scope(v12, 1),
+                              spn.Scope(v12, 1), spn.Scope(v12, 1)])
+        self.assertListEqual(v34.get_scope(),
+                             [spn.Scope(v34, 0), spn.Scope(v34, 1)])
+        self.assertListEqual(s1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0)])
+        self.assertListEqual(s2.get_scope(),
+                             [spn.Scope(v12, 1)])
+        self.assertListEqual(pl1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v12, 1) | spn.Scope(v12, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0),
+                              spn.Scope(v34, 1)])
+        self.assertListEqual(n1.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(v12, 1),
+                              spn.Scope(v34, 1)])
+        self.assertListEqual(n2.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v12, 1) | spn.Scope(v12, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0)])
+        self.assertListEqual(s3.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s3.ivs.node, 0)])
+        self.assertListEqual(pl2.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s3.ivs.node, 0),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s3.ivs.node, 0)])
+        self.assertListEqual(s4.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0) | spn.Scope(v34, 0)])
+        self.assertListEqual(s5.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0) | spn.Scope(v34, 0) |
+                              spn.Scope(v34, 1) | spn.Scope(s3.ivs.node, 0)])
+        self.assertListEqual(s6.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s3.ivs.node, 0) |
+                              spn.Scope(s6.ivs.node, 0)])
+        self.assertListEqual(pl3.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1)])
+        self.assertListEqual(pl4.get_scope(),
+                             [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s3.ivs.node, 0) |
+                              spn.Scope(s6.ivs.node, 0),
+                              spn.Scope(v12, 0) | spn.Scope(v12, 1) |
+                              spn.Scope(v34, 0) | spn.Scope(v34, 1) |
+                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s3.ivs.node, 0) |
+                              spn.Scope(s6.ivs.node, 0)])
+
+    def test_compute_valid(self):
+        """Calculating validity of ProductsLayer"""
+        v12 = spn.IVs(num_vars=2, num_vals=3)
+        v345 = spn.IVs(num_vars=3, num_vals=3)
+        v678 = spn.ContVars(num_vars=3)
+        v910 = spn.ContVars(num_vars=2)
+        p1 = spn.ProductsLayer((v12, [0, 3]), (v345, [1, 4, 7]), (v678, [0, 1, 2]),
+                               (v910, [0]), (v910, 1), num_or_size_prods=1)
+        p2 = spn.ProductsLayer((v12, [0, 3]), (v345, [1, 4, 7]),
+                               v678, v910, num_or_size_prods=10)
+        p3 = spn.ProductsLayer((v345, 0), (v345, 3), (v345, 6), (v345, 0), (v345, 3),
+                               (v345, 7), (v345, 0), (v345, 3), (v345, 8), (v345, 0),
+                               (v345, 4), (v345, 6), (v345, 0), (v345, 4), (v345, 7),
+                               (v345, 0), (v345, 4), (v345, 8), (v345, 0), (v345, 5),
+                               (v345, 6), (v345, 0), (v345, 5), (v345, 7), (v345, 0),
+                               (v345, 5), (v345, 8), (v345, 1), (v345, 3), (v345, 6),
+                               (v345, 1), (v345, 3), (v345, 7), (v345, 1), (v345, 3),
+                               (v345, 8), (v345, 1), (v345, 4), (v345, 6), (v345, 1),
+                               (v345, 4), (v345, 7), (v345, 1), (v345, 4), (v345, 8),
+                               (v345, 1), (v345, 5), (v345, 6), (v345, 1), (v345, 5),
+                               (v345, 7), (v345, 1), (v345, 5), (v345, 8), (v345, 2),
+                               (v345, 3), (v345, 6), (v345, 2), (v345, 3), (v345, 7),
+                               (v345, 2), (v345, 3), (v345, 8), (v345, 2), (v345, 4),
+                               (v345, 6), (v345, 2), (v345, 4), (v345, 7), (v345, 2),
+                               (v345, 4), (v345, 8), (v345, 2), (v345, 5), (v345, 6),
+                               (v345, 2), (v345, 5), (v345, 7), (v345, 2), (v345, 5),
+                               (v345, 8), num_or_size_prods=27)
+        p4 = spn.ProductsLayer((v12, 0), (v12, [3]), (v345, [1, 4, 6]), v678,
+                               (v910, 1), num_or_size_prods=3)
+        p5 = spn.ProductsLayer((v12, 0), (v345, 4),
+                               (v678, [0, 1]),
+                               (v12, 0), (v345, 4),
+                               (v678, [0, 1]), num_or_size_prods=4)
+        p6 = spn.ProductsLayer((v678, 1), num_or_size_prods=[1])
+        p7 = spn.ProductsLayer((v12, 1), (v12, [5]), (v345, [0, 4, 8]), v678, v910,
+                               num_or_size_prods=[10])
+        p8 = spn.ProductsLayer((v12, 1), (v12, [5]), (v345, [0, 4, 8]), v678, v910,
+                               num_or_size_prods=[1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+        p9 = spn.ProductsLayer((v12, [1, 4]), (v345, [2, 5, 8]), v678, v910,
+                               num_or_size_prods=[2, 2, 2, 2, 2])
+        p10 = spn.ProductsLayer((v12, [0]), (v12, 5),
+                                (v345, [0, 3, 6]),
+                                v678,
+                                (v910, [1, 0]), num_or_size_prods=[2, 3, 3, 2])
+        p11 = spn.ProductsLayer(v678, (v12, [2, 5]), (v345, [0, 3, 6]), v910,
+                                num_or_size_prods=[1, 2, 3, 4])
+        p12 = spn.ProductsLayer((v12, [0, 3, 4, 5]), (v345, [0, 3, 6, 7, 8]),
+                                v678, v910, num_or_size_prods=[2, 1, 4, 1, 6])
+        self.assertTrue(p1.is_valid())
+        self.assertTrue(p2.is_valid())
+        self.assertTrue(p3.is_valid())
+        self.assertTrue(p4.is_valid())
+        self.assertTrue(p5.is_valid())
+        self.assertTrue(p6.is_valid())
+        self.assertTrue(p7.is_valid())
+        self.assertTrue(p8.is_valid())
+        self.assertTrue(p9.is_valid())
+        self.assertTrue(p10.is_valid())
+        self.assertTrue(p11.is_valid())
+        self.assertTrue(p12.is_valid())
+        p13 = spn.ProductsLayer(v12, num_or_size_prods=1)
+        p14 = spn.ProductsLayer((v910, 1), (v910, 1), num_or_size_prods=1)
+        p15 = spn.ProductsLayer((v12, 0), (v345, 1), (v345, 3),
+                                (v12, 0), (v345, 1), (v345, 2), num_or_size_prods=2)
+        p16 = spn.ProductsLayer((v345, [3, 4]), num_or_size_prods=[2])
+        p17 = spn.ProductsLayer((v910, 1), (v910, 1), num_or_size_prods=[2])
+        p18 = spn.ProductsLayer((v12, [1, 3, 4]), (v345, [3, 4]),
+                                num_or_size_prods=[2, 3])
+        self.assertFalse(p13.is_valid())
+        self.assertFalse(p14.is_valid())
+        self.assertFalse(p15.is_valid())
+        self.assertFalse(p16.is_valid())
+        self.assertFalse(p17.is_valid())
+        self.assertFalse(p18.is_valid())
 
     def test_compute_mpe_path(self):
         """Calculating path of ProductsLayer"""

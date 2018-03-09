@@ -142,13 +142,16 @@ class ProductsLayer(OpNode):
     def _compute_scope(self, *value_scopes):
         if not self._values:
             raise StructureError("%s is missing input values." % self)
-        value_scopes = list(chain.from_iterable(self._gather_input_scopes(
+        # Gather and flatten value scopes
+        flat_value_scopes = list(chain.from_iterable(self._gather_input_scopes(
                                                 *value_scopes)))
-        sublist_size = int(len(value_scopes) / self._num_prods)
-        # Divide gathered value scopes into sublists, one per modelled Product node.
-        value_scopes_sublists = [value_scopes[i:i+sublist_size] for i in
-                                 range(0, len(value_scopes), sublist_size)]
-        return [Scope.merge_scopes(vs) for vs in value_scopes_sublists]
+        # Divide gathered and flattened value scopes into sublists, one per
+        # modeled product op.
+        prod_input_sizes = np.cumsum(np.array(self._prod_input_sizes)).tolist()
+        prod_input_sizes.insert(0, 0)
+        value_scopes_lists = [flat_value_scopes[start:stop] for start, stop in
+                              zip(prod_input_sizes[:-1], prod_input_sizes[1:])]
+        return [Scope.merge_scopes(vsl) for vsl in value_scopes_lists]
 
     def _compute_valid(self, *value_scopes):
         if not self._values:
@@ -159,10 +162,13 @@ class ProductsLayer(OpNode):
             return None
         # Check product decomposability
         flat_value_scopes = list(chain.from_iterable(value_scopes_))
-        values_per_product = int(len(flat_value_scopes) / self._num_prods)
-        sub_value_scopes = [flat_value_scopes[i:(i + values_per_product)] for i in
-                            range(0, len(flat_value_scopes), values_per_product)]
-        for scopes in sub_value_scopes:
+        # Divide gathered and flattened value scopes into sublists, one per
+        # modeled product op.
+        prod_input_sizes = np.cumsum(np.array(self._prod_input_sizes)).tolist()
+        prod_input_sizes.insert(0, 0)
+        value_scopes_lists = [flat_value_scopes[start:stop] for start, stop in
+                              zip(prod_input_sizes[:-1], prod_input_sizes[1:])]
+        for scopes in value_scopes_lists:
             for s1, s2 in combinations(scopes, 2):
                 if s1 & s2:
                     ProductsLayer.info("%s is not decomposable with input value scopes %s",
@@ -343,18 +349,28 @@ class ProductsLayer(OpNode):
         # index of all counts for which the pair is a child of
         gather_counts_indices, unique_inputs = self._collect_count_indices_per_input()
 
-        # Gather columns from the counts tensor, per unique (input, index) pair
-        reducible_values = utils.gather_cols_3d(counts, gather_counts_indices)
+        if self._num_prods > 1:
+            # Gather columns from the counts tensor, per unique (input, index) pair
+            reducible_values = utils.gather_cols_3d(counts, gather_counts_indices)
 
-        # Sum gathered counts together per unique (input, index) pair
-        summed_counts = tf.reduce_sum(reducible_values, axis=-1)
+            # Sum gathered counts together per unique (input, index) pair
+            summed_counts = tf.reduce_sum(reducible_values, axis=-1)
+        else:
+            # Calculate total inputs size
+            inputs_size = sum([v_input.get_size(v_value) for v_input, v_value in
+                               zip(self._values, value_values)])
+
+            # Tile counts only if input is larger than 1
+            summed_counts = (tf.tile(counts, [1, inputs_size]) if inputs_size > 1
+                             else counts)
 
         # For each unique input in the values list, calculate the number of
         # unique indices
         unique_inp_sizes = [len(v) for v in unique_inputs.values()]
 
         # Split the summed-counts tensor per unique input, based on input-sizes
-        unique_input_counts = tf.split(summed_counts, unique_inp_sizes, axis=1)
+        unique_input_counts = tf.split(summed_counts, unique_inp_sizes, axis=-1) \
+            if len(unique_inp_sizes) > 1 else [summed_counts]
 
         # Scatter each unique-counts tensor to the respective input, only once
         # per unique input in the values list
