@@ -277,7 +277,7 @@ class AbstractPerformanceTest(abc.ABC):
         for conf in self._config.iterate():
             df_filtered = filter_df_with_dict(df, conf.fields)
             for metric in plot_metrics:
-                plot = sns.barplot(x=df["unit_name"], y=df_filtered[metric])
+                plot = sns.barplot(x=df["unit_name"], y=df_filtered[metric], capsize=0.2)
                 plot.set_title(conf.description().replace('-', ' '))
                 plot.get_figure().savefig(
                     os.path.join(self._logdir, conf.description() + "_" + metric + '.png'))

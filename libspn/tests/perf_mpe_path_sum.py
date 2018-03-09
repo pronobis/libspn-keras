@@ -212,7 +212,15 @@ def main():
         SumsLayerUnit("LayerCountGather", tf.float32, "gather"),
         ParSumsUnit("ParSums", tf.float32)
     ]
-    config_generator = ConfigGenerator()
+    # Select the device
+    gpu = [False, True]
+    if args.without_cpu:
+        gpu.remove(False)
+    if args.without_gpu:
+        gpu.remove(True)
+
+    # Make a config generator and run the test
+    config_generator = ConfigGenerator(gpu=gpu)
     performance_test = MPEPathPerformanceTest(
         name="MPEPathPerformanceSumNodes", performance_units=units, test_args=args,
         config_generator=config_generator)
