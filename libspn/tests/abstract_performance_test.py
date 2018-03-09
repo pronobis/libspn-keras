@@ -11,6 +11,7 @@ import argparse
 import pandas as pd
 import tabulate
 import seaborn as sns
+import matplotlib.pyplot as plt
 
 
 
@@ -20,7 +21,7 @@ class AbstractPerformanceUnit(abc.ABC):
         self.name = name
         self._dtype = dtype
 
-    def build(self, inputs, conf, stacking=False, n_ops=100):
+    def build(self, inputs, conf):
         """ Returns the Op to evaluate  """
         self._placeholders = self._build_placeholders(inputs)
         start_time = time.time()
@@ -185,50 +186,45 @@ class AbstractPerformanceTest(abc.ABC):
         self._write_mode = test_args.write_mode
         self._run_name = test_args.run_name
         self._plot = test_args.plot
-        # self._num_name = test_arg
 
-    def _run_single(self, inputs, conf, stacking=False):
+    def _run_single(self, unit, inputs, conf):
+        # For each unit,
         run_times = []
-        results = []
-        for unit in self._units:
-            tf.reset_default_graph()
-            op, init_ops, placeholders, setup_time = unit.build(inputs, conf)
-            true_out = unit.true_out(inputs, conf)
-            feed_dict = unit.feed_dict(inputs)
+        tf.reset_default_graph()
+        op, init_ops, placeholders, setup_time = unit.build(inputs, conf)
+        true_out = unit.true_out(inputs, conf)
+        feed_dict = unit.feed_dict(inputs)
+        output_correct = True
+        with tf.Session(config=tf.ConfigProto(
+                allow_soft_placement=True, log_device_placement=self._log_devs)) as sess:
+            _, init_time = time_fn(lambda: sess.run(init_ops))
+            for n in range(self._num_runs):
+                out, run_time = time_fn(lambda: sess.run(op, feed_dict=feed_dict))
+                run_times.append(run_time)
+                try:
+                    if isinstance(out, list):
+                        for o, to in zip(out, true_out):
+                            np.testing.assert_allclose(o, to)
+                    else:
+                        np.testing.assert_array_almost_equal(out, true_out)
+                except AssertionError:
+                    output_correct = False
+                    self.test_failed = True
+                    if self._exit_on_fail:
+                        raise RuntimeError("Incorrect output for test {}".format(self.name))
 
-            output_correct = True
-            with tf.Session(config=tf.ConfigProto(
-                    allow_soft_placement=True, log_device_placement=self._log_devs)) as sess:
-                _, init_time = time_fn(lambda: sess.run(init_ops))
-                for n in range(self._num_runs):
-                    out, run_time = time_fn(lambda: sess.run(op, feed_dict=feed_dict))
-                    run_times.append(run_time)
-                    try:
-                        if isinstance(out, list):
-                            for o, to in zip(out, true_out):
-                                np.testing.assert_allclose(o, to)
-                        else:
-                            np.testing.assert_array_almost_equal(out, true_out)
-                    except AssertionError:
-                        output_correct = False
-                        self.test_failed = True
-                        if self._exit_on_fail:
-                            print(out.shape, true_out.shape)
-                            raise RuntimeError("Incorrect output for test {}".format(self.name))
-
-                if self._profile:
-                    # Create a suitable filename suffix
-                    op_description = unit.description()
-                    test_description = self.description()
-                    config_description = conf.description()
-                    # Create a profiling report
-                    suffix = "{}_{}_{}".format(test_description, op_description, config_description)
-                    profile_report(sess, op, feed_dict, os.path.join(self._logdir, "profiling"),
-                                   filename_prefix=self.name, filename_suffix=suffix)
-                results.append(unit.test_result(
-                    unit.name, run_times, init_time, setup_time, output_correct, conf,
-                    self._run_name))
-        return results
+            if self._profile:
+                # Create a suitable filename suffix
+                op_description = unit.description()
+                test_description = self.description()
+                config_description = conf.description()
+                # Create a profiling report
+                suffix = "{}_{}_{}".format(test_description, op_description, config_description)
+                profile_report(sess, op, feed_dict, os.path.join(self._logdir, "profiling"),
+                               filename_prefix=self.name, filename_suffix=suffix)
+            return unit.test_result(
+                unit.name, run_times, init_time, setup_time, output_correct, conf,
+                self._run_name)
 
     def random_numpy_tensor(self, shape):
         np.random.seed(self.seed())
@@ -253,8 +249,12 @@ class AbstractPerformanceTest(abc.ABC):
         results = []
         inputs = self.generate_input()
         for conf in self._config.iterate():
-            results.extend(self._run_single(inputs, conf))
+            for unit in self._units:
+                results.append(self._run_single(unit, inputs, conf))
+        self._report_and_write_results(results, plot_metrics)
+        return results
 
+    def _report_and_write_results(self, results, plot_metrics):
         df = pd.DataFrame(results)
         results_path = os.path.join(self._logdir, 'results.csv')
         print(tabulate.tabulate(df, headers=df.columns, tablefmt='grid', showindex=False))
@@ -263,10 +263,9 @@ class AbstractPerformanceTest(abc.ABC):
             df = pd.read_csv(results_path)
         else:
             df.to_csv(results_path, index=False, mode='w')
-
         if self._plot:
             self._make_plots(df, plot_metrics)
-        return results
+        return df
 
     def _make_plots(self, df, plot_metrics):
         def filter_df_with_dict(df, d):
@@ -279,17 +278,26 @@ class AbstractPerformanceTest(abc.ABC):
         for conf in self._config.iterate():
             df_filtered = filter_df_with_dict(df, conf.fields)
             for metric in plot_metrics:
-                plot = sns.barplot(x=df["unit_name"], y=df_filtered[metric], capsize=0.2)
+                plot = sns.barplot(x=df_filtered["unit_name"], y=df_filtered[metric], capsize=0.2)
                 plot.set_title(conf.description().replace('-', ' '))
                 plot.get_figure().savefig(
                     os.path.join(self._logdir, conf.description() + "_" + metric + '.png'))
-
+                plt.clf()
             df_filtered['config'] = conf.description()
             config_dfs.append(df_filtered)
 
+        for gpu in self._config.gpu:
+            for metric in plot_metrics:
+                plot = sns.barplot(x=df['unit_name'], y=df[metric])
+                plot.set_title("Fully aggregated " + ('GPU' if gpu else 'CPU'))
+                plot.get_figure().savefig(
+                    os.path.join(self._logdir,
+                                 'aggregate' + ('GPU' if gpu else 'CPU') + "_" + metric + '.png'))
+                plt.clf()
         all_configs = pd.concat(config_dfs)
         for metric in plot_metrics:
             plot = sns.factorplot(x='unit_name', y=metric, col='config', kind='bar',
                                   data=all_configs, col_wrap=4)
             plot.savefig(
                 os.path.join(self._logdir, 'all_configs' + "_" + metric + '.png'))
+            plt.clf()
