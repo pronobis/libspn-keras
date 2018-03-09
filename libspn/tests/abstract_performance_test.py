@@ -158,13 +158,16 @@ class PerformanceTestArgs(argparse.ArgumentParser):
                           help='Unique identifier for runs. Can be used for easy cross-run' 
                                'comparison of results later.')
         self.add_argument("--plot", action='store_true', dest='plot')
+        self.add_argument("--gpu_name", default='GTX1080')
+        self.add_argument("--cpu_name", default='XeonE5i7')
 
 
 class AbstractPerformanceTest(abc.ABC):
 
     def __init__(self, name, performance_units, test_args, config_generator):
         self._units = performance_units
-        logdir = os.path.join(test_args.logdir, name)
+        self._system_desc = "{}_{}".format(test_args.cpu_name, test_args.gpu_name)
+        logdir = os.path.join(test_args.logdir, name, self._system_desc)
         if os.path.exists(logdir) and test_args.write_mode == 'safe':
             raise FileExistsError("Path already made and write mode set to safe, did you want to "
                                   "overwrite or append?")
