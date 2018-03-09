@@ -498,84 +498,6 @@ class SumsLayer(OpNode):
         return self._compute_value_common(
             tf.add, reduce_max, weight_tensor, ivs_tensor, *value_tensors, weighted=True)
 
-    def _collect_count_indices_per_input(self):
-        """
-        For every unique (input, index) pair in the node's values list, collects
-        and returns all column-indices of the counts tensor, for which the unique
-        pair is a child of.
-        """
-        # Create a list of each input, paired with all the indices assosiated
-        # with it
-        # Eg: self._values = [(A, [0, 2, 3]),
-        #                     (B, 1),
-        #                     (A, None),
-        #                     (B, [1, 2])]
-        # expanded_inputs_list = [(A, 0), (A, 2), (A, 3),
-        #                         (B, 1),
-        #                         (A, 0), (A, 1), (A, 2), (A, 3),
-        #                         (B, 1), (B, 2)]
-        expanded_inputs_list = []
-        for inp in self._values:
-            if inp.indices is None:
-                for i in range(inp.node.get_out_size()):
-                    expanded_inputs_list.append((inp.node, i))
-            elif isinstance(inp.indices, list):
-                for i in inp.indices:
-                    expanded_inputs_list.append((inp.node, i))
-            elif isinstance(inp.indices, int):
-                expanded_inputs_list.append((inp.node, inp.indices))
-
-        # Create a list grouping together all inputs to each product modelled
-        # Eg: self._sum_input_sizes = [2, 3, 2, 1, 2]
-        #     prod_inputs_lists = [[(A, 0), (A, 2)],        # Prod-0
-        #                          [(A, 3), (B, 1),(A, 0)], # Prod-1
-        #                          [(A, 1), (A, 2)],        # Prod-2
-        #                          [(A, 3)],                # Prod-3
-        #                          [(B, 1), (B, 2)]]        # Prod-4
-        prod_input_sizes = np.cumsum(np.array(self._sum_input_sizes)).tolist()
-        prod_input_sizes.insert(0, 0)
-        prod_inputs_lists = [expanded_inputs_list[start:stop] for start, stop in
-                             zip(prod_input_sizes[:-1], prod_input_sizes[1:])]
-
-        # Create a dictionary with each unique input and index pair as it's key,
-        # and a list of product-indices as the corresponding value
-        # Eg: unique_inps_inds_dict = {(A, 0): [0, 1], # Prod-0 and  Prod-1
-        #                              (A, 1): [2],    # Prod-2
-        #                              (A, 2): [0, 2], # Prod-0 and  Prod-2
-        #                              (A, 3): [1],    # Prod-1
-        #                              (B, 1): [1, 4], # Prod-1 and  Prod-4
-        #                              (B, 2): [4]}    # Prod-4
-        unique_inps_inds = defaultdict(list)
-        for idx, inps in enumerate(prod_inputs_lists):
-            for inp in inps:
-                unique_inps_inds[inp] += [idx]
-
-        # Sort dictionary based on key - Sorting ensures avoiding scatter op when
-        # the original inputs is passed without indices
-        unique_inps_inds = OrderedDict(sorted(unique_inps_inds.items(), key=operator.itemgetter(0)))
-
-        # Collect all product indices as a nested list of indices to gather from
-        # counts tensor
-        # Eg: gather_counts_indices = [[0, 1],
-        #                              [2],
-        #                              [0, 2],
-        #                              [1],
-        #                              [1, 4],
-        #                              [4]]
-        gather_counts_indices = [v for v in unique_inps_inds.values()]
-
-        # Create an ordered dictionary of unique inputs to this node as key,
-        # and a list of unique indices per input as the corresponding value
-        # Eg: unique_inps = {A: [0, 1, 2, 3]
-        #                    B: [1, 2]}
-        unique_inps = OrderedDict()
-        for inp, ind in unique_inps_inds.keys():
-            unique_inps[inp] = []
-        for inp, ind in unique_inps_inds.keys():
-            unique_inps[inp] += [ind]
-
-        return gather_counts_indices, unique_inps
-
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
                                  ivs_value, *value_values):
         """ Common operations for log and non-log MPE path """
@@ -593,7 +515,7 @@ class SumsLayer(OpNode):
 
         max_counts_reshaped = tf.reshape(max_counts, shape=reshape)
 
-        if conf.sumslayer_count_with_matmul:
+        if conf.sumslayer_count_sum_strategy == 'matmul':
             # Get the flat indices for the columns for each input and the tensor offsets in the
             # concatenation of the unique tensors
             flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
@@ -655,50 +577,19 @@ class SumsLayer(OpNode):
                     (max_counts, weight_value),  # Weights
                     (max_counts, ivs_value),  # IVs
                 ) + tuple(max_counts_split_with_None)
-        else:
-            # TODO clean up the mess below...
+        elif conf.sumslayer_count_sum_strategy == 'gather':
+            # First obtain the flat column, tensor offsets and unique tensors with their respective
+            # offsets
             flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
                 self._flat_indices_offsets_and_unique_tensors(value_values)
 
-            max_size = max(self._sum_input_sizes)
-            unique_tensor_gather_indices = OrderedDict()
-            unique_tensors_offsets_inverse = {v: k for k, v in unique_tensors_offsets_dict.items()}
+            # In this case we gather, sum by reducing and finally create scatterable tensors with
+            # corresponding indices
+            tensor_to_scatter_indices, unique_input_counts = self._gather_reduce_to_scatterable(
+                flat_col_indices, flat_tensor_offsets, max_counts_reshaped,
+                unique_tensors_offsets_dict)
 
-            sum_indices = []
-            for i, size in enumerate(self._sum_input_sizes):
-                sum_indices.extend([i for _ in range(size)])
-
-            for i, (col, tensor_offset, sum_index) in enumerate(zip(
-                    flat_col_indices, flat_tensor_offsets, sum_indices)):
-                tensor = unique_tensors_offsets_inverse[tensor_offset]
-                if tensor not in unique_tensor_gather_indices:
-                    unique_tensor_gather_indices[tensor] = defaultdict(list)
-                unique_tensor_gather_indices[tensor][col].append(i % max_size +
-                                                                 sum_index * max_size)
-
-            nested_gather_indices = []
-            unique_lens = []
-            tensor_scatter_indices = OrderedDict()
-            for tensor, col_to_gather_col in unique_tensor_gather_indices.items():
-                gather_indices_sub = []
-                tensor_scatter_indices[tensor] = []
-                for i in range(tensor.shape[1].value):
-                    if i in col_to_gather_col:
-                        gather_indices_sub.append(col_to_gather_col[i])
-                        tensor_scatter_indices[tensor].append(i)
-                unique_lens.append(len(gather_indices_sub))
-                nested_gather_indices.extend(gather_indices_sub)
-
-            # Gather columns from the counts tensor, per unique (input, index) pair
-            reducible_values = utils.gather_cols_3d(max_counts_reshaped, nested_gather_indices)
-
-            # Sum gathered counts together per unique (input, index) pair
-            summed_counts = tf.reduce_sum(reducible_values, axis=-1)
-            # Split the summed-counts tensor per unique input, based on input-sizes
-            unique_input_counts = tf.split(
-                summed_counts, unique_lens, axis=-1) \
-                if len(unique_lens) > 1 else [summed_counts]
-
+            # Assign the splits to the right index in the output tuple
             max_counts_split_with_None = []
             max_counts_split = deque(unique_input_counts)
             unique_tensors = deque(unique_tensors_offsets_dict.keys())
@@ -706,8 +597,9 @@ class SumsLayer(OpNode):
             for tensor in value_values:
                 if tensor == next_tensor:
                     cnts = max_counts_split.popleft()
+                    # Scatter the counts
                     scattered = utils.scatter_cols(
-                        cnts, tensor_scatter_indices[tensor], tensor.shape[1].value)
+                        cnts, tensor_to_scatter_indices[tensor], tensor.shape[1].value)
                     max_counts_split_with_None.append(scattered)
                     if unique_tensors:
                         next_tensor = unique_tensors.popleft()
@@ -720,27 +612,71 @@ class SumsLayer(OpNode):
                 (max_counts, weight_value),  # Weights
                 (max_counts, ivs_value),  # IVs
             ) + tuple(max_counts_split_with_None)
+        else:
+            raise ValueError("Unknown count summing strategy {}"
+                             .format(conf.sumslayer_count_sum_strategy))
 
-        # This flag is set to True if we have had to pad within an input
-        if self._must_gather_for_mpe_path:
-            # Will hold indices to gather
-            indices = []
-            offset = 0
-            for size in self._sum_input_sizes:
-                indices.extend([offset + i for i in range(size)])
-                offset += max_size
-            # Gather so that padded parts are left out
-            max_counts_reshaped = utils.gather_cols(max_counts_reshaped, indices)
+    def _gather_reduce_to_scatterable(self, flat_col_indices, flat_tensor_offsets,
+                                      max_counts_reshaped, unique_tensors_offsets_dict):
+        """Helper method that is used for summing counts within the layer before passing it on
+        by means of gathering from the (padded) weighted values and reducing afterwards.
+        """
+        # Make a flat list containing the sum index for each of the 'concatenated' inputs
+        sum_indices = []
+        for i, size in enumerate(self._sum_input_sizes):
+            sum_indices.extend([i for _ in range(size)])
 
-        # TODO we should be able to split the tensor without having to gather and ignore 'padded'
-        # parts if the padding always occurred between two tensors and never within a single tensor
+        # For each unique tensor and index pair, we should have a list of indices to gather from
+        # the reducible values tensor
+        max_size = max(self._sum_input_sizes)
+        unique_tensor_gather_indices = OrderedDict()
+        unique_tensors_offsets_inverse = {v: k for k, v in unique_tensors_offsets_dict.items()}
+        for i, (col, tensor_offset, sum_index) in enumerate(zip(
+                flat_col_indices, flat_tensor_offsets, sum_indices)):
+            # Give the offset of the current flat (axis 1) index, we get the input tensor that
+            # feeds its value to it.
+            tensor = unique_tensors_offsets_inverse[tensor_offset]
+            if tensor not in unique_tensor_gather_indices:
+                unique_tensor_gather_indices[tensor] = defaultdict(list)
+            # For this tensor-column combination, we register the corresponding index to gather
+            # from the padded 2D reducible tensor
 
-        # Split the reshaped max counts to value inputs
-        max_counts_split = tf.split(max_counts_reshaped, value_sizes, 1)
-        return self._scatter_to_input_tensors(
-            (max_counts, weight_value),  # Weights
-            (max_counts, ivs_value),  # IVs
-            *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
+            # TODO this shouldn't work...
+            # at least there seems something not right with i % max_size
+            unique_tensor_gather_indices[tensor][col].append(
+                i % max_size + sum_index * max_size)
+
+        # For each tensor that we have, we compute the scatter indices. Here we construct the
+        # nested gather indices needed for gather_cols_3d.
+        nested_gather_indices = []
+        unique_lens = []
+        tensor_scatter_indices = OrderedDict()
+        for tensor, col_to_gather_col in unique_tensor_gather_indices.items():
+            gather_indices_sub = []
+            tensor_scatter_indices[tensor] = []
+            # Go over all possible indices
+            for i in range(tensor.shape[1].value):
+                # If this index is registered as one to gather for...
+                if i in col_to_gather_col:
+                    # ... then we append the gathering columns to the currently considered
+                    # tensor column
+                    gather_indices_sub.append(col_to_gather_col[i])
+                    tensor_scatter_indices[tensor].append(i)
+            # Length of the list of columns for each unique input value tensor
+            unique_lens.append(len(gather_indices_sub))
+            # Will contain a list of lists. Inner lists correspond to columns to gather, while
+            # outer list corresponds to the individual 'indexed' input nodes
+            nested_gather_indices.extend(gather_indices_sub)
+
+        # Gather columns from the counts tensor, per unique (input, index) pair
+        reducible_values = utils.gather_cols_3d(max_counts_reshaped, nested_gather_indices)
+        # Sum gathered counts together per unique (input, index) pair
+        summed_counts = tf.reduce_sum(reducible_values, axis=-1)
+        # Split the summed-counts tensor per unique input, based on input-sizes
+        unique_input_counts = tf.split(
+            summed_counts, unique_lens, axis=-1) \
+            if len(unique_lens) > 1 else [summed_counts]
+        return tensor_scatter_indices, unique_input_counts
 
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
                           add_random=None, use_unweighted=False, sum_counts=True):

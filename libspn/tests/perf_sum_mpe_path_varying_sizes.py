@@ -130,7 +130,6 @@ class Ops:
         input_counts = [mpe_path_gen.counts[inp] for inp in inputs]
         return spn.initialize_weights(root), tf.tuple(path_op + input_counts)[:len(path_op)]
 
-
     @staticmethod
     def par_w(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None, weights=None):
         """ Creates the graph using only ParSum nodes """
@@ -155,25 +154,18 @@ class Ops:
         """ Creates the graph using a SumsLayer node """
         spn.conf.lru_size = 0
         return Ops._sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
-                                      sumslayer_count_with_matmul=False, weights=weights)
+                                      sumslayer_count_sum_strategy='gather', weights=weights)
 
     @staticmethod
     def layer_cnt_matmul(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None, weights=None):
         """ Creates the graph using a SumsLayer node """
         spn.conf.lru_size = 0
         return Ops._sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
-                                      sumslayer_count_with_matmul=True, weights=weights)
-
-    # @staticmethod
-    # def sums_layer_v3(inputs, sum_indices, repetitions, inf_type, log=False, ivs=None):
-    #     """ Creates the graph using a SumsLayer node """
-    #     spn.conf.lru_size = 0
-    #     return Ops._sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
-    #                                   add_counts_in_sums_layer=True, use_lru=True)
+                                      sumslayer_count_sum_strategy='matmul', weights=weights)
 
     @staticmethod
     def _sums_layer_common(inf_type, inputs, ivs, log, repetitions, sum_indices,
-                           sumslayer_count_with_matmul=True, weights=None):
+                           sumslayer_count_sum_strategy='matmul', weights=None):
         repeated_inputs = []
         repeated_sum_sizes = []
         offset = 0
@@ -186,7 +178,7 @@ class Ops:
             offset += size
 
         # Globally configure to add up the sums before passing on the values to children
-        spn.conf.sumslayer_count_with_matmul = sumslayer_count_with_matmul
+        spn.conf.sumslayer_count_sum_strategy = sumslayer_count_sum_strategy
         sums_layer = spn.SumsLayer(*repeated_inputs, num_sums_or_sizes=repeated_sum_sizes)
         weight_node = sums_layer.generate_weights(weights)
         if ivs:
@@ -364,7 +356,7 @@ class PerformanceTestMPEPath(PerformanceTest):
             r = self._run_test(name,
                                [Ops.layer_cnt_matmul, Ops.layer_cnt_gather,
                                 Ops.par_w, Ops.par_w_inp],
-                               4 * [sum_inputs], 4 * [sum_indices], 4 * [iv],
+                               5 * [sum_inputs], 5 * [sum_indices], 5 * [iv],
                                inf_type=inf_type, log=log)
             results.append(r)
 

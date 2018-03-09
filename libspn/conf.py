@@ -24,7 +24,8 @@ custom_scatter_values = True
 """Whether to use custom op for implementing
 :meth:`~libspn.utils.scatter_values`."""
 
-sumslayer_count_with_matmul = True
-"""Whether to add the counts inside a 
-SumsLayer while computing MPE path.
+sumslayer_count_sum_strategy = "matmul"
+"""Strategy to apply when summing counts 
+within a SumsLayer. Can be 'matmul',
+'gather' or 'None'
 """
