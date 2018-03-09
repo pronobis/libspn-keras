@@ -1,7 +1,5 @@
 import abc
 import os
-
-import functools
 import tensorflow as tf
 import time
 import numpy as np
@@ -13,7 +11,6 @@ import argparse
 import pandas as pd
 import tabulate
 import seaborn as sns
-import matplotlib.pyplot as plt
 
 
 
@@ -87,7 +84,11 @@ class TestConfig:
         self.fields = {'inf_type': str(inf_type), 'log': log, 'gpu': gpu, **kwargs}
 
     def description(self):
-        return "GPU={}-LOG={}-InfType={}".format(self.gpu, self.log, self.inf_type)
+        return ' '.join([
+            "GPU" if self.gpu else "CPU",
+            "LOG" if self.log else "Non-LOG",
+            "Marginal" if self.inf_type == spn.InferenceType.MARGINAL else "MPE"]
+        )
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
@@ -274,6 +275,7 @@ class AbstractPerformanceTest(abc.ABC):
                 ret = ret[ret[k] == v].copy()
             return ret
 
+        config_dfs = []
         for conf in self._config.iterate():
             df_filtered = filter_df_with_dict(df, conf.fields)
             for metric in plot_metrics:
@@ -282,4 +284,12 @@ class AbstractPerformanceTest(abc.ABC):
                 plot.get_figure().savefig(
                     os.path.join(self._logdir, conf.description() + "_" + metric + '.png'))
 
+            df_filtered['config'] = conf.description()
+            config_dfs.append(df_filtered)
 
+        all_configs = pd.concat(config_dfs)
+        for metric in plot_metrics:
+            plot = sns.factorplot(x='unit_name', y=metric, col='config', kind='bar',
+                                  data=all_configs, col_wrap=4)
+            plot.savefig(
+                os.path.join(self._logdir, 'all_configs' + "_" + metric + '.png'))
