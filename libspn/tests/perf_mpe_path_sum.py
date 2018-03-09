@@ -162,7 +162,8 @@ class ParSumsUnit(AbstractSumUnit):
         mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=log)
         mpe_path_gen.get_mpe_path(root)
         path_op = [mpe_path_gen.counts[w] for w in weight_nodes]
-        return path_op, spn.initialize_weights(root)
+        input_counts = [mpe_path_gen.counts[inp] for inp in inputs]
+        return tf.tuple(path_op + input_counts)[:len(path_op)], spn.initialize_weights(root)
 
     def true_out(self, inputs, conf):
         true_out = super(ParSumsUnit, self).true_out(inputs, conf)
@@ -224,6 +225,7 @@ def main():
     performance_test = MPEPathPerformanceTest(
         name="MPEPathPerformanceSumNodes", performance_units=units, test_args=args,
         config_generator=config_generator)
+
     performance_test.run()
 
 if __name__ == '__main__':
