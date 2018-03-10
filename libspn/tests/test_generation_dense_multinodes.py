@@ -71,9 +71,14 @@ class TestDenseSPNGeneratorMultiNodes(TestCase):
         """A generic test for DenseSPNGeneratorMultiNodes."""
         self.tearDown()
 
+        # Input parameters
+        num_inputs = 2
+        num_vars = 3
+        num_vals = 2
+
         # Inputs
-        v1 = spn.IVs(num_vars=3, num_vals=2, name="IVs1")
-        v2 = spn.IVs(num_vars=3, num_vals=2, name="IVs2")
+        inputs = [spn.IVs(num_vars=num_vars, num_vals=num_vals, name="IVs%s" % i)
+                  for i in range(num_inputs)]
 
         gen = spn.DenseSPNGeneratorMultiNodes(num_decomps=num_decomps,
                                               num_subsets=num_subsets,
@@ -84,7 +89,7 @@ class TestDenseSPNGeneratorMultiNodes(TestCase):
                                               multi_nodes=multi_nodes)
 
         # Generating SPN
-        root = gen.generate(v1, v2)
+        root = gen.generate(*inputs)
 
         # Generating random weights
         with tf.name_scope("Weights"):
@@ -93,12 +98,20 @@ class TestDenseSPNGeneratorMultiNodes(TestCase):
         # Generating weight initializers
         init = spn.initialize_weights(root)
 
-        # Testing validity
+        # Testing validity of the SPN
         self.assertTrue(root.is_valid())
 
         # Generating value ops
         v = root.get_value()
         v_log = root.get_log_value()
+
+        # Generating path ops
+        mpe_path_gen = spn.MPEPath(log=False)
+        mpe_path_gen_log = spn.MPEPath(log=True)
+        mpe_path_gen.get_mpe_path(root)
+        mpe_path_gen_log.get_mpe_path(root)
+        path = [mpe_path_gen.counts[inp] for inp in inputs]
+        path_log = [mpe_path_gen_log.counts[inp] for inp in inputs]
 
         printc("Case: %s" % case)
         printc("- num_decomps: %s" % num_decomps)
@@ -114,15 +127,30 @@ class TestDenseSPNGeneratorMultiNodes(TestCase):
         with tf.Session() as sess:
             # Initializing weights
             init.run()
-            # Computing all values
-            feed = np.array(list(itertools.product(range(2), repeat=6)))
-            feed_v1 = feed[:, :3]
-            feed_v2 = feed[:, 3:]
-            out = sess.run(v, feed_dict={v1: feed_v1, v2: feed_v2})
-            out_log = sess.run(tf.exp(v_log), feed_dict={v1: feed_v1, v2: feed_v2})
+
+            # Generating random feed
+            feed = np.array(list(itertools.product(range(num_vals),
+                                                   repeat=(num_inputs*num_vars))))
+            batch_size = feed.shape[0]
+            feed_dict = {}
+            for inp, f in zip(inputs, np.split(feed, num_inputs, axis=1)):
+                feed_dict[inp] = f
+
+            # Computing all values and paths
+            out = sess.run(v, feed_dict=feed_dict)
+            out_log = sess.run(tf.exp(v_log), feed_dict=feed_dict)
+            out_path = sess.run(path, feed_dict=feed_dict)
+            out_path_log = sess.run(path_log, feed_dict=feed_dict)
+
             # Test if partition function is 1.0
             self.assertAlmostEqual(out.sum(), 1.0, places=6)
             self.assertAlmostEqual(out_log.sum(), 1.0, places=6)
+            # Test if the sum of counts for each value of each variable
+            # (6 variables, with 2 values each) = batch-size / num-vals
+            self.assertEqual(np.sum(np.hstack(out_path), axis=0).tolist(),
+                             [batch_size // num_vals]*num_inputs*num_vars*num_vals)
+            self.assertEqual(np.sum(np.hstack(out_path_log), axis=0).tolist(),
+                             [batch_size // num_vals]*num_inputs*num_vars*num_vals)
             self.write_tf_graph(sess, self.sid(), self.cid())
 
     def test_generate_spn(self):

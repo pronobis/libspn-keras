@@ -12,7 +12,6 @@ from libspn.graph.sum import Sum
 from libspn.graph.parsums import ParSums
 from libspn.graph.product import Product
 from libspn.graph.permproducts import PermProducts
-from libspn.graph.concat import Concat
 from libspn.log import get_logger
 from libspn.exceptions import StructureError
 from libspn.utils.enum import Enum
@@ -281,9 +280,8 @@ class DenseSPNGeneratorMultiNodes:
                         if self.input_dist == DenseSPNGeneratorMultiNodes.InputDist.RAW:
                             # Create an inputs list
                             inputs_list = subsubset_to_inputs_list(subsubset)
-                            # Concat the content of the inputs list, and register
-                            # as inputs to PermProds
-                            prod_inputs.append(Concat(*inputs_list))
+                            # Register the content of subset as inputs to PermProds
+                            [prod_inputs.append(inp) for inp in inputs_list]
                         elif self.input_dist == DenseSPNGeneratorMultiNodes.InputDist.MIXTURE:
                             # Create an inputs list
                             inputs_list = subsubset_to_inputs_list(subsubset)
