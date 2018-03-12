@@ -330,7 +330,6 @@ class Node(ABC):
                                         node._compute_valid(*args)))
                 is not None)
 
-    @functools.lru_cache()
     def get_value(self, inference_type=None):
         """Assemble TF operations computing the value of the SPN rooted in
         this node.
@@ -349,7 +348,6 @@ class Node(ABC):
         from libspn.inference.value import Value
         return Value(inference_type).get_value(self)
 
-    @functools.lru_cache()
     def get_log_value(self, inference_type=None):
         """Assemble TF operations computing the log value of the SPN rooted in
         this node.
