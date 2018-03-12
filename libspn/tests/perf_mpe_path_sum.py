@@ -15,7 +15,7 @@ from collections import namedtuple
 import abc
 
 from libspn.tests.abstract_performance_test import AbstractPerformanceTest, \
-    AbstractPerformanceUnit, ConfigGenerator, PerformanceTestArgs
+    AbstractPerformanceUnit, NodeConfigGenerator, PerformanceTestArgs
 from libspn.tests.perf_sum_value_varying_sizes import sums_layer_numpy_common
 
 MPEPathPerformanceInput = namedtuple("MPEPathPerformanceInput",
@@ -39,7 +39,8 @@ class AbstractSumUnit(AbstractPerformanceUnit, abc.ABC):
         weights = inputs.weights
         ivs = inputs.ivs
         sums_sizes = inputs.sum_sizes
-        values = _repeat_elements([(inp, None) for inp in inputs.values], inputs.num_parallel)
+        values = _repeat_elements([(inputs.values[0][:, ind], None) for ind in
+                                   inputs.indices], inputs.num_parallel)
         sums_sizes = _repeat_elements(sums_sizes, inputs.num_parallel)
         inputs_to_reduce, iv_mask_per_sum, weights_per_sum = sums_layer_numpy_common(
             values, ivs, sums_sizes, weights)
@@ -100,26 +101,27 @@ class SumsLayerUnit(AbstractSumUnit):
         for ind in sum_indices:
             # Indices are given by looking at the sizes of the sums
             size = len(ind)
-            repeated_inputs.extend([(placeholders[0], list(range(offset, offset + size)))
-                                    for _ in range(inputs.num_parallel)])
+            repeated_inputs.extend([(placeholders[0], ind) for _ in range(inputs.num_parallel)])
             repeated_sum_sizes.extend([size for _ in range(inputs.num_parallel)])
             offset += size
 
         # Globally configure to add up the sums before passing on the values to children
         spn.conf.sumslayer_count_sum_strategy = self.sum_count_strategy
         sums_layer = spn.SumsLayer(*repeated_inputs, num_sums_or_sizes=repeated_sum_sizes)
-        weight_node = sums_layer.generate_weights(weights)
+        weight_node = self._generate_weights(sums_layer, weights)
         if ivs:
             sums_layer.set_ivs(*ivs)
         # Connect a single sum to group outcomes
         root = spn.Sum(sums_layer)
-        root.generate_weights()
+
+        self._generate_weights(root)
         # Then build MPE path Ops
         mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=log)
         mpe_path_gen.get_mpe_path(root)
         path_op = [tf.tuple([mpe_path_gen.counts[weight_node],
                              mpe_path_gen.counts[placeholders[0]]])[0]]
-        return path_op, spn.initialize_weights(root)
+
+        return path_op, self._initialize_from(root)
 
     def feed_dict(self, inputs):
         return {self._placeholders[0]: np.concatenate(inputs.values, axis=1)}
@@ -140,7 +142,7 @@ class ParSumsUnit(AbstractSumUnit):
         super(ParSumsUnit, self).__init__(name, dtype)
 
     def _build_placeholders(self, inputs):
-        return [spn.ContVars(num_vars=inp.shape[1]) for inp in inputs.values]
+        return [spn.ContVars(num_vars=inputs.values[0].shape[1])]
 
     def _build_op(self, inputs, placeholders, conf):
         """ Creates the graph using only ParSum nodes """
@@ -151,19 +153,23 @@ class ParSumsUnit(AbstractSumUnit):
                                                sum_indices])[:-1])
 
         parallel_sum_nodes = []
-        for inp in placeholders:
-            parallel_sum_nodes.append(spn.ParSums(inp, num_sums=inputs.num_parallel))
-        weight_nodes = [s.generate_weights(w.tolist()) for s, w in zip(parallel_sum_nodes, weights)]
+        for ind in sum_indices:
+            parallel_sum_nodes.append(spn.ParSums((placeholders[0], ind),
+                                                  num_sums=inputs.num_parallel))
+
+        weight_nodes = [self._generate_weights(node, w.tolist()) for node, w in
+                        zip(parallel_sum_nodes, weights)]
         if ivs:
             [s.set_ivs(iv) for s, iv in zip(parallel_sum_nodes, ivs)]
         root = spn.Sum(*parallel_sum_nodes)
-        root.generate_weights()
+        self._generate_weights(root)
 
         mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=log)
         mpe_path_gen.get_mpe_path(root)
         path_op = [mpe_path_gen.counts[w] for w in weight_nodes]
-        input_counts = [mpe_path_gen.counts[inp] for inp in inputs]
-        return tf.tuple(path_op + input_counts)[:len(path_op)], spn.initialize_weights(root)
+        input_counts = [mpe_path_gen.counts[inp] for inp in placeholders]
+
+        return tf.tuple(path_op + input_counts)[:len(path_op)], self._initialize_from(root)
 
     def true_out(self, inputs, conf):
         true_out = super(ParSumsUnit, self).true_out(inputs, conf)
@@ -189,9 +195,8 @@ class MPEPathPerformanceTest(AbstractPerformanceTest):
         indices = [random.sample(range(self._shape[1]), size) for size in self.sum_sizes]
         num_params = sum([size * self.num_parallel for size in self.sum_sizes])
         weights = self.random_numpy_tensor((num_params,))
-        values = [values[:, i] for i in indices]
         return MPEPathPerformanceInput(
-            values=values, indices=indices, num_parallel=self.num_parallel, num_sums=self.num_sums,
+            values=[values], indices=indices, num_parallel=self.num_parallel, num_sums=self.num_sums,
             sum_sizes=self.sum_sizes, weights=weights, ivs=None
         )
 
@@ -221,7 +226,7 @@ def main():
         gpu.remove(True)
 
     # Make a config generator and run the test
-    config_generator = ConfigGenerator(gpu=gpu)
+    config_generator = NodeConfigGenerator(gpu=gpu)
     performance_test = MPEPathPerformanceTest(
         name="MPEPathPerformanceSumNodes", performance_units=units, test_args=args,
         config_generator=config_generator)

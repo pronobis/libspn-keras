@@ -14,22 +14,30 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-
 class AbstractPerformanceUnit(abc.ABC):
 
     def __init__(self, name, dtype):
         self.name = name
         self._dtype = dtype
 
-    def build(self, inputs, conf):
+    def build(self, inputs, conf, num_stack):
         """ Returns the Op to evaluate  """
         self._placeholders = self._build_placeholders(inputs)
         start_time = time.time()
         with tf.device("/gpu:0" if conf.gpu else "/cpu:0"):
             # TODO support stacking here
             op, init_ops = self._build_op(inputs, self._placeholders, conf)
+            init_ops_list = [init_ops]
+            for _ in range(num_stack - 1):
+                op_list = op if isinstance(op, list) else [op]
+                with tf.control_dependencies(op_list):
+                    op, init = self._build_op(inputs, self._placeholders, conf)
+                    init_ops_list.append(init)
+
         setup_time = time.time() - start_time
-        return op, init_ops, self._placeholders, setup_time
+        init_single_op = tf.group(*init_ops_list) if not all(t is None for t in init_ops_list) \
+            else None
+        return op, init_single_op, self._placeholders, setup_time
 
     @abc.abstractmethod
     def _build_op(self, inputs, placeholders, conf):
@@ -67,6 +75,20 @@ class AbstractPerformanceUnit(abc.ABC):
             **kwargs
         }
 
+    def _initialize_from(self, root):
+        """ Initializes from root  """
+        with tf.control_dependencies(None):
+            # Explicit clearing of control dependencies allows for easy stacking of sub graphs
+            return spn.initialize_weights(root)
+
+    def _generate_weights(self, node, w=None):
+        """ Generates the weights for a node using an optional default value """
+        with tf.control_dependencies(None):
+            # Explicit clearing of control dependencies allows for easy stacking of sub graphs
+            if w is None:
+                return node.generate_weights()
+            return node.generate_weights(w)
+
 
 def time_fn(fn):
     start_time = time.time()
@@ -98,11 +120,25 @@ class TestConfig:
 
 class ConfigGenerator:
 
-    def __init__(self, inference_types=None, log=None, gpu=None):
-        self.inf_type = inference_types or \
-                        [spn.InferenceType.MARGINAL, spn.InferenceType.MPE]
-        self.log = bool_field(log)
+    def __init__(self, gpu):
         self.gpu = bool_field(gpu)
+        self._fields = {
+            'gpu': self.gpu
+        }
+
+    def iterate(self, order=('gpu',)):
+        fields_not_in_order = tuple(sorted([f for f in self._fields.keys() if f not in order]))
+        for values in itertools.product(
+                *[self._fields[field] for field in order + fields_not_in_order]):
+            yield TestConfig(**{name: val for name, val in zip(order, values)})
+
+
+class NodeConfigGenerator(ConfigGenerator):
+
+    def __init__(self, inference_types=None, log=None, gpu=None):
+        super().__init__(gpu=gpu)
+        self.inf_type = inference_types or [spn.InferenceType.MARGINAL, spn.InferenceType.MPE]
+        self.log = bool_field(log)
         self._fields = {
             'inf_type': self.inf_type,
             'log': self.log,
@@ -116,7 +152,7 @@ class ConfigGenerator:
             yield TestConfig(**{name: val for name, val in zip(order, values)})
 
 
-class SumConfigGenerator(ConfigGenerator):
+class SumConfigGenerator(NodeConfigGenerator):
 
     def __init__(self, inference_types=None, log=None, ivs=None, gpu=None):
         super().__init__(inference_types=inference_types, log=log, gpu=gpu)
@@ -148,20 +184,26 @@ class PerformanceTestArgs(argparse.ArgumentParser):
                           help="Number of times each test is run")
         self.add_argument('--profile', default=False, action='store_true',
                           help="Run test one more time and profile")
-        self.add_argument('--no_logs', action='store_true', dest='no_logs')
+        self.add_argument("--num-stack", default=50, type=int,
+                          help="Number of units to stack")
+        self.add_argument('--no-logs', action='store_true', dest='no_logs')
         self.add_argument('--logdir', default=default_logdir, type=str,
                           help="Path to log dir")
-        self.add_argument('--write_mode', default='safe', choices=['overwrite', 'append', 'safe'],
-                          type=str, help="Path to log dir")
+        self.add_argument('--write-mode', default='safe', choices=['overwrite', 'append', 'safe'],
+                          type=str, help="Whether to overwrite current CSV, append or to do "
+                                         "neither")
         self.add_argument('--exit-on-fail', action='store_true', dest='exit_on_fail')
         self.add_argument('--rows', default=500, type=int)
         self.add_argument('--cols', default=100, type=int)
         self.add_argument("--run-name", default='run0001',
                           help='Unique identifier for runs. Can be used for easy cross-run' 
                                'comparison of results later.')
-        self.add_argument("--plot", action='store_true', dest='plot')
-        self.add_argument("--gpu_name", default='GTX1080')
-        self.add_argument("--cpu_name", default='XeonE5i7')
+        self.add_argument("--plot", action='store_true', dest='plot',
+                          help="Plot the results at the end of execution")
+        self.add_argument('--plot-only', action='store_true', dest='plot_only',
+                          help="Skip testing and just plot with the given configuration")
+        self.add_argument("--gpu-name", default='GTX1080', help="Name of GPU device")
+        self.add_argument("--cpu-name", default='XeonE5v3', help="Name of CPU device")
 
 
 class AbstractPerformanceTest(abc.ABC):
@@ -186,18 +228,20 @@ class AbstractPerformanceTest(abc.ABC):
         self._write_mode = test_args.write_mode
         self._run_name = test_args.run_name
         self._plot = test_args.plot
+        self._plot_only = test_args.plot_only
+        self._num_stack = test_args.num_stack
 
     def _run_single(self, unit, inputs, conf):
         # For each unit,
         run_times = []
         tf.reset_default_graph()
-        op, init_ops, placeholders, setup_time = unit.build(inputs, conf)
+        op, init_ops, placeholders, setup_time = unit.build(inputs, conf, self._num_stack)
         true_out = unit.true_out(inputs, conf)
         feed_dict = unit.feed_dict(inputs)
         output_correct = True
         with tf.Session(config=tf.ConfigProto(
                 allow_soft_placement=True, log_device_placement=self._log_devs)) as sess:
-            _, init_time = time_fn(lambda: sess.run(init_ops))
+            _, init_time = time_fn(lambda: sess.run(init_ops)) if init_ops is not None else 0, 0.0
             for n in range(self._num_runs):
                 out, run_time = time_fn(lambda: sess.run(op, feed_dict=feed_dict))
                 run_times.append(run_time)
@@ -246,6 +290,10 @@ class AbstractPerformanceTest(abc.ABC):
         return 123
 
     def run(self, plot_metrics=('rest_run_time', 'graph_size')):
+        if self._plot_only:
+            self.plot_only()
+            return
+
         results = []
         inputs = self.generate_input()
         for conf in self._config.iterate():
@@ -257,15 +305,24 @@ class AbstractPerformanceTest(abc.ABC):
     def _report_and_write_results(self, results, plot_metrics):
         df = pd.DataFrame(results)
         results_path = os.path.join(self._logdir, 'results.csv')
+        # Print table to stdout
         print(tabulate.tabulate(df, headers=df.columns, tablefmt='grid', showindex=False))
+
+        # Write results to CSV
         if self._write_mode == 'append' and os.path.exists(results_path):
             df.to_csv(results_path, index=False, mode='a', header=False)
             df = pd.read_csv(results_path)
         else:
             df.to_csv(results_path, index=False, mode='w')
         if self._plot:
+            # Plot results
             self._make_plots(df, plot_metrics)
         return df
+
+    def plot_only(self, plot_metrics=('rest_run_time', 'graph_size')):
+        results_path = os.path.join(self._logdir, 'results.csv')
+        df = pd.read_csv(results_path)
+        self._make_plots(df, plot_metrics=plot_metrics)
 
     def _make_plots(self, df, plot_metrics):
         def filter_df_with_dict(df, d):
@@ -274,6 +331,7 @@ class AbstractPerformanceTest(abc.ABC):
                 ret = ret[ret[k] == v].copy()
             return ret
 
+        # Create separate plots per config
         config_dfs = []
         for conf in self._config.iterate():
             df_filtered = filter_df_with_dict(df, conf.fields)
@@ -286,6 +344,7 @@ class AbstractPerformanceTest(abc.ABC):
             df_filtered['config'] = conf.description()
             config_dfs.append(df_filtered)
 
+        # Create aggregate plots for GPU vs CPU
         for gpu in self._config.gpu:
             for metric in plot_metrics:
                 plot = sns.barplot(x=df['unit_name'], y=df[metric])
@@ -294,10 +353,20 @@ class AbstractPerformanceTest(abc.ABC):
                     os.path.join(self._logdir,
                                  'aggregate' + ('GPU' if gpu else 'CPU') + "_" + metric + '.png'))
                 plt.clf()
+
+        # Create a single plot showing all configs at once
         all_configs = pd.concat(config_dfs)
         for metric in plot_metrics:
             plot = sns.factorplot(x='unit_name', y=metric, col='config', kind='bar',
                                   data=all_configs, col_wrap=4)
             plot.savefig(
                 os.path.join(self._logdir, 'all_configs' + "_" + metric + '.png'))
+            plt.clf()
+
+        # Also plot statistics for different runs
+        for metric in plot_metrics:
+            plot = sns.factorplot(x='unit_name', y=metric, col='run_name', kind='bar',
+                                  data=all_configs, col_wrap=4)
+            plot.savefig(
+                os.path.join(self._logdir, 'per_run' + "_" + metric + '.png'))
             plt.clf()
