@@ -238,7 +238,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         (input_sizes, sum_sizes, ivs, log, same_input, count_matmul) for
         input_sizes, sum_sizes, ivs, log, same_input, count_matmul in
         itertools.product(
-            INPUT_SIZES, SUM_SIZES, [False, True], [False, True], [True], ["matmul"])
+            INPUT_SIZES, SUM_SIZES, [False, True], [False, True], [True], ["gather", 'matmul'])
     ])
     def test_sumslayer_varying_sizes_mpe_path(self, input_sizes, sum_sizes, ivs, log, same_input,
                                               count_matmul_strategy):
@@ -246,7 +246,6 @@ class TestNodesSumsLayer(tf.test.TestCase):
         Tests the SumsLayer MPE path computation for different input sizes, sum sizes, with and
         without IVs, and in log and non-log space
         """
-        print(input_sizes, sum_sizes)
         # Initialize dimensions
         batch_size = 2
         total_size = np.sum(input_sizes)

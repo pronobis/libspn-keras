@@ -515,7 +515,6 @@ class SumsLayer(OpNode):
 
         max_counts_reshaped = tf.reshape(max_counts, shape=reshape)
 
-        print(conf.sumslayer_count_sum_strategy)
         if conf.sumslayer_count_sum_strategy == 'matmul':
             # Get the flat indices for the columns for each input and the tensor offsets in the
             # concatenation of the unique tensors
@@ -652,6 +651,9 @@ class SumsLayer(OpNode):
         max_size = max(self._sum_input_sizes)
         unique_tensor_gather_indices = OrderedDict()
         unique_tensors_offsets_inverse = {v: k for k, v in unique_tensors_offsets_dict.items()}
+
+        old_sum_index = 0
+        start_of_current_sum = 0
         for i, (col, tensor_offset, sum_index) in enumerate(zip(
                 flat_col_indices, flat_tensor_offsets, sum_indices)):
             # Give the offset of the current flat (axis 1) index, we get the input tensor that
@@ -661,11 +663,17 @@ class SumsLayer(OpNode):
                 unique_tensor_gather_indices[tensor] = defaultdict(list)
             # For this tensor-column combination, we register the corresponding index to gather
             # from the padded 2D reducible tensor
+            if sum_index != old_sum_index:
+                old_sum_index = sum_index
+                start_of_current_sum = i
 
-            # TODO this shouldn't work...
-            # at least there seems something not right with i % max_size
+            # Index of the column within the sum
+            index_within_sum = i - start_of_current_sum
+
+            # Given the index of the sum and the index of the column within, we can find the index
+            # to gather for this particular column of the input tensor
             unique_tensor_gather_indices[tensor][col].append(
-                i % max_size + sum_index * max_size)
+                index_within_sum + sum_index * max_size)
 
         # For each tensor that we have, we compute the scatter indices. Here we construct the
         # nested gather indices needed for gather_cols_3d.
@@ -703,7 +711,6 @@ class SumsLayer(OpNode):
                           add_random=None, use_unweighted=False, sum_counts=True):
         values_selected_weighted = self._compute_value_common(
             tf.multiply, lambda x: x, weight_value, ivs_value, *value_values)
-        print("JIAJDOJASIDOASIJDO")
         return self._compute_mpe_path_common(values_selected_weighted, counts,
                                              weight_value, ivs_value, *value_values)
 
