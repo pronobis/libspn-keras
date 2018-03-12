@@ -11,7 +11,6 @@ from libspn import utils
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
 from libspn.graph.algorithms import compute_graph_up, traverse_graph
-import functools
 
 
 class GraphData():
@@ -654,7 +653,6 @@ class OpNode(Node):
                      else [s[index] for index in inpt.indices]
                      for (inpt, s) in zip(self.inputs, input_scopes))
 
-    @functools.lru_cache()
     def _gather_input_tensors(self, *input_tensors):
         """For each input, gather the elements of the tensor output by the
         input node. The elements indicated by the input indices are gathered
