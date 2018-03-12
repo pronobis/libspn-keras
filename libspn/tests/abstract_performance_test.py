@@ -183,7 +183,8 @@ class PerformanceTestArgs(argparse.ArgumentParser):
         self.add_argument('--no-logs', action='store_true', dest='no_logs')
         self.add_argument('--logdir', default=default_logdir, type=str,
                           help="Path to log dir")
-        self.add_argument('--write-mode', default='safe', choices=['overwrite', 'append', 'safe'],
+        self.add_argument('--write-mode', default='safe',
+                          choices=['overwrite', 'append', 'safe', 'off'],
                           type=str, help="Whether to overwrite current CSV, append or to do "
                                          "neither")
         self.add_argument('--exit-on-fail', action='store_true', dest='exit_on_fail')
@@ -316,7 +317,7 @@ class AbstractPerformanceTest(abc.ABC):
         if self._write_mode == 'append' and os.path.exists(results_path):
             df.to_csv(results_path, index=False, mode='a', header=False)
             df = pd.read_csv(results_path)
-        else:
+        elif self._write_mode == 'overwrite' or not os.path.exists(results_path):
             df.to_csv(results_path, index=False, mode='w')
         if self._plot:
             # Plot results

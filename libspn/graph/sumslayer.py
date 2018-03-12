@@ -515,6 +515,7 @@ class SumsLayer(OpNode):
 
         max_counts_reshaped = tf.reshape(max_counts, shape=reshape)
 
+        print(conf.sumslayer_count_sum_strategy)
         if conf.sumslayer_count_sum_strategy == 'matmul':
             # Get the flat indices for the columns for each input and the tensor offsets in the
             # concatenation of the unique tensors
@@ -573,10 +574,12 @@ class SumsLayer(OpNode):
                     else:
                         max_counts_split_with_None.append(None)
 
-                return self._scatter_to_input_tensors(
+
+                ret = self._scatter_to_input_tensors(
                     (max_counts, weight_value),  # Weights
                     (max_counts, ivs_value),  # IVs
                 ) + tuple(max_counts_split_with_None)
+                return ret
         elif conf.sumslayer_count_sum_strategy == 'gather':
             # First obtain the flat column, tensor offsets and unique tensors with their respective
             # offsets
@@ -615,6 +618,24 @@ class SumsLayer(OpNode):
         else:
             raise ValueError("Unknown count summing strategy {}"
                              .format(conf.sumslayer_count_sum_strategy))
+
+        # This flag is set to True if we have had to pad within an input
+        if self._must_gather_for_mpe_path:
+            # Will hold indices to gather
+            indices = []
+            offset = 0
+            for size in self._sum_input_sizes:
+                indices.extend([offset + i for i in range(size)])
+                offset += max_size
+            # Gather so that padded parts are left out
+            max_counts_reshaped = utils.gather_cols(max_counts_reshaped, indices)
+
+        # Split the reshaped max counts to value inputs
+        max_counts_split = tf.split(max_counts_reshaped, value_sizes, 1)
+        return self._scatter_to_input_tensors(
+            (max_counts, weight_value),  # Weights
+            (max_counts, ivs_value),  # IVs
+            *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
 
     def _gather_reduce_to_scatterable(self, flat_col_indices, flat_tensor_offsets,
                                       max_counts_reshaped, unique_tensors_offsets_dict):
@@ -682,6 +703,7 @@ class SumsLayer(OpNode):
                           add_random=None, use_unweighted=False, sum_counts=True):
         values_selected_weighted = self._compute_value_common(
             tf.multiply, lambda x: x, weight_value, ivs_value, *value_values)
+        print("JIAJDOJASIDOASIJDO")
         return self._compute_mpe_path_common(values_selected_weighted, counts,
                                              weight_value, ivs_value, *value_values)
 

@@ -238,10 +238,10 @@ class TestNodesSumsLayer(tf.test.TestCase):
         (input_sizes, sum_sizes, ivs, log, same_input, count_matmul) for
         input_sizes, sum_sizes, ivs, log, same_input, count_matmul in
         itertools.product(
-            INPUT_SIZES, SUM_SIZES, [False, True], [False, True], [True], [False, True])
+            INPUT_SIZES, SUM_SIZES, [False, True], [False, True], [True], ["matmul"])
     ])
     def test_sumslayer_varying_sizes_mpe_path(self, input_sizes, sum_sizes, ivs, log, same_input,
-                                              count_matmul):
+                                              count_matmul_strategy):
         """
         Tests the SumsLayer MPE path computation for different input sizes, sum sizes, with and
         without IVs, and in log and non-log space
@@ -252,7 +252,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         total_size = np.sum(input_sizes)
         fac = 2
 
-        spn.conf.sumslayer_count_with_matmul = count_matmul
+        spn.conf.sumslayer_count_sum_strategy = count_matmul_strategy
 
         # Generate random arrays
         x = np.random.rand(batch_size, total_size * fac)
@@ -294,9 +294,11 @@ class TestNodesSumsLayer(tf.test.TestCase):
                 w_val = weight_node.get_value()
                 iv_val = ivs_node.get_value() if ivs_node else None
                 value_input_vals = [inp[0].get_value() for inp in spn_inputs]
+                print(w_val, value_input_vals)
                 op = n._compute_mpe_path(
                     tf.identity(counts_ph), w_val, iv_val, *value_input_vals
                 )
+            print(op)
             op = [o for o in op if o is not None]
             out = sess.run(op, feed_dict=feed_dict)[2 if ivs_node else 1:]
 
