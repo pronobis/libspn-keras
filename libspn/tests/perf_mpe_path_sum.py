@@ -15,7 +15,7 @@ from collections import namedtuple
 import abc
 
 from libspn.tests.abstract_performance_test import AbstractPerformanceTest, \
-    AbstractPerformanceUnit, NodeConfigGenerator, PerformanceTestArgs
+    AbstractPerformanceUnit, PerformanceTestArgs, ConfigGenerator
 from libspn.tests.perf_sum_value_varying_sizes import sums_layer_numpy_common
 
 MPEPathPerformanceInput = namedtuple("MPEPathPerformanceInput",
@@ -187,7 +187,7 @@ class MPEPathPerformanceTest(AbstractPerformanceTest):
         self.num_parallel = test_args.num_parallel
         self.num_sums = test_args.num_sums
 
-    def description(self, inputs):
+    def description(self):
         return "MPEPathSumNodes"
 
     def generate_input(self):
@@ -226,7 +226,7 @@ def main():
         gpu.remove(True)
 
     # Make a config generator and run the test
-    config_generator = NodeConfigGenerator(gpu=gpu)
+    config_generator = ConfigGenerator(gpu=gpu)
     performance_test = MPEPathPerformanceTest(
         name="MPEPathPerformanceSumNodes", performance_units=units, test_args=args,
         config_generator=config_generator)

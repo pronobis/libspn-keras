@@ -12,6 +12,15 @@ import pandas as pd
 import tabulate
 import seaborn as sns
 import matplotlib.pyplot as plt
+import colorama as col
+
+col.init()
+
+red = col.Fore.RED
+blue = col.Fore.BLUE
+green = col.Fore.GREEN
+yellow = col.Fore.YELLOW
+magenta = col.Fore.MAGENTA
 
 
 class AbstractPerformanceUnit(abc.ABC):
@@ -120,23 +129,8 @@ class TestConfig:
 
 class ConfigGenerator:
 
-    def __init__(self, gpu):
-        self.gpu = bool_field(gpu)
-        self._fields = {
-            'gpu': self.gpu
-        }
-
-    def iterate(self, order=('gpu',)):
-        fields_not_in_order = tuple(sorted([f for f in self._fields.keys() if f not in order]))
-        for values in itertools.product(
-                *[self._fields[field] for field in order + fields_not_in_order]):
-            yield TestConfig(**{name: val for name, val in zip(order, values)})
-
-
-class NodeConfigGenerator(ConfigGenerator):
-
     def __init__(self, inference_types=None, log=None, gpu=None):
-        super().__init__(gpu=gpu)
+        self.gpu = bool_field(gpu)
         self.inf_type = inference_types or [spn.InferenceType.MARGINAL, spn.InferenceType.MPE]
         self.log = bool_field(log)
         self._fields = {
@@ -152,7 +146,7 @@ class NodeConfigGenerator(ConfigGenerator):
             yield TestConfig(**{name: val for name, val in zip(order, values)})
 
 
-class SumConfigGenerator(NodeConfigGenerator):
+class SumConfigGenerator(ConfigGenerator):
 
     def __init__(self, inference_types=None, log=None, ivs=None, gpu=None):
         super().__init__(inference_types=inference_types, log=log, gpu=gpu)
@@ -204,6 +198,9 @@ class PerformanceTestArgs(argparse.ArgumentParser):
                           help="Skip testing and just plot with the given configuration")
         self.add_argument("--gpu-name", default='GTX1080', help="Name of GPU device")
         self.add_argument("--cpu-name", default='XeonE5v3', help="Name of CPU device")
+        self.add_argument("--verbose", action="store_true", dest="verbose",
+                          help="Whether to be verbose about testing output")
+        self.add_argument("--tf-logging", action="store_true", dest="tf_logging")
 
 
 class AbstractPerformanceTest(abc.ABC):
@@ -230,6 +227,11 @@ class AbstractPerformanceTest(abc.ABC):
         self._plot = test_args.plot
         self._plot_only = test_args.plot_only
         self._num_stack = test_args.num_stack
+        self._verbose = test_args.verbose
+
+        if not test_args.tf_logging:
+            os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+            tf.logging.set_verbosity(tf.logging.ERROR)
 
     def _run_single(self, unit, inputs, conf):
         # For each unit,
@@ -248,9 +250,9 @@ class AbstractPerformanceTest(abc.ABC):
                 try:
                     if isinstance(out, list):
                         for o, to in zip(out, true_out):
-                            np.testing.assert_allclose(o, to)
+                            self.assert_all_close(o, to)
                     else:
-                        np.testing.assert_array_almost_equal(out, true_out)
+                        self.assert_all_close(out, true_out)
                 except AssertionError:
                     output_correct = False
                     self.test_failed = True
@@ -275,8 +277,8 @@ class AbstractPerformanceTest(abc.ABC):
         return np.random.rand(*shape)
 
     @abc.abstractmethod
-    def description(self, inputs):
-        """ Provides a textual descripition of the test """
+    def description(self):
+        """ Provides a textual description of the test """
 
     @abc.abstractmethod
     def generate_input(self):
@@ -297,7 +299,9 @@ class AbstractPerformanceTest(abc.ABC):
         results = []
         inputs = self.generate_input()
         for conf in self._config.iterate():
+            print(blue + "Config " + conf.description() + col.Style.RESET_ALL)
             for unit in self._units:
+                print(red + "Testing " + unit.description() + col.Style.RESET_ALL)
                 results.append(self._run_single(unit, inputs, conf))
         self._report_and_write_results(results, plot_metrics)
         return results
@@ -370,3 +374,31 @@ class AbstractPerformanceTest(abc.ABC):
             plot.savefig(
                 os.path.join(self._logdir, 'per_run' + "_" + metric + '.png'))
             plt.clf()
+
+    def assert_all_close(self, a, b, rtol=1e-6, atol=1e-6, msg=None):
+        if not np.allclose(a, b, rtol=rtol, atol=atol):
+            # Prints more details than np.testing.assert_allclose.
+            #
+            # NOTE: numpy.allclose (and numpy.testing.assert_allclose)
+            # checks whether two arrays are element-wise equal within a
+            # tolerance. The relative difference (rtol * abs(b)) and the
+            # absolute difference atol are added together to compare against
+            # the absolute difference between a and b.  Here, we want to
+            # print out which elements violate such conditions.
+            cond = np.logical_or(
+                np.abs(a - b) > atol + rtol * np.abs(b), np.isnan(a) != np.isnan(b))
+            if a.ndim:
+                x = a[np.where(cond)]
+                y = b[np.where(cond)]
+                if self._verbose:
+                    print("not close where = ", np.where(cond))
+            else:
+                # np.where is broken for scalars
+                x, y = a, b
+            if self._verbose:
+                print("not close lhs = ", x)
+                print("not close rhs = ", y)
+                print("not close dif = ", np.abs(x - y))
+                print("not close tol = ", atol + rtol * np.abs(y))
+                print("dtype = %s, shape = %s" % (a.dtype, a.shape))
+            np.testing.assert_allclose(a, b, rtol=rtol, atol=atol, err_msg=msg)
