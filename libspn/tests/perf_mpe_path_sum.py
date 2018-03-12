@@ -216,6 +216,7 @@ def main():
     units = [
         SumsLayerUnit("LayerCountMatmul", tf.float32, "matmul"),
         SumsLayerUnit("LayerCountGather", tf.float32, "gather"),
+        SumsLayerUnit("LayerCountSegmented", tf.float32, "segmented"),
         ParSumsUnit("ParSums", tf.float32)
     ]
     # Select the device

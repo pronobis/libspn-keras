@@ -582,34 +582,17 @@ class SumsLayer(OpNode):
         elif conf.sumslayer_count_sum_strategy == 'gather':
             # First obtain the flat column, tensor offsets and unique tensors with their respective
             # offsets
-            flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
-                self._flat_indices_offsets_and_unique_tensors(value_values)
-
-            # In this case we gather, sum by reducing and finally create scatterable tensors with
-            # corresponding indices
-            tensor_to_scatter_indices, unique_input_counts = self._gather_reduce_to_scatterable(
-                flat_col_indices, flat_tensor_offsets, max_counts_reshaped,
-                unique_tensors_offsets_dict)
-
-            # Assign the splits to the right index in the output tuple
-            max_counts_split_with_None = []
-            max_counts_split = deque(unique_input_counts)
-            unique_tensors = deque(unique_tensors_offsets_dict.keys())
-            next_tensor = unique_tensors.popleft()
-            for tensor in value_values:
-                if tensor == next_tensor:
-                    cnts = max_counts_split.popleft()
-                    # Scatter the counts
-                    scattered = utils.scatter_cols(
-                        cnts, tensor_to_scatter_indices[tensor], tensor.shape[1].value)
-                    max_counts_split_with_None.append(scattered)
-                    if unique_tensors:
-                        next_tensor = unique_tensors.popleft()
-                    else:
-                        next_tensor = None
-                else:
-                    max_counts_split_with_None.append(None)
-
+            max_counts_split_with_None = self._sum_counts_gather(max_counts_reshaped, value_values,
+                                                                 segmented=False)
+            return self._scatter_to_input_tensors(
+                (max_counts, weight_value),  # Weights
+                (max_counts, ivs_value),  # IVs
+            ) + tuple(max_counts_split_with_None)
+        elif conf.sumslayer_count_sum_strategy == 'segmented':
+            # First obtain the flat column, tensor offsets and unique tensors with their respective
+            # offsets
+            max_counts_split_with_None = self._sum_counts_gather(max_counts_reshaped, value_values,
+                                                                 segmented=True)
             return self._scatter_to_input_tensors(
                 (max_counts, weight_value),  # Weights
                 (max_counts, ivs_value),  # IVs
@@ -636,8 +619,37 @@ class SumsLayer(OpNode):
             (max_counts, ivs_value),  # IVs
             *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
 
-    def _gather_reduce_to_scatterable(self, flat_col_indices, flat_tensor_offsets,
-                                      max_counts_reshaped, unique_tensors_offsets_dict):
+    def _sum_counts_gather(self, max_counts_reshaped, value_values, segmented=False):
+        flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
+            self._flat_indices_offsets_and_unique_tensors(value_values)
+        # In this case we gather, sum by reducing and finally create scatterable tensors with
+        # corresponding indices
+        tensor_to_scatter_indices, unique_input_counts = self._gather_reduce_to_scatterable(
+            flat_col_indices, flat_tensor_offsets, max_counts_reshaped,
+            unique_tensors_offsets_dict, segment_sum=segmented)
+        # Assign the splits to the right index in the output tuple
+        max_counts_split_with_None = []
+        max_counts_split = deque(unique_input_counts)
+        unique_tensors = deque(unique_tensors_offsets_dict.keys())
+        next_tensor = unique_tensors.popleft()
+        for tensor in value_values:
+            if tensor == next_tensor:
+                cnts = max_counts_split.popleft()
+                # Scatter the counts
+                scattered = utils.scatter_cols(
+                    cnts, tensor_to_scatter_indices[tensor], tensor.shape[1].value)
+                max_counts_split_with_None.append(scattered)
+                if unique_tensors:
+                    next_tensor = unique_tensors.popleft()
+                else:
+                    next_tensor = None
+            else:
+                max_counts_split_with_None.append(None)
+        return max_counts_split_with_None
+
+    def _gather_reduce_to_scatterable(
+            self, flat_col_indices, flat_tensor_offsets, max_counts_reshaped,
+            unique_tensors_offsets_dict, segment_sum=False):
         """Helper method that is used for summing counts within the layer before passing it on
         by means of gathering from the (padded) weighted values and reducing afterwards.
         """
@@ -698,9 +710,22 @@ class SumsLayer(OpNode):
             nested_gather_indices.extend(gather_indices_sub)
 
         # Gather columns from the counts tensor, per unique (input, index) pair
-        reducible_values = utils.gather_cols_3d(max_counts_reshaped, nested_gather_indices)
-        # Sum gathered counts together per unique (input, index) pair
-        summed_counts = tf.reduce_sum(reducible_values, axis=-1)
+        if segment_sum:
+            segment_ids = []
+            for i, ind in enumerate(nested_gather_indices):
+                segment_ids.extend([i for _ in range(len(ind))])
+            num_sums_to_scatter = len(nested_gather_indices)
+            nested_gather_indices = list(itertools.chain(*nested_gather_indices))
+            transposed = tf.transpose(max_counts_reshaped)
+            gathered = tf.gather(transposed, indices=nested_gather_indices)
+            summed_counts = tf.reshape(
+                tf.segment_sum(gathered, segment_ids=segment_ids), (num_sums_to_scatter, -1))
+            summed_counts = tf.transpose(summed_counts)
+        else:
+            reducible_values = utils.gather_cols_3d(max_counts_reshaped, nested_gather_indices)
+            # Sum gathered counts together per unique (input, index) pair
+            summed_counts = tf.reduce_sum(reducible_values, axis=-1)
+
         # Split the summed-counts tensor per unique input, based on input-sizes
         unique_input_counts = tf.split(
             summed_counts, unique_lens, axis=-1) \
