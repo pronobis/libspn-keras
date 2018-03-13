@@ -245,7 +245,7 @@ def scatter_cols(params, indices, num_out_cols, name=None):
             raise ValueError("'num_out_cols' must be integer, not %s"
                              % type(num_out_cols))
         if num_out_cols < param_size:
-            raise ValueError("'num_out_cols' must be larger than the size of "
+            raise ValueError("'num_out_cols' must be larger than or equal to the size of "
                              "the indexed dimension of 'params'")
         # Check indices
         if indices.ndim != 1:
