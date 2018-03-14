@@ -179,7 +179,7 @@ class Ops:
 
         # Globally configure to add up the sums before passing on the values to children
         spn.conf.sumslayer_count_sum_strategy = sumslayer_count_sum_strategy
-        sums_layer = spn.SumsLayer(*repeated_inputs, num_sums_or_sizes=repeated_sum_sizes)
+        sums_layer = spn.SumsLayer(*repeated_inputs, num_or_size_sums=repeated_sum_sizes)
         weight_node = sums_layer.generate_weights(weights)
         if ivs:
             sums_layer.set_ivs(*ivs)

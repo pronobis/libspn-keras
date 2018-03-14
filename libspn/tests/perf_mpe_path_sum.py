@@ -107,7 +107,7 @@ class SumsLayerUnit(AbstractSumUnit):
 
         # Globally configure to add up the sums before passing on the values to children
         spn.conf.sumslayer_count_sum_strategy = self.sum_count_strategy
-        sums_layer = spn.SumsLayer(*repeated_inputs, num_sums_or_sizes=repeated_sum_sizes)
+        sums_layer = spn.SumsLayer(*repeated_inputs, num_or_size_sums=repeated_sum_sizes)
         weight_node = self._generate_weights(sums_layer, weights)
         if ivs:
             sums_layer.set_ivs(*ivs)

@@ -32,11 +32,11 @@ class SumsLayer(OpNode):
     Args:
         *values (input_like): Inputs providing input values to this node.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums_or_sizes (int or list of ints): Number of Sum ops modelled by
+        num_or_size_sums (int or list of ints): Number of Sum ops modelled by
             this node or the size of each sum in case of a list. Default is None.
             If None, it will compute one sum per input. If int, it will attempt
-            to construct num_sums_or_sizes sums, each of size
-            total_input_size // num_sums_or_sizes. If a list of ints, it will
+            to construct num_or_size_sums sums, each of size
+            total_input_size // num_or_size_sums. If a list of ints, it will
             construct a sum for each size given in the list.
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
@@ -58,38 +58,44 @@ class SumsLayer(OpNode):
     logger = get_logger()
     info = logger.info
 
-    def __init__(self, *values, num_sums_or_sizes=None, weights=None, ivs=None,
+    def __init__(self, *values, num_or_size_sums=None, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, name="SumsLayer"):
         super().__init__(inference_type, name)
 
+        self._values = []
         self.set_values(*values)
         self.set_weights(weights)
         self.set_ivs(ivs)
 
+        self.set_sum_sizes(num_or_size_sums)
+
+        # This flag is set for potential optimization of MPE path computation
+        self._must_gather_for_mpe_path = False
+
+    def set_sum_sizes(self, num_or_size_sums):
         _sum_index_lengths = sum(
             len(v.indices) if v and v.indices else v.node.get_out_size() if v else 0
             for v in self._values)
-
-        if isinstance(num_sums_or_sizes, int):
+        if isinstance(num_or_size_sums, int):
             # Check if we can evenly divide the selected value inputs over the sums being modeled
-            if not _sum_index_lengths % num_sums_or_sizes == 0:
+            if not _sum_index_lengths % num_or_size_sums == 0:
                 raise StructureError("Cannot divide total number of value inputs ({}) over the "
                                      "requested  number of sums ({})."
-                                     .format(_sum_index_lengths, num_sums_or_sizes))
-            if num_sums_or_sizes == 0:
+                                     .format(_sum_index_lengths, num_or_size_sums))
+            if num_or_size_sums == 0:
                 raise ZeroDivisionError("Attempted to divide by zero. Please specify a "
                                         "non-zero number of sums.")
-            self._sum_input_sizes = [_sum_index_lengths // num_sums_or_sizes] * num_sums_or_sizes
-        elif isinstance(num_sums_or_sizes, list) and \
-                all(isinstance(elem, int) for elem in num_sums_or_sizes):
+            self._sum_input_sizes = [_sum_index_lengths // num_or_size_sums] * num_or_size_sums
+        elif isinstance(num_or_size_sums, list) and \
+                all(isinstance(elem, int) for elem in num_or_size_sums):
             # A list of sum sizes is given
-            self._sum_input_sizes = num_sums_or_sizes
-            if num_sums_or_sizes and sum(num_sums_or_sizes) != _sum_index_lengths:
+            self._sum_input_sizes = num_or_size_sums
+            if num_or_size_sums and sum(num_or_size_sums) != _sum_index_lengths:
                 raise StructureError(
                     "The specified total number of sums is incompatible with the value input "
                     "indices. \nTotal number of sums: {}, total indices in value inputs: "
-                    "{}".format(sum(num_sums_or_sizes), _sum_index_lengths))
-        elif num_sums_or_sizes is None:
+                    "{}".format(sum(num_or_size_sums), _sum_index_lengths))
+        elif num_or_size_sums is None:
             # Sum input sizes is set to size of each value input
             self._sum_input_sizes = [len(v.indices) if v.indices else v.node.get_out_size()
                                      for v in self._values]
@@ -98,9 +104,6 @@ class SumsLayer(OpNode):
 
         # Set the total number of sums being modeled
         self._num_sums = len(self._sum_input_sizes)
-
-        # This flag is set for potential optimization of MPE path computation
-        self._must_gather_for_mpe_path = False
 
     # TODO
     def serialize(self):
@@ -392,6 +395,7 @@ class SumsLayer(OpNode):
         # Ordered dict since we want the offsets per tensor, but we also want the order of
         # occurrence for concatenation later
         unique_tensors_offsets_dict = OrderedDict()
+        unique_input_nodes = OrderedDict()
         # Initialize lists to hold column indices and tensor indices
         column_indices = []
         tensor_offsets = []
@@ -402,7 +406,9 @@ class SumsLayer(OpNode):
             indices = value_inp.indices if value_inp.indices else \
                 np.arange(value_inp.node.get_out_size()).tolist()
             column_indices.extend(indices)
-            if value_tensor not in unique_tensors_offsets_dict:
+            if value_inp.node not in unique_input_nodes:
+                # Add the unique input to the nodes list
+                unique_input_nodes[value_inp.node] = tensor_offset
                 # Add the tensor and offsets ot unique
                 unique_tensors_offsets_dict[value_tensor] = tensor_offset
                 # Add offsets
@@ -410,7 +416,7 @@ class SumsLayer(OpNode):
                 tensor_offset += value_tensor.shape[1].value
             else:
                 # Find offset from dict
-                offset = unique_tensors_offsets_dict[value_tensor]
+                offset = unique_input_nodes[value_inp.node]
                 # After this, no need to update tensor_offset, since the current value_tensor
                 # wasn't added to unique
                 tensor_offsets.extend([offset for _ in indices])
