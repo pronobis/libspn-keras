@@ -62,6 +62,11 @@ class PermProducts(OpNode):
         return self._values
 
     @property
+    def num_prods(self):
+        """int: Number of Product ops modelled by this node."""
+        return self._num_prods
+
+    @property
     def values(self):
         """list of Input: List of value inputs."""
         return self._values
