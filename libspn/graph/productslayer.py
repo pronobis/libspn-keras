@@ -40,7 +40,9 @@ class ProductsLayer(OpNode):
         self._values = []
         super().__init__(InferenceType.MARGINAL, name)
         self.set_values(*values)
+        self.set_prod_sizes(num_or_size_prods)
 
+    def set_prod_sizes(self, num_or_size_prods):
         # Total size of value input_size
         total_values_size = sum(
             len(v.indices) if v and v.indices else v.node.get_out_size() if v else 0
