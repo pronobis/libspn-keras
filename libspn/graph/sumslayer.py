@@ -141,6 +141,11 @@ class SumsLayer(OpNode):
         return (self._weights, self._ivs) + self._values
 
     @property
+    def num_sums(self):
+        """int: Number of Sum ops modelled by this node."""
+        return self._num_sums
+
+    @property
     def weights(self):
         """Input: Weights input."""
         return self._weights
@@ -235,7 +240,10 @@ class SumsLayer(OpNode):
         if name is None:
             name = self._name + "_Weights"
         # Set sum node sizes either from input or from inferred _sum_input_sizes
-        sum_input_sizes = input_sizes or self._sum_input_sizes
+        if not input_sizes:
+            sum_input_sizes = self._sum_input_sizes
+        else:
+            sum_input_sizes = input_sizes[2:]
         max_size = max(sum_input_sizes)
         sum_size = sum(sum_input_sizes)
 
@@ -578,7 +586,6 @@ class SumsLayer(OpNode):
                             next_tensor = None
                     else:
                         max_counts_split_with_None.append(None)
-
 
                 ret = self._scatter_to_input_tensors(
                     (max_counts, weight_value),  # Weights
