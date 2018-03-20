@@ -141,6 +141,11 @@ class SumsLayer(OpNode):
         return (self._weights, self._ivs) + self._values
 
     @property
+    def num_sums(self):
+        """int: Number of Sum ops modelled by this node."""
+        return self._num_sums
+
+    @property
     def weights(self):
         """Input: Weights input."""
         return self._weights
@@ -206,7 +211,7 @@ class SumsLayer(OpNode):
         indices = np.arange(max_size).reshape((1, max_size))
 
         # Use broadcasting
-        return indices < sizes
+        return np.less(indices, sizes)
 
     def generate_weights(self, init_value=1, trainable=True,
                          input_sizes=None, name=None):
@@ -235,7 +240,12 @@ class SumsLayer(OpNode):
         if name is None:
             name = self._name + "_Weights"
         # Set sum node sizes either from input or from inferred _sum_input_sizes
-        sum_input_sizes = input_sizes or self._sum_input_sizes
+        if input_sizes:
+            if len(input_sizes) < 2:
+                raise ValueError("Must have at least two input sizes for generating weights")
+            sum_input_sizes = input_sizes[2:]
+        else:
+            sum_input_sizes = self._sum_input_sizes
         max_size = max(sum_input_sizes)
         sum_size = sum(sum_input_sizes)
 
@@ -247,6 +257,7 @@ class SumsLayer(OpNode):
         if isinstance(init_value, int) and init_value == 1:
             # If an int, just broadcast its value to the sum dimensions
             init_padded_flat[mask] = init_value
+            init_value = init_padded_flat.reshape((self._num_sums, max_size))
         elif hasattr(init_value, '__iter__'):
             # If the init value is iterable, check if number of elements matches number of
             init_flat = np.asarray(init_value).reshape((-1,))
@@ -255,16 +266,15 @@ class SumsLayer(OpNode):
             else:
                 raise ValueError("Incorrect initializer size {}, use an int or an iterable of size"
                                  " {}.".format(init_flat.size, sum_size))
-        else:
+            init_value = init_padded_flat.reshape((self._num_sums, max_size))
+        elif not isinstance(init_value, utils.ValueType.RANDOM_UNIFORM):
             raise ValueError("Initialization value {} of type {} not usable, use an int or an "
-                             "iterable of size {}."
+                             "iterable of size {} or an instance of spn.ValueType.RANDOM_UNIFORM."
                              .format(init_value, type(init_value), sum_size))
         # Generate weights
-        init_value = init_padded_flat.reshape((self._num_sums, max_size))
-        weights = Weights(init_value=init_value,
-                          num_weights=max_size,
-                          num_sums=len(sum_input_sizes),
-                          trainable=trainable, name=name)
+        weights = Weights(init_value=init_value, num_weights=max_size,
+                          num_sums=len(sum_input_sizes), trainable=trainable,
+                          mask=mask.tolist(), name=name)
         self.set_weights(weights)
         return weights
 
