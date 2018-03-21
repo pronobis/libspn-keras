@@ -24,14 +24,15 @@ class Weights(ParamNode):
                     :meth:`~libspn.utils.broadcast_value`.
         num_weights (int): Number of weights in the vector.
         num_sums (int): Number of sum nodes the weight vector/matrix represents.
+        mask (list): List of booleans with num_weights * num_sums elements, used for masking weights
         name (str): Name of the node.
 
     Attributes:
         trainable(bool): Should these weights be updated during training?
     """
 
-    def __init__(self, init_value=1, num_weights=1,
-                 num_sums=1, trainable=True, name="Weights"):
+    def __init__(self, init_value=1, num_weights=1, num_sums=1, trainable=True, mask=None,
+                 name="Weights"):
         if not isinstance(num_weights, int) or num_weights < 1:
             raise ValueError("num_weights must be a positive integer")
 
@@ -42,6 +43,7 @@ class Weights(ParamNode):
         self._num_weights = num_weights
         self._num_sums = num_sums
         self._trainable = trainable
+        self._mask = mask
         super().__init__(name)
 
     def serialize(self):
@@ -51,6 +53,7 @@ class Weights(ParamNode):
         data['trainable'] = self._trainable
         data['init_value'] = self._init_value
         data['value'] = self._variable
+        data['mask'] = self._mask
         return data
 
     def deserialize(self, data):
@@ -58,6 +61,7 @@ class Weights(ParamNode):
         self._num_weights = data['num_weights']
         self._num_sums = data['num_sums']
         self._trainable = data['trainable']
+        self._mask = data['mask']
         super().deserialize(data)
         # Create an op for deserializing value
         v = data['value']
@@ -124,6 +128,9 @@ class Weights(ParamNode):
         init_val = utils.broadcast_value(self._init_value,
                                          shape=(shape,),
                                          dtype=conf.dtype)
+        if self._mask and not all(self._mask):
+            # Only perform masking if mask is given and mask contains any 'False'
+            init_val *= tf.cast(tf.reshape(self._mask, init_val.shape), dtype=conf.dtype)
         init_val = utils.normalize_tensor_2D(init_val, self._num_weights,
                                              self._num_sums)
         self._variable = tf.Variable(init_val, dtype=conf.dtype,

@@ -2218,6 +2218,24 @@ class TestNodesSumsLayer(tf.test.TestCase):
                               [0.]],
                              dtype=np.float32))
 
+    def test_masked_weights(self):
+        v12 = spn.IVs(num_vars=2, num_vals=4)
+        v34 = spn.ContVars(num_vars=2)
+        v5 = spn.ContVars(num_vars=1)
+        s = spn.SumsLayer((v12, [0, 5]), v34, (v12, [3]), v5, (v12, [0, 5]), v34,
+                          (v12, [3]), v5, num_or_size_sums=[3, 1, 3, 4, 1])
+        s.generate_weights(init_value=spn.ValueType.RANDOM_UNIFORM())
+        with self.test_session() as sess:
+            sess.run(s.weights.node.initialize())
+            weights = sess.run(s.weights.node.variable)
+
+        shape = [5, 4]
+        self.assertEqual(shape, s.weights.node.variable.shape.as_list())
+        [self.assertEqual(weights[row, col], 0.0) for row, col in
+         [(0, -1), (1, 1), (1, 2), (1, 3), (2, -1), (4, 1), (4, 2), (4, 3)]]
+        self.assertAllClose(np.sum(weights, axis=1), np.ones(5))
+
+
 
 if __name__ == '__main__':
     unittest.main()
