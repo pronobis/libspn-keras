@@ -239,15 +239,9 @@ class SumsLayer(OpNode):
             raise StructureError("%s is missing input values" % self)
         if name is None:
             name = self._name + "_Weights"
-        # Set sum node sizes either from input or from inferred _sum_input_sizes
-        if input_sizes:
-            if len(input_sizes) < 2:
-                raise ValueError("Must have at least two input sizes for generating weights")
-            sum_input_sizes = input_sizes[2:]
-        else:
-            sum_input_sizes = self._sum_input_sizes
-        max_size = max(sum_input_sizes)
-        sum_size = sum(sum_input_sizes)
+
+        max_size = max(self._sum_input_sizes)
+        sum_size = sum(self._sum_input_sizes)
 
         # Mask is used to select the indices to assign the value to, since the weights tensor can
         # be larger than the total number of weights being modeled due to padding
@@ -273,7 +267,7 @@ class SumsLayer(OpNode):
                              .format(init_value, type(init_value), sum_size))
         # Generate weights
         weights = Weights(init_value=init_value, num_weights=max_size,
-                          num_sums=len(sum_input_sizes), trainable=trainable,
+                          num_sums=len(self._sum_input_sizes), trainable=trainable,
                           mask=mask.tolist(), name=name)
         self.set_weights(weights)
         return weights
