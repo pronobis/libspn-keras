@@ -21,6 +21,7 @@ from libspn.utils.enum import Enum
 from collections import OrderedDict, defaultdict
 from itertools import chain, product
 import tensorflow as tf
+import numpy as np
 import random
 
 
@@ -42,8 +43,9 @@ class DenseSPNGeneratorLayerNodes:
                                   ``num_mixtures`` is used.
         balanced (bool): Use only balanced decompositions, into subsets of
                          similar cardinality (differing by max 1).
-        multi_nodes (bool): Use multi-nodes implementation of Sums and Products
-                            while generating the dense graph.
+        node_type (NodeType): Determines the type of op-node - single (Sum, Product),
+                              block (ParSums, PermProducts) or layer (SumsLayer,
+                              ProductsLayer) - to be used in the generated structure.
 
     """
 
@@ -68,6 +70,15 @@ class DenseSPNGeneratorLayerNodes:
         distributions over the scope. These mixtures are then used as inputs
         to product nodes for singleton variable subsets."""
 
+    class NodeType(Enum):
+        """Determines the type of op-node - single (Sum, Product), block (ParSums,
+        PermProducts) or layer (SumsLayer, ProductsLayer) - to be used in the
+        generated structure."""
+
+        SINGLE = 0
+        BLOCK = 1
+        LAYER = 2
+
     class SubsetInfo:
         """Stores information about a single subset to be decomposed.
 
@@ -87,7 +98,7 @@ class DenseSPNGeneratorLayerNodes:
 
     def __init__(self, num_decomps, num_subsets, num_mixtures,
                  input_dist=InputDist.MIXTURE, num_input_mixtures=None,
-                 balanced=True, multi_nodes=True):
+                 balanced=True, node_type=NodeType.BLOCK):
         # Args
         if not isinstance(num_decomps, int) or num_decomps < 1:
             raise ValueError("num_decomps must be a positive integer")
@@ -109,7 +120,7 @@ class DenseSPNGeneratorLayerNodes:
         self.num_mixtures = num_mixtures
         self.input_dist = input_dist
         self.balanced = balanced
-        self.multi_nodes = multi_nodes
+        self.node_type = node_type
         if num_input_mixtures is None:
             self.num_input_mixtures = num_mixtures
         else:
@@ -163,7 +174,9 @@ class DenseSPNGeneratorLayerNodes:
                 for s in new_subsets:
                     subsets.append(s)
 
-        return root
+        # If NodeType is LAYER, convert the generated graph with LayerNodes
+        return (self.convert_to_layer_nodes(root) if self.node_type ==
+                DenseSPNGeneratorLayerNodes.NodeType.LAYER else root)
 
     def __generate_set(self, inputs):
         """Generate a set of inputs to the generated SPN grouped by scope.
@@ -267,7 +280,38 @@ class DenseSPNGeneratorLayerNodes:
             sums_id = 1
             prod_inputs = []
             for subsubset in part:
-                if self.multi_nodes:  # Use multi-nodes
+                if self.node_type == DenseSPNGeneratorLayerNodes.NodeType.SINGLE:
+                    # Use single-nodes
+                    if len(subsubset) > 1:  # Decomposable further
+                        # Add mixtures
+                        with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
+                            sums = [Sum(name="Sum%s" % (i + 1))
+                                    for i in range(self.num_mixtures)]
+                            sums_id += 1
+                        # Register the mixtures as inputs of products
+                        prod_inputs.append([(s, 0) for s in sums])
+                        # Generate subsubset info
+                        subsubset_infos.append(DenseSPNGeneratorLayerNodes.SubsetInfo(
+                            level=subset_info.level + 1, subset=subsubset,
+                            parents=sums))
+                    else:  # Non-decomposable
+                        if self.input_dist == DenseSPNGeneratorLayerNodes.InputDist.RAW:
+                            # Register the content of subset as inputs to products
+                            prod_inputs.append(next(iter(subsubset)))
+                        elif self.input_dist == DenseSPNGeneratorLayerNodes.InputDist.MIXTURE:
+                            # Add mixtures
+                            with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
+                                sums = [Sum(name="Sum%s" % (i + 1))
+                                        for i in range(self.num_input_mixtures)]
+                                sums_id += 1
+                            # Register the mixtures as inputs of products
+                            prod_inputs.append([(s, 0) for s in sums])
+                            # Create an inputs list
+                            inputs_list = subsubset_to_inputs_list(subsubset)
+                            # Connect inputs to mixtures
+                            for s in sums:
+                                s.add_values(*inputs_list)
+                else:  # Use multi-nodes
                     if len(subsubset) > 1:  # Decomposable further
                         # Add mixtures
                         with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
@@ -299,43 +343,12 @@ class DenseSPNGeneratorLayerNodes:
                                 sums_id += 1
                             # Register the mixtures as inputs of PermProds
                             prod_inputs.append(sums)
-                else:  # Use single-nodes
-                    if len(subsubset) > 1:  # Decomposable further
-                        # Add mixtures
-                        with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
-                            sums = [Sum(name="Sum%s" % (i + 1))
-                                    for i in range(self.num_mixtures)]
-                            sums_id += 1
-                        # Register the mixtures as inputs of products
-                        prod_inputs.append([(s, 0) for s in sums])
-                        # Generate subsubset info
-                        subsubset_infos.append(DenseSPNGeneratorLayerNodes.SubsetInfo(
-                            level=subset_info.level + 1, subset=subsubset,
-                            parents=sums))
-                    else:  # Non-decomposable
-                        if self.input_dist == DenseSPNGeneratorLayerNodes.InputDist.RAW:
-                            # Register the content of subset as inputs to products
-                            prod_inputs.append(next(iter(subsubset)))
-                        elif self.input_dist == DenseSPNGeneratorLayerNodes.InputDist.MIXTURE:
-                            # Add mixtures
-                            with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
-                                sums = [Sum(name="Sum%s" % (i + 1))
-                                        for i in range(self.num_input_mixtures)]
-                                sums_id += 1
-                            # Register the mixtures as inputs of products
-                            prod_inputs.append([(s, 0) for s in sums])
-                            # Create an inputs list
-                            inputs_list = subsubset_to_inputs_list(subsubset)
-                            # Connect inputs to mixtures
-                            for s in sums:
-                                s.add_values(*inputs_list)
             # Add product nodes
-            if self.multi_nodes:
-                # Create a single PermProds node, modelling all the product nodes
+            if self.node_type == DenseSPNGeneratorLayerNodes.NodeType.SINGLE:
+                products = self.__add_products(prod_inputs)
+            else:
                 products = [PermProducts(*prod_inputs,
                             name="PermProducts%s" % self.__decomp_id)]
-            else:
-                products = self.__add_products(prod_inputs)
             # Connect products to each parent Sum
             for p in subset_info.parents:
                 p.add_values(*products)
@@ -377,17 +390,17 @@ class DenseSPNGeneratorLayerNodes:
                         break
         return products
 
-    def layer_nodes(self, root):
+    def convert_to_layer_nodes(self, root):
         """
-        Add product nodes for a single decomposition and connect them to their
-        input nodes.
+        At each level in the SPN rooted in the 'root' node, model all the nodes
+        as a single layer-node.
 
         Args:
-            prod_inputs (list of list of Node): A list of lists of nodes
-                being inputs to the products, grouped by scope.
+            root (Node): The root of the SPN graph.
 
         Returns:
-            list of Product: A list of product nodes.
+            root (Node): The root of the SPN graph, with each layer modelled as a
+                         single layer-node.
         """
 
         parents = defaultdict(list)
@@ -405,115 +418,105 @@ class DenseSPNGeneratorLayerNodes:
                         node_to_depth[i.node] = node_to_depth[node] + 1
 
         def permute_inputs(input_values, input_sizes):
+            # For a given list of inputs and their corresponding sizes, create a
+            # nested-list of (input, index) pairs.
+            # E.g: input_values = [(A, [2, 5]), (B, None)]
+            #      input_sizes = [2, 3]
+            #      inputs = [[('A', 2), ('A', 5)],
+            #                [('B', 0), ('B', 1), ('B', 2)]]
             inputs = [list(product([inp.node], inp.indices)) if inp and inp.indices
                       else list(product([inp.node], list(range(inp_size)))) for
                       inp, inp_size in zip(input_values, input_sizes)]
-            # for inp, inp_size in zip(input_values, input_sizes):
-            #     if inp and inp.indices:
-            #         inputs = list(product([inp.node], inp.indices))
-            #     else:
-            #         inputs = list(product(inp.node, list(range(inp_size))))
 
+            # For a given nested-list of (input, index) pairs, permute over the inputs
+            # E.g: permuted_inputs = [('A', 2), ('B', 0),
+            #                         ('A', 2), ('B', 1),
+            #                         ('A', 2), ('B', 2),
+            #                         ('A', 5), ('B', 0),
+            #                         ('A', 5), ('B', 1),
+            #                         ('A', 5), ('B', 2)]
             permuted_inputs = list(product(*[inps for inps in inputs]))
             return list(chain(*permuted_inputs))
 
-        # Create a parents dictionary
+        # Create a parents dictionary of the SPN graph
         traverse_graph(root, fun=get_parents, skip_params=True)
 
+        # Create a depth dictionary of the SPN graph
         for key, value in node_to_depth.items():
             depths[value].append(key)
-
-        print("\nparents: ")
-        [print("%s: %s" % (key, value)) for key, value in parents.items()]
-        print("\ndepths: ")
-        [print("%s: %s" % (key, value)) for key, value in depths.items()]
-        print("\nLength at depths: ")
-        [print("%s: %s" % (key, len(value))) for key, value in depths.items()]
-
-        print("\nSPN depth: ", len(depths))
-
         spn_depth = len(depths)
 
-        # Iterate through each depth of the SPN, starting from deepest layer,
+        # Iterate through each depth of the SPN, starting from the deepest layer,
         # moving up to the root node
         for depth in range(spn_depth, 1, -1):
             if isinstance(depths[depth][0], (Sum, ParSums)):  # A Sums Layer
-                print("\n\ndepth: %s -- Sum" % depth)
                 # Create a default SumsLayer node
-                with tf.name_scope("Sums%s" % depth):
+                with tf.name_scope("Layer%s" % depth):
                     sums_layer = SumsLayer(name="SumsLayer-%s.%s" % (depth, 1))
                 # Initialize a counter for keeping track of number of sums
-                # modeled in the layer node
+                # modelled in the layer node
                 layer_num_sums = 0
                 # Initialize an empty list for storing sum-input-sizes of sums
-                # modeled in the layer node
+                # modelled in the layer node
                 num_or_size_sums = []
                 # Iterate through each node at the current depth of the SPN
                 for node in depths[depth]:
                     # TODO: To be replaced with node.num_sums once AbstractSums
                     # class is introduced
-                    # No. of sums modeled by the current node
+                    # No. of sums modelled by the current node
                     node_num_sums = (1 if isinstance(node, Sum) else node.num_sums)
                     # Add Input values of the current node to the SumsLayer node
                     sums_layer.add_values(*node.values * node_num_sums)
-                    # Add sum-input-size, of each sum modeled in the node, to the list
-                    print("node.get_input_sizes(): ", node.get_input_sizes()[2:])
+                    # Add sum-input-size, of each sum modelled in the current node,
+                    # to the list
                     num_or_size_sums += [sum(node.get_input_sizes()[2:])] * node_num_sums
                     # Visit each parent of the current node
                     for parent in parents[node]:
                         values = list(parent.values)
-                        print("values of op %s" % parent)
-                        print("values: ", values)
-                        # Iterate through each input value of the current node's
-                        # parent node
+                        # Iterate through each input value of the current parent node
                         for i, value in enumerate(values):
-                            print("Node: ", value.node)
-                            print("Indices: ", value.indices)
                             # If the value is the current node
                             if value.node == node:
                                 # Check if it has indices
                                 if value.indices is not None:
                                     # If so, then just add the num-sums of the
                                     # layer-op as offset
-                                    indices = value.indices + layer_num_sums
+                                    indices = (np.asarray(value.indices) +
+                                               layer_num_sums).tolist()
                                 else:
                                     # If not, then create a list accrodingly
                                     indices = list(range(layer_num_sums,
                                                          (layer_num_sums +
                                                           node_num_sums)))
-                                # Replace previous (node) Input value in the parent
-                                # node, with the new layer-node value
+                                # Replace previous (node) Input value in the
+                                # current parent node, with the new layer-node value
                                 values[i] = (sums_layer, indices)
-                        # Set values of the parent node
-                        print("Reset-values: ", values)
+                                break  # Once child-node found, don't have to search further
+                        # Reset values of the current parent node, by including
+                        # the new child (Layer-node)
                         parent.set_values(*values)
-                    # Increment num-sums-counter of the layer node
+                    # Increment num-sums-counter of the layer-node
                     layer_num_sums += node_num_sums
-                # TODO: Write comment
+                # After all nodes at a certain depth are modelled into a Layer-node,
+                # set num-sums parameter accordingly
                 sums_layer.set_sum_sizes(num_or_size_sums)
             elif isinstance(depths[depth][0], (Product, PermProducts)):  # A Products Layer
-                print("\n\ndepth: %s -- Product" % depth)
-                with tf.name_scope("Products%s" % depth):
+                with tf.name_scope("Layer%s" % depth):
                     prods_layer = ProductsLayer(name="ProductsLayer-%s.%s" % (depth, 1))
                 # Initialize a counter for keeping track of number of prods
-                # modeled in the layer node
+                # modelled in the layer node
                 layer_num_prods = 0
                 # Initialize an empty list for storing prod-input-sizes of prods
-                # modeled in the layer node
+                # modelled in the layer node
                 num_or_size_prods = []
                 # Iterate through each node at the current depth of the SPN
                 for node in depths[depth]:
-                    # Get input values and sizes of the PermProducts node
+                    # Get input values and sizes of the product node
                     input_values = list(node.values)
                     input_sizes = list(node.get_input_sizes())
-                    print("node: %s" % node)
-                    print("input_values: ", input_values)
                     if isinstance(node, PermProducts):
-                        # TODO: Not sure if this step is needed
-                        node.create_products()
                         # Permute over input-values to model permuted products
                         input_values = permute_inputs(input_values, input_sizes)
-                        print("permuted_input_values: ", input_values)
                         node_num_prods = node.num_prods
                         prod_input_size = len(input_values) // node_num_prods
                     elif isinstance(node, Product):
@@ -522,19 +525,14 @@ class DenseSPNGeneratorLayerNodes:
 
                     # Add Input values of the current node to the ProductsLayer node
                     prods_layer.add_values(*input_values)
-                    # Add prod-input-size, of each product modeled in the node,
-                    # to the list
+                    # Add prod-input-size, of each product modelled in the current
+                    # node, to the list
                     num_or_size_prods += [prod_input_size] * node_num_prods
                     # Visit each parent of the current node
                     for parent in parents[node]:
                         values = list(parent.values)
-                        print("values of op %s" % parent)
-                        print("values: ", values)
-                        # Iterate through each input value of the current node's
-                        # parent node
+                        # Iterate through each input value of the current parent node
                         for i, value in enumerate(values):
-                            print("Node: ", value.node)
-                            print("Indices: ", value.indices)
                             # If the value is the current node
                             if value.node == node:
                                 # Check if it has indices
@@ -545,15 +543,20 @@ class DenseSPNGeneratorLayerNodes:
                                 else:
                                     # If not, then create a list accrodingly
                                     indices = list(range(layer_num_prods,
-                                                         (layer_num_prods + node_num_prods)))
-                                # Replace previous (node) Input-value in the parent
-                                # node, with the new layer-node value
+                                                         (layer_num_prods +
+                                                          node_num_prods)))
+                                # Replace previous (node) Input value in the
+                                # current parent node, with the new layer-node value
                                 values[i] = (prods_layer, indices)
-                        # Set values of the parent node
+                        # Reset values of the current parent node, by including
+                        # the new child (Layer-node)
                         parent.set_values(*values)
                     # Increment num-prods-counter of the layer node
                     layer_num_prods += node_num_prods
-                # TODO: Write comment
+                # After all nodes at a certain depth are modelled into a Layer-node,
+                # set num-prods parameter accordingly
                 prods_layer.set_prod_sizes(num_or_size_prods)
             else:
                 raise StructureError("Unknown node-type: %s", depths[depth][0])
+
+        return root
