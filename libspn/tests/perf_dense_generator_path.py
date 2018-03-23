@@ -451,11 +451,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--num-input-rows', default=200, type=int,
                         help="Num of rows of inputs")
-    parser.add_argument('--num-input-vars', default=10, type=int,
+    parser.add_argument('--num-input-vars', default=5, type=int,
                         help="Num of input variables")
     parser.add_argument('--num-input-vals', default=5, type=int,
                         help="Num of input values per variable")
-    parser.add_argument('--num-decomps', default=4, type=int,
+    parser.add_argument('--num-decomps', default=1, type=int,
                         help="Num of decompositions at each level")
     parser.add_argument('--num-subsets', default=5, type=int,
                         help="Num of subsets in each desomposition")
@@ -463,7 +463,7 @@ def main():
                         help="Num of mixtures for each subset")
     parser.add_argument('--num-input-mixtures', default=5, type=int,
                         help="Num of input mixtures")
-    parser.add_argument('--balanced', default=False, action='store_true',
+    parser.add_argument('--balanced', default=True, action='store_true',
                         help="Generated dense SPN is balanced between decompositions")
     parser.add_argument('--num-runs', default=50, type=int,
                         help="Num of times each test is run")
