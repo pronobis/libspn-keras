@@ -39,20 +39,54 @@ def print2(str, file):
 
 class Ops:
 
-    def dense(inputs, num_decomps, num_subsets, num_mixtures, num_input_mixtures,
-              balanced, input_dist, multi_nodes, inf_type, log=False):
+    # def dense(inputs, num_decomps, num_subsets, num_mixtures, num_input_mixtures,
+    #           balanced, input_dist, multi_nodes, inf_type, log=False):
+    #
+    #     # Create a dense generator
+    #     gen = spn.DenseSPNGeneratorMultiNodes(num_decomps=num_decomps,
+    #                                           num_subsets=num_subsets,
+    #                                           num_mixtures=num_mixtures,
+    #                                           num_input_mixtures=num_input_mixtures,
+    #                                           balanced=balanced,
+    #                                           multi_nodes=multi_nodes,
+    #                                           input_dist=(spn.DenseSPNGeneratorMultiNodes.
+    #                                                       InputDist.RAW if input_dist is
+    #                                                       "RAW" else spn.
+    #                                                       DenseSPNGeneratorMultiNodes.
+    #                                                       InputDist.MIXTURE))
+    #
+    #     # Generate a dense SPN, with single-op nodes, and all weights in the network
+    #     root = gen.generate(inputs, root_name="root")
+    #     spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM())
+    #
+    #     # Generate path ops based on inf_type and log
+    #     if log:
+    #         mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=True)
+    #     else:
+    #         mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=False)
+    #
+    #     mpe_path_gen.get_mpe_path(root)
+    #     path_ops = [mpe_path_gen.counts[inp] for inp in (inputs if isinstance(inputs, list)
+    #                                                      else [inputs])]
+    #     return root, spn.initialize_weights(root), path_ops
+
+    def dense_sing(inputs, num_decomps, num_subsets, num_mixtures,
+                   num_input_mixtures, balanced, input_dist, inf_type, log=False):
+
+        # Set node-type as single-node
+        node_type = spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE
 
         # Create a dense generator
-        gen = spn.DenseSPNGeneratorMultiNodes(num_decomps=num_decomps,
+        gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
                                               num_subsets=num_subsets,
                                               num_mixtures=num_mixtures,
                                               num_input_mixtures=num_input_mixtures,
                                               balanced=balanced,
-                                              multi_nodes=multi_nodes,
-                                              input_dist=(spn.DenseSPNGeneratorMultiNodes.
+                                              node_type=node_type,
+                                              input_dist=(spn.DenseSPNGeneratorLayerNodes.
                                                           InputDist.RAW if input_dist is
                                                           "RAW" else spn.
-                                                          DenseSPNGeneratorMultiNodes.
+                                                          DenseSPNGeneratorLayerNodes.
                                                           InputDist.MIXTURE))
 
         # Generate a dense SPN, with single-op nodes, and all weights in the network
@@ -66,28 +100,63 @@ class Ops:
             mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=False)
 
         mpe_path_gen.get_mpe_path(root)
-        path_ops = [mpe_path_gen.counts[inp] for inp in (inputs if isinstance(inputs, list)
-                                                         else [inputs])]
+        path_ops = [mpe_path_gen.counts[inp] for inp in
+                    (inputs if isinstance(inputs, list) else [inputs])]
+
         return root, spn.initialize_weights(root), path_ops
 
-    def dense_multinodes(inputs, num_decomps, num_subsets, num_mixtures,
-                         num_input_mixtures, balanced, input_dist, multi_nodes,
-                         inf_type, log=False):
+    # def dense_multinodes(inputs, num_decomps, num_subsets, num_mixtures,
+    #                      num_input_mixtures, balanced, input_dist, multi_nodes,
+    #                      inf_type, log=False):
+    #
+    #     # Create a dense generator
+    #     gen = spn.DenseSPNGeneratorMultiNodes(num_decomps=num_decomps,
+    #                                           num_subsets=num_subsets,
+    #                                           num_mixtures=num_mixtures,
+    #                                           num_input_mixtures=num_input_mixtures,
+    #                                           balanced=balanced,
+    #                                           multi_nodes=multi_nodes,
+    #                                           input_dist=(spn.DenseSPNGeneratorMultiNodes.
+    #                                                       InputDist.RAW if input_dist is
+    #                                                       "RAW" else spn.
+    #                                                       DenseSPNGeneratorMultiNodes.
+    #                                                       InputDist.MIXTURE))
+    #
+    #     # Generate a dense SPN, with multi-op nodes, and all weights in the network
+    #     root = gen.generate(inputs, root_name="root")
+    #     spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM())
+    #
+    #     # Generate path ops based on inf_type and log
+    #     if log:
+    #         mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=True)
+    #     else:
+    #         mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=False)
+    #
+    #     mpe_path_gen.get_mpe_path(root)
+    #     path_ops = [mpe_path_gen.counts[inp] for inp in (inputs if isinstance(inputs, list)
+    #                                                      else [inputs])]
+    #     return root, spn.initialize_weights(root), path_ops
+
+    def dense_block(inputs, num_decomps, num_subsets, num_mixtures,
+                    num_input_mixtures, balanced, input_dist, inf_type, log=False):
+
+        # Set node-type as single-node
+        node_type = spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK
 
         # Create a dense generator
-        gen = spn.DenseSPNGeneratorMultiNodes(num_decomps=num_decomps,
+        gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
                                               num_subsets=num_subsets,
                                               num_mixtures=num_mixtures,
                                               num_input_mixtures=num_input_mixtures,
                                               balanced=balanced,
-                                              multi_nodes=multi_nodes,
-                                              input_dist=(spn.DenseSPNGeneratorMultiNodes.
+                                              node_type=node_type,
+                                              input_dist=(spn.DenseSPNGeneratorLayerNodes.
                                                           InputDist.RAW if input_dist is
                                                           "RAW" else spn.
-                                                          DenseSPNGeneratorMultiNodes.
+                                                          DenseSPNGeneratorLayerNodes.
                                                           InputDist.MIXTURE))
 
-        # Generate a dense SPN, with multi-op nodes, and all weights in the network
+        # Generate a dense SPN, with single-op nodes, and all weights in the network
         root = gen.generate(inputs, root_name="root")
         spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM())
 
@@ -98,8 +167,44 @@ class Ops:
             mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=False)
 
         mpe_path_gen.get_mpe_path(root)
-        path_ops = [mpe_path_gen.counts[inp] for inp in (inputs if isinstance(inputs, list)
-                                                         else [inputs])]
+        path_ops = [mpe_path_gen.counts[inp] for inp in
+                    (inputs if isinstance(inputs, list) else [inputs])]
+
+        return root, spn.initialize_weights(root), path_ops
+
+    def dense_layer(inputs, num_decomps, num_subsets, num_mixtures,
+                    num_input_mixtures, balanced, input_dist, inf_type, log=False):
+
+        # Set node-type as single-node
+        node_type = spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER
+
+        # Create a dense generator
+        gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
+                                              num_subsets=num_subsets,
+                                              num_mixtures=num_mixtures,
+                                              num_input_mixtures=num_input_mixtures,
+                                              balanced=balanced,
+                                              node_type=node_type,
+                                              input_dist=(spn.DenseSPNGeneratorLayerNodes.
+                                                          InputDist.RAW if input_dist is
+                                                          "RAW" else spn.
+                                                          DenseSPNGeneratorLayerNodes.
+                                                          InputDist.MIXTURE))
+
+        # Generate a dense SPN, with single-op nodes, and all weights in the network
+        root = gen.generate(inputs, root_name="root")
+        spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM())
+
+        # Generate path ops based on inf_type and log
+        if log:
+            mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=True)
+        else:
+            mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=False)
+
+        mpe_path_gen.get_mpe_path(root)
+        path_ops = [mpe_path_gen.counts[inp] for inp in
+                    (inputs if isinstance(inputs, list) else [inputs])]
+
         return root, spn.initialize_weights(root), path_ops
 
 
@@ -195,7 +300,7 @@ class PerformanceTest:
                                   self.num_input_vals))] = 1
         return true_out
 
-    def _run_op_test(self, op_fun, inputs, input_dist='MIXTURE', multi_nodes=True,
+    def _run_op_test(self, op_fun, inputs, input_dist='MIXTURE',
                      inf_type=spn.InferenceType.MARGINAL, log=False, on_gpu=True):
         """Run a single test for a single op."""
         # Preparations
@@ -204,9 +309,11 @@ class PerformanceTest:
 
         # Print
         print2("--> %s: on_gpu=%s, inputs_shape=%s, input_dist=%s, inference=%s, \
-multi_nodes=%s, log=%s"
+node_type=%s, log=%s"
                % (op_name, on_gpu, inputs.shape, input_dist, ("MPE" if inf_type ==
-                  spn.InferenceType.MPE else "MARGINAL"), multi_nodes, log), self.file)
+                  spn.InferenceType.MPE else "MARGINAL"),
+                  ("SINGLE" if op_name == "dense_sing" else "BLOCK" if
+                   op_name == "dense_block" else "LAYER"), log), self.file)
 
         # Compute true output
         true_out = self._true_output()
@@ -221,8 +328,7 @@ multi_nodes=%s, log=%s"
             start_time = time.time()
             root, init_ops, ops = op_fun(inputs_pl, self.num_decomps, self.num_subsets,
                                          self.num_mixtures, self.num_input_mixtures,
-                                         self.balanced, input_dist, multi_nodes, inf_type,
-                                         log)
+                                         self.balanced, input_dist, inf_type, log)
             setup_time = time.time() - start_time
         # Get num of SPN ops
         spn_size = root.get_num_nodes()
@@ -270,7 +376,8 @@ multi_nodes=%s, log=%s"
                 file_name = op_name
                 file_name += ("_GPU_" if on_gpu else "_CPU_")
                 file_name += input_dist
-                file_name += ("_MULTI-OP" if multi_nodes else "_SINGLE-OP")
+                file_name += ("_ SINGLE" if op_name == "dense_sing" else
+                              "_BLOCK" if op_name == "dense_block" else "_LAYER")
                 file_name += ("_MPE-LOG" if log else "_MPE") if inf_type == \
                     spn.InferenceType.MPE else ("_MARGINAL-LOG" if log else
                                                 "_MARGINAL")
@@ -283,29 +390,25 @@ multi_nodes=%s, log=%s"
         return OpTestResult(op_name, on_gpu, spn_size, tf_size, input_dist, setup_time,
                             weights_init_time, run_times, output_correct)
 
-    def _run_test(self, test_name, op_funs, inputs, multi_nodes, inf_type, log):
+    def _run_test(self, test_name, op_funs, inputs, inf_type, log):
         """Run a single test for multiple ops and devices."""
         cpu_results = []
         gpu_results = []
-        for op_fun, mul_node in zip(op_funs, multi_nodes):
+        for op_fun in op_funs:
             if not self.without_cpu:
                 cpu_results.append(  # Input Dist = RAW
                     self._run_op_test(op_fun, inputs, input_dist="RAW",
-                                      multi_nodes=mul_node, inf_type=inf_type,
-                                      log=log, on_gpu=False))
+                                      inf_type=inf_type, log=log, on_gpu=False))
                 cpu_results.append(  # Input Dist = MIXTURE
                     self._run_op_test(op_fun, inputs, input_dist="MIXTURE",
-                                      multi_nodes=mul_node, inf_type=inf_type,
-                                      log=log, on_gpu=False))
+                                      inf_type=inf_type, log=log, on_gpu=False))
             if not self.without_gpu:
                 gpu_results.append(  # Input Dist = RAW
                     self._run_op_test(op_fun, inputs, input_dist="RAW",
-                                      multi_nodes=mul_node, inf_type=inf_type,
-                                      log=log, on_gpu=True))
+                                      inf_type=inf_type, log=log, on_gpu=True))
                 gpu_results.append(  # Input Dist = MIXTURE
                     self._run_op_test(op_fun, inputs, input_dist="MIXTURE",
-                                      multi_nodes=mul_node, inf_type=inf_type,
-                                      log=log, on_gpu=True))
+                                      inf_type=inf_type, log=log, on_gpu=True))
         return TestResults(test_name, cpu_results, gpu_results)
 
     def run(self):
@@ -316,23 +419,23 @@ multi_nodes=%s, log=%s"
         inputs = np.ones((self.num_input_rows, self.num_input_vars), dtype=np.int) * 0
 
         r = self._run_test('InferenceType: MARGINAL',
-                           [Ops.dense, Ops.dense_multinodes], inputs, [False, True],
-                           inf_type=spn.InferenceType.MARGINAL, log=False)
+                           [Ops.dense_sing, Ops.dense_block, Ops.dense_layer],
+                           inputs, inf_type=spn.InferenceType.MARGINAL, log=False)
         results.append(r)
 
         r = self._run_test('InferenceType: MARGINAL-LOG',
-                           [Ops.dense, Ops.dense_multinodes], inputs, [False, True],
-                           inf_type=spn.InferenceType.MARGINAL, log=True)
+                           [Ops.dense_sing, Ops.dense_block, Ops.dense_layer],
+                           inputs, inf_type=spn.InferenceType.MARGINAL, log=True)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE',
-                           [Ops.dense, Ops.dense_multinodes], inputs, [False, True],
-                           inf_type=spn.InferenceType.MPE, log=False)
+                           [Ops.dense_sing, Ops.dense_block, Ops.dense_layer],
+                           inputs, inf_type=spn.InferenceType.MPE, log=False)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE-LOG',
-                           [Ops.dense, Ops.dense_multinodes], inputs, [False, True],
-                           inf_type=spn.InferenceType.MPE, log=True)
+                           [Ops.dense_sing, Ops.dense_block, Ops.dense_layer],
+                           inputs, inf_type=spn.InferenceType.MPE, log=True)
         results.append(r)
 
         # Print results
@@ -348,11 +451,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--num-input-rows', default=200, type=int,
                         help="Num of rows of inputs")
-    parser.add_argument('--num-input-vars', default=5, type=int,
+    parser.add_argument('--num-input-vars', default=10, type=int,
                         help="Num of input variables")
     parser.add_argument('--num-input-vals', default=5, type=int,
                         help="Num of input values per variable")
-    parser.add_argument('--num-decomps', default=1, type=int,
+    parser.add_argument('--num-decomps', default=4, type=int,
                         help="Num of decompositions at each level")
     parser.add_argument('--num-subsets', default=5, type=int,
                         help="Num of subsets in each desomposition")
@@ -360,7 +463,7 @@ def main():
                         help="Num of mixtures for each subset")
     parser.add_argument('--num-input-mixtures', default=5, type=int,
                         help="Num of input mixtures")
-    parser.add_argument('--balanced', default=True, action='store_true',
+    parser.add_argument('--balanced', default=False, action='store_true',
                         help="Generated dense SPN is balanced between decompositions")
     parser.add_argument('--num-runs', default=50, type=int,
                         help="Num of times each test is run")
