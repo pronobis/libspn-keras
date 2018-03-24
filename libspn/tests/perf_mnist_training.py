@@ -40,7 +40,7 @@ def print2(str, file):
 class Ops:
 
     def mnist_01(inputs, num_decomps, num_subsets, num_mixtures, num_input_mixtures,
-                 balanced, input_dist, multi_nodes, inf_type, log=False):
+                 balanced, input_dist, node_type, inf_type, log=False):
 
         # Learning Parameters
         additive_smoothing = 100
@@ -50,17 +50,17 @@ class Ops:
         weight_init_value = spn.ValueType.RANDOM_UNIFORM(10, 11)
 
         # Generate SPN structure
-        dense_gen = spn.DenseSPNGeneratorMultiNodes(num_decomps=num_decomps,
+        dense_gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
                                                     num_subsets=num_subsets,
                                                     num_mixtures=num_mixtures,
-                                                    input_dist=(spn.DenseSPNGeneratorMultiNodes.
+                                                    input_dist=(spn.DenseSPNGeneratorLayerNodes.
                                                                 InputDist.RAW if input_dist is
                                                                 "RAW" else spn.
-                                                                DenseSPNGeneratorMultiNodes.
+                                                                DenseSPNGeneratorLayerNodes.
                                                                 InputDist.MIXTURE),
                                                     num_input_mixtures=num_input_mixtures,
                                                     balanced=balanced,
-                                                    multi_nodes=multi_nodes)
+                                                    node_type=node_type)
         root0 = dense_gen.generate(inputs, root_name="root_0")
         root1 = dense_gen.generate(inputs, root_name="root_1")
         root = spn.Sum(root0, root1, name="root")
@@ -76,7 +76,7 @@ class Ops:
             additive_smoothing_var
 
     def mnist_all(inputs, num_decomps, num_subsets, num_mixtures, num_input_mixtures,
-                  balanced, input_dist, multi_nodes, inf_type, log=False):
+                  balanced, input_dist, node_type, inf_type, log=False):
 
         # Learning Parameters
         additive_smoothing = 0
@@ -91,17 +91,17 @@ class Ops:
         use_unweighted = True
 
         # Generate SPN structure
-        dense_gen = spn.DenseSPNGeneratorMultiNodes(num_decomps=num_decomps,
+        dense_gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
                                                     num_subsets=2,
                                                     num_mixtures=3,
-                                                    input_dist=(spn.DenseSPNGeneratorMultiNodes.
+                                                    input_dist=(spn.DenseSPNGeneratorLayerNodes.
                                                                 InputDist.RAW if input_dist is
                                                                 "RAW" else spn.
-                                                                DenseSPNGeneratorMultiNodes.
+                                                                DenseSPNGeneratorLayerNodes.
                                                                 InputDist.MIXTURE),
                                                     num_input_mixtures=num_input_mixtures,
                                                     balanced=balanced,
-                                                    multi_nodes=multi_nodes)
+                                                    node_type=node_type)
         class_roots = [dense_gen.generate(inputs, root_name=("Class_%d" % i))
                        for i in range(10)]
         root = spn.Sum(*class_roots, name="root")
@@ -123,11 +123,11 @@ class Ops:
 class OpTestResult:
     """Result of a single test of a single op."""
 
-    def __init__(self, op_name, on_gpu, multi_nodes, spn_size, tf_size, memory_used,
+    def __init__(self, op_name, on_gpu, node_type, spn_size, tf_size, memory_used,
                  input_dist, setup_time, weights_init_time, run_times, test_accuracy):
         self.op_name = op_name
         self.on_gpu = on_gpu
-        self.multi_nodes = multi_nodes
+        self.node_type = node_type
         self.spn_size = spn_size
         self.tf_size = tf_size
         self.memory_used = memory_used
@@ -149,14 +149,14 @@ class TestResults:
     def print(self, file):
         def get_header(dev):
             return ("%4s %11s %13s %9s %8s %9s %11s %11s %17s %15s %14s %11s" %
-                    (dev, 'op', 'multi_nodes', 'SPN_size', 'TF_size', 'mem_used',
+                    (dev, 'op', 'node_type', 'SPN_size', 'TF_size', 'mem_used',
                      'input_dist', 'setup_time', 'weights_init_time', 'first_run_time',
                      'rest_run_time', 'test_accuracy'))
 
         def get_res(res):
             """Helper function printing a single result."""
             return ("%16s %11s %10d %7d %11.4f %11s %13.2f %15.2f %15.2f %17.2f %8.4f" %
-                    (res.op_name, res.multi_nodes, res.spn_size, res.tf_size,
+                    (res.op_name, res.node_type, res.spn_size, res.tf_size,
                      (0.0 if res.memory_used is None else res.memory_used / 1000000),
                      res.input_dist, res.setup_time * 1000,
                      res.weights_init_time * 1000,
@@ -244,7 +244,7 @@ class PerformanceTest:
 
         return train_set, train_labels, test_set, test_labels
 
-    def _run_op_test(self, op_fun, input_dist='RAW', multi_nodes=True,
+    def _run_op_test(self, op_fun, input_dist='RAW', node_type=None,
                      inf_type=spn.InferenceType.MARGINAL, log=False, on_gpu=True):
         """Run a single test for a single op."""
         # Preparations
@@ -252,9 +252,11 @@ class PerformanceTest:
         device_name = '/gpu:0' if on_gpu else '/cpu:0'
 
         # Print
-        print2("--> %s: on_gpu=%s, input_dist=%s, inference=%s, multi_nodes=%s, log=%s"
+        print2("--> %s: on_gpu=%s, input_dist=%s, inference=%s, node_type=%s, log=%s"
                % (op_name, on_gpu, input_dist, ("MPE" if inf_type == spn.InferenceType.MPE
-                  else "MARGINAL"), multi_nodes, log), self.file)
+                  else "MARGINAL"), ("SINGLE" if node_type == spn.DenseSPNGeneratorLayerNodes.
+                  NodeType.SINGLE else "BLOCK" if node_type == spn.DenseSPNGeneratorLayerNodes.
+                  NodeType.BLOCK else "LAYER"), log), self.file)
 
         train_set, train_labels, test_set, test_labels = self._data_set(op_fun)
 
@@ -270,7 +272,7 @@ class PerformanceTest:
                 additive_smoothing_var = op_fun(inputs_pl, self.num_decomps,
                                                 self.num_subsets, self.num_mixtures,
                                                 self.num_input_mixtures, self.balanced,
-                                                input_dist, multi_nodes, inf_type, log)
+                                                input_dist, node_type, inf_type, log)
             # Add Learning Ops
             init_weights = spn.initialize_weights(root)
             reset_accumulators = learning.reset_accumulators()
@@ -358,7 +360,11 @@ class PerformanceTest:
                 file_name = op_name
                 file_name += ("_GPU_" if on_gpu else "_CPU_")
                 file_name += input_dist  # "RAW" or "MIXTURE"
-                file_name += ("_MULTI-OP" if multi_nodes else "_SINGLE-OP")
+                file_name += ("_ SINGLE" if node_type ==
+                              spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE else
+                              "_BLOCK" if node_type ==
+                              spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK else
+                              "_LAYER")
                 file_name += ("_MPE-LOG" if log else "_MPE") if inf_type == \
                     spn.InferenceType.MPE else ("_MARGINAL-LOG" if log else
                                                 "_MARGINAL")
@@ -380,33 +386,35 @@ class PerformanceTest:
             test_accuracy = np.sum(result) / test_labels.size
 
         # Return stats
-        return OpTestResult(op_name, on_gpu, multi_nodes, spn_size, tf_size,
-                            memory_used, input_dist, setup_time, weights_init_time,
-                            run_times, test_accuracy)
+        return OpTestResult(op_name, on_gpu, ("SINGLE" if node_type == spn.
+                            DenseSPNGeneratorLayerNodes.NodeType.SINGLE else "BLOCK"
+                            if node_type == spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK
+                            else "LAYER"), spn_size, tf_size, memory_used, input_dist,
+                            setup_time, weights_init_time, run_times, test_accuracy)
 
-    def _run_test(self, test_name, op_funs, multi_nodes, inf_type, log):
+    def _run_test(self, test_name, op_funs, node_types, inf_type, log):
         """Run a single test for multiple ops and devices."""
         cpu_results = []
         gpu_results = []
         for op_fun in op_funs:
-            for mult in multi_nodes:
+            for n_type in node_types:
                 if not self.without_cpu:
                     cpu_results.append(
                         self._run_op_test(op_fun, input_dist="RAW",
-                                          multi_nodes=mult, inf_type=inf_type,
+                                          node_type=n_type, inf_type=inf_type,
                                           log=log, on_gpu=False))
                     cpu_results.append(
                         self._run_op_test(op_fun, input_dist="MIXTURE",
-                                          multi_nodes=mult, inf_type=inf_type,
+                                          node_type=n_type, inf_type=inf_type,
                                           log=log, on_gpu=False))
                 if not self.without_gpu:
                     gpu_results.append(
                         self._run_op_test(op_fun, input_dist="RAW",
-                                          multi_nodes=mult, inf_type=inf_type,
+                                          node_type=n_type, inf_type=inf_type,
                                           log=log, on_gpu=True))
                     gpu_results.append(
                         self._run_op_test(op_fun, input_dist="MIXTURE",
-                                          multi_nodes=mult, inf_type=inf_type,
+                                          node_type=n_type, inf_type=inf_type,
                                           log=log, on_gpu=True))
         return TestResults(test_name, cpu_results, gpu_results)
 
@@ -416,22 +424,34 @@ class PerformanceTest:
         results = []
 
         r = self._run_test('InferenceType: MARGINAL',
-                           [Ops.mnist_01, Ops.mnist_all], [False, True],
+                           [Ops.mnist_01, Ops.mnist_all],
+                           [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
+                            spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
+                            spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
                            inf_type=spn.InferenceType.MARGINAL, log=False)
         results.append(r)
 
         r = self._run_test('InferenceType: MARGINAL-LOG',
-                           [Ops.mnist_01, Ops.mnist_all], [False, True],
+                           [Ops.mnist_01, Ops.mnist_all],
+                           [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
+                            spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
+                            spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
                            inf_type=spn.InferenceType.MARGINAL, log=True)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE',
-                           [Ops.mnist_01, Ops.mnist_all], [False, True],
+                           [Ops.mnist_01, Ops.mnist_all],
+                           [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
+                            spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
+                            spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
                            inf_type=spn.InferenceType.MPE, log=False)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE-LOG',
-                           [Ops.mnist_01, Ops.mnist_all], [False, True],
+                           [Ops.mnist_01, Ops.mnist_all],
+                           [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
+                            spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
+                            spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
                            inf_type=spn.InferenceType.MPE, log=True)
         results.append(r)
 
