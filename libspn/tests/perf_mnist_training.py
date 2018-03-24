@@ -155,7 +155,7 @@ class TestResults:
 
         def get_res(res):
             """Helper function printing a single result."""
-            return ("%16s %11s %10d %7d %11.4f %11s %13.2f %15.2f %15.2f %17.2f %8.4f" %
+            return ("%16s %11s %7d %10d %11.4f %11s %10.2f %12.2f %15.2f %15.2f %14.4f" %
                     (res.op_name, res.node_type, res.spn_size, res.tf_size,
                      (0.0 if res.memory_used is None else res.memory_used / 1000000),
                      res.input_dist, res.setup_time * 1000,
