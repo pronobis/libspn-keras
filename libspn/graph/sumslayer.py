@@ -240,15 +240,10 @@ class SumsLayer(OpNode):
         if name is None:
             name = self._name + "_Weights"
 
-<<<<<<< HEAD
-        max_size = max(self._sum_input_sizes)
-        sum_size = sum(self._sum_input_sizes)
-=======
         # Set sum node sizes to inferred _sum_input_sizes
         sum_input_sizes = self._sum_input_sizes
         max_size = max(sum_input_sizes)
         sum_size = sum(sum_input_sizes)
->>>>>>> jostosh-sums_layer
 
         # Mask is used to select the indices to assign the value to, since the weights tensor can
         # be larger than the total number of weights being modeled due to padding
@@ -274,7 +269,7 @@ class SumsLayer(OpNode):
                              .format(init_value, type(init_value), sum_size))
         # Generate weights
         weights = Weights(init_value=init_value, num_weights=max_size,
-                          num_sums=len(self._sum_input_sizes), trainable=trainable,
+                          num_sums=len(sum_input_sizes), trainable=trainable,
                           mask=mask.tolist(), name=name)
         self.set_weights(weights)
         return weights
