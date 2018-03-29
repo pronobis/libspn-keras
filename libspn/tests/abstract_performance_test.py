@@ -242,6 +242,15 @@ class AbstractPerformanceTest(abc.ABC):
         true_out = unit.true_out(inputs, conf)
         feed_dict = unit.feed_dict(inputs)
         output_correct = True
+
+        # Write graph to file
+        op_description = unit.description()
+        test_description = self.description()
+        config_description = conf.description()
+        writer = tf.summary.FileWriter(
+            os.path.join(self._logdir, "graphs", "{}_{}_{}".format(test_description, op_description, config_description)), graph=tf.get_default_graph())
+        writer.flush()
+        writer.close()
         with tf.Session(config=tf.ConfigProto(
                 allow_soft_placement=True, log_device_placement=self._log_devs)) as sess:
             _, init_time = time_fn(lambda: sess.run(init_ops)) if init_ops is not None else 0, 0.0
@@ -262,9 +271,6 @@ class AbstractPerformanceTest(abc.ABC):
 
             if self._profile:
                 # Create a suitable filename suffix
-                op_description = unit.description()
-                test_description = self.description()
-                config_description = conf.description()
                 # Create a profiling report
                 suffix = "{}_{}_{}".format(test_description, op_description, config_description)
                 profile_report(sess, op, feed_dict, os.path.join(self._logdir, "profiling"),
@@ -376,8 +382,8 @@ class AbstractPerformanceTest(abc.ABC):
                 os.path.join(self._logdir, 'per_run' + "_" + metric + '.png'))
             plt.clf()
 
-    def assert_all_close(self, a, b, rtol=1e-6, atol=1e-6, msg=None):
-        if not np.allclose(a, b, rtol=rtol, atol=atol):
+    def assert_all_close(self, out, true_out, rtol=1e-6, atol=1e-6, msg=None):
+        if not np.allclose(out, true_out, rtol=rtol, atol=atol):
             # Prints more details than np.testing.assert_allclose.
             #
             # NOTE: numpy.allclose (and numpy.testing.assert_allclose)
@@ -387,19 +393,19 @@ class AbstractPerformanceTest(abc.ABC):
             # the absolute difference between a and b.  Here, we want to
             # print out which elements violate such conditions.
             cond = np.logical_or(
-                np.abs(a - b) > atol + rtol * np.abs(b), np.isnan(a) != np.isnan(b))
-            if a.ndim:
-                x = a[np.where(cond)]
-                y = b[np.where(cond)]
+                np.abs(out - true_out) > atol + rtol * np.abs(true_out), np.isnan(out) != np.isnan(true_out))
+            if out.ndim:
+                x = out[np.where(cond)]
+                y = true_out[np.where(cond)]
                 if self._verbose:
                     print("not close where = ", np.where(cond))
             else:
                 # np.where is broken for scalars
-                x, y = a, b
+                x, y = out, true_out
             if self._verbose:
-                print("not close lhs = ", x)
-                print("not close rhs = ", y)
-                print("not close dif = ", np.abs(x - y))
-                print("not close tol = ", atol + rtol * np.abs(y))
-                print("dtype = %s, shape = %s" % (a.dtype, a.shape))
-            np.testing.assert_allclose(a, b, rtol=rtol, atol=atol, err_msg=msg)
+                print("not close out      = ", x)
+                print("not close true_out = ", y)
+                print("not close dif      = ", np.abs(x - y))
+                print("not close tol      = ", atol + rtol * np.abs(y))
+                print("dtype = %s, shape  = %s" % (out.dtype, out.shape))
+            np.testing.assert_allclose(out, true_out, rtol=rtol, atol=atol, err_msg=msg)

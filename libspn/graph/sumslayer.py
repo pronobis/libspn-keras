@@ -240,8 +240,15 @@ class SumsLayer(OpNode):
         if name is None:
             name = self._name + "_Weights"
 
+<<<<<<< HEAD
         max_size = max(self._sum_input_sizes)
         sum_size = sum(self._sum_input_sizes)
+=======
+        # Set sum node sizes to inferred _sum_input_sizes
+        sum_input_sizes = self._sum_input_sizes
+        max_size = max(sum_input_sizes)
+        sum_size = sum(sum_input_sizes)
+>>>>>>> jostosh-sums_layer
 
         # Mask is used to select the indices to assign the value to, since the weights tensor can
         # be larger than the total number of weights being modeled due to padding
@@ -516,7 +523,6 @@ class SumsLayer(OpNode):
 
         max_counts = utils.scatter_values(params=counts, indices=max_indices,
                                           num_out_cols=values_weighted.shape[2].value)
-
         _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
 
         # Reshape max counts to a wide 2D tensor of shape 'Batch X (num_sums * max_size)'
