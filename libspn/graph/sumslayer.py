@@ -239,13 +239,9 @@ class SumsLayer(OpNode):
             raise StructureError("%s is missing input values" % self)
         if name is None:
             name = self._name + "_Weights"
-        # Set sum node sizes either from input or from inferred _sum_input_sizes
-        if input_sizes:
-            if len(input_sizes) < 2:
-                raise ValueError("Must have at least two input sizes for generating weights")
-            sum_input_sizes = input_sizes[2:]
-        else:
-            sum_input_sizes = self._sum_input_sizes
+
+        # Set sum node sizes to inferred _sum_input_sizes
+        sum_input_sizes = self._sum_input_sizes
         max_size = max(sum_input_sizes)
         sum_size = sum(sum_input_sizes)
 
@@ -522,7 +518,6 @@ class SumsLayer(OpNode):
 
         max_counts = utils.scatter_values(params=counts, indices=max_indices,
                                           num_out_cols=values_weighted.shape[2].value)
-
         _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
 
         # Reshape max counts to a wide 2D tensor of shape 'Batch X (num_sums * max_size)'
