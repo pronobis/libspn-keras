@@ -72,6 +72,11 @@ class Weights(ParamNode):
             return None
 
     @property
+    def mask(self):
+        """list(int): Boolean mask for weights"""
+        return self._mask
+
+    @property
     def num_weights(self):
         """int: Number of weights in the vector."""
         return self._num_weights
