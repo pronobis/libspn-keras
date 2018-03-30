@@ -155,12 +155,11 @@ class TestResults:
 
         def get_res(res):
             """Helper function printing a single result."""
-            return ("%16s %11s %7d %10d %11.4f %11s %10.2f %12.2f %15.2f %15.2f %14.4f" %
+            return ("%16s %11s %7d %10d %11.4f %11s %10.4f %12.4f %15.4f %15.4f %14.4f" %
                     (res.op_name, res.node_type, res.spn_size, res.tf_size,
                      (0.0 if res.memory_used is None else res.memory_used / 1000000),
-                     res.input_dist, res.setup_time * 1000,
-                     res.weights_init_time * 1000,
-                     res.run_times[0] * 1000, np.mean(res.run_times[1:]) * 1000,
+                     res.input_dist, res.setup_time, res.weights_init_time,
+                     res.run_times[0], np.mean(res.run_times[1:]),
                      res.test_accuracy * 100))
 
         # Print results
@@ -423,28 +422,12 @@ class PerformanceTest:
         print1("Running tests:", self.file)
         results = []
 
-        r = self._run_test('InferenceType: MARGINAL',
-                           [Ops.mnist_01, Ops.mnist_all],
-                           [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
-                            spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-                            spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
-                           inf_type=spn.InferenceType.MARGINAL, log=False)
-        results.append(r)
-
         r = self._run_test('InferenceType: MARGINAL-LOG',
                            [Ops.mnist_01, Ops.mnist_all],
                            [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
                             spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
                             spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
                            inf_type=spn.InferenceType.MARGINAL, log=True)
-        results.append(r)
-
-        r = self._run_test('InferenceType: MPE',
-                           [Ops.mnist_01, Ops.mnist_all],
-                           [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
-                            spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-                            spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
-                           inf_type=spn.InferenceType.MPE, log=False)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE-LOG',
@@ -468,9 +451,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--num-decomps', default=1, type=int,
                         help="Num of decompositions at each level")
-    parser.add_argument('--num-subsets', default=5, type=int,
+    parser.add_argument('--num-subsets', default=2, type=int,
                         help="Num of subsets in each desomposition")
-    parser.add_argument('--num-mixtures', default=2, type=int,
+    parser.add_argument('--num-mixtures', default=3, type=int,
                         help="Num of mixtures for each subset")
     parser.add_argument('--num-input-mixtures', default=2, type=int,
                         help="Num of input mixtures")
