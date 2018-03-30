@@ -433,7 +433,7 @@ class SumsLayer(OpNode):
         return flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict
 
     def _compute_value_common(self, cwise_op, reduction_fn, weight_tensor, ivs_tensor,
-                              *value_tensors, weighted=True):
+                              *value_tensors, weighted=True, pad_elem=0):
         """ Common actions when computing value. """
         # Check inputs
         if not self._values:
@@ -444,7 +444,7 @@ class SumsLayer(OpNode):
         weight_tensor, ivs_tensor = self._gather_input_tensors(weight_tensor, ivs_tensor)
 
         # Builds reducible value tensor
-        reducible_values = self._reducible_values(value_tensors)
+        reducible_values = self._reducible_values(value_tensors, pad_elem=pad_elem)
 
         # First apply IV, then weights. It might be that unweighted is used in MPE
         reducible_values = self._apply_IVs(cwise_op, ivs_tensor, reducible_values)
@@ -469,7 +469,7 @@ class SumsLayer(OpNode):
             reducible_values = cwise_op(reducible_values, ivs_tensor_reshaped)
         return reducible_values
 
-    def _reducible_values(self, value_tensors):
+    def _reducible_values(self, value_tensors, pad_elem=0):
         indices, values = self._combine_values_and_indices(value_tensors)
         # Create a 3D tensor with dimensions [batch, sum node, sum input]
         # The last axis will have zeros when the sum size is less than the max sum size
@@ -483,32 +483,37 @@ class SumsLayer(OpNode):
             reducible_values = tf.reshape(utils.gather_cols(values, indices_flat),
                                           (-1, self._num_sums, self._sum_input_sizes[0]))
         else:
-            reducible_values = utils.gather_cols_3d(values, indices, name="GatherToReducible")
+            reducible_values = utils.gather_cols_3d(values, indices, pad_elem=pad_elem,
+                                                    name="GatherToReducible")
         return reducible_values
 
     def _compute_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes value in non-log space """
         reduce_sum = functools.partial(tf.reduce_sum, axis=2)
-        return self._compute_value_common(
-            tf.multiply, reduce_sum, weight_tensor, ivs_tensor, *value_tensors, weighted=True)
+        return self._compute_value_common(tf.multiply, reduce_sum, weight_tensor,
+                                          ivs_tensor, *value_tensors, weighted=True,
+                                          pad_elem=0)
 
     def _compute_log_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes value in log space """
         reduce_logsum = functools.partial(utils.reduce_log_sum_3D, transpose=False)
-        return self._compute_value_common(
-            tf.add, reduce_logsum, weight_tensor, ivs_tensor, *value_tensors, weighted=True)
+        return self._compute_value_common(tf.add, reduce_logsum, weight_tensor,
+                                          ivs_tensor, *value_tensors, weighted=True,
+                                          pad_elem=-float('inf'))
 
     def _compute_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes MPE value in non-log space """
         reduce_max = functools.partial(tf.reduce_max, axis=2)
-        return self._compute_value_common(
-            tf.multiply, reduce_max, weight_tensor, ivs_tensor, *value_tensors, weighted=True)
+        return self._compute_value_common(tf.multiply, reduce_max, weight_tensor,
+                                          ivs_tensor, *value_tensors, weighted=True,
+                                          pad_elem=0)
 
     def _compute_log_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes MPE value in log space """
         reduce_max = functools.partial(tf.reduce_max, axis=2)
-        return self._compute_value_common(
-            tf.add, reduce_max, weight_tensor, ivs_tensor, *value_tensors, weighted=True)
+        return self._compute_value_common(tf.add, reduce_max, weight_tensor,
+                                          ivs_tensor, *value_tensors, weighted=True,
+                                          pad_elem=-float('inf'))
 
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
                                  ivs_value, *value_values):
@@ -583,7 +588,6 @@ class SumsLayer(OpNode):
                             next_tensor = None
                     else:
                         max_counts_split_with_None.append(None)
-
 
                 ret = self._scatter_to_input_tensors(
                     (max_counts, weight_value),  # Weights
@@ -744,19 +748,20 @@ class SumsLayer(OpNode):
         return tensor_scatter_indices, unique_input_counts
 
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
-                          add_random=None, use_unweighted=False, sum_counts=True):
+                          add_random=None, use_unweighted=False):
         values_selected_weighted = self._compute_value_common(
-            tf.multiply, lambda x: x, weight_value, ivs_value, *value_values)
+            tf.multiply, lambda x: x, weight_value, ivs_value, *value_values, pad_elem=0)
         return self._compute_mpe_path_common(values_selected_weighted, counts,
                                              weight_value, ivs_value, *value_values)
 
     def _compute_log_mpe_path(self, counts, weight_value, ivs_value,
                               *value_values, add_random=None,
-                              use_unweighted=False, sum_counts=True):
+                              use_unweighted=False):
         # Get weighted, IV selected values
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
         values_weighted = self._compute_value_common(
-            tf.add, lambda x: x, weight_value, ivs_value, *value_values, weighted=weighted)
+            tf.add, lambda x: x, weight_value, ivs_value, *value_values,
+            weighted=weighted, pad_elem=-float('inf'))
 
         # WARN ADDING RANDOM NUMBERS
         if add_random is not None:
@@ -765,6 +770,9 @@ class SumsLayer(OpNode):
                        values_weighted.shape[2].value),
                 minval=0, maxval=add_random,
                 dtype=conf.dtype))
+            mask = self._build_mask()
+            if not all(mask):
+                values_weighted *= tf.cast(mask, dtype=conf.dtype)
         # /ADDING RANDOM NUMBERS
 
         return self._compute_mpe_path_common(
