@@ -92,8 +92,8 @@ class Ops:
 
         # Generate SPN structure
         dense_gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
-                                                    num_subsets=2,
-                                                    num_mixtures=3,
+                                                    num_subsets=num_subsets,
+                                                    num_mixtures=num_mixtures,
                                                     input_dist=(spn.DenseSPNGeneratorLayerNodes.
                                                                 InputDist.RAW if input_dist is
                                                                 "RAW" else spn.
