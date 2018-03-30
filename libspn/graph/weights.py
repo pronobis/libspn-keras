@@ -116,6 +116,9 @@ class Weights(ParamNode):
         else:
             shape = self._num_weights
         value = utils.broadcast_value(value, (shape,), dtype=conf.dtype)
+        if self._mask and not all(self._mask):
+            # Only perform masking if mask is given and mask contains any 'False'
+            value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
         value = utils.normalize_tensor_2D(value, self._num_weights, self._num_sums)
         return tf.assign(self._variable, value)
 
