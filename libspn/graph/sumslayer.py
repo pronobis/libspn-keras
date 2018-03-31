@@ -770,7 +770,7 @@ class SumsLayer(OpNode):
                        values_weighted.shape[2].value),
                 minval=0, maxval=add_random,
                 dtype=conf.dtype))
-            mask = self._build_mask()
+            mask = self._build_mask().tolist()
             if not all(mask):
                 values_weighted *= tf.cast(mask, dtype=conf.dtype)
         # /ADDING RANDOM NUMBERS
