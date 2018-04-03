@@ -24,6 +24,7 @@ from libspn.graph.sumslayer import SumsLayer
 from libspn.graph.product import Product
 from libspn.graph.permproducts import PermProducts
 from libspn.graph.products import Products
+from libspn.graph.productslayer import ProductsLayer
 from libspn.graph.weights import Weights
 from libspn.graph.weights import assign_weights
 from libspn.graph.weights import initialize_weights
@@ -108,7 +109,7 @@ __all__ = [
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IVs', 'ContVars',
     'Sum', 'ParSums', 'Sums', 'SumsLayer',
-    'Product', 'PermProducts', 'Products',
+    'Product', 'PermProducts', 'Products', 'ProductsLayer',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
