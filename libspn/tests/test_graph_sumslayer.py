@@ -141,11 +141,21 @@ class TestNodesSumsLayer(tf.test.TestCase):
             out = sess.run(value_op, feed_dict=feed_dict)
         self.assertAllClose(out, true_out)
 
-    @parameterized.expand(arg_product(INPUT_SIZES, SUM_SIZES, BOOLEAN, BOOLEAN, BOOLEAN,
-                                      INF_TYPES, ['gather', "matmul", 'segmented'], BOOLEAN))
+    @parameterized.expand(arg_product(
+        INPUT_SIZES, SUM_SIZES, BOOLEAN, BOOLEAN, BOOLEAN, INF_TYPES,
+        ['gather', "matmul", 'segmented'], BOOLEAN, BOOLEAN))
     def test_sumslayer_mpe_path(self, input_sizes, sum_sizes, ivs, log, same_inputs, inf_type,
-                                count_strategy, indices):
+                                count_strategy, indices, use_unweighted):
         # Set some defaults
+
+        if 1 in sum_sizes or 1 in input_sizes:
+            # There is not a clean way to solve the issue avoided here. It has to do with floating
+            # point errors in numpy vs. tf, leading to unpredictable behavior of argmax.
+            # Unweighted values take away any weighting randomness, so the argmax will obtain some
+            # values that are very likely to be equal up to these floating point errors. Hence,
+            # we just set use_unweighted to False if the sum size or input size equals 1 (which is
+            # typically when the values are 'pseudo'-equal)
+            use_unweighted = False
         batch_size = 32
         factor = 10
         # Configure count strategy
@@ -153,15 +163,18 @@ class TestNodesSumsLayer(tf.test.TestCase):
         feed_dict, indices, input_nodes, input_tuples, ivs, values, weights, root_weights = \
             self.sumslayer_prepare_common(
                 batch_size, factor, indices, input_sizes, ivs, same_inputs, sum_sizes)
-        # Set true output
+
+        root_weights_np = np.ones_like(root_weights) if use_unweighted and log else root_weights
         weight_counts, ivs_counts, value_counts = sumslayer_mpe_path_numpy(
-            values, indices, weights, None if not ivs else ivs, sum_sizes, inf_type, root_weights)
+            values, indices, weights, None if not ivs else ivs, sum_sizes, inf_type,
+            root_weights_np)
         # Build graph
         init, ivs_nodes, root, weight_node = self.build_sumslayer_common(
             feed_dict, input_tuples, ivs, sum_sizes, weights, root_weights)
 
         # Then build MPE path Ops
-        mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=log)
+        mpe_path_gen = spn.MPEPath(
+            value_inference_type=inf_type, log=log, use_unweighted=use_unweighted)
         mpe_path_gen.get_mpe_path(root)
         path_op = [mpe_path_gen.counts[node] for node in [weight_node] + input_nodes + ivs_nodes]
 
@@ -203,7 +216,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
             ivs_nodes = []
         weight_node = sumslayer.generate_weights(init_value=weights)
         # Connect a single sum to group outcomes
-        root = spn.Sum(sumslayer)
+        root = spn.SumsLayer(sumslayer, num_or_size_sums=1)
         root.generate_weights(init_value=root_weights)
         init = spn.initialize_weights(root)
         return init, ivs_nodes, root, weight_node
