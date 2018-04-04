@@ -433,7 +433,7 @@ class SumsLayer(OpNode):
         return flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict
 
     def _compute_value_common(self, cwise_op, reduction_fn, weight_tensor, ivs_tensor,
-                              *value_tensors, weighted=True, pad_elem=0):
+                              *value_tensors, weighted=True, pad_elem=0.0):
         """ Common actions when computing value. """
         # Check inputs
         if not self._values:
@@ -469,7 +469,7 @@ class SumsLayer(OpNode):
             reducible_values = cwise_op(reducible_values, ivs_tensor_reshaped)
         return reducible_values
 
-    def _reducible_values(self, value_tensors, pad_elem=0):
+    def _reducible_values(self, value_tensors, pad_elem=0.0):
         indices, values = self._combine_values_and_indices(value_tensors)
         # Create a 3D tensor with dimensions [batch, sum node, sum input]
         # The last axis will have zeros when the sum size is less than the max sum size
@@ -765,14 +765,15 @@ class SumsLayer(OpNode):
 
         # WARN ADDING RANDOM NUMBERS
         if add_random is not None:
-            values_weighted = tf.add(values_weighted, tf.random_uniform(
-                shape=(tf.shape(values_weighted)[0], 1,
-                       values_weighted.shape[2].value),
+            # TODO this feature needs to be tested somehow
+            noise = tf.random_uniform(
+                shape=[tf.shape(values_weighted)[0]] + values_weighted.shape.as_list()[1:],
                 minval=0, maxval=add_random,
-                dtype=conf.dtype))
+                dtype=conf.dtype)
+            values_weighted = tf.add(values_weighted, noise)
             mask = self._build_mask().tolist()
             if not all(mask):
-                values_weighted *= tf.cast(mask, dtype=conf.dtype)
+                values_weighted += tf.log(tf.cast(mask, dtype=conf.dtype))
         # /ADDING RANDOM NUMBERS
 
         return self._compute_mpe_path_common(
