@@ -766,11 +766,10 @@ class SumsLayer(OpNode):
         # WARN ADDING RANDOM NUMBERS
         if add_random is not None:
             # TODO this feature needs to be tested somehow
-            noise = tf.random_uniform(
+            values_weighted = tf.add(values_weighted, tf.random_uniform(
                 shape=[tf.shape(values_weighted)[0]] + values_weighted.shape.as_list()[1:],
                 minval=0, maxval=add_random,
-                dtype=conf.dtype)
-            values_weighted = tf.add(values_weighted, noise)
+                dtype=conf.dtype))
             mask = self._build_mask().tolist()
             if not all(mask):
                 values_weighted += tf.log(tf.cast(mask, dtype=conf.dtype))
