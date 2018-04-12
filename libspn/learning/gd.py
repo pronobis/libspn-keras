@@ -9,6 +9,7 @@ from collections import namedtuple
 import tensorflow as tf
 from libspn.inference.mpe_path import MPEPath
 from libspn.graph.algorithms import traverse_graph
+from libspn.learning.type import LearningType
 from libspn import conf
 
 
@@ -25,13 +26,15 @@ class GDLearning():
     ParamNode = namedtuple("ParamNode", ["node", "name_scope", "accum"])
 
     def __init__(self, root, mpe_path=None, log=True, value_inference_type=None,
-                 learning_rate=0.1, additive_smoothing=None, add_random=None,
-                 initial_accum_value=None, use_unweighted=False):
+                 learning_rate=0.1, learning_type=LearningType.DISCRIMINATIVE,
+                 additive_smoothing=None, add_random=None, initial_accum_value=None,
+                 use_unweighted=False):
         self._root = root
         if learning_rate <= 0.0:
             raise ValueError("learning_rate must be a positive number")
         else:
             self._learning_rate = learning_rate
+        self._learning_type = learning_type
         self._additive_smoothing = additive_smoothing
         self._initial_accum_value = initial_accum_value
         # Create internal MPE path generator
@@ -75,7 +78,8 @@ class GDLearning():
         if not self._mpe_path.counts:
             self._mpe_path.get_mpe_path(self._root)
 
-        if not self._mpe_path.actual_counts:
+        if self._learning_type == LearningType.DISCRIMINATIVE and \
+           not self._mpe_path.actual_counts:
             self._mpe_path.get_mpe_path_actual(self._root)
 
         # Generate all accumulate operations
@@ -84,7 +88,8 @@ class GDLearning():
             for pn in self._param_nodes:
                 with tf.name_scope(pn.name_scope):
                     counts = self._mpe_path.counts[pn.node]
-                    actual_counts = self._mpe_path.actual_counts[pn.node]
+                    actual_counts = self._mpe_path.actual_counts[pn.node] if \
+                        self._learning_type == LearningType.DISCRIMINATIVE else None
                     update_value = pn.node._compute_hard_gd_update(counts,
                                                                    actual_counts)
                     # Apply learning-rate
