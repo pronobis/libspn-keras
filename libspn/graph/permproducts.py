@@ -207,7 +207,7 @@ class PermProducts(OpNode):
         return self._compute_log_value(*value_tensors)
 
     def _compute_mpe_path(self, counts, *value_values, add_random=False,
-                          use_unweighted=False):
+                          use_unweighted=False, with_ivs=False):
         # Path per product node is calculated by permuting backwards to the
         # input nodes, then adding the appropriate counts per input, and then
         # scattering the summed counts to value inputs
@@ -265,5 +265,5 @@ class PermProducts(OpNode):
         return self._scatter_to_input_tensors(*value_counts)
 
     def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False):
+                              use_unweighted=False, with_ivs=False):
         return self._compute_mpe_path(counts, *value_values)

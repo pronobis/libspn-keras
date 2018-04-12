@@ -308,21 +308,21 @@ class Sum(OpNode):
             *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
 
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
-                          add_random=None, use_unweighted=False):
+                          add_random=None, use_unweighted=False, with_ivs=True):
         # Get weighted, IV selected values
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
-        values_selected = values * ivs_value if self._ivs else values
+        values_selected = values * ivs_value if self._ivs and with_ivs else values
         values_weighted = values_selected * weight_value
         return self._compute_mpe_path_common(
             values_weighted, counts, weight_value, ivs_value, *value_values)
 
     def _compute_log_mpe_path(self, counts, weight_value, ivs_value, *value_values,
-                              add_random=None, use_unweighted=False):
+                              add_random=None, use_unweighted=False, with_ivs=True):
         # Get weighted, IV selected values
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
-        values_selected = values + ivs_value if self._ivs else values
+        values_selected = values + ivs_value if self._ivs and with_ivs else values
 
         # WARN USING UNWEIGHTED VALUE
         if not use_unweighted or any(v.node.is_var for v in self._values):

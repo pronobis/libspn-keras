@@ -380,11 +380,11 @@ class ParSums(OpNode):
             *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
 
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
-                          add_random=None, use_unweighted=False):
+                          add_random=None, use_unweighted=False, with_ivs=True):
         # Get weighted, IV selected values
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
-        if self._ivs:
+        if self._ivs and with_ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
             # reshape it to (Batch X num_sums X num_feat)
             reshape = (-1, self._num_sums, values.shape[1].value)
@@ -398,11 +398,11 @@ class ParSums(OpNode):
 
     def _compute_log_mpe_path(self, counts, weight_value, ivs_value,
                               *value_values, add_random=None,
-                              use_unweighted=False):
+                              use_unweighted=False, with_ivs=True):
         # Get weighted, IV selected values
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
-        if self._ivs:
+        if self._ivs and with_ivs:
             # IVs tensor shape = (Batch X (num_sums * num_vals))
             # reshape it to (Batch X num_sums X num_feat)
             reshape = (-1, self._num_sums, values.shape[1].value)

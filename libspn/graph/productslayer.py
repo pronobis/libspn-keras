@@ -342,7 +342,7 @@ class ProductsLayer(OpNode):
         return gather_counts_indices, unique_inps
 
     def _compute_mpe_path(self, counts, *value_values, add_random=False,
-                          use_unweighted=False):
+                          use_unweighted=False, with_ivs=False):
         # Check inputs
         if not self._values:
             raise StructureError("%s is missing input values." % self)
@@ -388,5 +388,5 @@ class ProductsLayer(OpNode):
         return scattered_counts
 
     def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False):
+                              use_unweighted=False, with_ivs=False):
         return self._compute_mpe_path(counts, *value_values)

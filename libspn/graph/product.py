@@ -133,7 +133,8 @@ class Product(OpNode):
     def _compute_log_mpe_value(self, *value_tensors):
         return self._compute_log_value(*value_tensors)
 
-    def _compute_mpe_path(self, counts, *value_values, add_random=False, use_unweighted=False):
+    def _compute_mpe_path(self, counts, *value_values, add_random=False,
+                          use_unweighted=False, with_ivs=False):
         # Check inputs
         if not self._values:
             raise StructureError("%s is missing input values." % self)
@@ -152,5 +153,6 @@ class Product(OpNode):
         # the amount of operations.
         return self._scatter_to_input_tensors(*value_counts)
 
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False, use_unweighted=False):
+    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
+                              use_unweighted=False, with_ivs=False):
         return self._compute_mpe_path(counts, *value_values)

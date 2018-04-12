@@ -432,8 +432,9 @@ class SumsLayer(OpNode):
         flat_col_indices = np.asarray(column_indices)
         return flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict
 
-    def _compute_value_common(self, cwise_op, reduction_fn, weight_tensor, ivs_tensor,
-                              *value_tensors, weighted=True, pad_elem=0.0):
+    def _compute_value_common(self, cwise_op, reduction_fn, weight_tensor,
+                              ivs_tensor, *value_tensors, weighted=True,
+                              pad_elem=0.0, with_ivs=True):
         """ Common actions when computing value. """
         # Check inputs
         if not self._values:
@@ -447,7 +448,8 @@ class SumsLayer(OpNode):
         reducible_values = self._reducible_values(value_tensors, pad_elem=pad_elem)
 
         # First apply IV, then weights. It might be that unweighted is used in MPE
-        reducible_values = self._apply_IVs(cwise_op, ivs_tensor, reducible_values)
+        if with_ivs:
+            reducible_values = self._apply_IVs(cwise_op, ivs_tensor, reducible_values)
 
         # Apply weighting
         if weighted:
@@ -748,20 +750,20 @@ class SumsLayer(OpNode):
         return tensor_scatter_indices, unique_input_counts
 
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
-                          add_random=None, use_unweighted=False):
+                          add_random=None, use_unweighted=False, with_ivs=True):
         values_selected_weighted = self._compute_value_common(
-            tf.multiply, lambda x: x, weight_value, ivs_value, *value_values, pad_elem=0)
+            tf.multiply, lambda x: x, weight_value, ivs_value, *value_values,
+            pad_elem=0, with_ivs=with_ivs)
         return self._compute_mpe_path_common(values_selected_weighted, counts,
                                              weight_value, ivs_value, *value_values)
 
-    def _compute_log_mpe_path(self, counts, weight_value, ivs_value,
-                              *value_values, add_random=None,
-                              use_unweighted=False):
+    def _compute_log_mpe_path(self, counts, weight_value, ivs_value, *value_values,
+                              add_random=None, use_unweighted=False, with_ivs=True):
         # Get weighted, IV selected values
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
         values_weighted = self._compute_value_common(
             tf.add, lambda x: x, weight_value, ivs_value, *value_values,
-            weighted=weighted, pad_elem=-float('inf'))
+            weighted=weighted, pad_elem=-float('inf'), with_ivs=with_ivs)
 
         # WARN ADDING RANDOM NUMBERS
         if add_random is not None:

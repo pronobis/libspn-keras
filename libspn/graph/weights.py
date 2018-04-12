@@ -151,11 +151,20 @@ class Weights(ParamNode):
         return self._variable
 
     def _compute_hard_em_update(self, counts):
-        # TODO: Need a better way to determing rank of counts'
+        # TODO: Need a better way to determing rank of counts
         if self.num_sums == 1:
             return tf.reduce_sum(counts, axis=0, keep_dims=True)
         else:
             return tf.reduce_sum(counts, axis=0, keep_dims=False)
+
+    def _compute_hard_gd_update(self, counts, counts_actual):
+        # TODO: Need a better way to determing rank of counts
+        if self.num_sums == 1:
+            return tf.reduce_sum(tf.subtract(counts, counts_actual), axis=0,
+                                 keep_dims=True)
+        else:
+            return tf.reduce_sum(tf.subtract(counts, counts_actual), axis=0,
+                                 keep_dims=False)
 
 
 def assign_weights(root, value, name=None):
