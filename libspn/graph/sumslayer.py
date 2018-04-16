@@ -105,7 +105,6 @@ class SumsLayer(OpNode):
         # Set the total number of sums being modeled
         self._num_sums = len(self._sum_input_sizes)
 
-    # TODO
     def serialize(self):
         data = super().serialize()
         data['values'] = [(i.node.name, i.indices) for i in self._values]
@@ -116,15 +115,14 @@ class SumsLayer(OpNode):
             data['ivs'] = (self._ivs.node.name, self._ivs.indices)
         return data
 
-    # TODO
     def deserialize(self, data):
         super().deserialize(data)
-        self.set_values()
         self._sum_input_sizes = data['sum_input_sizes']
+        self._num_sums = len(self._sum_input_sizes)
+        self.set_values()
         self.set_weights()
         self.set_ivs()
 
-    # TODO
     def deserialize_inputs(self, data, nodes_by_name):
         super().deserialize_inputs(data, nodes_by_name)
         self._values = tuple(Input(nodes_by_name[nn], i) for nn, i in data['values'])
