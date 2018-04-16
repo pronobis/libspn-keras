@@ -20,7 +20,6 @@ import functools
 from libspn.utils.serialization import register_serializable
 import numpy as np
 from collections import OrderedDict, deque, defaultdict
-import operator
 import itertools
 
 
@@ -529,70 +528,7 @@ class SumsLayer(OpNode):
 
         max_counts_reshaped = tf.reshape(max_counts, shape=reshape)
 
-        if conf.sumslayer_count_sum_strategy == 'matmul':
-            # Get the flat indices for the columns for each input and the tensor offsets in the
-            # concatenation of the unique tensors
-            flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
-                self._flat_indices_offsets_and_unique_tensors(value_values)
-            unique_tensors = list(unique_tensors_offsets_dict.keys())
-            if len(unique_tensors) < len(value_values):
-                # Compute mask for selecting the non-zero rows in sparse matrix
-                padding_mask = []
-                for i, size in enumerate(self._sum_input_sizes):
-                    padding_mask.append(np.ones(size, dtype=np.int64))
-                    if max_size - size > 0:
-                        sub_mask = np.zeros(max_size - size, dtype=np.int64)
-                        padding_mask.append(sub_mask)
-                flat_padding_mask = np.concatenate(padding_mask).astype(np.bool)
-
-                # Determine sparse indices
-                rows = np.arange(flat_padding_mask.size)[flat_padding_mask]
-                columns = flat_col_indices + flat_tensor_offsets
-                # Sort rows and columns in row-major order
-                rows, columns = zip(*sorted(zip(rows, columns), key=operator.itemgetter(0, 1)))
-
-                # Determine dense shape
-                unique_tensor_sizes = [tensor.shape[1].value for tensor in unique_tensors]
-                dense_shape = (flat_padding_mask.size, sum(unique_tensor_sizes))
-
-                # In this matrix, *zero* rows are aligned with padded columns in
-                # max_counts_reshaped. Some columns will have multiple non-zero elements, in which
-                # case we sum the columns from max_counts_reshaped that correspond to the
-                # *rows* of these non-zero elements
-                sum_counts_mat = np.zeros(dense_shape, dtype=np.float32)
-                sum_counts_mat[rows, columns] = np.ones(flat_col_indices.size)
-
-                # Sum the counts per unique input tensor using the matrix that we just constructed
-                max_counts_reshaped = tf.matmul(max_counts_reshaped, sum_counts_mat)
-
-                # Potentially split the result
-                max_counts_split = tf.split(max_counts_reshaped, unique_tensor_sizes, axis=1) \
-                    if len(unique_tensors) > 1 else [max_counts_reshaped]
-
-                # In this case, we already 'scattered' the counts, so we only do it explicitly for
-                # our weights and IVs. Currently, the algorithms for up and down traversal of the
-                # graph expect a counts tensor coming from each parent when computing the MPE path.
-                # The code below is part of a hacky workaround by putting 'None's for any
-                max_counts_split_with_None = []
-                max_counts_split = deque(max_counts_split)
-                unique_tensors = deque(unique_tensors)
-                next_tensor = unique_tensors.popleft()
-                for tensor in value_values:
-                    if tensor == next_tensor:
-                        max_counts_split_with_None.append(max_counts_split.popleft())
-                        if unique_tensors:
-                            next_tensor = unique_tensors.popleft()
-                        else:
-                            next_tensor = None
-                    else:
-                        max_counts_split_with_None.append(None)
-
-                ret = self._scatter_to_input_tensors(
-                    (max_counts, weight_value),  # Weights
-                    (max_counts, ivs_value),  # IVs
-                ) + tuple(max_counts_split_with_None)
-                return ret
-        elif conf.sumslayer_count_sum_strategy == 'gather':
+        if conf.sumslayer_count_sum_strategy == 'gather':
             # First obtain the flat column, tensor offsets and unique tensors with their respective
             # offsets
             max_counts_split_with_None = self._sum_counts_gather(max_counts_reshaped, value_values,
@@ -613,24 +549,6 @@ class SumsLayer(OpNode):
         else:
             raise ValueError("Unknown count summing strategy {}"
                              .format(conf.sumslayer_count_sum_strategy))
-
-        # This flag is set to True if we have had to pad within an input
-        if self._must_gather_for_mpe_path:
-            # Will hold indices to gather
-            indices = []
-            offset = 0
-            for size in self._sum_input_sizes:
-                indices.extend([offset + i for i in range(size)])
-                offset += max_size
-            # Gather so that padded parts are left out
-            max_counts_reshaped = utils.gather_cols(max_counts_reshaped, indices)
-
-        # Split the reshaped max counts to value inputs
-        max_counts_split = tf.split(max_counts_reshaped, value_sizes, 1)
-        return self._scatter_to_input_tensors(
-            (max_counts, weight_value),  # Weights
-            (max_counts, ivs_value),  # IVs
-            *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
 
     def _sum_counts_gather(self, max_counts_reshaped, value_values, segmented=False):
         flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \

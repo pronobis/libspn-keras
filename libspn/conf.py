@@ -25,7 +25,6 @@ custom_scatter_values = True
 :meth:`~libspn.utils.scatter_values`."""
 
 sumslayer_count_sum_strategy = "gather"
-"""Strategy to apply when summing counts 
-within a SumsLayer. Can be 'matmul',
-'gather' or 'None'
-"""
+"""Strategy to apply when summing counts
+within a SumsLayer. Can be 'segmented',
+'gather' or 'None' """
