@@ -29,6 +29,7 @@ from libspn.graph.loader import Loader, JSONLoader
 from libspn.graph.algorithms import compute_graph_up
 from libspn.graph.algorithms import compute_graph_up_down
 from libspn.graph.algorithms import traverse_graph
+from libspn.graph.distribution import GaussianQuantile
 
 # Generators
 from libspn.generation.dense import DenseSPNGenerator
@@ -101,6 +102,7 @@ __all__ = [
     # Graph
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IVs', 'ContVars', 'Sum', 'Product',
+    'GaussianQuantile',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
