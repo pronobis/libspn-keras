@@ -122,6 +122,24 @@ class Weights(ParamNode):
         value = utils.normalize_tensor_2D(value, self._num_weights, self._num_sums)
         return tf.assign(self._variable, value)
 
+    def update(self, value):
+        """Return a TF operation adding the values to the weights.
+
+        Args:
+            value: The value to be added to the weights.
+
+        Returns:
+            Tensor: The assignment operation.
+        """
+        if self._mask and not all(self._mask):
+            # Only perform masking if mask is given and mask contains any 'False'
+            value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
+        # w_ij: w_ij + Δw_ij
+        update_value = self._variable + value
+        normalized_value = utils.normalize_tensor_2D(update_value, self._num_weights,
+                                                     self._num_sums)
+        return tf.assign(self._variable, normalized_value)
+
     def _create(self):
         """Creates a TF variable holding the vector of the SPN weights.
 
@@ -139,8 +157,7 @@ class Weights(ParamNode):
         if self._mask and not all(self._mask):
             # Only perform masking if mask is given and mask contains any 'False'
             init_val *= tf.cast(tf.reshape(self._mask, init_val.shape), dtype=conf.dtype)
-        init_val = utils.normalize_tensor_2D(init_val, self._num_weights,
-                                             self._num_sums)
+        init_val = utils.normalize_tensor_2D(init_val, self._num_weights, self._num_sums)
         self._variable = tf.Variable(init_val, dtype=conf.dtype,
                                      collections=['spn_weights'])
 

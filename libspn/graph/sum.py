@@ -343,3 +343,35 @@ class Sum(OpNode):
 
         return self._compute_mpe_path_common(
             values_weighted, counts, weight_value, ivs_value, *value_values)
+
+    def _compute_gradient(self, gradients, weight_value, ivs_value, *value_values):
+        weight_value, ivs_value, values = self._compute_value_common(
+            weight_value, ivs_value, *value_values)
+
+        weight_gradients = gradients * values
+        output_gradients = gradients * weight_value
+
+        # Split the output_gradients to value inputs
+        _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
+        output_gradients_split = utils.split_maybe(output_gradients, value_sizes, 1)
+
+        return self._scatter_to_input_tensors(
+            (weight_gradients, weight_value),  # Weights
+            (weight_gradients, ivs_value),  # IVs
+            *[(t, v) for t, v in zip(output_gradients_split, value_values)])  # Values
+
+    def _compute_log_gradient(self, gradients, weight_value, ivs_value, *value_values):
+        weight_value, ivs_value, values = self._compute_value_common(
+            weight_value, ivs_value, *value_values)
+
+        weight_gradients = gradients * tf.exp(values)
+        output_gradients = gradients * tf.exp(weight_value)
+
+        # Split the output_gradients to value inputs
+        _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
+        output_gradients_split = utils.split_maybe(output_gradients, value_sizes, 1)
+
+        return self._scatter_to_input_tensors(
+            (weight_gradients, weight_value),  # Weights
+            (weight_gradients, ivs_value),  # IVs
+            *[(t, v) for t, v in zip(output_gradients_split, value_values)])  # Values
