@@ -41,6 +41,7 @@ class GDLearning():
             raise ValueError("learning_rate must be a positive number")
         else:
             self._learning_rate = learning_rate
+        self._log = log
         self._learning_type = learning_type
         self._learning_inference_type = learning_inference_type
         self._additive_smoothing = additive_smoothing
@@ -147,11 +148,14 @@ class GDLearning():
                     if self._learning_inference_type == LearningInferenceType.HARD:
                         # Readjust accumulator values to be >= 0
                         # accum: accum - min(accum)
-                        accum = tf.subtract(pn.accum, tf.reduce_min(pn.accum, axis=-1,
-                                                                    keep_dims=True))
+                        #accum = tf.subtract(pn.accum, tf.reduce_min(pn.accum, axis=-1,
+                        #                                            keep_dims=True))
+                        accum = pn.accum
                         # Apply addtivie-smooting
                         if self._additive_smoothing is not None:
                             accum = tf.add(accum, self._additive_smoothing)
+                        if self._log:
+                            accum = tf.exp(accum)
                         # Assign accumulators to respective weights
                         assign_ops.append(pn.node.assign(accum))
                     else:
