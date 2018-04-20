@@ -1064,12 +1064,12 @@ class DistributionNode(VarNode, abc.ABC):
 
 class ParameterizedDistributionNode(DistributionNode, abc.ABC):
 
-    Parameter = namedtuple("Parameter", ["name", "shape", "init"])
+    Accumulate = namedtuple("Accumulate", ["name", "shape", "init"])
 
-    def __init__(self, parameters=None, feed=None, num_vars=1, trainable=True,
+    def __init__(self, accumulates=None, feed=None, num_vars=1, trainable=True,
                  name="ParameterizedDistribution"):
         self._variables = OrderedDict()
-        self._parameters = parameters
+        self._accumulates = accumulates
         self._trainable = trainable
         super().__init__(feed, num_vars, name)
 
@@ -1082,8 +1082,8 @@ class ParameterizedDistributionNode(DistributionNode, abc.ABC):
         return self._variables
 
     @property
-    def parameters(self):
-        return self._parameters
+    def accumulates(self):
+        return self._accumulates
 
     @abc.abstractmethod
     def _compute_hard_em_update(self, counts):
@@ -1092,14 +1092,14 @@ class ParameterizedDistributionNode(DistributionNode, abc.ABC):
     def _create(self):
         super()._create()
         self._variables = OrderedDict()
-        for name, shape, init in self._parameters:
+        for name, shape, init in self._accumulates:
             init_val = utils.broadcast_value(init, shape, dtype=conf.dtype)
             self._variables[name] = tf.Variable(
-                init_val, dtype=conf.dtype, collections=['spn_distribution_parameters'])
+                init_val, dtype=conf.dtype, collections=['spn_distribution_accumulates'])
 
-    @abc.abstractmethod
-    def assign(self, accum):
-        """Assign new values to variables based on accum """
+    # @abc.abstractmethod
+    # def assign(self, accum, ):
+    #     """Assign new values to variables based on accum """
         # assignment_ops = []
         # if values and named_values:
         #     raise ValueError(

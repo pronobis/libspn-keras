@@ -24,6 +24,8 @@ class EMLearning():
     """
 
     ParamNode = namedtuple("ParamNode", ["node", "name_scope", "accum"])
+    GaussianLeafNode = namedtuple(
+        "GaussianLeafNode", ["node", "name_scope", "accum", "sum_data", "sum_data_squared"])
 
     def __init__(self, root, mpe_path=None, log=True, value_inference_type=None,
                  additive_smoothing=None, add_random=None, initial_accum_value=None,
@@ -63,8 +65,12 @@ class EMLearning():
 
     def reset_accumulators(self):
         with tf.name_scope(self._name_scope):
-            return tf.group(*[pn.accum.initializer for pn in self._trainable_nodes],
-                            name="reset_accumulators")
+            return tf.group(*(
+                [pn.accum.initializer for pn in self._param_nodes] +
+                [dn.accum.initializer for dn in self._distribution_nodes] +
+                [dn.sum_data.initializer for dn in self._distribution_nodes] +
+                [dn.sum_data_squared.initializer for dn in self._distribution_nodes]),
+                name="reset_accumulators")
 
     def accumulate_updates(self):
         # Generate path if not yet generated
@@ -74,24 +80,41 @@ class EMLearning():
         # Generate all accumulate operations
         with tf.name_scope(self._name_scope):
             assign_ops = []
-            for pn in self._trainable_nodes:
+            for pn in self._param_nodes:
                 with tf.name_scope(pn.name_scope):
                     counts = self._mpe_path.counts[pn.node]
                     update_value = pn.node._compute_hard_em_update(counts)
                     op = tf.assign_add(pn.accum, update_value)
                     assign_ops.append(op)
+
+            for dn in self._distribution_nodes:
+                with tf.name_scope(dn.name_scope):
+                    counts = self._mpe_path.counts[dn.node]
+                    update_value = dn.node._compute_hard_em_update(counts)
+                    assign_ops.append(tf.assign_add(dn.accum, update_value['accum']))
+                    assign_ops.append(tf.assign_add(dn.sum_data_squared, update_value['sum_data']))
+                    assign_ops.append(tf.assign_add(
+                        dn.sum_data_squared, update_value['sum_data_squared']))
             return tf.group(*assign_ops, name="accumulate_updates")
 
     def update_spn(self):
         # Generate all update operations
         with tf.name_scope(self._name_scope):
             assign_ops = []
-            for pn in self._trainable_nodes:
+            for pn in self._param_nodes:
                 with tf.name_scope(pn.name_scope):
                     accum = pn.accum
                     if self._additive_smoothing is not None:
                         accum = tf.add(accum, self._additive_smoothing)
                     assign_ops.append(pn.node.assign(accum))
+
+            for dn in self._distribution_nodes:
+                with tf.name_scope(dn.name_scope):
+                    accum = dn.accum
+                    if self._additive_smoothing is not None:
+                        accum = tf.add(accum, self._additive_smoothing)
+                    assign_ops.extend(dn.node.assign(accum, dn.sum_data, dn.sum_data_squared))
+
             return tf.group(*assign_ops, name="update_spn")
 
     def learn(self):
@@ -100,28 +123,38 @@ class EMLearning():
 
     def _create_accumulators(self):
         def fun(node):
-            if node.is_param or node.is_distribution:
+            if node.is_param:
                 with tf.name_scope(node.name) as scope:
-                    if node.is_distribution:
-                        var = node.variables[0]
-                    else:
-                        var = node.variable
                     if self._initial_accum_value is not None:
-                        accum = tf.Variable(tf.ones_like(var,
+                        accum = tf.Variable(tf.ones_like(node.variable,
                                                          dtype=conf.dtype) *
                                             self._initial_accum_value,
                                             dtype=conf.dtype,
                                             collections=['em_accumulators'])
                     else:
-                        accum = tf.Variable(tf.zeros_like(var,
+                        accum = tf.Variable(tf.zeros_like(node.variable,
                                                           dtype=conf.dtype),
                                             dtype=conf.dtype,
                                             collections=['em_accumulators'])
                     distribution_node = EMLearning.ParamNode(
                         node=node, accum=accum, name_scope=scope)
-                    self._trainable_nodes.append(distribution_node)
+                    self._param_nodes.append(distribution_node)
+            if node.is_gaussian_leaf:
+                with tf.name_scope(node.name) as scope:
+                    if self._initial_accum_value is not None:
+                        accum = tf.Variable(tf.ones_like(node.mean_variable, dtype=conf.dtype) *
+                                            self._initial_accum_value,
+                                            dtype=conf.dtype,
+                                            collections=['em_accumulators'])
+                    else:
+                        accum = tf.Variable(tf.zeros_like(node.mean_variable, dtype=conf.dtype),
+                                            dtype=conf.dtype,
+                                            collections=['em_accumulators'])
 
-        self._trainable_nodes = []
+
+
+        self._distribution_nodes = []
+        self._param_nodes = []
         with tf.name_scope(self._name_scope):
             traverse_graph(self._root, fun=fun)
 
