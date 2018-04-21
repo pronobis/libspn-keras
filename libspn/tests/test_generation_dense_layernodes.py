@@ -66,7 +66,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         tf.reset_default_graph()
 
     def generic_dense_test(self, num_decomps, num_subsets, num_mixtures, input_dist,
-                           num_input_mixtures, balanced, node_type, case):
+                           num_input_mixtures, balanced, node_type, log_weights, case):
         """A generic test for DenseSPNGeneratorLayerNodes."""
         self.tearDown()
 
@@ -92,7 +92,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
 
         # Generating random weights
         with tf.name_scope("Weights"):
-            spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM())
+            spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM(), log=log_weights)
 
         # Generating weight initializers
         init = spn.initialize_weights(root)
@@ -124,6 +124,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
                spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE else "BLOCK" if
                node_type == spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK else
                "LAYER"))
+        printc("- log_weights: %s" % log_weights)
 
         # Creating session
         with tf.Session() as sess:
@@ -167,6 +168,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         node_type = [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
                      spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
                      spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER]
+        log_weights = [True, False]
         case = 0
 
         for n_dec in num_decomps:
@@ -176,15 +178,17 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
                         for dist in input_dist:
                             for bal in balanced:
                                 for n_type in node_type:
-                                    case += 1
-                                    self.generic_dense_test(num_decomps=n_dec,
-                                                            num_subsets=n_sub,
-                                                            num_mixtures=n_mix,
-                                                            input_dist=dist,
-                                                            num_input_mixtures=n_imix,
-                                                            balanced=bal,
-                                                            node_type=n_type,
-                                                            case=case)
+                                    for log_w in log_weights:
+                                        case += 1
+                                        self.generic_dense_test(num_decomps=n_dec,
+                                                                num_subsets=n_sub,
+                                                                num_mixtures=n_mix,
+                                                                input_dist=dist,
+                                                                num_input_mixtures=n_imix,
+                                                                balanced=bal,
+                                                                node_type=n_type,
+                                                                log_weights=log_w,
+                                                                case=case)
 
 
 if __name__ == '__main__':

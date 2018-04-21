@@ -11,6 +11,7 @@ from libspn.graph.algorithms import traverse_graph
 from libspn import conf
 from libspn.utils.serialization import register_serializable
 from libspn import utils
+from libspn.exceptions import StructureError
 
 import numbers
 
@@ -24,6 +25,7 @@ class Weights(ParamNode):
                     :meth:`~libspn.utils.broadcast_value`.
         num_weights (int): Number of weights in the vector.
         num_sums (int): Number of sum nodes the weight vector/matrix represents.
+        log (bool): If "True", the weights are represented in log space.
         mask (list): List of booleans with num_weights * num_sums elements, used for masking weights
         name (str): Name of the node.
 
@@ -31,8 +33,8 @@ class Weights(ParamNode):
         trainable(bool): Should these weights be updated during training?
     """
 
-    def __init__(self, init_value=1, num_weights=1, num_sums=1, trainable=True, mask=None,
-                 name="Weights"):
+    def __init__(self, init_value=1, num_weights=1, num_sums=1, log=False,
+                 trainable=True, mask=None, name="Weights"):
         if not isinstance(num_weights, int) or num_weights < 1:
             raise ValueError("num_weights must be a positive integer")
 
@@ -42,6 +44,7 @@ class Weights(ParamNode):
         self._init_value = init_value
         self._num_weights = num_weights
         self._num_sums = num_sums
+        self._log = log
         self._trainable = trainable
         self._mask = mask
         super().__init__(name)
@@ -50,6 +53,7 @@ class Weights(ParamNode):
         data = super().serialize()
         data['num_weights'] = self._num_weights
         data['num_sums'] = self._num_sums
+        data['log'] = self._log
         data['trainable'] = self._trainable
         data['init_value'] = self._init_value
         data['value'] = self._variable
@@ -60,6 +64,7 @@ class Weights(ParamNode):
         self._init_value = data['init_value']
         self._num_weights = data['num_weights']
         self._num_sums = data['num_sums']
+        self._log = data['log']
         self._trainable = data['trainable']
         self._mask = data['mask']
         super().deserialize(data)
@@ -72,8 +77,13 @@ class Weights(ParamNode):
             return None
 
     @property
+    def log(self):
+        """bool: Boolean variable indicating the space in which weights are stored."""
+        return self._log
+
+    @property
     def mask(self):
-        """list(int): Boolean mask for weights"""
+        """list(int): Boolean mask for weights."""
         return self._mask
 
     @property
@@ -110,6 +120,9 @@ class Weights(ParamNode):
         Returns:
             Tensor: The assignment operation.
         """
+        if self._log:
+            raise StructureError("Trying to assign non-log values to log-weights.")
+
         if isinstance(value, utils.ValueType.RANDOM_UNIFORM) \
            or isinstance(value, numbers.Real):
             shape = self._num_sums * self._num_weights
@@ -120,6 +133,31 @@ class Weights(ParamNode):
             # Only perform masking if mask is given and mask contains any 'False'
             value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
         value = utils.normalize_tensor_2D(value, self._num_weights, self._num_sums)
+        return tf.assign(self._variable, value)
+
+    def assign_log(self, value):
+        """Return a TF operation assigning log values to the weights.
+
+        Args:
+            value: The value to assign to the weights. For possible values, see
+                   :meth:`~libspn.utils.broadcast_value`.
+
+        Returns:
+            Tensor: The assignment operation.
+        """
+        if not self._log:
+            raise StructureError("Trying to assign log values to non-log weights.")
+
+        if isinstance(value, utils.ValueType.RANDOM_UNIFORM) \
+           or isinstance(value, numbers.Real):
+            shape = self._num_sums * self._num_weights
+        else:
+            shape = self._num_weights
+        value = utils.broadcast_value(value, (shape,), dtype=conf.dtype)
+        if self._mask and not all(self._mask):
+            # Only perform masking if mask is given and mask contains any 'False'
+            value += tf.log(tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype))
+        value = utils.normalize_log_tensor_2D(value, self._num_weights, self._num_sums)
         return tf.assign(self._variable, value)
 
     def update(self, value):
@@ -158,6 +196,8 @@ class Weights(ParamNode):
             # Only perform masking if mask is given and mask contains any 'False'
             init_val *= tf.cast(tf.reshape(self._mask, init_val.shape), dtype=conf.dtype)
         init_val = utils.normalize_tensor_2D(init_val, self._num_weights, self._num_sums)
+        if self._log:
+            init_val = tf.log(init_val)
         self._variable = tf.Variable(init_val, dtype=conf.dtype,
                                      collections=['spn_weights'])
 
@@ -165,7 +205,16 @@ class Weights(ParamNode):
         return self._num_weights * self._num_sums
 
     def _compute_value(self):
-        return self._variable
+        if self._log:
+            return tf.exp(self._variable)
+        else:
+            return self._variable
+
+    def _compute_log_value(self):
+        if self._log:
+            return self._variable
+        else:
+            return tf.log(self._variable)
 
     def _compute_hard_em_update(self, counts):
         # TODO: Need a better way to determing rank of counts

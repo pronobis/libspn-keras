@@ -213,8 +213,8 @@ class SumsLayer(OpNode):
         # Use broadcasting
         return np.less(indices, sizes)
 
-    def generate_weights(self, init_value=1, trainable=True,
-                         input_sizes=None, name=None):
+    def generate_weights(self, init_value=1, trainable=True, input_sizes=None,
+                         log=False, name=None):
         """Generate a weights node matching this sum node and connect it to
         this sum.
 
@@ -229,6 +229,7 @@ class SumsLayer(OpNode):
             input_sizes (list of int): Pre-computed sizes of each input of
                 this node.  If given, this function will not traverse the graph
                 to discover the sizes.
+            log (bool): If "True", the weights are represented in log space.
             name (str): Name of the weighs node. If ``None`` use the name of the
                         sum + ``_Weights``.
 
@@ -269,8 +270,8 @@ class SumsLayer(OpNode):
                              .format(init_value, type(init_value), sum_size))
         # Generate weights
         weights = Weights(init_value=init_value, num_weights=max_size,
-                          num_sums=len(sum_input_sizes), trainable=trainable,
-                          mask=mask.tolist(), name=name)
+                          num_sums=len(sum_input_sizes), log=log,
+                          trainable=trainable, mask=mask.tolist(), name=name)
         self.set_weights(weights)
         return weights
 

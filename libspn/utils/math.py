@@ -440,8 +440,26 @@ def normalize_tensor_2D(tensor, num_weights=1, num_sums=1, name=None):
     with tf.name_scope(name, "normalize_tensor_2D", [tensor]):
         tensor = tf.convert_to_tensor(tensor)
         tensor = tf.reshape(tensor, [num_sums, num_weights])
-        s = tf.expand_dims(tf.reduce_sum(tensor, 1), -1)
+        s = tf.reduce_sum(tensor, axis=1, keep_dims=True)
         return tf.truediv(tensor, s)
+
+
+def normalize_log_tensor_2D(tensor, num_weights=1, num_sums=1, name=None):
+    """Reshape weight vector to a 2D tensor, and normalize such each row sums to 1.
+
+    Args:
+        tensor (Tensor): Input tensor.
+
+    Returns:
+        Tensor: Normalized tensor.
+    """
+    with tf.name_scope(name, "normalize_log_tensor_2D", [tensor]):
+        tensor = tf.convert_to_tensor(tensor)
+        tensor = tf.reshape(tensor, [num_sums, num_weights])
+        log_sum = reduce_log_sum(tensor)
+        # Normalize assuming that log_sum does not contain -inf
+        normalized_log_tensor = tf.subtract(tensor, log_sum)
+        return normalized_log_tensor
 
 
 def reduce_log_sum(log_input, name=None):

@@ -16,6 +16,7 @@ from .math import ValueType
 from .math import broadcast_value
 from .math import normalize_tensor
 from .math import normalize_tensor_2D
+from .math import normalize_log_tensor_2D
 from .math import reduce_log_sum
 from .math import reduce_log_sum_3D
 from .math import concat_maybe
@@ -38,10 +39,10 @@ from .enum import Enum
 # All
 __all__ = ['decode_bytes_array', 'scatter_cols', 'scatter_values',
            'gather_cols', 'gather_cols_3d', 'ValueType', 'broadcast_value',
-           'normalize_tensor', 'normalize_tensor_2D', 'reduce_log_sum',
-           'reduce_log_sum_3D', 'concat_maybe', 'split_maybe', 'StirlingNumber',
-           'StirlingRatio', 'Stirling', 'random_partition', 'all_partitions',
-           'random_partitions_by_sampling',
+           'normalize_tensor', 'normalize_tensor_2D', 'normalize_log_tensor_2D',
+           'reduce_log_sum', 'reduce_log_sum_3D', 'concat_maybe', 'split_maybe',
+           'StirlingNumber', 'StirlingRatio', 'Stirling', 'random_partition',
+           'all_partitions', 'random_partitions_by_sampling',
            'random_partitions_by_enumeration',
            'random_partitions',
            'docinherit',

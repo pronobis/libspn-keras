@@ -1005,6 +1005,7 @@ class ParamNode(Node):
             dimension corresponds to the batch size.
         """
 
+    @abstractmethod
     def _compute_log_value(self):
         """Assemble TF operations computing the marginal log value of this node.
 
@@ -1012,7 +1013,6 @@ class ParamNode(Node):
             Tensor: A tensor of shape ``[None, out_size]``, where the first
             dimension corresponds to the batch size.
         """
-        return tf.log(self._compute_value())
 
     def _compute_mpe_value(self):
         """Assemble TF operations computing the MPE value of this node.

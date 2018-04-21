@@ -140,8 +140,8 @@ class Sum(OpNode):
         """
         self._values = self._values + self._parse_inputs(*values)
 
-    def generate_weights(self, init_value=1, trainable=True,
-                         input_sizes=None, name=None):
+    def generate_weights(self, init_value=1, trainable=True, input_sizes=None,
+                         log=False, name=None):
         """Generate a weights node matching this sum node and connect it to
         this sum.
 
@@ -156,6 +156,7 @@ class Sum(OpNode):
             input_sizes (list of int): Pre-computed sizes of each input of
                 this node.  If given, this function will not traverse the graph
                 to discover the sizes.
+            log (bool): If "True", the weights are represented in log space.
             name (str): Name of the weighs node. If ``None`` use the name of the
                         sum + ``_Weights``.
 
@@ -173,6 +174,7 @@ class Sum(OpNode):
         # Generate weights
         weights = Weights(init_value=init_value,
                           num_weights=num_values,
+                          log=log,
                           trainable=trainable, name=name)
         self.set_weights(weights)
         return weights
