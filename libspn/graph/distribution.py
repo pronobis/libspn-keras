@@ -4,14 +4,11 @@
 # This file is part of LibSPN. Unauthorized use or copying of this file,
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
-from collections import OrderedDict
-
 import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.graph.node import VarNode
 from libspn import conf
 from libspn import utils
-from libspn.exceptions import StructureError
 import numpy as np
 import tensorflow.contrib.distributions as tfd
 
@@ -20,25 +17,26 @@ import tensorflow.contrib.distributions as tfd
 # https://github.com/whsu/spn/tree/master/spn
 
 
-class NormalLeaf(VarNode):
+class GaussianLeaf(VarNode):
 
-    def __init__(self, feed=None, num_vars=1, num_components=2, name="GaussianQuantile", data=None,
+    def __init__(self, feed=None, num_vars=1, num_components=2, name="GaussianLeaf", data=None,
                  learn_scale=True, total_counts_init=1):
+        self._mean_variable = None
+        self._variance_variable = None
+        self._num_vars = num_vars
         self._num_components = num_components
         self._mean_init = tf.zeros((num_vars, num_components), dtype=conf.dtype)
         self._variance_init = tf.ones((num_vars, num_components), dtype=conf.dtype)
         if data is not None:
             self.learn_from_data(data, learn_scale=learn_scale)
+        super().__init__(feed=feed, name=name)
 
         var_shape = (num_vars, num_components)
         self._total_count_variable = self._total_accumulates(total_counts_init, var_shape)
-        self._mean_variable = None
-        self._variance_variable = None
-        super().__init__(feed=feed, name=name)
 
-    @property
     def initialize(self):
-        return tf.group(*[var.initializer for var in self.variables])
+        return (self._mean_variable.initializer, self._variance_variable.initializer,
+                self._total_count_variable.initializer)
 
     @property
     def variables(self):
@@ -107,7 +105,7 @@ class NormalLeaf(VarNode):
 
     def _total_accumulates(self, init_val, shape):
         init = utils.broadcast_value(init_val, shape, dtype=conf.dtype)
-        return tf.Variable(init, name=self.name + "TotalCounts", trainable=False),
+        return tf.Variable(init, name=self.name + "TotalCounts", trainable=False)
 
     def _values_per_quantile(self, data):
         batch_size = data.shape[0]
@@ -161,12 +159,13 @@ class NormalLeaf(VarNode):
 
     def assign(self, accum, sum_data, sum_data_squared):
         total_counts = self._total_count_variable + accum
-        mean = (self._total_count_variable * self._mean_variable + sum_data) / total_counts
+        mean = (self._total_count_variable * self._mean_variable + sum_data) / (total_counts + 1e-8)
         # dx = x - mean
         # dx.dot(dx) == \sum x^2 - 2 * mean * \sum x + n * mean^2
         variance = (self._total_count_variable * self._variance_variable +
-                    sum_data_squared - 2 * mean * sum_data + accum * mean) / total_counts - \
-            tf.square((mean - self._mean_variable))
+                    sum_data_squared - 2 * self._mean_variable * sum_data +
+                    accum * tf.square(self._mean_variable)) / \
+                   (total_counts + 1e-8) - tf.square(mean - self._mean_variable)
 
         return (
             tf.assign(self._total_count_variable, total_counts),
