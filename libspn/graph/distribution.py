@@ -20,13 +20,14 @@ import tensorflow.contrib.distributions as tfd
 class GaussianLeaf(VarNode):
 
     def __init__(self, feed=None, num_vars=1, num_components=2, name="GaussianLeaf", data=None,
-                 learn_scale=True, total_counts_init=1):
+                 learn_scale=True, total_counts_init=1, learn_dist_params=False):
         self._mean_variable = None
         self._variance_variable = None
         self._num_vars = num_vars
         self._num_components = num_components
         self._mean_init = tf.zeros((num_vars, num_components), dtype=conf.dtype)
         self._variance_init = tf.ones((num_vars, num_components), dtype=conf.dtype)
+        self._learn_dist_params = learn_dist_params
         if data is not None:
             self.learn_from_data(data, learn_scale=learn_scale)
         super().__init__(feed=feed, name=name)
@@ -53,6 +54,10 @@ class GaussianLeaf(VarNode):
     @property
     def evidence(self):
         return self._evidence_indicator
+
+    @property
+    def learn_distribution_parameters(self):
+        return self._learn_dist_params
 
     def _create_placeholder(self):
         return tf.placeholder(conf.dtype, [None, self._num_vars])
@@ -159,13 +164,13 @@ class GaussianLeaf(VarNode):
 
     def assign(self, accum, sum_data, sum_data_squared):
         total_counts = self._total_count_variable + accum
-        mean = (self._total_count_variable * self._mean_variable + sum_data) / (total_counts + 1e-8)
+        mean = (self._total_count_variable * self._mean_variable + sum_data) / (total_counts + 1e-10)
         # dx = x - mean
         # dx.dot(dx) == \sum x^2 - 2 * mean * \sum x + n * mean^2
         variance = (self._total_count_variable * self._variance_variable +
                     sum_data_squared - 2 * self._mean_variable * sum_data +
                     accum * tf.square(self._mean_variable)) / \
-                   (total_counts + 1e-8) - tf.square(mean - self._mean_variable)
+                   (total_counts + 1e-10) - tf.square(mean - self._mean_variable)
 
         return (
             tf.assign(self._total_count_variable, total_counts),

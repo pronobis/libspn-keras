@@ -141,7 +141,7 @@ class EMLearning():
                     param_node = EMLearning.ParamNode(
                         node=node, accum=accum, name_scope=scope)
                     self._param_nodes.append(param_node)
-            if isinstance(node, GaussianLeaf):
+            if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
                 with tf.name_scope(node.name) as scope:
                     if self._initial_accum_value is not None:
                         accum = tf.Variable(tf.ones_like(node.mean_variable, dtype=conf.dtype) *
