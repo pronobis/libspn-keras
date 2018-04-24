@@ -26,6 +26,5 @@ custom_scatter_values = True
 
 sumslayer_count_sum_strategy = "gather"
 """Strategy to apply when summing counts
-within a SumsLayer. Can be 'matmul', 'gather',
-'segmented' or 'None'
-"""
+within a SumsLayer. Can be 'segmented',
+'gather' or 'None' """
