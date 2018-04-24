@@ -143,7 +143,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
 
     @parameterized.expand(arg_product(
         INPUT_SIZES, SUM_SIZES, BOOLEAN, BOOLEAN, BOOLEAN, INF_TYPES,
-        ['gather', "matmul", 'segmented'], BOOLEAN, BOOLEAN))
+        ['gather', 'segmented'], BOOLEAN, BOOLEAN))
     def test_sumslayer_mpe_path(self, input_sizes, sum_sizes, ivs, log, same_inputs, inf_type,
                                 count_strategy, indices, use_unweighted):
         # Set some defaults

@@ -196,8 +196,8 @@ class MPEPathPerformanceTest(AbstractPerformanceTest):
         num_params = sum([size * self.num_parallel for size in self.sum_sizes])
         weights = self.random_numpy_tensor((num_params,))
         return MPEPathPerformanceInput(
-            values=[values], indices=indices, num_parallel=self.num_parallel, num_sums=self.num_sums,
-            sum_sizes=self.sum_sizes, weights=weights, ivs=None
+            values=[values], indices=indices, num_parallel=self.num_parallel,
+            num_sums=self.num_sums, sum_sizes=self.sum_sizes, weights=weights, ivs=None
         )
 
 
@@ -233,6 +233,7 @@ def main():
         config_generator=config_generator)
 
     performance_test.run()
+
 
 if __name__ == '__main__':
     main()

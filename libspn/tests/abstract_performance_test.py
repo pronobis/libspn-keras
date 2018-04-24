@@ -191,7 +191,7 @@ class PerformanceTestArgs(argparse.ArgumentParser):
         self.add_argument('--rows', default=500, type=int)
         self.add_argument('--cols', default=100, type=int)
         self.add_argument("--run-name", default='run0001',
-                          help='Unique identifier for runs. Can be used for easy cross-run' 
+                          help='Unique identifier for runs. Can be used for easy cross-run'
                                'comparison of results later.')
         self.add_argument("--plot", action='store_true', dest='plot',
                           help="Plot the results at the end of execution")
@@ -248,12 +248,15 @@ class AbstractPerformanceTest(abc.ABC):
         test_description = self.description()
         config_description = conf.description()
         writer = tf.summary.FileWriter(
-            os.path.join(self._logdir, "graphs", "{}_{}_{}".format(test_description, op_description, config_description)), graph=tf.get_default_graph())
+            os.path.join(self._logdir, "graphs",
+                         "{}_{}_{}".format(
+                             test_description, op_description, config_description)),
+            graph=tf.get_default_graph())
         writer.flush()
         writer.close()
         with tf.Session(config=tf.ConfigProto(
                 allow_soft_placement=True, log_device_placement=self._log_devs)) as sess:
-            _, init_time = time_fn(lambda: sess.run(init_ops)) if init_ops is not None else 0, 0.0
+            init_time = time_fn(lambda: sess.run(init_ops))[1] if init_ops is not None else 0.0
             for n in range(self._num_runs):
                 out, run_time = time_fn(lambda: sess.run(op, feed_dict=feed_dict))
                 run_times.append(run_time)
@@ -393,7 +396,8 @@ class AbstractPerformanceTest(abc.ABC):
             # the absolute difference between a and b.  Here, we want to
             # print out which elements violate such conditions.
             cond = np.logical_or(
-                np.abs(out - true_out) > atol + rtol * np.abs(true_out), np.isnan(out) != np.isnan(true_out))
+                np.abs(out - true_out) > atol + rtol * np.abs(true_out),
+                np.isnan(out) != np.isnan(true_out))
             if out.ndim:
                 x = out[np.where(cond)]
                 y = true_out[np.where(cond)]
