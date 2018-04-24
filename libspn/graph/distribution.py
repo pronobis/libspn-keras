@@ -7,7 +7,7 @@
 import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.graph.node import VarNode
-from libspn import conf
+from libspn import conf, ContVars
 from libspn import utils
 import numpy as np
 import tensorflow.contrib.distributions as tfd
@@ -20,20 +20,27 @@ import tensorflow.contrib.distributions as tfd
 class GaussianLeaf(VarNode):
 
     def __init__(self, feed=None, num_vars=1, num_components=2, name="GaussianLeaf", data=None,
-                 learn_scale=True, total_counts_init=1, learn_dist_params=False):
+                 learn_scale=True, total_counts_init=1, learn_dist_params=False,
+                 train_var=True, mean_init=0.0, variance_init=1.0, train_mean=True,
+                 use_prior=False, prior_alpha=2.0, prior_beta=3.0):
+        self._external_feed = isinstance(feed, ContVars)
         self._mean_variable = None
         self._variance_variable = None
-        self._num_vars = num_vars
+        self._num_vars = feed.num_vars if self._external_feed else num_vars
         self._num_components = num_components
-        self._mean_init = tf.zeros((num_vars, num_components), dtype=conf.dtype)
-        self._variance_init = tf.ones((num_vars, num_components), dtype=conf.dtype)
+        self._mean_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * mean_init
+        self._variance_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * variance_init
         self._learn_dist_params = learn_dist_params
         if data is not None:
-            self.learn_from_data(data, learn_scale=learn_scale)
+            self.learn_from_data(data, learn_scale=learn_scale, use_prior=use_prior,
+                                 prior_beta=prior_beta, prior_alpha=prior_alpha)
         super().__init__(feed=feed, name=name)
 
         var_shape = (num_vars, num_components)
-        self._total_count_variable = self._total_accumulates(total_counts_init, var_shape)
+        self._total_count_variable = self._total_accumulates(
+            total_counts_init, var_shape)
+        self._train_var = train_var
+        self._train_mean = train_mean
 
     def initialize(self):
         return (self._mean_variable.initializer, self._variance_variable.initializer,
@@ -66,32 +73,44 @@ class GaussianLeaf(VarNode):
         return tf.placeholder_with_default(
             tf.cast(tf.ones_like(self._placeholder), tf.bool), shape=[None, self._num_vars])
 
+    def attach_feed(self, feed):
+        super().attach_feed(feed)
+        if self._external_feed:
+            self._evidence_indicator = self._feed.evidence
+        else:
+            self._evidence_indicator = self._create_evidence_indicator()
+
     def _create(self):
         super()._create()
         self._mean_variable = tf.Variable(
             self._mean_init, dtype=conf.dtype, collections=['spn_distribution_parameters'])
         self._variance_variable = tf.Variable(
             self._variance_init, dtype=conf.dtype, collections=['spn_distribution_parameters'])
-        self._evidence_indicator = self._create_evidence_indicator()
 
-    def learn_from_data(self, data, learn_scale=True):
+    def learn_from_data(self, data, learn_scale=True, use_prior=False, prior_beta=3.0,
+                        prior_alpha=2.0):
         """Learns the distribution parameters from data
         Params:
             data: numpy.ndarray of shape [batch, num_vars]
         """
         if len(data.shape) != 2 or data.shape[1] != self._num_vars:
             raise ValueError("Data should be of rank 2 and contain equally many variables as this "
-                             "GaussianQuantile node.")
+                             "GaussianLeaf node.")
 
         values_per_quantile = self._values_per_quantile(data)
 
-        self._mean_init = np.stack(
-            [np.mean(values, axis=0) for values in values_per_quantile], axis=-1)
-        if learn_scale:
-            self._variance_init = np.stack(
-                [np.var(values, axis=0) for values in values_per_quantile], axis=-1)
+        means = [np.mean(values, axis=0) for values in values_per_quantile]
+
+        if use_prior:
+            sum_sq = [np.sum((x - np.expand_dims(mu, 0)) ** 2, axis=0)
+                      for x, mu in zip(values_per_quantile, means)]
+            variance = [(2 * prior_beta + ssq) / (2 * prior_alpha + ssq.shape[0]) for ssq in sum_sq]
         else:
-            self._variance_init = np.ones_like(self._mean_init)
+            variance = [np.var(values, axis=0) for values in values_per_quantile]
+
+        self._mean_init = np.stack(means, axis=-1)
+        if learn_scale:
+            self._variance_init = np.stack(variance, axis=-1)
 
     def serialize(self):
         data = super().serialize()
@@ -109,46 +128,66 @@ class GaussianLeaf(VarNode):
         super().deserialize(data)
 
     def _total_accumulates(self, init_val, shape):
+        """Creates tensor to accumulate total counts """
         init = utils.broadcast_value(init_val, shape, dtype=conf.dtype)
         return tf.Variable(init, name=self.name + "TotalCounts", trainable=False)
 
     def _values_per_quantile(self, data):
+        """Given data, finds quantiles of it along zeroth axis. Each quantile is assigned to a
+        component. Taken from "Sum-Product Networks: A New Deep Architecture"
+        (Poon and Domingos 2012), https://arxiv.org/abs/1202.3732
+
+        Params:
+            data: Numpy array containing data to split into quantiles.
+
+        Returns:
+            A list of numpy arrays corresponding to quantiles.
+        """
         batch_size = data.shape[0]
         quantile_sections = np.arange(
-            batch_size // self._num_components, batch_size, batch_size // self._num_components)
+            batch_size // self._num_components, batch_size,
+            int(np.ceil(batch_size / self._num_components)))
         sorted_features = np.sort(data, axis=0).astype(tf.DType(conf.dtype).as_numpy_dtype())
         values_per_quantile = np.split(
             sorted_features, indices_or_sections=quantile_sections, axis=0)
         return values_per_quantile
 
     def _compute_out_size(self):
+        """Size of output """
         return self._num_vars * self._num_components
 
     def _tile_feed(self):
-        return tf.tile(tf.expand_dims(self._feed, -1), [1, 1, self._num_components])
+        """Tiles feed along number of components """
+        feed_tensor = self._feed._as_graph_element() if self._external_feed else self._feed
+        return tf.tile(tf.expand_dims(feed_tensor, -1), [1, 1, self._num_components])
 
     def _tile_evidence(self):
+        """Tiles evidence mask along number of components """
         return tf.tile(self.evidence, [1, self._num_components])
 
     def _compute_value(self):
-        # self._assert_built()
+        """Computes value in non-log space """
         dist = tfd.Normal(loc=self._mean_variable, scale=tf.sqrt(self._variance_variable))
         evidence_probs = tf.reshape(
             dist.prob(self._tile_feed()), (-1, self._compute_out_size()))
         return tf.where(self._tile_evidence(), evidence_probs, tf.ones_like(evidence_probs))
 
     def _compute_log_value(self):
-        # self._assert_built()
+        """Computes value in log-space """
         dist = tfd.Normal(loc=self._mean_variable, scale=tf.sqrt(self._variance_variable))
         evidence_probs = tf.reshape(
             dist.log_prob(self._tile_feed()), (-1, self._compute_out_size()))
         return tf.where(self._tile_evidence(), evidence_probs, tf.zeros_like(evidence_probs))
 
     def _compute_scope(self):
-        return [Scope(self, i) for i in range(self._num_vars) for _ in range(self._num_components)]
+        """Computes scope """
+        # Potentially copy scope from external feed
+        node = self._feed if self._external_feed else self
+        return [Scope(node, i) for i in range(self._num_vars) for _ in range(self._num_components)]
 
     def _compute_mpe_state(self, counts):
-        # self._assert_built()
+        # MPE state can be found by taking the mean of the mixture components that are 'selected'
+        # by the counts
         counts_reshaped = tf.reshape(counts, (-1, self._num_vars, self._num_components))
         indices = tf.argmax(counts_reshaped, axis=-1) + tf.expand_dims(
             tf.range(self._num_vars, dtype=tf.int64) * self._num_components, axis=0)
@@ -156,114 +195,40 @@ class GaussianLeaf(VarNode):
 
     def _compute_hard_em_update(self, counts):
         counts_reshaped = tf.reshape(counts, (-1, self._num_vars, self._num_components))
+        # Determine accumulates per component
         accum = tf.reduce_sum(counts_reshaped, axis=0)
+
+        # Tile the feed
         tiled_feed = self._tile_feed()
         sum_data = tf.reduce_sum(counts_reshaped * tiled_feed, axis=0)
         sum_data_squared = tf.reduce_sum(counts_reshaped * tf.square(tiled_feed), axis=0)
         return {'accum': accum, "sum_data": sum_data, "sum_data_squared": sum_data_squared}
 
     def assign(self, accum, sum_data, sum_data_squared):
-        total_counts = self._total_count_variable + accum
-        mean = (self._total_count_variable * self._mean_variable + sum_data) / (total_counts + 1e-10)
-        # dx = x - mean
-        # dx.dot(dx) == \sum x^2 - 2 * mean * \sum x + n * mean^2
+        """
+        Assigns new values to variables based on accumulated tensors. It updates the distribution
+        parameters based on what can be found in "Online Algorithms for Sum-Product Networks with
+        Continuous Variables" by Jaini et al. (2016) http://proceedings.mlr.press/v52/jaini16.pdf
+
+        Parameters:
+            :param accum: Accumulated counts per component
+            :param sum_data: Accumulated sum of data per component
+            :param sum_data_squared: Accumulated sum of squares of data per component
+        Returns
+            :return A tuple containing assignment operations for the new total counts, the variance
+            and the mean
+        """
+        total_counts = tf.maximum(self._total_count_variable + accum,
+                                  tf.ones_like(self._total_count_variable))
+        mean = (self._total_count_variable * self._mean_variable + sum_data) / total_counts
+
         variance = (self._total_count_variable * self._variance_variable +
-                    sum_data_squared - 2 * self._mean_variable * sum_data +
-                    accum * tf.square(self._mean_variable)) / \
-                   (total_counts + 1e-10) - tf.square(mean - self._mean_variable)
+                    sum_data_squared - 2 * self.mean_variable * sum_data +
+                    accum * tf.square(self.mean_variable)) / \
+                   total_counts - tf.square(mean - self._mean_variable)
 
         return (
             tf.assign(self._total_count_variable, total_counts),
-            tf.assign(self._variance_variable, variance),
-            tf.assign(self._mean_variable, mean)
+            tf.assign(self._variance_variable, variance) if self._train_var else tf.no_op(),
+            tf.assign(self._mean_variable, mean) if self._train_mean else tf.no_op()
         )
-
-#
-# class GaussianQuantile(DistributionNode):
-#
-#     def __init__(self, feed=None, num_vars=1, num_components=2, name="GaussianQuantile"):
-#         self._num_components = num_components
-#         self._means = None
-#         self._stddevs = None
-#         self._dist = None
-#         self._built = False
-#         super().__init__(feed, num_vars=num_vars, name=name)
-#
-#     def learn_from_data(self, data):
-#         """Learns the distribution parameters from data
-#         Params:
-#             data: numpy.ndarray of shape [batch, num_vars]
-#         """
-#         if len(data.shape) != 2 or data.shape[1] != self._num_vars:
-#             raise ValueError("Data should be of rank 2 and contain equally many variables as this "
-#                              "GaussianQuantile node.")
-#
-#         values_per_quantile = self._values_per_quantile(data)
-#
-#         self._means = [np.mean(values, axis=0) for values in values_per_quantile]
-#         self._stddevs = [np.std(values, axis=0) for values in values_per_quantile]
-#         self._dist = tfd.Normal(
-#             loc=np.stack(self._means, axis=-1),
-#             scale=np.stack(self._stddevs, axis=-1)
-#         )
-#         self._built = True
-#
-#     def serialize(self):
-#         data = super().serialize()
-#         data['num_vars'] = self._num_vars
-#         data['num_components'] = self._num_components
-#         data['means'] = self._means
-#         data['stddevs'] = self._stddevs
-#         return data
-#
-#     def deserialize(self, data):
-#         self._num_vars = data['num_vars']
-#         self._num_components = data['num_components']
-#         self._means = data['means']
-#         self._stddevs = data['stddevs']
-#         super().deserialize(data)
-#
-#     def _assert_built(self):
-#         if not self._built:
-#             raise StructureError(self.name + " has not been built. Use learn_from_data(...) to "
-#                                              "learn distribution parameters.")
-#
-#     def _values_per_quantile(self, data):
-#         batch_size = data.shape[0]
-#         quantile_sections = np.arange(
-#             batch_size // self._num_components, batch_size, batch_size // self._num_components)
-#         sorted_features = np.sort(data, axis=0).astype(tf.DType(conf.dtype).as_numpy_dtype())
-#         values_per_quantile = np.split(
-#             sorted_features, indices_or_sections=quantile_sections, axis=0)
-#         return values_per_quantile
-#
-#     def _compute_out_size(self):
-#         return self._num_vars * self._num_components
-#
-#     def _tile_feed(self):
-#         return tf.tile(tf.expand_dims(self._feed, -1), [1, 1, self._num_components])
-#
-#     def _tile_evidence(self):
-#         return tf.tile(self.evidence, [1, self._num_components])
-#
-#     def _compute_value(self):
-#         self._assert_built()
-#         evidence_probs = tf.reshape(
-#             self._dist.prob(self._tile_feed()), (-1, self._compute_out_size()))
-#         return tf.where(self._tile_evidence(), evidence_probs, tf.ones_like(evidence_probs))
-#
-#     def _compute_log_value(self):
-#         self._assert_built()
-#         evidence_probs = tf.reshape(
-#             self._dist.log_prob(self._tile_feed()), (-1, self._compute_out_size()))
-#         return tf.where(self._tile_evidence(), evidence_probs, tf.zeros_like(evidence_probs))
-#
-#     def _compute_scope(self):
-#         return [Scope(self, i) for i in range(self._num_vars) for _ in range(self._num_components)]
-#
-#     def _compute_mpe_state(self, counts):
-#         self._assert_built()
-#         counts_reshaped = tf.reshape(counts, (-1, self._num_vars, self._num_components))
-#         indices = tf.argmax(counts_reshaped, axis=-1) + tf.expand_dims(
-#             tf.range(self._num_vars, dtype=tf.int64) * self._num_components, axis=0)
-#         return tf.gather(tf.reshape(self._dist.loc, (-1,)), indices=indices, axis=0)

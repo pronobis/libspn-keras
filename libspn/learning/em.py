@@ -71,7 +71,9 @@ class EMLearning():
                     [pn.accum.initializer for pn in self._param_nodes] +
                     [dn.accum.initializer for dn in self._gaussian_leaf_nodes] +
                     [dn.sum_data.initializer for dn in self._gaussian_leaf_nodes] +
-                    [dn.sum_data_squared.initializer for dn in self._gaussian_leaf_nodes]),
+                    [dn.sum_data_squared.initializer for dn in self._gaussian_leaf_nodes] +
+                    [dn.node._total_count_variable.initializer
+                     for dn in self._gaussian_leaf_nodes]),
                             name="reset_accumulators")
 
     def accumulate_updates(self):
@@ -112,10 +114,7 @@ class EMLearning():
 
             for dn in self._gaussian_leaf_nodes:
                 with tf.name_scope(dn.name_scope):
-                    accum = dn.accum
-                    if self._additive_smoothing is not None:
-                        accum = tf.add(accum, self._additive_smoothing)
-                    assign_ops.extend(dn.node.assign(accum, dn.sum_data, dn.sum_data_squared))
+                    assign_ops.extend(dn.node.assign(dn.accum, dn.sum_data, dn.sum_data_squared))
 
             return tf.group(*assign_ops, name="update_spn")
 
