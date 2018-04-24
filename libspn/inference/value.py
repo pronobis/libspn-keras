@@ -34,6 +34,9 @@ class Value:
         operations computing value for each node."""
         return MappingProxyType(self._values)
 
+    def log(self):
+        return False
+
     def get_value(self, root):
         """Assemble a TF operation computing the values of nodes of the SPN
         rooted in ``root``.
@@ -85,6 +88,9 @@ class LogValue:
         """dict: A dictionary of ``Tensor`` indexed by the SPN node containing
         operations computing log value for each node."""
         return MappingProxyType(self._values)
+
+    def log(self):
+        return True
 
     def get_value(self, root):
         """Assemble TF operations computing the log values of nodes of the SPN

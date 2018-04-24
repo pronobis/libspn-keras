@@ -94,7 +94,7 @@ class EMLearning():
                     if self._additive_smoothing is not None:
                         accum = tf.add(accum, self._additive_smoothing)
                     if pn.node.log:
-                        assign_ops.append(pn.node.assign_log(tf.log(accum)))
+                        assign_ops.append(pn.node.assign_log(accum))
                     else:
                         assign_ops.append(pn.node.assign(accum))
             return tf.group(*assign_ops, name="update_spn")

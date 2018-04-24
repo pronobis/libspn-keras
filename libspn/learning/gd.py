@@ -56,6 +56,7 @@ class GDLearning():
                                          use_unweighted=use_unweighted)
             else:
                 self._mpe_path = mpe_path
+                self._log = mpe_path.log
         else:
             self._mpe_path = None
             # Create internal gradient generator
@@ -64,6 +65,7 @@ class GDLearning():
                                           value_inference_type=value_inference_type)
             else:
                 self._gradient = gradient
+                self._log = gradient.log
         # Create a name scope
         with tf.name_scope("GDLearning") as self._name_scope:
             pass
@@ -123,8 +125,14 @@ class GDLearning():
                         counts = self._mpe_path.counts[pn.node]
                         actual_counts = self._mpe_path.actual_counts[pn.node] if \
                             self._learning_type == LearningType.DISCRIMINATIVE else None
+                        if self._log:  # Convert log gradients to non-log gradients
+                            counts = tf.exp(counts)
+                            if self._learning_type == LearningType.DISCRIMINATIVE:
+                                actual_counts = tf.exp(actual_counts)
                         update_value = pn.node._compute_hard_gd_update(counts,
                                                                        actual_counts)
+                        if not self._log:  # Δw_i = Δc_i / w_i
+                            update_value = tf.truediv(update_value, pn.node.variable)
                         # Apply learning-rate
                         update_value *= self._learning_rate
                         op = tf.assign_add(pn.accum, update_value)
@@ -146,14 +154,8 @@ class GDLearning():
             for pn in self._param_nodes:
                 with tf.name_scope(pn.name_scope):
                     if self._learning_inference_type == LearningInferenceType.HARD:
-                        # Readjust accumulator values to be >= 0
-                        # accum: accum - min(accum)
-                        if pn.node.log:
-                            accum = pn.accum
-                        else:
-                            accum = tf.subtract(pn.accum,
-                                                tf.reduce_min(pn.accum, axis=-1,
-                                                              keep_dims=True))
+                        accum = tf.subtract(pn.accum, tf.reduce_min(pn.accum,
+                                            axis=-1, keep_dims=True))
                         # Apply addtivie-smooting
                         if self._additive_smoothing is not None:
                             accum = tf.add(accum, self._additive_smoothing)

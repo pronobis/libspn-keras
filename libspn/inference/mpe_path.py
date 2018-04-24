@@ -40,6 +40,7 @@ class MPEPath:
                 self._value = Value(value_inference_type)
         else:
             self._value = value
+            self._log = value.log()
 
     @property
     def value(self):
@@ -59,6 +60,10 @@ class MPEPath:
         computing the branch counts, based on the actual value calculated by the
         SPN, for the inputs of the node."""
         return MappingProxyType(self._actual_counts)
+
+    @property
+    def log(self):
+        return self._log
 
     def get_mpe_path(self, root):
         """Assemble TF operations computing the true branch counts for the MPE

@@ -34,6 +34,7 @@ class Gradient:
                 self._value = Value(value_inference_type)
         else:
             self._value = value
+            self._log = value.log()
 
     @property
     def value(self):
@@ -45,6 +46,10 @@ class Gradient:
         """dict: Dictionary indexed by node, where each value is a list of tensors
         computing the gradients."""
         return MappingProxyType(self._gradients)
+
+    @property
+    def log(self):
+        return self._log
 
     def get_gradients(self, root):
         """Assemble TF operations computing the gradients of the SPN rooted in
