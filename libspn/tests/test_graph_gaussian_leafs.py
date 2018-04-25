@@ -75,7 +75,7 @@ class TestGaussianQuantile(TestCase):
     def test_param_learning(self):
         num_vars = 2
         num_components = 2
-        batch_size = 4096
+        batch_size = 1024
         count_init = 100
 
         # Shape is
@@ -83,9 +83,9 @@ class TestGaussianQuantile(TestCase):
                           [10, 15]])
         vars = np.array([[0.25, 0.5],
                          [0.33, 0.67]])
-        data0 = [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2)
+        data0 = [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
                  for m, v in zip(means[0], vars[0])]
-        data1 = [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2)
+        data1 = [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
                  for m, v in zip(means[1], vars[1])]
         data = np.stack([np.concatenate(data0), np.concatenate(data1)], axis=-1)
 
@@ -117,16 +117,18 @@ class TestGaussianQuantile(TestCase):
         root.set_weights(root_weights)
         # root.generate_weights()
 
-        data0 = np.concatenate([stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2)
-                 for m, v in zip(means[0] + 0.2, vars[0])])
-        data1 = np.concatenate([stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2)
-                 for m, v in zip(means[1] + 1.0, vars[1])])
+        data0 = np.concatenate(
+            [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
+             for m, v in zip(means[0] + 0.2, vars[0])])
+        data1 = np.concatenate(
+            [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
+             for m, v in zip(means[1] + 1.0, vars[1])])
 
         empirical_means = gq._mean_init
         empirical_vars = gq._variance_init
-        log_probs0 = [stats.norm(loc=m, scale=np.sqrt(v)).logpdf(data0)
+        log_probs0 = [stats.norm(loc=m, scale=np.maximum(np.sqrt(v), gq._min_stddev)).logpdf(data0)
                       for m, v in zip(empirical_means[0], empirical_vars[0])]
-        log_probs1 = [stats.norm(loc=m, scale=np.sqrt(v)).logpdf(data1)
+        log_probs1 = [stats.norm(loc=m, scale=np.maximum(np.sqrt(v), gq._min_stddev)).logpdf(data1)
                       for m, v in zip(empirical_means[1], empirical_vars[1])]
 
         mixture00_val = np.logaddexp(log_probs0[0] + np.log(1/4), log_probs0[1] + np.log(3/4))
@@ -157,24 +159,30 @@ class TestGaussianQuantile(TestCase):
         data01 = []
         data10 = []
         data11 = []
+
+        counts_per_step = np.zeros((batch_size, num_vars, num_components))
         for i, (prod_ind, d0, d1) in enumerate(zip(prod_winner, data0, data1)):
             if prod_ind == 0:
                 # mixture 00 and mixture 10
+                counts_per_step[i, 0, component_winner00[i]] = 1
                 counts_per_component[0, component_winner00[i]] += 1
                 sum_data_val[0, component_winner00[i]] += data0[i]
                 sum_data_squared_val[0, component_winner00[i]] += data0[i] * data0[i]
                 (data00 if component_winner00[i] == 0 else data01).append(data0[i])
 
+                counts_per_step[i, 1, component_winner10[i]] = 1
                 counts_per_component[1, component_winner10[i]] += 1
                 sum_data_val[1, component_winner10[i]] += data1[i]
                 sum_data_squared_val[1, component_winner10[i]] += data1[i] * data1[i]
                 (data10 if component_winner10[i] == 0 else data11).append(data1[i])
             else:
+                counts_per_step[i, 0, component_winner01[i]] = 1
                 counts_per_component[0, component_winner01[i]] += 1
                 sum_data_val[0, component_winner01[i]] += data0[i]
                 sum_data_squared_val[0, component_winner01[i]] += data0[i] * data0[i]
                 (data00 if component_winner01[i] == 0 else data01).append(data0[i])
 
+                counts_per_step[i, 1, component_winner11[i]] = 1
                 counts_per_component[1, component_winner11[i]] += 1
                 sum_data_val[1, component_winner11[i]] += data1[i]
                 sum_data_squared_val[1, component_winner11[i]] += data1[i] * data1[i]
@@ -208,18 +216,24 @@ class TestGaussianQuantile(TestCase):
                 [learning.value.values[prod0], learning.value.values[prod1]], fd)
 
             counts = sess.run(tf.reduce_sum(learning._mpe_path.counts[gq], axis=0), fd)
+            counts_per_step_graph = sess.run(learning._mpe_path.counts[gq], fd)
 
             accum, sum_data_graph, sum_data_squared_graph = sess.run([
                 update_ops['accum'], update_ops['sum_data'], update_ops['sum_data_squared']], fd)
 
+        with self.test_session() as sess:
             sess.run(init_weights)
             sess.run(reset_accumulators)
             sess.run(accumulate_updates, fd)
             lh_before = sess.run(avg_train_likelihood, fd)
+
             sess.run(update_spn)
             lh_after = sess.run(avg_train_likelihood, fd)
             total_counts_graph, variance_graph, mean_graph = sess.run([
                 gq._total_count_variable, gq.variance_variable, gq.mean_variable])
+
+        self.assertAllClose(counts_per_step, counts_per_step_graph.reshape(
+            (batch_size, num_vars, num_components)))
 
         self.assertAllClose(prod0_val, prod0_graph.ravel())
         self.assertAllClose(prod1_val, prod1_graph.ravel())
@@ -258,15 +272,13 @@ class TestGaussianQuantile(TestCase):
             dm = mean - gq._mean_init.ravel()[i]
             var = (n * gq._variance_init.ravel()[i] + dx.dot(dx)) / (n + k) - dm * dm
 
-            # print(mean.shape)
-            # print(var.shape)
             mean_new_vals.append(mean)
             variance_new_vals.append(var)
 
         mean_new_vals = np.asarray(mean_new_vals).reshape((2, 2))
         variance_new_vals = np.asarray(variance_new_vals).reshape((2, 2))
 
-        self.assertAllClose(mean_new_vals, mean_graph, atol=1e-4, rtol=1e-4)
+        self.assertAllClose(mean_new_vals, mean_graph)
         self.assertAllClose(variance_new_vals, variance_graph, atol=1e-4, rtol=1e-4)
 
         self.assertGreater(lh_after, lh_before)

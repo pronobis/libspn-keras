@@ -22,7 +22,7 @@ class GaussianLeaf(VarNode):
     def __init__(self, feed=None, num_vars=1, num_components=2, name="GaussianLeaf", data=None,
                  learn_scale=True, total_counts_init=1, learn_dist_params=False,
                  train_var=True, mean_init=0.0, variance_init=1.0, train_mean=True,
-                 use_prior=False, prior_alpha=2.0, prior_beta=3.0):
+                 use_prior=False, prior_alpha=2.0, prior_beta=3.0, min_stddev=1e-4):
         self._external_feed = isinstance(feed, ContVars)
         self._mean_variable = None
         self._variance_variable = None
@@ -31,6 +31,7 @@ class GaussianLeaf(VarNode):
         self._mean_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * mean_init
         self._variance_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * variance_init
         self._learn_dist_params = learn_dist_params
+        self._min_stddev = min_stddev
         if data is not None:
             self.learn_from_data(data, learn_scale=learn_scale, use_prior=use_prior,
                                  prior_beta=prior_beta, prior_alpha=prior_alpha)
@@ -86,6 +87,8 @@ class GaussianLeaf(VarNode):
             self._mean_init, dtype=conf.dtype, collections=['spn_distribution_parameters'])
         self._variance_variable = tf.Variable(
             self._variance_init, dtype=conf.dtype, collections=['spn_distribution_parameters'])
+        self._dist = tfd.Normal(
+            self._mean_variable, tf.maximum(tf.sqrt(self._variance_variable), self._min_stddev))
 
     def learn_from_data(self, data, learn_scale=True, use_prior=False, prior_beta=3.0,
                         prior_alpha=2.0):
@@ -156,28 +159,30 @@ class GaussianLeaf(VarNode):
         """Size of output """
         return self._num_vars * self._num_components
 
-    def _tile_feed(self):
-        """Tiles feed along number of components """
-        feed_tensor = self._feed._as_graph_element() if self._external_feed else self._feed
-        return tf.tile(tf.expand_dims(feed_tensor, -1), [1, 1, self._num_components])
+    def _get_feed(self):
+        return self._feed._as_graph_element() if self._external_feed else self._feed
 
-    def _tile_evidence(self):
-        """Tiles evidence mask along number of components """
-        return tf.tile(self.evidence, [1, self._num_components])
+    def _tile_num_components(self, tensor):
+        if tensor.shape[-1].value != 1:
+            tensor = tf.expand_dims(tensor, axis=-1)
+        rank = len(tensor.shape)
+        return tf.tile(tensor, [1 for _ in range(rank - 1)] + [self._num_components])
 
-    def _compute_value(self):
+    def _compute_value_common(self, value, no_evidence_fn):
+        out_shape = (-1, self._compute_out_size())
+        evidence = tf.reshape(self._tile_num_components(self.evidence), out_shape)
+        value = tf.reshape(value, out_shape)
+        return tf.where(evidence, value, no_evidence_fn(value))
+
+    def _compute_value(self, step=None):
         """Computes value in non-log space """
-        dist = tfd.Normal(loc=self._mean_variable, scale=tf.sqrt(self._variance_variable))
-        evidence_probs = tf.reshape(
-            dist.prob(self._tile_feed()), (-1, self._compute_out_size()))
-        return tf.where(self._tile_evidence(), evidence_probs, tf.ones_like(evidence_probs))
+        return self._compute_value_common(
+            self._dist.prob(self._tile_num_components(self._get_feed())), tf.ones_like)
 
     def _compute_log_value(self):
         """Computes value in log-space """
-        dist = tfd.Normal(loc=self._mean_variable, scale=tf.sqrt(self._variance_variable))
-        evidence_probs = tf.reshape(
-            dist.log_prob(self._tile_feed()), (-1, self._compute_out_size()))
-        return tf.where(self._tile_evidence(), evidence_probs, tf.zeros_like(evidence_probs))
+        return self._compute_value_common(
+            self._dist.log_prob(self._tile_num_components(self._get_feed())), tf.zeros_like)
 
     def _compute_scope(self):
         """Computes scope """
@@ -199,7 +204,7 @@ class GaussianLeaf(VarNode):
         accum = tf.reduce_sum(counts_reshaped, axis=0)
 
         # Tile the feed
-        tiled_feed = self._tile_feed()
+        tiled_feed = self._tile_num_components(self._get_feed())
         sum_data = tf.reduce_sum(counts_reshaped * tiled_feed, axis=0)
         sum_data_squared = tf.reduce_sum(counts_reshaped * tf.square(tiled_feed), axis=0)
         return {'accum': accum, "sum_data": sum_data, "sum_data_squared": sum_data_squared}
@@ -218,17 +223,16 @@ class GaussianLeaf(VarNode):
             :return A tuple containing assignment operations for the new total counts, the variance
             and the mean
         """
-        total_counts = tf.maximum(self._total_count_variable + accum,
-                                  tf.ones_like(self._total_count_variable))
-        mean = (self._total_count_variable * self._mean_variable + sum_data) / total_counts
+        n = tf.maximum(self._total_count_variable, tf.ones_like(self._total_count_variable))
+        k = accum
+        mean = (n * self._mean_variable + sum_data) / (n + k)
 
-        variance = (self._total_count_variable * self._variance_variable +
+        variance = (n * self._variance_variable +
                     sum_data_squared - 2 * self.mean_variable * sum_data +
-                    accum * tf.square(self.mean_variable)) / \
-                   total_counts - tf.square(mean - self._mean_variable)
-
-        return (
-            tf.assign(self._total_count_variable, total_counts),
-            tf.assign(self._variance_variable, variance) if self._train_var else tf.no_op(),
-            tf.assign(self._mean_variable, mean) if self._train_mean else tf.no_op()
-        )
+                    k * tf.square(self.mean_variable)) / \
+                   (n + k) - tf.square(mean - self._mean_variable)
+        with tf.control_dependencies([n, k, mean, variance]):
+            return (
+                tf.assign_add(self._total_count_variable, k),
+                tf.assign(self._variance_variable, variance) if self._train_var else tf.no_op(),
+                tf.assign(self._mean_variable, mean) if self._train_mean else tf.no_op())

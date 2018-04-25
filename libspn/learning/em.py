@@ -88,17 +88,19 @@ class EMLearning():
                 with tf.name_scope(pn.name_scope):
                     counts = self._mpe_path.counts[pn.node]
                     update_value = pn.node._compute_hard_em_update(counts)
-                    op = tf.assign_add(pn.accum, update_value)
+                    with tf.control_dependencies([update_value]):
+                        op = tf.assign_add(pn.accum, update_value)
                     assign_ops.append(op)
 
             for dn in self._gaussian_leaf_nodes:
                 with tf.name_scope(dn.name_scope):
                     counts = self._mpe_path.counts[dn.node]
                     update_value = dn.node._compute_hard_em_update(counts)
-                    assign_ops.append(tf.assign_add(dn.accum, update_value['accum']))
-                    assign_ops.append(tf.assign_add(dn.sum_data, update_value['sum_data']))
-                    assign_ops.append(tf.assign_add(
-                        dn.sum_data_squared, update_value['sum_data_squared']))
+                    with tf.control_dependencies(update_value.values()):
+                        assign_ops.append(tf.assign_add(dn.accum, update_value['accum']))
+                        assign_ops.append(tf.assign_add(dn.sum_data, update_value['sum_data']))
+                        assign_ops.append(tf.assign_add(
+                            dn.sum_data_squared, update_value['sum_data_squared']))
             return tf.group(*assign_ops, name="accumulate_updates")
 
     def update_spn(self):
