@@ -37,6 +37,38 @@ class TestGaussianQuantile(TestCase):
             [self.assertEqual(scope[b], scope[b+i]) for i in range(1, 4)]
             [self.assertNotEqual(scope[b], scope[b + i]) for i in range(4, len(scope) - b, 4)]
 
+    def test_learn_from_data(self):
+        quantiles = [np.random.rand(32, 32) + i * 2 for i in range(4)]
+        data = np.concatenate(quantiles, axis=0)
+        np.random.shuffle(data)
+        gq = spn.GaussianLeaf(
+            num_vars=32, num_components=4, learn_dist_params=False, data=data)
+        true_vars = np.stack([np.var(q, axis=0) for q in quantiles], axis=-1)
+        true_means = np.stack([np.mean(q, axis=0) for q in quantiles], axis=-1)
+
+        self.assertAllClose(gq._variance_init, true_vars)
+        self.assertAllClose(gq._mean_init, true_means)
+
+
+    def test_learn_from_data_prior(self):
+        prior_beta = 3.0
+        prior_alpha = 2.0
+        N = 32
+        quantiles = [np.random.rand(N, 32) + i * 2 for i in range(4)]
+        data = np.concatenate(quantiles, axis=0)
+        np.random.shuffle(data)
+        gq = spn.GaussianLeaf(
+            num_vars=32, num_components=4, learn_dist_params=False, data=data,
+            prior_alpha=prior_alpha, prior_beta=prior_beta, use_prior=True)
+
+        mus = [np.mean(q, axis=0, keepdims=True) for q in quantiles]
+        ssq = np.stack([np.sum((x - mu) ** 2, axis=0) for x, mu in zip(quantiles, mus)], axis=-1)
+        true_vars = (2 * prior_beta + ssq) / (2 * prior_alpha + 2 + N)
+
+        self.assertAllClose(gq._variance_init, true_vars)
+
+
+
     def test_sum_update_1(self):
         child1 = spn.GaussianLeaf(num_vars=1, num_components=1, total_counts_init=3,
                                   mean_init=0.0, variance_init=1.0, learn_dist_params=True)
@@ -272,6 +304,8 @@ class TestGaussianQuantile(TestCase):
             dm = mean - gq._mean_init.ravel()[i]
             var = (n * gq._variance_init.ravel()[i] + dx.dot(dx)) / (n + k) - dm * dm
 
+            # print(mean.shape)
+            # print(var.shape)
             mean_new_vals.append(mean)
             variance_new_vals.append(var)
 

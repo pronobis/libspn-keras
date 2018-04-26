@@ -107,7 +107,8 @@ class GaussianLeaf(VarNode):
         if use_prior:
             sum_sq = [np.sum((x - np.expand_dims(mu, 0)) ** 2, axis=0)
                       for x, mu in zip(values_per_quantile, means)]
-            variance = [(2 * prior_beta + ssq) / (2 * prior_alpha + ssq.shape[0]) for ssq in sum_sq]
+            variance = [(2 * prior_beta + ssq) / (2 * prior_alpha + 2 + ssq.shape[0])
+                        for ssq in sum_sq]
         else:
             variance = [np.var(values, axis=0) for values in values_per_quantile]
 
