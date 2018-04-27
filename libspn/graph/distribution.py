@@ -206,8 +206,11 @@ class GaussianLeaf(VarNode):
 
         # Tile the feed
         tiled_feed = self._tile_num_components(self._get_feed())
-        sum_data = tf.reduce_sum(counts_reshaped * tiled_feed, axis=0)
-        sum_data_squared = tf.reduce_sum(counts_reshaped * tf.square(tiled_feed), axis=0)
+        data_per_component = tf.multiply(counts_reshaped, tiled_feed, name="DataPerComponent")
+        squared_data_per_component = tf.multiply(counts_reshaped, tf.square(tiled_feed),
+                                                 name="SquaredDataPerComponent")
+        sum_data = tf.reduce_sum(data_per_component, axis=0)
+        sum_data_squared = tf.reduce_sum(squared_data_per_component, axis=0)
         return {'accum': accum, "sum_data": sum_data, "sum_data_squared": sum_data_squared}
 
     def assign(self, accum, sum_data, sum_data_squared):

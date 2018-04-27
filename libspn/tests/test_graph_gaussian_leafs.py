@@ -49,7 +49,6 @@ class TestGaussianQuantile(TestCase):
         self.assertAllClose(gq._variance_init, true_vars)
         self.assertAllClose(gq._mean_init, true_means)
 
-
     def test_learn_from_data_prior(self):
         prior_beta = 3.0
         prior_alpha = 2.0
@@ -256,7 +255,13 @@ class TestGaussianQuantile(TestCase):
         with self.test_session() as sess:
             sess.run(init_weights)
             sess.run(reset_accumulators)
-            sess.run(accumulate_updates, fd)
+            # all_ops = sess.graph.get_operations()
+            data_per_component_op = sess.graph.get_tensor_by_name("DataPerComponent:0")
+            squared_data_per_component_op = sess.graph.get_tensor_by_name(
+                "SquaredDataPerComponent:0")
+            update_vals, data_per_component_out, squared_data_per_component_out = sess.run(
+                [accumulate_updates, data_per_component_op, squared_data_per_component_op], fd)
+
             lh_before = sess.run(avg_train_likelihood, fd)
 
             sess.run(update_spn)
@@ -311,6 +316,20 @@ class TestGaussianQuantile(TestCase):
 
         mean_new_vals = np.asarray(mean_new_vals).reshape((2, 2))
         variance_new_vals = np.asarray(variance_new_vals).reshape((2, 2))
+
+        def assert_non_zero_at_equal(arr, i, j, truth):
+            arr = arr[:, i, j]
+            self.assertAllClose(arr[arr != 0.0], truth)
+
+        assert_non_zero_at_equal(data_per_component_out, 0, 0, data00)
+        assert_non_zero_at_equal(data_per_component_out, 0, 1, data01)
+        assert_non_zero_at_equal(data_per_component_out, 1, 0, data10)
+        assert_non_zero_at_equal(data_per_component_out, 1, 1, data11)
+
+        assert_non_zero_at_equal(squared_data_per_component_out, 0, 0, np.square(data00))
+        assert_non_zero_at_equal(squared_data_per_component_out, 0, 1, np.square(data01))
+        assert_non_zero_at_equal(squared_data_per_component_out, 1, 0, np.square(data10))
+        assert_non_zero_at_equal(squared_data_per_component_out, 1, 1, np.square(data11))
 
         self.assertAllClose(mean_new_vals, mean_graph)
         self.assertAllClose(variance_new_vals, variance_graph, atol=1e-4, rtol=1e-4)
