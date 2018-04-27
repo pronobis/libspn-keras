@@ -28,7 +28,10 @@ class GaussianLeaf(VarNode):
         self._variance_variable = None
         self._num_vars = feed.num_vars if self._external_feed else num_vars
         self._num_components = num_components
-        self._mean_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * mean_init
+        if isinstance(mean_init, float):
+            self._mean_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * mean_init
+        else:
+            self._mean_init = mean_init
         self._variance_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * variance_init
         self._learn_dist_params = learn_dist_params
         self._min_stddev = min_stddev
