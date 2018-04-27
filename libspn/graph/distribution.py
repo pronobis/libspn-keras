@@ -32,6 +32,7 @@ class GaussianLeaf(VarNode):
         self._variance_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * variance_init
         self._learn_dist_params = learn_dist_params
         self._min_stddev = min_stddev
+        self._min_var = np.square(min_stddev)
         if data is not None:
             self.learn_from_data(data, learn_scale=learn_scale, use_prior=use_prior,
                                  prior_beta=prior_beta, prior_alpha=prior_alpha)
@@ -86,7 +87,8 @@ class GaussianLeaf(VarNode):
         self._mean_variable = tf.Variable(
             self._mean_init, dtype=conf.dtype, collections=['spn_distribution_parameters'])
         self._variance_variable = tf.Variable(
-            self._variance_init, dtype=conf.dtype, collections=['spn_distribution_parameters'])
+            tf.maximum(self._variance_init, self._min_var), dtype=conf.dtype,
+            collections=['spn_distribution_parameters'])
         self._dist = tfd.Normal(
             self._mean_variable, tf.maximum(tf.sqrt(self._variance_variable), self._min_stddev))
 
@@ -114,7 +116,7 @@ class GaussianLeaf(VarNode):
 
         self._mean_init = np.stack(means, axis=-1)
         if learn_scale:
-            self._variance_init = np.stack(variance, axis=-1)
+            self._variance_init = np.maximum(np.stack(variance, axis=-1), self._min_var)
 
     def serialize(self):
         data = super().serialize()
@@ -235,6 +237,7 @@ class GaussianLeaf(VarNode):
                     sum_data_squared - 2 * self.mean_variable * sum_data +
                     k * tf.square(self.mean_variable)) / \
                    (n + k) - tf.square(mean - self._mean_variable)
+        variance = tf.maximum(variance, self._min_var)
         with tf.control_dependencies([n, k, mean, variance]):
             return (
                 tf.assign_add(self._total_count_variable, k),
