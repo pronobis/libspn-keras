@@ -153,10 +153,9 @@ class EMLearning():
                         accum = tf.Variable(tf.zeros_like(node.mean_variable, dtype=conf.dtype),
                                             dtype=conf.dtype,
                                             collections=['em_accumulators'])
-                    initial_mean = node.mean_variable
-                    sum_x = tf.Variable(initial_mean.initializer, dtype=conf.dtype,
+                    sum_x = tf.Variable(node._mean_init, dtype=conf.dtype,
                                         collections=['em_accumulators'])
-                    sum_x2 = tf.Variable(tf.square(initial_mean.initializer), dtype=conf.dtype,
+                    sum_x2 = tf.Variable(tf.square(node._mean_init), dtype=conf.dtype,
                                          collections=['em_accumulators'])
                     gaussian_node = EMLearning.GaussianLeafNode(
                         node=node, accum=accum, sum_data=sum_x, sum_data_squared=sum_x2,
