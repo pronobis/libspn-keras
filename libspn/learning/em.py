@@ -149,9 +149,10 @@ class EMLearning():
                                             self._initial_accum_value,
                                             dtype=conf.dtype,
                                             collections=['em_accumulators'])
-                        sum_x = tf.Variable(node._mean_init * self._initial_accum_value,
+                        sum_x = tf.Variable(node.mean_variable * self._initial_accum_value,
                                             dtype=conf.dtype, collections=['em_accumulators'])
-                        sum_x2 = tf.Variable(tf.square(node._mean_init) * self._initial_accum_value,
+                        sum_x2 = tf.Variable(tf.square(node.mean_variable) *
+                                             self._initial_accum_value,
                                              dtype=conf.dtype, collections=['em_accumulators'])
                     else:
                         accum = tf.Variable(tf.zeros_like(node.mean_variable, dtype=conf.dtype),
