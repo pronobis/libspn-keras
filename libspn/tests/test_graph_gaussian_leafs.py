@@ -106,7 +106,7 @@ class TestGaussianQuantile(TestCase):
     def test_param_learning(self):
         num_vars = 2
         num_components = 2
-        batch_size = 1024
+        batch_size = 32
         count_init = 100
 
         # Shape is
@@ -259,12 +259,13 @@ class TestGaussianQuantile(TestCase):
             data_per_component_op = sess.graph.get_tensor_by_name("DataPerComponent:0")
             squared_data_per_component_op = sess.graph.get_tensor_by_name(
                 "SquaredDataPerComponent:0")
+
             update_vals, data_per_component_out, squared_data_per_component_out = sess.run(
                 [accumulate_updates, data_per_component_op, squared_data_per_component_op], fd)
 
             lh_before = sess.run(avg_train_likelihood, fd)
-
             sess.run(update_spn)
+
             lh_after = sess.run(avg_train_likelihood, fd)
             total_counts_graph, variance_graph, mean_graph = sess.run([
                 gq._total_count_variable, gq.variance_variable, gq.mean_variable])
@@ -297,22 +298,26 @@ class TestGaussianQuantile(TestCase):
 
         mean_new_vals = []
         variance_new_vals = []
+        variance_left, variance_right = [], []
         for i, obs in enumerate([data00, data01, data10, data11]):
             # Note that this does no depend on accumulating anything!
             # It actually is copied (more or less) from
             # https://github.com/whsu/spn/blob/master/spn/normal_leaf_node.py
-            x = np.asarray(obs)
+            x = np.asarray(obs).astype(np.float32)
             n = count_init
             k = len(obs)
-            mean = (n * gq._mean_init.ravel()[i] + np.sum(obs)) / (n + k)
-            dx = x - gq._mean_init.ravel()[i]
-            dm = mean - gq._mean_init.ravel()[i]
-            var = (n * gq._variance_init.ravel()[i] + dx.dot(dx)) / (n + k) - dm * dm
+            mean = (n * gq._mean_init.astype(np.float32).ravel()[i] + np.sum(obs)) / (n + k)
+            dx = x - gq._mean_init.astype(np.float32).ravel()[i]
+            dm = mean - gq._mean_init.astype(np.float32).ravel()[i]
+            var = (n * gq._variance_init.astype(np.float32).ravel()[i] +
+                   dx.dot(dx)) / (n + k) - dm * dm
 
             # print(mean.shape)
             # print(var.shape)
             mean_new_vals.append(mean)
             variance_new_vals.append(var)
+            variance_left.append((n * gq._variance_init.ravel()[i] + dx.dot(dx)) / (n + k))
+            variance_right.append(dm * dm)
 
         mean_new_vals = np.asarray(mean_new_vals).reshape((2, 2))
         variance_new_vals = np.asarray(variance_new_vals).reshape((2, 2))
@@ -332,7 +337,7 @@ class TestGaussianQuantile(TestCase):
         assert_non_zero_at_equal(squared_data_per_component_out, 1, 1, np.square(data11))
 
         self.assertAllClose(mean_new_vals, mean_graph)
-        self.assertAllClose(variance_new_vals, variance_graph, atol=1e-4, rtol=1e-4)
+        self.assertAllClose(variance_new_vals, variance_graph)
 
         self.assertGreater(lh_after, lh_before)
 
