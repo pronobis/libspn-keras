@@ -664,6 +664,61 @@ class TestMath(TestCase):
             np.testing.assert_array_almost_equal(out9, [[0.25, 0.25],
                                                         [0.25, 0.25]])
 
+    def test_normalize_log_tensor_2D(self):
+        """normalize_log_tensor_2D"""
+
+        v1 = spn.utils.normalize_log_tensor_2D(np.log([1]))
+        v2 = spn.utils.normalize_log_tensor_2D(tf.log(tf.constant([1], dtype=tf.float32)))
+        v3 = spn.utils.normalize_log_tensor_2D(tf.log(tf.constant([1], dtype=tf.float64)))
+        v4 = spn.utils.normalize_log_tensor_2D(np.log([1.0], dtype=np.float32),
+                                               num_weights=1, num_sums=1)
+        v5 = spn.utils.normalize_log_tensor_2D(np.log([0.1]), num_weights=1,
+                                               num_sums=1)
+        v6 = spn.utils.normalize_log_tensor_2D(np.log([1, 0.5, 1], dtype=np.float32),
+                                               num_weights=3, num_sums=1)
+        v7 = spn.utils.normalize_log_tensor_2D(np.log([[1, 1],
+                                                       [1, 2]]),
+                                               num_weights=2, num_sums=2)
+        v8 = spn.utils.normalize_log_tensor_2D(np.log([1.25, 2.05, 0.0, 5.67, 3.52],
+                                                      dtype=np.float32), num_weights=5)
+        v9 = spn.utils.normalize_log_tensor_2D(np.log([[1, 0],
+                                                       [3, 7]]),
+                                               num_weights=2, num_sums=2)
+
+        with self.test_session() as sess:
+            out1 = sess.run(tf.exp(v1))
+            out2 = sess.run(tf.exp(v2))
+            out3 = sess.run(tf.exp(v3))
+            out4 = sess.run(tf.exp(v4))
+            out5 = sess.run(tf.exp(v5))
+            out6 = sess.run(tf.exp(v6))
+            out7 = sess.run(tf.exp(v7))
+            out8 = sess.run(tf.exp(v8))
+            out9 = sess.run(tf.exp(v9))
+
+            self.assertEqual(out1.dtype, np.float64)
+            self.assertEqual(out2.dtype, np.float32)
+            self.assertEqual(out3.dtype, np.float64)
+            self.assertEqual(out4.dtype, np.float32)
+            self.assertEqual(out5.dtype, np.float64)
+            self.assertEqual(out6.dtype, np.float32)
+            self.assertEqual(out7.dtype, np.float64)
+            self.assertEqual(out8.dtype, np.float32)
+            self.assertEqual(out9.dtype, np.float64)
+
+            np.testing.assert_array_almost_equal(out1, [[1.0]])
+            np.testing.assert_array_almost_equal(out2, [[1.0]])
+            np.testing.assert_array_almost_equal(out3, [[1.0]])
+            np.testing.assert_array_almost_equal(out4, [[1.0]])
+            np.testing.assert_array_almost_equal(out5, [[1.0]])
+            np.testing.assert_array_almost_equal(out6, [[0.4, 0.2, 0.4]])
+            np.testing.assert_array_almost_equal(out7, [[0.5, 0.5],
+                                                        [0.333333, 0.666666]])
+            np.testing.assert_array_almost_equal(out8, [[0.100080, 0.164131, 0.0,
+                                                         0.453963, 0.281825]])
+            np.testing.assert_array_almost_equal(out9, [[1, 0],
+                                                        [0.3, 0.7]])
+
     def test_reduce_log_sum(self):
 
         def test(dtype):

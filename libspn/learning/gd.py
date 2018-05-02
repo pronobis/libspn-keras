@@ -125,10 +125,6 @@ class GDLearning():
                         counts = self._mpe_path.counts[pn.node]
                         actual_counts = self._mpe_path.actual_counts[pn.node] if \
                             self._learning_type == LearningType.DISCRIMINATIVE else None
-                        if self._log:  # Convert log gradients to non-log gradients
-                            counts = tf.exp(counts)
-                            if self._learning_type == LearningType.DISCRIMINATIVE:
-                                actual_counts = tf.exp(actual_counts)
                         update_value = pn.node._compute_hard_gd_update(counts,
                                                                        actual_counts)
                         if not self._log:  # Δw_i = Δc_i / w_i
@@ -154,16 +150,19 @@ class GDLearning():
             for pn in self._param_nodes:
                 with tf.name_scope(pn.name_scope):
                     if self._learning_inference_type == LearningInferenceType.HARD:
-                        accum = tf.subtract(pn.accum, tf.reduce_min(pn.accum,
-                                            axis=-1, keep_dims=True))
+                        if not pn.node.log:
+                            accum = tf.subtract(pn.accum, tf.reduce_min(pn.accum,
+                                                axis=-1, keep_dims=True))
+                        else:
+                            accum = pn.accum
                         # Apply addtivie-smooting
                         if self._additive_smoothing is not None:
                             accum = tf.add(accum, self._additive_smoothing)
                         # Assign accumulators to respective weights
                         if pn.node.log:
-                            assign_ops.append(pn.node.assign_log(accum))
+                            assign_ops.append(pn.node.update_log(accum))
                         else:
-                            assign_ops.append(pn.node.assign(accum))
+                            assign_ops.append(pn.node.update(accum))
                     else:
                         # Apply learning-rate
                         accum = pn.accum * self._learning_rate
