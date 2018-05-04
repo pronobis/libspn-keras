@@ -267,3 +267,6 @@ class PermProducts(OpNode):
     def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
                               use_unweighted=False, with_ivs=False):
         return self._compute_mpe_path(counts, *value_values)
+
+    def _compute_log_gradient(self, gradients, *value_values, with_ivs=False):
+        return self._compute_mpe_path(gradients, *value_values)

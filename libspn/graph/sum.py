@@ -400,7 +400,8 @@ class Sum(OpNode):
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
 
-        values_weighted = weight_value + values
+        values_selected = values + ivs_value if self._ivs and with_ivs else values
+        values_weighted = values_selected + weight_value
 
         log_max = tf.reduce_max(values_weighted, axis=1, keep_dims=True)
         log_rebased = tf.subtract(values_weighted, log_max)

@@ -200,7 +200,7 @@ class ParSums(OpNode):
             input_sizes = self.get_input_sizes()
         num_values = sum(input_sizes[2:])  # Skip ivs, weights
 
-        if init_value == 1:
+        if isinstance(init_value, int) and init_value == 1:
             init_value = utils.broadcast_value(1,
                                                (self._num_sums * num_values,),
                                                dtype=conf.dtype)
@@ -437,3 +437,37 @@ class ParSums(OpNode):
 
         return self._compute_mpe_path_common(
             values_weighted, counts, weight_value, ivs_value, *value_values)
+
+    def _compute_gradient_common(self, values_weighted, gradients, weight_value,
+                                 ivs_value, *value_values):
+        values_weighted_exp = tf.exp(values_weighted)
+        weight_gradients = tf.expand_dims(gradients, axis=-1) * \
+            tf.truediv(values_weighted_exp, tf.reduce_sum(values_weighted_exp,
+                                                          axis=-1, keep_dims=True))
+        # Sum up max counts between individual sum nodes
+        output_gradients = tf.reduce_sum(weight_gradients, axis=1)
+        # Split the output-gradients to value inputs
+        _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
+        output_gradients_split = tf.split(output_gradients, value_sizes, 1)
+        return self._scatter_to_input_tensors(
+            (weight_gradients, weight_value),  # Weights
+            (output_gradients, ivs_value),  # IVs
+            *[(t, v) for t, v in zip(output_gradients_split, value_values)])  # Values
+
+    def _compute_log_gradient(self, gradients, weight_value, ivs_value,
+                              *value_values, with_ivs=True):
+        # Get weighted, IV selected values
+        weight_value, ivs_value, values = self._compute_value_common(
+            weight_value, ivs_value, *value_values)
+        if self._ivs and with_ivs:
+            # IVs tensor shape = (Batch X (num_sums * num_vals))
+            # reshape it to (Batch X num_sums X num_feat)
+            reshape = (-1, self._num_sums, values.shape[1].value)
+            ivs_value = tf.reshape(ivs_value, shape=reshape)
+
+            values_weighted = tf.expand_dims(values, axis=1) + (ivs_value + weight_value)
+        else:
+            values_weighted = tf.expand_dims(values, axis=1) + weight_value
+
+        return self._compute_gradient_common(values_weighted, gradients, weight_value,
+                                             ivs_value, *value_values)

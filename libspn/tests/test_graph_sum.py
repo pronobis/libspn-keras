@@ -841,7 +841,7 @@ class TestGraphSum(TestCase):
         weights = np.random.rand(6)
         w = s.generate_weights(weights)
         gradients = tf.placeholder(tf.float32, shape=(None, 1))
-        op = s._compute_log_gradient(tf.identity(gradients),
+        op = s._compute_log_gradient_log(tf.identity(gradients),
                                      w.get_log_value(),
                                      iv.get_log_value(),
                                      v12.get_log_value(),
