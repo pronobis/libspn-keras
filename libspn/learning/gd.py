@@ -34,8 +34,7 @@ class GDLearning():
                  log=True, value_inference_type=None,
                  learning_type=LearningType.DISCRIMINATIVE,
                  learning_inference_type=LearningInferenceType.HARD,
-                 additive_smoothing=None, add_random=None, initial_accum_value=None,
-                 use_unweighted=False):
+                 add_random=None, use_unweighted=False):
         self._root = root
         if learning_rate <= 0.0:
             raise ValueError("learning_rate must be a positive number")
@@ -44,8 +43,6 @@ class GDLearning():
         self._log = log
         self._learning_type = learning_type
         self._learning_inference_type = learning_inference_type
-        self._additive_smoothing = additive_smoothing
-        self._initial_accum_value = initial_accum_value
         if self._learning_inference_type == LearningInferenceType.HARD:
             self._gradient = None
             # Create internal MPE path generator
@@ -61,8 +58,8 @@ class GDLearning():
             self._mpe_path = None
             # Create internal gradient generator
             if gradient is None:
-                self._gradient = Gradient(log=log,
-                                          value_inference_type=value_inference_type)
+                self._gradient = \
+                    Gradient(log=log, value_inference_type=value_inference_type)
             else:
                 self._gradient = gradient
                 self._log = gradient.log
@@ -125,10 +122,8 @@ class GDLearning():
                         counts = self._mpe_path.counts[pn.node]
                         actual_counts = self._mpe_path.actual_counts[pn.node] if \
                             self._learning_type == LearningType.DISCRIMINATIVE else None
-                        update_value = pn.node._compute_hard_gd_update(counts,
-                                                                       actual_counts)
-                        if not self._log:  # Δw_i = Δc_i / w_i
-                            update_value = tf.truediv(update_value, pn.node.variable)
+                        update_value = \
+                            pn.node._compute_hard_gd_update(counts, actual_counts)
                         # Apply learning-rate
                         update_value *= self._learning_rate
                         op = tf.assign_add(pn.accum, update_value)
@@ -150,19 +145,11 @@ class GDLearning():
             for pn in self._param_nodes:
                 with tf.name_scope(pn.name_scope):
                     if self._learning_inference_type == LearningInferenceType.HARD:
-                        if not pn.node.log:
-                            accum = tf.subtract(pn.accum, tf.reduce_min(pn.accum,
-                                                axis=-1, keep_dims=True))
-                        else:
-                            accum = pn.accum
-                        # Apply addtivie-smooting
-                        if self._additive_smoothing is not None:
-                            accum = tf.add(accum, self._additive_smoothing)
-                        # Assign accumulators to respective weights
+                        # Add accumulators to respective weights
                         if pn.node.log:
-                            assign_ops.append(pn.node.update_log(accum))
+                            assign_ops.append(pn.node.update_log(pn.accum))
                         else:
-                            assign_ops.append(pn.node.update(accum))
+                            assign_ops.append(pn.node.update(pn.accum))
                     else:
                         # Apply learning-rate
                         accum = pn.accum * self._learning_rate
@@ -173,26 +160,8 @@ class GDLearning():
         def fun(node):
             if node.is_param:
                 with tf.name_scope(node.name) as scope:
-                    if self._learning_inference_type == LearningInferenceType.HARD \
-                     and self._initial_accum_value is not None:
-                        if node.mask and not all(node.mask):
-                            accum = tf.Variable(tf.cast(tf.reshape(node.mask,
-                                                node.variable.shape),
-                                                dtype=conf.dtype) *
-                                                self._initial_accum_value,
-                                                dtype=conf.dtype,
-                                                collections=['gd_accumulators'])
-                        else:
-                            accum = tf.Variable(tf.ones_like(node.variable,
-                                                             dtype=conf.dtype) *
-                                                self._initial_accum_value,
-                                                dtype=conf.dtype,
-                                                collections=['gd_accumulators'])
-                    else:
-                        accum = tf.Variable(tf.zeros_like(node.variable,
-                                                          dtype=conf.dtype),
-                                            dtype=conf.dtype,
-                                            collections=['gd_accumulators'])
+                    accum = tf.Variable(tf.zeros_like(node.variable, dtype=conf.dtype),
+                                        dtype=conf.dtype, collections=['gd_accumulators'])
                     param_node = GDLearning.ParamNode(node=node, accum=accum,
                                                       name_scope=scope)
                     self._param_nodes.append(param_node)

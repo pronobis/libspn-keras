@@ -135,31 +135,6 @@ class Weights(ParamNode):
         value = utils.normalize_tensor_2D(value, self._num_weights, self._num_sums)
         return tf.assign(self._variable, value)
 
-    # def assign_log(self, value):
-    #     """Return a TF operation assigning log values to the weights.
-    #
-    #     Args:
-    #         value: The value to assign to the weights. For possible values, see
-    #                :meth:`~libspn.utils.broadcast_value`.
-    #
-    #     Returns:
-    #         Tensor: The assignment operation.
-    #     """
-    #     if not self._log:
-    #         raise StructureError("Trying to assign log values to non-log weights.")
-    #
-    #     if isinstance(value, utils.ValueType.RANDOM_UNIFORM) \
-    #        or isinstance(value, numbers.Real):
-    #         shape = self._num_sums * self._num_weights
-    #     else:
-    #         shape = self._num_weights
-    #     value = utils.broadcast_value(value, (shape,), dtype=conf.dtype)
-    #     if self._mask and not all(self._mask):
-    #         # Only perform masking if mask is given and mask contains any 'False'
-    #         value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
-    #     value = utils.normalize_tensor_2D(value, self._num_weights, self._num_sums)
-    #     return tf.assign(self._variable, tf.log(value))
-
     def assign_log(self, value):
         """Return a TF operation assigning log values to the weights.
 
@@ -187,24 +162,23 @@ class Weights(ParamNode):
         return tf.assign(self._variable, normalized_value)
 
     def update(self, value):
-        """Return a TF operation adding the values to the weights.
+        """Return a TF operation adding the log-values to the log-weights.
 
         Args:
-            value: The value to be added to the weights.
+            value: The log-value to be added to the log-weights.
 
         Returns:
             Tensor: The assignment operation.
         """
-        if self._log:
-            raise StructureError("Trying to update log weights with non-log values.")
         if self._mask and not all(self._mask):
             # Only perform masking if mask is given and mask contains any 'False'
-            value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
+            value += tf.log(tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype))
         # w_ij: w_ij + Δw_ij
-        update_value = self._variable + value
-        normalized_value = utils.normalize_tensor_2D(update_value, self._num_weights,
-                                                     self._num_sums)
-        return tf.assign(self._variable, normalized_value)
+        update_value = (self._variable if self._log else tf.log(self._variable)) + value
+        normalized_value = \
+            utils.normalize_log_tensor_2D(update_value, self._num_weights, self._num_sums)
+        return tf.assign(self._variable, (normalized_value if self._log else
+                                          tf.exp(normalized_value)))
 
     def update_log(self, value):
         """Return a TF operation adding the log-values to the log-weights.
