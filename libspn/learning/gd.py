@@ -133,6 +133,8 @@ class GDLearning():
                         # TODO: Is there a better way to do this?
                         update_value = pn.node._compute_hard_gd_update(gradients,
                                                                        None)
+                        # Apply learning-rate
+                        update_value *= self._learning_rate
                         op = tf.assign_add(pn.accum, update_value)
                         assign_ops.append(op)
 
@@ -151,9 +153,11 @@ class GDLearning():
                         else:
                             assign_ops.append(pn.node.update(pn.accum))
                     else:
-                        # Apply learning-rate
-                        accum = pn.accum * self._learning_rate
-                        assign_ops.append(pn.node.update(accum))
+                        # Add gradients to respective weights
+                        if pn.node.log:
+                            assign_ops.append(pn.node.update_log(pn.accum))
+                        else:
+                            assign_ops.append(pn.node.update(pn.accum))
             return tf.group(*assign_ops, name="update_spn")
 
     def _create_accumulators(self):

@@ -687,6 +687,75 @@ class TestGraphSum(TestCase):
         np.testing.assert_array_almost_equal(
            out[5], output_gradients[3])
 
+    # def test_compute_log_gradients(self):
+    #     v12 = spn.IVs(num_vars=2, num_vals=4)
+    #     v34 = spn.ContVars(num_vars=2)
+    #     v5 = spn.ContVars(num_vars=1)
+    #     s = spn.Sum((v12, [0, 5]), v34, (v12, [3]), v5)
+    #     iv = s.generate_ivs()
+    #     weights = np.random.rand(6)
+    #     w = s.generate_weights(weights)
+    #     gradients = tf.placeholder(tf.float32, shape=(None, 1))
+    #     op = s._compute_log_gradient(tf.identity(gradients),
+    #                                  w.get_log_value(),
+    #                                  iv.get_log_value(),
+    #                                  v12.get_log_value(),
+    #                                  v34.get_log_value(),
+    #                                  v12.get_log_value(),
+    #                                  v5.get_log_value())
+    #     init = w.initialize()
+    #     batch_size = 10
+    #     gradients_feed = np.random.rand(batch_size, 1)
+    #     v12_feed = np.random.randint(4, size=(batch_size, 2))
+    #     v34_feed = np.random.rand(batch_size, 2)
+    #     v5_feed = np.random.rand(batch_size, 1)
+    #     ivs_feed = np.random.randint(6, size=(batch_size, 1))
+    #
+    #     with tf.Session() as sess:
+    #         sess.run(init)
+    #         # Skip the IVs op
+    #         out = sess.run(op, feed_dict={gradients: gradients_feed,
+    #                                       iv: ivs_feed,
+    #                                       v12: v12_feed,
+    #                                       v34: v34_feed,
+    #                                       v5: v5_feed})
+    #
+    #     # Calculate true outputs
+    #     v12_inputs = np.hstack([np.eye(4)[v12_feed[:, 0]],
+    #                             np.eye(4)[v12_feed[:, 1]]])
+    #     input_values = np.hstack([np.expand_dims(v12_inputs[:, 0], axis=1),
+    #                               np.expand_dims(v12_inputs[:, 5], axis=1),
+    #                               v34_feed,
+    #                               np.expand_dims(v12_inputs[:, 3], axis=1),
+    #                               v5_feed])
+    #     weights_normalised = weights / np.sum(weights)
+    #     weights_gradients = gradients_feed * input_values
+    #     output_gradients = np.split((gradients_feed * weights_normalised),
+    #                                 [2, 4, 5, 6], axis=1)
+    #     output_gradients_0 = np.zeros((batch_size, 8))
+    #     output_gradients_0[:, 0] = output_gradients[0][:, 0]
+    #     output_gradients_0[:, 5] = output_gradients[0][:, 1]
+    #     output_gradients[0] = output_gradients_0
+    #     output_gradients_2 = np.zeros((batch_size, 8))
+    #     output_gradients_2[:, 3] = output_gradients[2][:, 0]
+    #     output_gradients[2] = output_gradients_2
+    #
+    #     # Weights
+    #     np.testing.assert_array_almost_equal(
+    #         out[0], weights_gradients)
+    #     # IVs
+    #     np.testing.assert_array_almost_equal(
+    #        out[1], gradients_feed * input_values)
+    #     # Inputs
+    #     np.testing.assert_array_almost_equal(
+    #        out[2], output_gradients[0])
+    #     np.testing.assert_array_almost_equal(
+    #        out[3], output_gradients[1])
+    #     np.testing.assert_array_almost_equal(
+    #        out[4], output_gradients[2])
+    #     np.testing.assert_array_almost_equal(
+    #        out[5], output_gradients[3])
+
     def test_compute_log_gradients(self):
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
@@ -703,6 +772,83 @@ class TestGraphSum(TestCase):
                                      v34.get_log_value(),
                                      v12.get_log_value(),
                                      v5.get_log_value())
+        init = w.initialize()
+        batch_size = 10
+        gradients_feed = np.random.rand(batch_size, 1)
+        v12_feed = np.random.randint(4, size=(batch_size, 2))
+        v34_feed = np.random.rand(batch_size, 2)
+        v5_feed = np.random.rand(batch_size, 1)
+        ivs_feed = np.random.randint(6, size=(batch_size, 1))
+
+        with tf.Session() as sess:
+            sess.run(init)
+            # Skip the IVs op
+            out = sess.run(op, feed_dict={gradients: gradients_feed,
+                                          iv: ivs_feed,
+                                          v12: v12_feed,
+                                          v34: v34_feed,
+                                          v5: v5_feed})
+
+        # Calculate true outputs
+        v12_inputs = np.hstack([np.eye(4)[v12_feed[:, 0]],
+                                np.eye(4)[v12_feed[:, 1]]])
+        input_values = np.hstack([np.expand_dims(v12_inputs[:, 0], axis=1),
+                                  np.expand_dims(v12_inputs[:, 5], axis=1),
+                                  v34_feed,
+                                  np.expand_dims(v12_inputs[:, 3], axis=1),
+                                  v5_feed])
+        weights_normalised = weights / np.sum(weights)
+        weights_log = np.log(weights_normalised)
+        inputs_log = np.log(input_values)
+        ivs_values = np.eye(6)[np.squeeze(ivs_feed, axis=1)]
+        ivs_log = np.log(ivs_values)
+        weighted_inputs = weights_log + (inputs_log + ivs_log)
+        weighted_inputs_exp = np.exp(weighted_inputs)
+        weights_gradients = gradients_feed * np.divide(weighted_inputs_exp,
+                                                       np.sum(weighted_inputs_exp,
+                                                              axis=1, keepdims=True))
+        output_gradients = np.split(weights_gradients, [2, 4, 5, 6], axis=1)
+        output_gradients_0 = np.zeros((batch_size, 8))
+        output_gradients_0[:, 0] = output_gradients[0][:, 0]
+        output_gradients_0[:, 5] = output_gradients[0][:, 1]
+        output_gradients[0] = output_gradients_0
+        output_gradients_2 = np.zeros((batch_size, 8))
+        output_gradients_2[:, 3] = output_gradients[2][:, 0]
+        output_gradients[2] = output_gradients_2
+
+        # Weights
+        np.testing.assert_array_almost_equal(
+            out[0], weights_gradients)
+        # IVs
+        np.testing.assert_array_almost_equal(
+           out[1], weights_gradients)
+        # Inputs
+        np.testing.assert_array_almost_equal(
+           out[2], output_gradients[0])
+        np.testing.assert_array_almost_equal(
+           out[3], output_gradients[1])
+        np.testing.assert_array_almost_equal(
+           out[4], output_gradients[2])
+        np.testing.assert_array_almost_equal(
+           out[5], output_gradients[3])
+
+    def test_compute_log_gradients_log(self):
+        v12 = spn.IVs(num_vars=2, num_vals=4)
+        v34 = spn.ContVars(num_vars=2)
+        v5 = spn.ContVars(num_vars=1)
+        s = spn.Sum((v12, [0, 5]), v34, (v12, [3]), v5)
+        iv = s.generate_ivs()
+        weights = np.random.rand(6)
+        w = s.generate_weights(weights)
+        gradients = tf.placeholder(tf.float32, shape=(None, 1))
+        op = s._compute_log_gradient(tf.identity(gradients),
+                                     w.get_log_value(),
+                                     iv.get_log_value(),
+                                     v12.get_log_value(),
+                                     v34.get_log_value(),
+                                     v12.get_log_value(),
+                                     v5.get_log_value())
+
         init = w.initialize()
         batch_size = 100
         gradients_feed = np.random.rand(batch_size, 1)
@@ -728,10 +874,44 @@ class TestGraphSum(TestCase):
                                   v34_feed,
                                   np.expand_dims(v12_inputs[:, 3], axis=1),
                                   v5_feed])
+        input_values_log = np.log(input_values)
         weights_normalised = weights / np.sum(weights)
-        weights_gradients = gradients_feed * input_values
-        output_gradients = np.split((gradients_feed * weights_normalised),
-                                    [2, 4, 5, 6], axis=1)
+        weights_log = np.log(weights_normalised)
+        print("\nweights_normalised:\n", weights_normalised)
+        ivs_values = np.eye(6)[np.squeeze(ivs_feed, axis=1)]
+        ivs_log = np.log(ivs_values)
+        values_weighted = weights_log + (input_values_log + ivs_log)
+        print("\nvalues_weighted:\n", values_weighted)
+        log_max = np.amax(values_weighted, axis=1, keepdims=True)
+        print("\nlog_max:\n", log_max)
+        log_rebased = np.subtract(values_weighted, log_max)
+        print("\nlog_rebased:\n", log_rebased)
+        expo_logs = np.exp(log_rebased)
+        print("\nexpo_logs:\n", expo_logs)
+        summed_exponents = np.sum(expo_logs, axis=1, keepdims=True)
+        print("\nsummed_exponents:\n", summed_exponents)
+
+        max_indices = np.argmax(values_weighted, axis=1)
+        print("\nmax_indices:\n", max_indices)
+        expo_logs_normalized = np.divide(expo_logs, summed_exponents)
+        print("\nexpo_logs_normalized:\n", expo_logs_normalized)
+        expos_excl_max = expo_logs_normalized
+        expos_excl_max[np.arange(batch_size), max_indices] = 0.0
+        #expos_excl_max = np.ones_like(values_weighted)
+        #expos_excl_max[max_indices] = 0.0
+        #expos_excl_max = expos_excl_max * np.divide(expo_logs, summed_exponents)
+        print("\nexpos_excl_max:\n", expos_excl_max)
+        summed_expos_excl_max = np.sum(expos_excl_max, axis=1, keepdims=True)
+        print("\nsummed_expos_excl_max:\n", summed_expos_excl_max)
+        max_weight_gradient = 1.0 - summed_expos_excl_max
+        print("\nmax_weight_gradient:\n", max_weight_gradient)
+        max_weight_gradient_scattered = np.zeros_like(values_weighted)
+        max_weight_gradient_scattered[np.arange(batch_size), max_indices] = 1.0
+        max_weight_gradient_scattered *= max_weight_gradient
+        print("\nmax_weight_gradient_scattered:\n", max_weight_gradient_scattered)
+        weights_gradients = gradients_feed * (expos_excl_max + max_weight_gradient_scattered)
+        output_gradients = np.split(weights_gradients, [2, 4, 5, 6], axis=1)
+
         output_gradients_0 = np.zeros((batch_size, 8))
         output_gradients_0[:, 0] = output_gradients[0][:, 0]
         output_gradients_0[:, 5] = output_gradients[0][:, 1]
@@ -740,12 +920,15 @@ class TestGraphSum(TestCase):
         output_gradients_2[:, 3] = output_gradients[2][:, 0]
         output_gradients[2] = output_gradients_2
 
+        print("\nout[0]:\n", out[0])
+        print("\nweights_gradients:\n", weights_gradients)
+
         # Weights
         np.testing.assert_array_almost_equal(
-            out[0], weights_gradients)
+            out[0], weights_gradients, decimal=6)
         # IVs
         np.testing.assert_array_almost_equal(
-           out[1], gradients_feed * input_values)
+           out[1], weights_gradients)
         # Inputs
         np.testing.assert_array_almost_equal(
            out[2], output_gradients[0])

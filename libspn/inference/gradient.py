@@ -73,12 +73,12 @@ class Gradient:
                         return node._compute_log_gradient(
                             summed, *[self._value.values[i.node]
                                       if i else None
-                                      for i in node.inputs])
+                                      for i in node.inputs], with_ivs=True)
                     else:
                         return node._compute_gradient(
                             summed, *[self._value.values[i.node]
                                       if i else None
-                                      for i in node.inputs])
+                                      for i in node.inputs], with_ivs=True)
 
         # Generate values if not yet generated
         if not self._value.values:
