@@ -134,7 +134,7 @@ class GDLearning():
                         assign_ops.append(op)
                     else:
                         gradients = self._gradient.gradients[pn.node]
-                        actual_gradients = self._mpe_path.actual_gradients[pn.node] \
+                        actual_gradients = self._gradient.actual_gradients[pn.node] \
                             if self._learning_type == LearningType.DISCRIMINATIVE \
                             else None
                         # TODO: Is there a better way to do this?
