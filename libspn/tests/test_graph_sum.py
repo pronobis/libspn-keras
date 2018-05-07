@@ -687,75 +687,6 @@ class TestGraphSum(TestCase):
         np.testing.assert_array_almost_equal(
            out[5], output_gradients[3])
 
-    # def test_compute_log_gradients(self):
-    #     v12 = spn.IVs(num_vars=2, num_vals=4)
-    #     v34 = spn.ContVars(num_vars=2)
-    #     v5 = spn.ContVars(num_vars=1)
-    #     s = spn.Sum((v12, [0, 5]), v34, (v12, [3]), v5)
-    #     iv = s.generate_ivs()
-    #     weights = np.random.rand(6)
-    #     w = s.generate_weights(weights)
-    #     gradients = tf.placeholder(tf.float32, shape=(None, 1))
-    #     op = s._compute_log_gradient(tf.identity(gradients),
-    #                                  w.get_log_value(),
-    #                                  iv.get_log_value(),
-    #                                  v12.get_log_value(),
-    #                                  v34.get_log_value(),
-    #                                  v12.get_log_value(),
-    #                                  v5.get_log_value())
-    #     init = w.initialize()
-    #     batch_size = 10
-    #     gradients_feed = np.random.rand(batch_size, 1)
-    #     v12_feed = np.random.randint(4, size=(batch_size, 2))
-    #     v34_feed = np.random.rand(batch_size, 2)
-    #     v5_feed = np.random.rand(batch_size, 1)
-    #     ivs_feed = np.random.randint(6, size=(batch_size, 1))
-    #
-    #     with tf.Session() as sess:
-    #         sess.run(init)
-    #         # Skip the IVs op
-    #         out = sess.run(op, feed_dict={gradients: gradients_feed,
-    #                                       iv: ivs_feed,
-    #                                       v12: v12_feed,
-    #                                       v34: v34_feed,
-    #                                       v5: v5_feed})
-    #
-    #     # Calculate true outputs
-    #     v12_inputs = np.hstack([np.eye(4)[v12_feed[:, 0]],
-    #                             np.eye(4)[v12_feed[:, 1]]])
-    #     input_values = np.hstack([np.expand_dims(v12_inputs[:, 0], axis=1),
-    #                               np.expand_dims(v12_inputs[:, 5], axis=1),
-    #                               v34_feed,
-    #                               np.expand_dims(v12_inputs[:, 3], axis=1),
-    #                               v5_feed])
-    #     weights_normalised = weights / np.sum(weights)
-    #     weights_gradients = gradients_feed * input_values
-    #     output_gradients = np.split((gradients_feed * weights_normalised),
-    #                                 [2, 4, 5, 6], axis=1)
-    #     output_gradients_0 = np.zeros((batch_size, 8))
-    #     output_gradients_0[:, 0] = output_gradients[0][:, 0]
-    #     output_gradients_0[:, 5] = output_gradients[0][:, 1]
-    #     output_gradients[0] = output_gradients_0
-    #     output_gradients_2 = np.zeros((batch_size, 8))
-    #     output_gradients_2[:, 3] = output_gradients[2][:, 0]
-    #     output_gradients[2] = output_gradients_2
-    #
-    #     # Weights
-    #     np.testing.assert_array_almost_equal(
-    #         out[0], weights_gradients)
-    #     # IVs
-    #     np.testing.assert_array_almost_equal(
-    #        out[1], gradients_feed * input_values)
-    #     # Inputs
-    #     np.testing.assert_array_almost_equal(
-    #        out[2], output_gradients[0])
-    #     np.testing.assert_array_almost_equal(
-    #        out[3], output_gradients[1])
-    #     np.testing.assert_array_almost_equal(
-    #        out[4], output_gradients[2])
-    #     np.testing.assert_array_almost_equal(
-    #        out[5], output_gradients[3])
-
     def test_compute_log_gradients(self):
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
@@ -841,16 +772,18 @@ class TestGraphSum(TestCase):
         weights = np.random.rand(6)
         w = s.generate_weights(weights)
         gradients = tf.placeholder(tf.float32, shape=(None, 1))
-        op = s._compute_log_gradient_log(tf.identity(gradients),
+        with_ivs = True
+        op = s._compute_log_gradient(tf.identity(gradients),
                                      w.get_log_value(),
                                      iv.get_log_value(),
                                      v12.get_log_value(),
                                      v34.get_log_value(),
                                      v12.get_log_value(),
-                                     v5.get_log_value())
+                                     v5.get_log_value(),
+                                     with_ivs=with_ivs)
 
         init = w.initialize()
-        batch_size = 100
+        batch_size = 10
         gradients_feed = np.random.rand(batch_size, 1)
         v12_feed = np.random.randint(4, size=(batch_size, 2))
         v34_feed = np.random.rand(batch_size, 2)
@@ -880,7 +813,10 @@ class TestGraphSum(TestCase):
         print("\nweights_normalised:\n", weights_normalised)
         ivs_values = np.eye(6)[np.squeeze(ivs_feed, axis=1)]
         ivs_log = np.log(ivs_values)
-        values_weighted = weights_log + (input_values_log + ivs_log)
+        if with_ivs:
+            values_weighted = weights_log + (input_values_log + ivs_log)
+        else:
+            values_weighted = weights_log + input_values_log
         print("\nvalues_weighted:\n", values_weighted)
         log_max = np.amax(values_weighted, axis=1, keepdims=True)
         print("\nlog_max:\n", log_max)
@@ -897,9 +833,6 @@ class TestGraphSum(TestCase):
         print("\nexpo_logs_normalized:\n", expo_logs_normalized)
         expos_excl_max = expo_logs_normalized
         expos_excl_max[np.arange(batch_size), max_indices] = 0.0
-        #expos_excl_max = np.ones_like(values_weighted)
-        #expos_excl_max[max_indices] = 0.0
-        #expos_excl_max = expos_excl_max * np.divide(expo_logs, summed_exponents)
         print("\nexpos_excl_max:\n", expos_excl_max)
         summed_expos_excl_max = np.sum(expos_excl_max, axis=1, keepdims=True)
         print("\nsummed_expos_excl_max:\n", summed_expos_excl_max)

@@ -1351,13 +1351,15 @@ class TestNodesParSums(unittest.TestCase):
         weights = np.random.rand(num_sums, 6)
         w = s.generate_weights(weights)
         gradients = tf.placeholder(tf.float32, shape=(None, num_sums))
+        with_ivs = True
         op = s._compute_log_gradient(tf.identity(gradients),
                                      w.get_log_value(),
                                      iv.get_log_value(),
                                      v12.get_log_value(),
                                      v34.get_log_value(),
                                      v12.get_log_value(),
-                                     v5.get_log_value())
+                                     v5.get_log_value(),
+                                     with_ivs=with_ivs)
         init = w.initialize()
         batch_size = 100
         gradients_feed = np.random.rand(batch_size, num_sums)
@@ -1388,7 +1390,10 @@ class TestNodesParSums(unittest.TestCase):
         inputs_log = np.log(input_values)
         ivs_values = np.eye(6)[ivs_feed]
         ivs_log = np.log(ivs_values)
-        weighted_inputs = np.expand_dims(inputs_log, axis=1) + (ivs_log + weights_log)
+        if with_ivs:
+            weighted_inputs = np.expand_dims(inputs_log, axis=1) + (ivs_log + weights_log)
+        else:
+            weighted_inputs = np.expand_dims(inputs_log, axis=1) + weights_log
         weighted_inputs_exp = np.exp(weighted_inputs)
         weights_gradients = np.expand_dims(gradients_feed, axis=-1) * \
             np.divide(weighted_inputs_exp, np.sum(weighted_inputs_exp, axis=-1,
