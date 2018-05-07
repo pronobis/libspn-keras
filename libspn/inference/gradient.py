@@ -24,7 +24,8 @@ class Gradient:
     """
 
     def __init__(self, value=None, value_inference_type=None, log=True):
-        self._gradients = {}
+        self._true_gradients = {}
+        self._actual_gradients = {}
         self._log = log
         # Create internal value generator
         if value is None:
@@ -45,7 +46,13 @@ class Gradient:
     def gradients(self):
         """dict: Dictionary indexed by node, where each value is a list of tensors
         computing the gradients."""
-        return MappingProxyType(self._gradients)
+        return MappingProxyType(self._true_gradients)
+
+    @property
+    def actual_gradients(self):
+        """dict: Dictionary indexed by node, where each value is a list of tensors
+        computing the actual gradients."""
+        return MappingProxyType(self._actual_gradients)
 
     @property
     def log(self):
@@ -65,7 +72,7 @@ class Gradient:
                 summed = tf.add_n(parent_vals, name=node.name + "_add")
             else:
                 summed = parent_vals[0]
-            self._gradients[node] = summed
+            self._true_gradients[node] = summed
             if node.is_op:
                 # Compute for inputs
                 with tf.name_scope(node.name):
@@ -75,7 +82,7 @@ class Gradient:
                                       if i else None
                                       for i in node.inputs], with_ivs=True)
                     else:
-                        return node._compute_gradient(
+                        return node._compute_log_gradient(
                             summed, *[self._value.values[i.node]
                                       if i else None
                                       for i in node.inputs], with_ivs=True)
@@ -89,5 +96,46 @@ class Gradient:
             graph_input = tf.ones_like(self._value.values[root])
 
             # Traverse the graph computing gradients
-            self._gradients = {}
+            self._true_gradients = {}
+            compute_graph_up_down(root, down_fun=down_fun, graph_input=graph_input)
+
+    def get_actual_gradients(self, root):
+        """Assemble TF operations computing the actual gradients of the SPN
+           rooted in ``root``.
+
+        Args:
+            root (Node): The root node of the SPN graph.
+        """
+        def down_fun(node, parent_vals):
+            # Sum up all parent vals
+            parent_vals = [pv for pv in parent_vals if pv is not None]
+            if len(parent_vals) > 1:
+                summed = tf.add_n(parent_vals, name=node.name + "_add")
+            else:
+                summed = parent_vals[0]
+            self._actual_gradients[node] = summed
+            if node.is_op:
+                # Compute for inputs
+                with tf.name_scope(node.name):
+                    if self._log:
+                        return node._compute_log_gradient(
+                            summed, *[self._value.values[i.node]
+                                      if i else None
+                                      for i in node.inputs], with_ivs=False)
+                    else:
+                        return node._compute_log_gradient(
+                            summed, *[self._value.values[i.node]
+                                      if i else None
+                                      for i in node.inputs], with_ivs=False)
+
+        # Generate values if not yet generated
+        if not self._value.values:
+            self._value.get_value(root)
+
+        with tf.name_scope("Gradient"):
+            # Compute the tensor to feed to the root node
+            graph_input = tf.ones_like(self._value.values[root])
+
+            # Traverse the graph computing gradients
+            self._actual_gradients = {}
             compute_graph_up_down(root, down_fun=down_fun, graph_input=graph_input)

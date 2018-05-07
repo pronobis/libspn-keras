@@ -113,6 +113,10 @@ class GDLearning():
             if not self._gradient.gradients:
                 self._gradient.get_gradients(self._root)
 
+            if self._learning_type == LearningType.DISCRIMINATIVE and \
+               not self._gradient.actual_gradients:
+                self._gradient.get_actual_gradients(self._root)
+
         # Generate all accumulate operations
         with tf.name_scope(self._name_scope):
             assign_ops = []
@@ -130,9 +134,12 @@ class GDLearning():
                         assign_ops.append(op)
                     else:
                         gradients = self._gradient.gradients[pn.node]
+                        actual_gradients = self._mpe_path.actual_gradients[pn.node] \
+                            if self._learning_type == LearningType.DISCRIMINATIVE \
+                            else None
                         # TODO: Is there a better way to do this?
-                        update_value = pn.node._compute_hard_gd_update(gradients,
-                                                                       None)
+                        update_value = \
+                            pn.node._compute_hard_gd_update(gradients, actual_gradients)
                         # Apply learning-rate
                         update_value *= self._learning_rate
                         op = tf.assign_add(pn.accum, update_value)
