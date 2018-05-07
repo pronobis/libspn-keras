@@ -553,6 +553,47 @@ class SumsLayer(OpNode):
             raise ValueError("Unknown count summing strategy {}"
                              .format(conf.sumslayer_count_sum_strategy))
 
+    def _compute_gradient_common(self, values_weighted, gradients, weight_value,
+                                 ivs_value, *value_values):
+        """ Common operations for computing gradients """
+        # Compute weights gradients of the layer
+        log_sum = tf.expand_dims(utils.reduce_log_sum_3D(values_weighted,
+                                                         transpose=False), axis=-1)
+        weight_gradients = \
+            tf.expand_dims(gradients, axis=-1) * tf.exp(values_weighted - log_sum)
+
+        _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
+
+        # Reshape weight gradients to a wide 2D tensor of shape 'Batch X (num_sums * max_size)'
+        max_size = max(self._sum_input_sizes)
+        reshape = (-1, self._num_sums * max_size)
+
+        max_counts_reshaped = tf.reshape(weight_gradients, shape=reshape)
+
+        if conf.sumslayer_count_sum_strategy == 'gather':
+            # First obtain the flat column, tensor offsets and unique tensors with their respective
+            # offsets
+            output_gradients_split = \
+                self._sum_counts_gather(max_counts_reshaped, value_values,
+                                        segmented=False)
+            return self._scatter_to_input_tensors(
+                (weight_gradients, weight_value),  # Weights
+                (weight_gradients, ivs_value),  # IVs
+            ) + tuple(output_gradients_split)
+        elif conf.sumslayer_count_sum_strategy == 'segmented':
+            # First obtain the flat column, tensor offsets and unique tensors with their respective
+            # offsets
+            output_gradients_split = \
+                self._sum_counts_gather(max_counts_reshaped, value_values,
+                                        segmented=True)
+            return self._scatter_to_input_tensors(
+                (weight_gradients, weight_value),  # Weights
+                (weight_gradients, ivs_value),  # IVs
+            ) + tuple(output_gradients_split)
+        else:
+            raise ValueError("Unknown count summing strategy {}"
+                             .format(conf.sumslayer_count_sum_strategy))
+
     def _sum_counts_gather(self, max_counts_reshaped, value_values, segmented=False):
         flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
             self._flat_indices_offsets_and_unique_tensors(value_values)
@@ -696,3 +737,11 @@ class SumsLayer(OpNode):
 
         return self._compute_mpe_path_common(
             values_weighted, counts, weight_value, ivs_value, *value_values)
+
+    def _compute_log_gradient(self, gradients, weight_value, ivs_value,
+                              *value_values, with_ivs=True):
+        values_weighted = self._compute_value_common(
+            tf.add, lambda x: x, weight_value, ivs_value, *value_values,
+            weighted=True, pad_elem=-float('inf'), with_ivs=with_ivs)
+        return self._compute_gradient_common(
+            values_weighted, gradients, weight_value, ivs_value, *value_values)

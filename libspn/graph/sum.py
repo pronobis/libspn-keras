@@ -368,17 +368,12 @@ class Sum(OpNode):
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
 
-        #weight_gradients = gradients * tf.exp(values)
-        #output_gradients = gradients * tf.exp(weight_value)
-
         values_selected = values + ivs_value if self._ivs and with_ivs else values
         values_weighted = values_selected + weight_value
-        values_weighted_exp = tf.exp(values_weighted)
 
-        weight_gradients = \
-            gradients * tf.truediv(values_weighted_exp,
-                                   tf.reduce_sum(values_weighted_exp, axis=-1,
-                                                 keep_dims=True))
+        log_sum = utils.reduce_log_sum(values_weighted)
+        weight_gradients = gradients * tf.exp(values_weighted - log_sum)
+
         output_gradients = weight_gradients
 
         # Split the output_gradients to value inputs
