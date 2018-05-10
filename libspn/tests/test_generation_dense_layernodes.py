@@ -8,6 +8,7 @@
 # ------------------------------------------------------------------------
 
 from context import libspn as spn
+from libspn import conf
 from test import TestCase
 import itertools
 import tensorflow as tf
@@ -70,6 +71,39 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         """A generic test for DenseSPNGeneratorLayerNodes."""
         self.tearDown()
 
+        def use_custom_ops(custom_ops=True):
+            if custom_ops:
+                print("Setting Custom Ops ON")
+                conf.custom_gather_cols = True
+                conf.custom_gather_cols_3d = True
+                conf.custom_scatter_cols = True
+                conf.custom_scatter_values = True
+            else:
+                print("Setting Custom Ops OFF")
+                conf.custom_gather_cols = False
+                conf.custom_gather_cols_3d = False
+                conf.custom_scatter_cols = False
+                conf.custom_scatter_values = False
+
+        printc("Case: %s" % case)
+        printc("- num_decomps: %s" % num_decomps)
+        printc("- num_subsets: %s" % num_subsets)
+        printc("- num_mixtures: %s" % num_mixtures)
+        printc("- input_dist: %s" % ("MIXTURE" if input_dist ==
+               spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE else "RAW"))
+        printc("- balanced: %s" % balanced)
+        printc("- num_input_mixtures: %s" % num_input_mixtures)
+        printc("- node_type: %s" % ("SINGLE" if node_type ==
+               spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE else "BLOCK" if
+               node_type == spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK else
+               "LAYER"))
+        printc("- log_weights: %s" % log_weights)
+
+        if log_weights:
+            use_custom_ops(custom_ops=False)
+        else:
+            use_custom_ops(custom_ops=True)
+
         # Input parameters
         num_inputs = 2
         num_vars = 3
@@ -112,19 +146,21 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         path = [mpe_path_gen.counts[inp] for inp in inputs]
         path_log = [mpe_path_gen_log.counts[inp] for inp in inputs]
 
-        printc("Case: %s" % case)
-        printc("- num_decomps: %s" % num_decomps)
-        printc("- num_subsets: %s" % num_subsets)
-        printc("- num_mixtures: %s" % num_mixtures)
-        printc("- input_dist: %s" % ("MIXTURE" if input_dist ==
-               spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE else "RAW"))
-        printc("- balanced: %s" % balanced)
-        printc("- num_input_mixtures: %s" % num_input_mixtures)
-        printc("- node_type: %s" % ("SINGLE" if node_type ==
-               spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE else "BLOCK" if
-               node_type == spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK else
-               "LAYER"))
-        printc("- log_weights: %s" % log_weights)
+        if log_weights:
+            # Collect all weight nodes in the SPN
+            weight_nodes = []
+
+            def fun(node):
+                if node.is_param:
+                    weight_nodes.append(node)
+            spn.traverse_graph(root, fun=fun)
+
+            # Generating gradient ops
+            gradient_gen = spn.Gradient(log=True)
+            gradient_gen.get_gradients(root)
+            custom_gradients = [tf.reduce_sum(gradient_gen.gradients[weight], axis=0)
+                                for weight in weight_nodes]
+            tf_gradients = tf.gradients(v_log, [w.variable for w in weight_nodes])
 
         # Creating session
         with tf.Session() as sess:
@@ -144,6 +180,15 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
             out_log = sess.run(tf.exp(v_log), feed_dict=feed_dict)
             out_path = sess.run(path, feed_dict=feed_dict)
             out_path_log = sess.run(path_log, feed_dict=feed_dict)
+            # Compute gradients and assert
+            if log_weights:
+                out_custom_gradients = sess.run(custom_gradients, feed_dict=feed_dict)
+                out_tf_gradients = sess.run(tf_gradients, feed_dict=feed_dict)
+                # Assert custom gradients with tf gradients
+                for out_cust_grad, out_tf_grad in zip(out_custom_gradients, out_tf_gradients):
+                    if list(out_cust_grad.shape) != list(out_tf_grad.shape):
+                        out_cust_grad = np.expand_dims(out_cust_grad, axis=0)
+                    np.testing.assert_almost_equal(out_cust_grad, out_tf_grad, decimal=4)
 
             # Test if partition function is 1.0
             self.assertAlmostEqual(out.sum(), 1.0, places=6)
