@@ -16,6 +16,10 @@ custom_gather_cols = True
 """Whether to use custom op for implementing
 :meth:`~libspn.utils.gather_cols`."""
 
+custom_gather_cols_3d = True
+"""Whether to use custom op for implementing
+:meth:`~libspn.utils.gather_cols_3d`."""
+
 custom_scatter_cols = True
 """Whether to use custom op for implementing
 :meth:`~libspn.utils.scatter_cols`."""
