@@ -73,13 +73,11 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
 
         def use_custom_ops(custom_ops=True):
             if custom_ops:
-                print("Setting Custom Ops ON")
                 conf.custom_gather_cols = True
                 conf.custom_gather_cols_3d = True
                 conf.custom_scatter_cols = True
                 conf.custom_scatter_values = True
             else:
-                print("Setting Custom Ops OFF")
                 conf.custom_gather_cols = False
                 conf.custom_gather_cols_3d = False
                 conf.custom_scatter_cols = False
