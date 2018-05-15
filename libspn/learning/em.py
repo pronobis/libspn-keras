@@ -33,6 +33,7 @@ class EMLearning():
                  additive_smoothing=None, add_random=None, initial_accum_value=None,
                  use_unweighted=False):
         self._root = root
+        self._log = log
         self._additive_smoothing = additive_smoothing
         self._initial_accum_value = initial_accum_value
         # Create internal MPE path generator
@@ -60,7 +61,7 @@ class EMLearning():
 
     # TODO: For testing only
     def root_accum(self):
-        for pn in self._trainable_nodes:
+        for pn in self._param_nodes:
             if pn.node == self._root.weights.node:
                 return pn.accum
         return None
@@ -101,6 +102,7 @@ class EMLearning():
                         assign_ops.append(tf.assign_add(dn.sum_data, update_value['sum_data']))
                         assign_ops.append(tf.assign_add(
                             dn.sum_data_squared, update_value['sum_data_squared']))
+
             return tf.group(*assign_ops, name="accumulate_updates")
 
     def update_spn(self):
@@ -112,7 +114,10 @@ class EMLearning():
                     accum = pn.accum
                     if self._additive_smoothing is not None:
                         accum = tf.add(accum, self._additive_smoothing)
-                    assign_ops.append(pn.node.assign(accum))
+                    if pn.node.log:
+                        assign_ops.append(pn.node.assign_log(accum))
+                    else:
+                        assign_ops.append(pn.node.assign(accum))
 
             for dn in self._gaussian_leaf_nodes:
                 with tf.name_scope(dn.name_scope):
@@ -129,18 +134,26 @@ class EMLearning():
             if node.is_param:
                 with tf.name_scope(node.name) as scope:
                     if self._initial_accum_value is not None:
-                        accum = tf.Variable(tf.ones_like(node.variable,
-                                                         dtype=conf.dtype) *
-                                            self._initial_accum_value,
-                                            dtype=conf.dtype,
-                                            collections=['em_accumulators'])
+                        if node.mask and not all(node.mask):
+                            accum = tf.Variable(tf.cast(tf.reshape(node.mask,
+                                                node.variable.shape),
+                                                dtype=conf.dtype) *
+                                                self._initial_accum_value,
+                                                dtype=conf.dtype,
+                                                collections=['em_accumulators'])
+                        else:
+                            accum = tf.Variable(tf.ones_like(node.variable,
+                                                             dtype=conf.dtype) *
+                                                self._initial_accum_value,
+                                                dtype=conf.dtype,
+                                                collections=['em_accumulators'])
                     else:
                         accum = tf.Variable(tf.zeros_like(node.variable,
                                                           dtype=conf.dtype),
                                             dtype=conf.dtype,
                                             collections=['em_accumulators'])
-                    param_node = EMLearning.ParamNode(
-                        node=node, accum=accum, name_scope=scope)
+                    param_node = EMLearning.ParamNode(node=node, accum=accum,
+                                                      name_scope=scope)
                     self._param_nodes.append(param_node)
             if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
                 with tf.name_scope(node.name) as scope:
@@ -171,8 +184,6 @@ class EMLearning():
         self._param_nodes = []
         with tf.name_scope(self._name_scope):
             traverse_graph(self._root, fun=fun)
-
-
 
         # def learn(self, value_inference_type=InferenceType.MARGINAL,
         #           init_accum_value=20, additive_smoothing_value=0.0,

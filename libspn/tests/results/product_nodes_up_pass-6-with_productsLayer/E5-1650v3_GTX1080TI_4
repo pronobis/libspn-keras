@@ -1,0 +1,151 @@
+Params:
+- num_input_rows=8000
+- num_input_cols=[3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+- num_batches=1
+- num_runs=50
+
+Running tests:
+--> product: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> product: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> products: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> products: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> perm_products: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> perm_products: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=True, single_input= False, inference=MARGINAL, log=False
+--> perm_products: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=False
+--> perm_products: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> perm_products: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=True, single_input= False, inference=MARGINAL, log=False
+--> perm_products: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=False
+--> products_layer: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> products_layer: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=False
+--> products_layer: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> products_layer: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=False
+--> product: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> product: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> products: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> products: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> perm_products: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> perm_products: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=True, single_input= False, inference=MARGINAL, log=True
+--> perm_products: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=True
+--> perm_products: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> perm_products: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=True, single_input= False, inference=MARGINAL, log=True
+--> perm_products: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=True
+--> products_layer: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> products_layer: on_gpu=False, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=True
+--> products_layer: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> products_layer: on_gpu=True, num_inputs=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=True
+--> product: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> product: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> products: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> products: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> perm_products: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> perm_products: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=True, single_input= False, inference=MARGINAL, log=False
+--> perm_products: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=False
+--> perm_products: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> perm_products: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=True, single_input= False, inference=MARGINAL, log=False
+--> perm_products: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=False
+--> products_layer: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> products_layer: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=False
+--> products_layer: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=False
+--> products_layer: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=False
+--> product: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> product: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> products: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> products: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> perm_products: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> perm_products: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=True, single_input= False, inference=MARGINAL, log=True
+--> perm_products: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=True
+--> perm_products: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> perm_products: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=True, single_input= False, inference=MARGINAL, log=True
+--> perm_products: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=True
+--> products_layer: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> products_layer: on_gpu=False, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=True
+--> products_layer: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= False, inference=MARGINAL, log=True
+--> products_layer: on_gpu=True, num_inputs=[2, 3, 4, 5, 4, 3, 2, 3, 4, 5], inputs_shape=(8000, 3), indices=False, single_input= True, inference=MARGINAL, log=True
+--------------------------------------------------------
+NON-PADDED
+InferenceType: MARGINAL
+num_inputs: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5] 
+num_prods: [243, 243, 243, 243, 243, 243, 243, 243, 243, 243]
+--------------------------------------------------------
+CPU          op  size indices  single_input  setup_time  first_run_time  rest_run_time    correct
+        product 34139   Yes         No       14141.93         3606.93         188.90       True
+       products 24479   Yes         No       10802.19         3715.17         133.95       True
+  perm_products   199    No         No          69.18          147.06          90.93       True
+  perm_products   291   Yes         No         110.33          208.22          91.28       True
+  perm_products   201   Yes        Yes         612.76          141.99          89.54       True
+ products_layer   123   Yes         No         477.78          364.86         416.96       True
+ products_layer    23   Yes        Yes          69.19          446.00         389.97       True
+GPU          op  size indices  single_input  setup_time  first_run_time  rest_run_time    correct
+        product 34139   Yes         No       15014.52         3242.78         109.74       True
+       products 24479   Yes         No       10427.85         3561.53          19.35       True
+  perm_products   199    No         No          66.00           33.43          17.23       True
+  perm_products   291   Yes         No         104.75           49.01          18.79       True
+  perm_products   201   Yes        Yes          90.19           50.28          16.20       True
+ products_layer   123   Yes         No         346.92           38.95          19.62       True
+ products_layer    23   Yes        Yes         119.63           18.76          14.41       True
+--------------------------------------------------------
+NON-PADDED
+InferenceType: MARGINAL-LOG
+num_inputs: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5] 
+num_prods: [243, 243, 243, 243, 243, 243, 243, 243, 243, 243]
+--------------------------------------------------------
+CPU          op  size indices  single_input  setup_time  first_run_time  rest_run_time    correct
+        product 34202   Yes         No       14362.92         3065.14         214.28       True
+       products 24542   Yes         No       10673.75         3940.17         164.35       True
+  perm_products   262    No         No         100.47          219.96         122.89       True
+  perm_products   354   Yes         No         120.31          227.73         123.99       True
+  perm_products   215   Yes        Yes          90.26          191.93         129.03       True
+ products_layer   186   Yes         No         339.56          486.50         468.73       True
+ products_layer    37   Yes        Yes          67.17          468.14         444.07       True
+GPU          op  size indices  single_input  setup_time  first_run_time  rest_run_time    correct
+        product 34202   Yes         No       15661.98         3256.89         109.15       True
+       products 24542   Yes         No       10380.59         4009.41          21.80       True
+  perm_products   262    No         No          87.71           39.56          19.23       True
+  perm_products   354   Yes         No         127.89           46.98          19.58       True
+  perm_products   215   Yes        Yes         665.11           49.62          16.66       True
+ products_layer   186   Yes         No         388.77           40.35          20.40       True
+ products_layer    37   Yes        Yes          89.00           19.67          15.80       True
+--------------------------------------------------------
+PADDED
+InferenceType: MARGINAL
+num_inputs: [2, 3, 4, 5, 4, 3, 2, 3, 4, 5] 
+num_prods: [9, 27, 81, 243, 81, 27, 9, 27, 81, 243]
+--------------------------------------------------------
+CPU          op  size indices  single_input  setup_time  first_run_time  rest_run_time    correct
+        product 10763   Yes         No        4550.11          959.16          55.61       True
+       products  7511   Yes         No        3420.15         1107.49          43.72       True
+  perm_products   169    No         No          58.70           85.80          73.93       True
+  perm_products   227   Yes         No         102.22          138.22          68.95       True
+  perm_products   171   Yes        Yes          88.47          114.21          64.63       True
+ products_layer    93   Yes         No         379.37          213.69         192.65       True
+ products_layer    23   Yes        Yes          33.20          222.30         178.51       True
+GPU          op  size indices  single_input  setup_time  first_run_time  rest_run_time    correct
+        product 10763   Yes         No        4856.25          951.80          36.22       True
+       products  7511   Yes         No        3123.14          974.98           9.24       True
+  perm_products   169    No         No          63.39           22.97           9.06       True
+  perm_products   227   Yes         No          84.54           42.11           8.92       True
+  perm_products   171   Yes        Yes          85.30           22.54           7.22       True
+ products_layer    93   Yes         No         115.90           17.97           9.68       True
+ products_layer    23   Yes        Yes          32.04            9.47           7.06       True
+--------------------------------------------------------
+PADDED
+InferenceType: MARGINAL-LOG
+num_inputs: [2, 3, 4, 5, 4, 3, 2, 3, 4, 5] 
+num_prods: [9, 27, 81, 243, 81, 27, 9, 27, 81, 243]
+--------------------------------------------------------
+CPU          op  size indices  single_input  setup_time  first_run_time  rest_run_time    correct
+        product 10811   Yes         No        4844.30         1000.06          66.94       True
+       products  7559   Yes         No        3445.13         1057.10          54.07       True
+  perm_products   217    No         No          75.84          125.50          77.24       True
+  perm_products   275   Yes         No         114.89          143.34          83.89       True
+  perm_products   185   Yes        Yes          92.27          129.54          77.95       True
+ products_layer   141   Yes         No         369.81          171.10         210.40       True
+ products_layer    37   Yes        Yes          38.15          200.88         203.69       True
+GPU          op  size indices  single_input  setup_time  first_run_time  rest_run_time    correct
+        product 10811   Yes         No        4877.19         1005.57          38.72       True
+       products  7559   Yes         No        3229.93          992.09          10.63       True
+  perm_products   217    No         No          79.16           31.25           9.09       True
+  perm_products   275   Yes         No         105.93           28.50           9.06       True
+  perm_products   185   Yes        Yes          83.49           22.48           7.63       True
+ products_layer   141   Yes         No         132.24           23.28          10.57       True
+ products_layer    37   Yes        Yes          50.21           11.75           7.61       True

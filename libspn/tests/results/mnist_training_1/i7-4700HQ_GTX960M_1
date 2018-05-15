@@ -1,0 +1,97 @@
+Params:
+- num_decomps=1
+- num_subsets=5
+- num_mixtures=2
+- num_input_mixtures=2
+- balanced=True
+- num_epochs=25
+
+Running tests:
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MARGINAL, multi_nodes=False, log=False
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MARGINAL, multi_nodes=False, log=False
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MARGINAL, multi_nodes=False, log=False
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MARGINAL, multi_nodes=False, log=False
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MARGINAL, multi_nodes=True, log=False
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MARGINAL, multi_nodes=True, log=False
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MARGINAL, multi_nodes=True, log=False
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MARGINAL, multi_nodes=True, log=False
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MARGINAL, multi_nodes=False, log=True
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MARGINAL, multi_nodes=False, log=True
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MARGINAL, multi_nodes=False, log=True
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MARGINAL, multi_nodes=False, log=True
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MARGINAL, multi_nodes=True, log=True
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MARGINAL, multi_nodes=True, log=True
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MARGINAL, multi_nodes=True, log=True
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MARGINAL, multi_nodes=True, log=True
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MPE, multi_nodes=False, log=False
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MPE, multi_nodes=False, log=False
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MPE, multi_nodes=False, log=False
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MPE, multi_nodes=False, log=False
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MPE, multi_nodes=True, log=False
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MPE, multi_nodes=True, log=False
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MPE, multi_nodes=True, log=False
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MPE, multi_nodes=True, log=False
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MPE, multi_nodes=False, log=True
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MPE, multi_nodes=False, log=True
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MPE, multi_nodes=False, log=True
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MPE, multi_nodes=False, log=True
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MPE, multi_nodes=True, log=True
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MPE, multi_nodes=True, log=True
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MPE, multi_nodes=True, log=True
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MPE, multi_nodes=True, log=True
+
+-----------------------
+InferenceType: MARGINAL
+-----------------------
+ CPU          op   multi_nodes  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time test_accuracy
+        mnist_01       False       3368   88657        RAW      91422.39        25786.16         5341.62           3292.16  46.3357
+        mnist_01       False       4936  121697    MIXTURE     120657.56        36195.86         7463.31           4333.93  46.3357
+        mnist_01        True       1008   37899        RAW      38525.94        12026.76         2844.04           1929.68  46.3357
+        mnist_01        True       1400   64163    MIXTURE      54595.44        19616.49         4414.35           3439.25  46.3357
+ GPU          op   multi_nodes  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time test_accuracy
+        mnist_01       False       3368   88657        RAW      97755.14        33788.18         6275.43           2629.29  46.3357
+        mnist_01       False       4936  121697    MIXTURE     118843.80        34689.79         7324.70           3771.03  46.3357
+        mnist_01        True       1008   37899        RAW      36765.37        12926.39         2343.00           1481.34  46.3357
+        mnist_01        True       1400   64163    MIXTURE      59495.60        20038.98         3829.32           2271.69  46.3357
+
+-----------------------
+InferenceType: MARGINAL-LOG
+-----------------------
+ CPU          op   multi_nodes  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time test_accuracy
+        mnist_01       False       3368   94359        RAW      94212.55        29587.42         6155.54           3852.76  99.7163
+        mnist_01       False       4936  138375    MIXTURE     126303.72        40480.32         9048.66           5241.72  99.7163
+        mnist_01        True       1008   41783        RAW      42320.24        11732.37         2702.78           1983.97  99.8582
+        mnist_01        True       1400   75495    MIXTURE      66322.70        21892.63         4837.66           3200.67  99.7163
+ GPU          op   multi_nodes  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time test_accuracy
+        mnist_01       False       3368   94359        RAW      99344.98        31109.77         6338.24           3738.58  99.7636
+        mnist_01       False       4936  138375    MIXTURE     124996.93        39979.45         8152.46           3730.25  99.7163
+        mnist_01        True       1008   41783        RAW      38915.26        11972.85         1919.98           1090.76  99.7636
+        mnist_01        True       1400   75495    MIXTURE      68430.25        21113.62         4010.24           1920.47  99.7636
+
+-----------------------
+InferenceType: MPE
+-----------------------
+ CPU          op   multi_nodes  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time test_accuracy
+        mnist_01       False       3368   88657        RAW      86542.33        25026.73         4820.82           3094.18  46.3357
+        mnist_01       False       4936  121697    MIXTURE     114125.82        35764.33         7003.36           4192.55  46.3357
+        mnist_01        True       1008   38707        RAW      35150.40        11305.58         2358.11           1681.73  46.3357
+        mnist_01        True       1400   66539    MIXTURE      52751.07        17631.67         4046.76           2831.53  46.3357
+ GPU          op   multi_nodes  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time test_accuracy
+        mnist_01       False       3368   88657        RAW      84428.99        26470.39         4665.94           2448.97  46.3357
+        mnist_01       False       4936  121697    MIXTURE     112939.88        36292.85         6542.99           3196.63  46.3357
+        mnist_01        True       1008   38707        RAW      32951.34        10473.99         1763.61           1034.62  46.3357
+        mnist_01        True       1400   66539    MIXTURE      62883.89        21405.10         3773.85           2061.69  46.3357
+
+-----------------------
+InferenceType: MPE-LOG
+-----------------------
+ CPU          op   multi_nodes  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time test_accuracy
+        mnist_01       False       3368   89475        RAW     105917.08        30601.90         5988.92           3921.17  99.8582
+        mnist_01       False       4936  124083    MIXTURE     129018.56        39722.82         8219.26           5064.92  99.7636
+        mnist_01        True       1008   39121        RAW      47800.86        13643.45         2949.17           2526.26  99.8582
+        mnist_01        True       1400   67737    MIXTURE      68410.77        24704.75         5517.69           4037.29  99.8109
+ GPU          op   multi_nodes  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time test_accuracy
+        mnist_01       False       3368   89475        RAW     124339.30        33015.65         5376.30           2935.37  99.8582
+        mnist_01       False       4936  124083    MIXTURE     140893.66        43803.52         7924.77           3860.80  99.7163
+        mnist_01        True       1008   39121        RAW      47569.83        13901.00         2046.57           1225.32  99.6690
+        mnist_01        True       1400   67737    MIXTURE      72429.16        23869.35         3997.09           2126.10  99.8109

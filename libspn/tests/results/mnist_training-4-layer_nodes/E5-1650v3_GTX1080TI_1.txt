@@ -1,0 +1,117 @@
+Params:
+- num_decomps=1
+- num_subsets=2
+- num_mixtures=3
+- num_input_mixtures=2
+- balanced=True
+- num_epochs=25
+
+Running tests:
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MARGINAL, node_type=SINGLE, log=True
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MARGINAL, node_type=SINGLE, log=True
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MARGINAL, node_type=SINGLE, log=True
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MARGINAL, node_type=SINGLE, log=True
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MARGINAL, node_type=BLOCK, log=True
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MARGINAL, node_type=BLOCK, log=True
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MARGINAL, node_type=BLOCK, log=True
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MARGINAL, node_type=BLOCK, log=True
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MARGINAL, node_type=LAYER, log=True
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MARGINAL, node_type=LAYER, log=True
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MARGINAL, node_type=LAYER, log=True
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MARGINAL, node_type=LAYER, log=True
+--> mnist_all: on_gpu=False, input_dist=RAW, inference=MARGINAL, node_type=SINGLE, log=True
+--> mnist_all: on_gpu=False, input_dist=MIXTURE, inference=MARGINAL, node_type=SINGLE, log=True
+--> mnist_all: on_gpu=True, input_dist=RAW, inference=MARGINAL, node_type=SINGLE, log=True
+--> mnist_all: on_gpu=True, input_dist=MIXTURE, inference=MARGINAL, node_type=SINGLE, log=True
+--> mnist_all: on_gpu=False, input_dist=RAW, inference=MARGINAL, node_type=BLOCK, log=True
+--> mnist_all: on_gpu=False, input_dist=MIXTURE, inference=MARGINAL, node_type=BLOCK, log=True
+--> mnist_all: on_gpu=True, input_dist=RAW, inference=MARGINAL, node_type=BLOCK, log=True
+--> mnist_all: on_gpu=True, input_dist=MIXTURE, inference=MARGINAL, node_type=BLOCK, log=True
+--> mnist_all: on_gpu=False, input_dist=RAW, inference=MARGINAL, node_type=LAYER, log=True
+--> mnist_all: on_gpu=False, input_dist=MIXTURE, inference=MARGINAL, node_type=LAYER, log=True
+--> mnist_all: on_gpu=True, input_dist=RAW, inference=MARGINAL, node_type=LAYER, log=True
+--> mnist_all: on_gpu=True, input_dist=MIXTURE, inference=MARGINAL, node_type=LAYER, log=True
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MPE, node_type=SINGLE, log=True
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MPE, node_type=SINGLE, log=True
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MPE, node_type=SINGLE, log=True
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MPE, node_type=SINGLE, log=True
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MPE, node_type=BLOCK, log=True
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MPE, node_type=BLOCK, log=True
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MPE, node_type=BLOCK, log=True
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MPE, node_type=BLOCK, log=True
+--> mnist_01: on_gpu=False, input_dist=RAW, inference=MPE, node_type=LAYER, log=True
+--> mnist_01: on_gpu=False, input_dist=MIXTURE, inference=MPE, node_type=LAYER, log=True
+--> mnist_01: on_gpu=True, input_dist=RAW, inference=MPE, node_type=LAYER, log=True
+--> mnist_01: on_gpu=True, input_dist=MIXTURE, inference=MPE, node_type=LAYER, log=True
+--> mnist_all: on_gpu=False, input_dist=RAW, inference=MPE, node_type=SINGLE, log=True
+--> mnist_all: on_gpu=False, input_dist=MIXTURE, inference=MPE, node_type=SINGLE, log=True
+--> mnist_all: on_gpu=True, input_dist=RAW, inference=MPE, node_type=SINGLE, log=True
+--> mnist_all: on_gpu=True, input_dist=MIXTURE, inference=MPE, node_type=SINGLE, log=True
+--> mnist_all: on_gpu=False, input_dist=RAW, inference=MPE, node_type=BLOCK, log=True
+--> mnist_all: on_gpu=False, input_dist=MIXTURE, inference=MPE, node_type=BLOCK, log=True
+--> mnist_all: on_gpu=True, input_dist=RAW, inference=MPE, node_type=BLOCK, log=True
+--> mnist_all: on_gpu=True, input_dist=MIXTURE, inference=MPE, node_type=BLOCK, log=True
+--> mnist_all: on_gpu=False, input_dist=RAW, inference=MPE, node_type=LAYER, log=True
+--> mnist_all: on_gpu=False, input_dist=MIXTURE, inference=MPE, node_type=LAYER, log=True
+--> mnist_all: on_gpu=True, input_dist=RAW, inference=MPE, node_type=LAYER, log=True
+--> mnist_all: on_gpu=True, input_dist=MIXTURE, inference=MPE, node_type=LAYER, log=True
+
+-----------------------
+InferenceType: MARGINAL-LOG
+-----------------------
+ CPU          op     node_type  SPN_size  TF_size  mem_used  input_dist  setup_time weights_init_time  first_run_time  rest_run_time test_accuracy
+        mnist_01      SINGLE    4806     131397      0.0000         RAW    56.3889       6.4834          8.9651          2.8030        99.8109
+        mnist_01      SINGLE    6374     178869      0.0000     MIXTURE    76.4697       9.8513         13.1101          3.7440        99.8109
+        mnist_01       BLOCK    1174      46945      0.0000         RAW    22.0991       2.4682          4.2367          2.0806        99.6690
+        mnist_01       BLOCK    1958      79873      0.0000     MIXTURE    32.1991       3.9435          6.3019          2.8354        99.6690
+        mnist_01       LAYER      52       1849      0.0000         RAW     1.1856       0.1009          1.1608          1.1437        99.7163
+        mnist_01       LAYER      56       2041      0.0000     MIXTURE     2.7678       0.0837          1.5905          1.4999        99.6690
+       mnist_all      SINGLE   24014     673842      0.0000         RAW   280.1227      36.4041         57.4890         23.8387        84.9700
+       mnist_all      SINGLE   31854     926882      0.0000     MIXTURE   402.9728      58.8921         89.1962         33.9523        85.4500
+       mnist_all       BLOCK    5854     243822      0.0000         RAW   120.1742      16.6501         62.8902         47.3282        85.4200
+       mnist_all       BLOCK    9774     416302      0.0000     MIXTURE   173.0755      24.7570         80.4209         57.2403        85.7300
+       mnist_all       LAYER     244       8862      0.0000         RAW     6.1890       0.7779         22.1308         21.2759        85.0400
+       mnist_all       LAYER     264       9882      0.0000     MIXTURE    15.8137       0.7306         28.6546         27.6661        85.1600
+ GPU          op     node_type  SPN_size  TF_size  mem_used  input_dist  setup_time weights_init_time  first_run_time  rest_run_time test_accuracy
+        mnist_01      SINGLE    4806     131398    212.8852         RAW    58.9792       7.5212          9.0819          2.6972        99.7636
+        mnist_01      SINGLE    6374     178870    286.6811     MIXTURE    75.9355       9.9287         13.0602          3.5434        99.7636
+        mnist_01       BLOCK    1174      46946    286.6811         RAW    20.0047       2.3122          3.0048          1.0246        99.6690
+        mnist_01       BLOCK    1958      79874    295.0551     MIXTURE    31.9217       3.9596          4.9025          1.5243        99.6690
+        mnist_01       LAYER      52       1850    295.0551         RAW     1.2052       0.0731          0.1925          0.1292        99.6690
+        mnist_01       LAYER      56       2042    360.6646     MIXTURE     1.3878       0.0798          0.2120          0.1517        99.6217
+       mnist_all      SINGLE   24014     673843   3849.6328         RAW   307.4479      42.5885         55.1779         15.4929        85.8100
+       mnist_all      SINGLE   31854     926883   4961.5785     MIXTURE   396.9775      62.2324         81.5671         22.0822        85.9000
+       mnist_all       BLOCK    5854     243823   6837.7677         RAW   106.1877      14.5253         19.2461          6.3139        86.1100
+       mnist_all       BLOCK    9774     416303   8106.5953     MIXTURE   170.6007      24.5830         33.3518          9.9782        85.7500
+       mnist_all       LAYER     244       8863   8106.5953         RAW     6.7496       0.4102          2.2442          1.7716        85.7100
+       mnist_all       LAYER     264       9883   8858.6742     MIXTURE     7.3206       0.4578          2.8466          2.3593        85.3100
+
+-----------------------
+InferenceType: MPE-LOG
+-----------------------
+ CPU          op     node_type  SPN_size  TF_size  mem_used  input_dist  setup_time weights_init_time  first_run_time  rest_run_time test_accuracy
+        mnist_01      SINGLE    4806     117393      0.0000         RAW    50.7768       6.1077          7.4784          2.4549        99.7163
+        mnist_01      SINGLE    6374     155457      0.0000     MIXTURE    67.9101       9.2611         10.6922          3.2551        99.8109
+        mnist_01       BLOCK    1174      41865      0.0000         RAW    19.7932       2.5945          3.9993          2.0788        99.7636
+        mnist_01       BLOCK    1958      69697      0.0000     MIXTURE    29.4656       3.8789          5.5893          2.7538        99.6690
+        mnist_01       LAYER      52       1631      0.0000         RAW     1.1612       0.0982          1.0215          0.8961        99.7163
+        mnist_01       LAYER      56       1797      0.0000     MIXTURE     1.3225       0.1061          1.1943          1.1876        99.7636
+       mnist_all      SINGLE   24014     603870      0.0000         RAW   257.4592      32.9899         46.6822         19.0344        84.8100
+       mnist_all      SINGLE   31854     809870      0.0000     MIXTURE   352.2344      50.8663         69.2659         26.9178        83.7400
+       mnist_all       BLOCK    5854     218470      0.0000         RAW   102.8327      15.2007         55.0029         43.4540        84.3600
+       mnist_all       BLOCK    9774     365470      0.0000     MIXTURE   151.3747      21.8418         69.3199         48.6915        84.6800
+       mnist_all       LAYER     244       7820      0.0000         RAW     5.5678       0.5634         16.8420         16.3934        84.3800
+       mnist_all       LAYER     264       8710      0.0000     MIXTURE     6.3771       0.5707         21.9313         21.2506        84.5700
+ GPU          op     node_type  SPN_size  TF_size  mem_used  input_dist  setup_time weights_init_time  first_run_time  rest_run_time test_accuracy
+        mnist_01      SINGLE    4806     117394   8858.6742         RAW    53.8492       6.8967          7.6314          2.3924        99.7636
+        mnist_01      SINGLE    6374     155458   8858.6742     MIXTURE    68.1929       9.5425         10.6174          3.1007        99.7163
+        mnist_01       BLOCK    1174      41866   8858.6742         RAW    17.9778       2.3449          2.4780          0.8654        99.6690
+        mnist_01       BLOCK    1958      69698   8858.6742     MIXTURE    29.1407       3.8011          4.1795          1.3546        99.6690
+        mnist_01       LAYER      52       1632   8858.6742         RAW     1.1218       0.0920          0.2127          0.1133        99.7163
+        mnist_01       LAYER      56       1798   8858.6742     MIXTURE     2.5231       0.0871          0.1894          0.1207        99.6690
+       mnist_all      SINGLE   24014     603871   8858.6742         RAW   272.7215      37.8374         42.3436         13.1057        84.4500
+       mnist_all      SINGLE   31854     809871   8858.6742     MIXTURE   354.9050      54.5285         61.5796         17.9023        83.9500
+       mnist_all       BLOCK    5854     218471   8858.6742         RAW    93.8918      12.1474         14.4012          5.1138        84.6900
+       mnist_all       BLOCK    9774     365471   8858.6742     MIXTURE   148.4445      20.8485         24.4300          8.0788        83.7100
+       mnist_all       LAYER     244       7821   8858.6742         RAW    12.5599       0.3401          1.8216          1.5022        84.6500
+       mnist_all       LAYER     264       8711   8858.6742     MIXTURE     6.7061       0.3785          2.2467          1.9182        84.0500

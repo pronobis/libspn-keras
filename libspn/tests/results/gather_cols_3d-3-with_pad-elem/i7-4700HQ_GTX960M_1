@@ -1,0 +1,70 @@
+Params:
+- num_param_rows=200
+- num_param_cols=100
+- num_indices_rows=50
+- num_indices_cols=100
+- num_ops=10
+- num_runs=50
+- dtype=<dtype: 'float32'>
+
+Running tests:
+--> custom_gather_3d: on_gpu=False, padded=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100)
+--> custom_gather_3d: on_gpu=False, padded=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100)
+--> custom_gather_3d: on_gpu=True, padded=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100)
+--> custom_gather_3d: on_gpu=True, padded=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100)
+--> custom_gather: on_gpu=False, padded=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100)
+--> custom_gather: on_gpu=False, padded=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100)
+--> custom_gather: on_gpu=True, padded=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100)
+--> custom_gather: on_gpu=True, padded=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100)
+--> tf_gather: on_gpu=False, padded=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100)
+--> tf_gather: on_gpu=False, padded=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100)
+--> tf_gather: on_gpu=True, padded=False, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100)
+--> tf_gather: on_gpu=True, padded=False, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100)
+--> custom_gather_3d: on_gpu=False, padded=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100)
+--> custom_gather_3d: on_gpu=False, padded=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100)
+--> custom_gather_3d: on_gpu=True, padded=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100)
+--> custom_gather_3d: on_gpu=True, padded=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100)
+--> custom_gather: on_gpu=False, padded=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100)
+--> custom_gather: on_gpu=False, padded=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100)
+--> custom_gather: on_gpu=True, padded=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100)
+--> custom_gather: on_gpu=True, padded=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100)
+--> tf_gather: on_gpu=False, padded=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100)
+--> tf_gather: on_gpu=False, padded=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100)
+--> tf_gather: on_gpu=True, padded=True, index_dtype=<class 'numpy.int32'>, params_shape=(200, 100)
+--> tf_gather: on_gpu=True, padded=True, index_dtype=<class 'numpy.int64'>, params_shape=(200, 100)
+
+-----------------------
+Non-padded
+-----------------------
+CPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+     custom_gather int32:  1039      583.78          330.07          19.44       True
+     custom_gather int64:  1039      588.36          326.91          18.98       True
+  custom_gather_3d int32:    49       62.07           36.75          18.23       True
+  custom_gather_3d int64:    49       24.07           34.44          17.26       True
+         tf_gather int32: 14539    12186.86         5493.03          88.02       True
+         tf_gather int64: 14539    12879.96         5435.38          86.54       True
+GPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+     custom_gather int32:  1039      573.47          332.81           6.78       True
+     custom_gather int64:  1039      576.93          319.13           6.25       True
+  custom_gather_3d int32:    49       24.33          196.24           2.66       True
+  custom_gather_3d int64:    49       25.49           20.54           2.72       True
+         tf_gather int32: 14539    12294.95         5497.90          96.65       True
+         tf_gather int64: 14539    12310.64         5197.66          96.78       True
+
+-----------------------
+Padded
+-----------------------
+CPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+     custom_gather int32:  2019     1726.23          628.54          25.58       True
+     custom_gather int64:  2019     1423.61          741.20          25.79       True
+  custom_gather_3d int32:    49       29.74           30.22          14.45       True
+  custom_gather_3d int64:    49       29.28           29.49          14.22       True
+         tf_gather int32: 15519    13787.50         5833.53          78.50       True
+         tf_gather int64: 15519    14325.89         6129.73          82.77       True
+GPU             op    dt:  size  setup_time  first_run_time  rest_run_time    correct
+     custom_gather int32:  2019     1498.96          702.13           9.76       True
+     custom_gather int64:  2019     1362.45          698.18           9.09       True
+  custom_gather_3d int32:    49       31.51           19.53           4.08       True
+  custom_gather_3d int64:    49       29.08           21.45           4.22       True
+         tf_gather int32: 15519    13722.25         5820.53         107.30       True
+         tf_gather int64: 15519    14562.72         6044.49          93.64       True

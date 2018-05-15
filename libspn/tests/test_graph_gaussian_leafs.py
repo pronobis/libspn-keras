@@ -307,9 +307,10 @@ class TestGaussianQuantile(TestCase):
         self.assertAllClose(sum_data_val, sum_data_graph)
         self.assertAllClose(sum_data_squared_val, sum_data_squared_graph)
 
-        self.assertTrue(np.all(np.not_equal(variance_graph, gq._variance_init)))
-        self.assertTrue(np.all(np.not_equal(mean_graph, gq._mean_init)))
+        print(variance_graph, gq._variance_init)
         self.assertAllClose(total_counts_graph, count_init + counts_per_component)
+        self.assertTrue(np.all(np.not_equal(mean_graph, gq._mean_init)))
+        self.assertTrue(np.all(np.not_equal(variance_graph, gq._variance_init)))
 
         mean_new_vals = []
         variance_new_vals = []
