@@ -19,13 +19,13 @@ BATCH_SIZE = int(1e5)
 
 class TestGaussianQuantile(TestCase):
 
-    def test_values_per_quantile(self):
+    def test_split_in_quantiles(self):
         quantiles = [np.random.rand(32, 32) + i * 2 for i in range(4)]
         data = np.concatenate(quantiles, axis=0)
         np.random.shuffle(data)
         gq = spn.GaussianLeaf(num_vars=32, num_components=4, learn_dist_params=False)
 
-        values_per_quantile = gq._values_per_quantile(data)
+        values_per_quantile = gq._split_in_quantiles(data)
 
         for val, q in zip(values_per_quantile, quantiles):
             self.assertAllClose(np.sort(q, axis=0), val)
@@ -34,7 +34,7 @@ class TestGaussianQuantile(TestCase):
         gl = spn.GaussianLeaf(num_vars=32, num_components=4)
         scope = gl._compute_scope()
         for b in range(0, len(scope), 4):
-            [self.assertEqual(scope[b], scope[b+i]) for i in range(1, 4)]
+            [self.assertEqual(scope[b], scope[b + i]) for i in range(1, 4)]
             [self.assertNotEqual(scope[b], scope[b + i]) for i in range(4, len(scope) - b, 4)]
 
     def test_learn_from_data(self):
@@ -42,7 +42,7 @@ class TestGaussianQuantile(TestCase):
         data = np.concatenate(quantiles, axis=0)
         np.random.shuffle(data)
         gq = spn.GaussianLeaf(
-            num_vars=32, num_components=4, learn_dist_params=False, data=data)
+            num_vars=32, num_components=4, learn_dist_params=False, initialization_data=data)
         true_vars = np.stack([np.var(q, axis=0) for q in quantiles], axis=-1)
         true_means = np.stack([np.mean(q, axis=0) for q in quantiles], axis=-1)
 
@@ -57,7 +57,7 @@ class TestGaussianQuantile(TestCase):
         data = np.concatenate(quantiles, axis=0)
         np.random.shuffle(data)
         gq = spn.GaussianLeaf(
-            num_vars=32, num_components=4, learn_dist_params=False, data=data,
+            num_vars=32, num_components=4, learn_dist_params=False, initialization_data=data,
             prior_alpha=prior_alpha, prior_beta=prior_beta, use_prior=True)
 
         mus = [np.mean(q, axis=0, keepdims=True) for q in quantiles]
@@ -65,8 +65,6 @@ class TestGaussianQuantile(TestCase):
         true_vars = (2 * prior_beta + ssq) / (2 * prior_alpha + 2 + N)
 
         self.assertAllClose(gq._variance_init, true_vars)
-
-
 
     def test_sum_update_1(self):
         child1 = spn.GaussianLeaf(num_vars=1, num_components=1, total_counts_init=3,
@@ -109,22 +107,23 @@ class TestGaussianQuantile(TestCase):
         batch_size = 32
         count_init = 100
 
-        # Shape is
+        # Create means and variances
         means = np.array([[0, 1],
                           [10, 15]])
         vars = np.array([[0.25, 0.5],
                          [0.33, 0.67]])
+
+        # Sample some data
         data0 = [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
                  for m, v in zip(means[0], vars[0])]
         data1 = [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
                  for m, v in zip(means[1], vars[1])]
         data = np.stack([np.concatenate(data0), np.concatenate(data1)], axis=-1)
 
-        gq = spn.GaussianLeaf(num_vars=num_vars, num_components=num_components, data=data,
-                              total_counts_init=count_init, learn_dist_params=True)
-
-        self.assertAllClose(means, gq._mean_init, rtol=3e-1, atol=3e-1)
-        self.assertAllClose(vars, gq._variance_init, rtol=3e-1, atol=3e-1)
+        # Set up SPN
+        gq = spn.GaussianLeaf(num_vars=num_vars, num_components=num_components,
+                              initialization_data=data, total_counts_init=count_init,
+                              learn_dist_params=True)
 
         mixture00 = spn.Sum((gq, [0, 1]), name="Mixture00")
         weights00 = spn.Weights(init_value=[0.25, 0.75], num_weights=2)
@@ -146,8 +145,8 @@ class TestGaussianQuantile(TestCase):
         root = spn.Sum(prod0, prod1, name="Root")
         root_weights = spn.Weights(init_value=[1/2, 1/2], num_weights=2)
         root.set_weights(root_weights)
-        # root.generate_weights()
 
+        # Generate new data from slightly shifted Gaussians
         data0 = np.concatenate(
             [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
              for m, v in zip(means[0] + 0.2, vars[0])])
@@ -155,6 +154,7 @@ class TestGaussianQuantile(TestCase):
             [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
              for m, v in zip(means[1] + 1.0, vars[1])])
 
+        # Compute actual log probabilities of roots
         empirical_means = gq._mean_init
         empirical_vars = gq._variance_init
         log_probs0 = [stats.norm(loc=m, scale=np.maximum(np.sqrt(v), gq._min_stddev)).logpdf(data0)
@@ -162,17 +162,21 @@ class TestGaussianQuantile(TestCase):
         log_probs1 = [stats.norm(loc=m, scale=np.maximum(np.sqrt(v), gq._min_stddev)).logpdf(data1)
                       for m, v in zip(empirical_means[1], empirical_vars[1])]
 
+        # Compute actual log probabilities of mixtures
         mixture00_val = np.logaddexp(log_probs0[0] + np.log(1/4), log_probs0[1] + np.log(3/4))
         mixture01_val = np.logaddexp(log_probs0[0] + np.log(3/4), log_probs0[1] + np.log(1/4))
 
         mixture10_val = np.logaddexp(log_probs1[0] + np.log(2/3), log_probs1[1] + np.log(1/3))
         mixture11_val = np.logaddexp(log_probs1[0] + np.log(1/3), log_probs1[1] + np.log(2/3))
 
+        # Compute actual log probabilities of products
         prod0_val = mixture00_val + mixture10_val
         prod1_val = mixture01_val + mixture11_val
 
+        # Compute the index of the max probability at the products layer
         prod_winner = np.argmax(np.stack([prod0_val, prod1_val], axis=-1), axis=-1)
 
+        # Compute the indices of the max component per mixture
         component_winner00 = np.argmax(
             np.stack([log_probs0[0] + np.log(1/4), log_probs0[1] + np.log(3/4)], axis=-1), axis=-1)
         component_winner01 = np.argmax(
@@ -182,6 +186,7 @@ class TestGaussianQuantile(TestCase):
         component_winner11 = np.argmax(
             np.stack([log_probs1[0] + np.log(1/3), log_probs1[1] + np.log(2/3)], axis=-1), axis=-1)
 
+        # Initialize true counts
         counts_per_component = np.zeros((2, 2))
         sum_data_val = np.zeros((2, 2))
         sum_data_squared_val = np.zeros((2, 2))
@@ -191,6 +196,7 @@ class TestGaussianQuantile(TestCase):
         data10 = []
         data11 = []
 
+        # Compute true counts
         counts_per_step = np.zeros((batch_size, num_vars, num_components))
         for i, (prod_ind, d0, d1) in enumerate(zip(prod_winner, data0, data1)):
             if prod_ind == 0:
@@ -219,7 +225,7 @@ class TestGaussianQuantile(TestCase):
                 sum_data_squared_val[1, component_winner11[i]] += data1[i] * data1[i]
                 (data10 if component_winner11[i] == 0 else data11).append(data1[i])
 
-        self.assertTrue(root.is_valid)
+        # Setup learning Ops
         value_inference_type = spn.InferenceType.MARGINAL
         init_weights = spn.initialize_weights(root)
         learning = spn.EMLearning(root, log=True, value_inference_type=value_inference_type)
@@ -229,25 +235,30 @@ class TestGaussianQuantile(TestCase):
         train_likelihood = learning.value.values[root]
         avg_train_likelihood = tf.reduce_mean(train_likelihood)
 
+        # Setup feed dict and update ops
         fd = {gq: np.stack([data0, data1], axis=-1)}
         update_ops = gq._compute_hard_em_update(learning._mpe_path.counts[gq])
 
         with self.test_session() as sess:
             sess.run(init_weights)
 
+            # Get log probabilities of Gaussian leaf
             log_probs = sess.run(learning.value.values[gq], fd)
 
+            # Get log probabilities of mixtures
             mixture00_graph, mixture01_graph, mixture10_graph, mixture11_graph = sess.run([
                 learning.value.values[mixture00],
                 learning.value.values[mixture01],
                 learning.value.values[mixture10],
                 learning.value.values[mixture11]], fd)
 
+            # Get log probabilities of products
             prod0_graph, prod1_graph = sess.run(
                 [learning.value.values[prod0], learning.value.values[prod1]], fd)
 
+            # Get counts for graph
             counts = sess.run(tf.reduce_sum(learning._mpe_path.counts[gq], axis=0), fd)
-            counts_per_step_graph = sess.run(learning._mpe_path.counts[gq], fd)
+            counts_per_sample = sess.run(learning._mpe_path.counts[gq], fd)
 
             accum, sum_data_graph, sum_data_squared_graph = sess.run([
                 update_ops['accum'], update_ops['sum_data'], update_ops['sum_data_squared']], fd)
@@ -255,7 +266,7 @@ class TestGaussianQuantile(TestCase):
         with self.test_session() as sess:
             sess.run(init_weights)
             sess.run(reset_accumulators)
-            # all_ops = sess.graph.get_operations()
+
             data_per_component_op = sess.graph.get_tensor_by_name("DataPerComponent:0")
             squared_data_per_component_op = sess.graph.get_tensor_by_name(
                 "SquaredDataPerComponent:0")
@@ -263,14 +274,18 @@ class TestGaussianQuantile(TestCase):
             update_vals, data_per_component_out, squared_data_per_component_out = sess.run(
                 [accumulate_updates, data_per_component_op, squared_data_per_component_op], fd)
 
+            # Get likelihood before update
             lh_before = sess.run(avg_train_likelihood, fd)
             sess.run(update_spn)
 
+            # Get likelihood after update
             lh_after = sess.run(avg_train_likelihood, fd)
+
+            # Get variables after update
             total_counts_graph, variance_graph, mean_graph = sess.run([
                 gq._total_count_variable, gq.variance_variable, gq.mean_variable])
 
-        self.assertAllClose(counts_per_step, counts_per_step_graph.reshape(
+        self.assertAllClose(counts_per_step, counts_per_sample.reshape(
             (batch_size, num_vars, num_components)))
 
         self.assertAllClose(prod0_val, prod0_graph.ravel())
@@ -300,8 +315,8 @@ class TestGaussianQuantile(TestCase):
         variance_new_vals = []
         variance_left, variance_right = [], []
         for i, obs in enumerate([data00, data01, data10, data11]):
-            # Note that this does no depend on accumulating anything!
-            # It actually is copied (more or less) from
+            # Note that this does not depend on accumulating anything!
+            # It actually is copied (more-or-less) from
             # https://github.com/whsu/spn/blob/master/spn/normal_leaf_node.py
             x = np.asarray(obs).astype(np.float32)
             n = count_init
@@ -312,8 +327,6 @@ class TestGaussianQuantile(TestCase):
             var = (n * gq._variance_init.astype(np.float32).ravel()[i] +
                    dx.dot(dx)) / (n + k) - dm * dm
 
-            # print(mean.shape)
-            # print(var.shape)
             mean_new_vals.append(mean)
             variance_new_vals.append(var)
             variance_left.append((n * gq._variance_init.ravel()[i] + dx.dot(dx)) / (n + k))
@@ -322,19 +335,20 @@ class TestGaussianQuantile(TestCase):
         mean_new_vals = np.asarray(mean_new_vals).reshape((2, 2))
         variance_new_vals = np.asarray(variance_new_vals).reshape((2, 2))
 
-        def assert_non_zero_at_equal(arr, i, j, truth):
+        def assert_non_zero_at_ij_equal(arr, i, j, truth):
+            # Select i-th variable and j-th component
             arr = arr[:, i, j]
             self.assertAllClose(arr[arr != 0.0], truth)
 
-        assert_non_zero_at_equal(data_per_component_out, 0, 0, data00)
-        assert_non_zero_at_equal(data_per_component_out, 0, 1, data01)
-        assert_non_zero_at_equal(data_per_component_out, 1, 0, data10)
-        assert_non_zero_at_equal(data_per_component_out, 1, 1, data11)
+        assert_non_zero_at_ij_equal(data_per_component_out, 0, 0, data00)
+        assert_non_zero_at_ij_equal(data_per_component_out, 0, 1, data01)
+        assert_non_zero_at_ij_equal(data_per_component_out, 1, 0, data10)
+        assert_non_zero_at_ij_equal(data_per_component_out, 1, 1, data11)
 
-        assert_non_zero_at_equal(squared_data_per_component_out, 0, 0, np.square(data00))
-        assert_non_zero_at_equal(squared_data_per_component_out, 0, 1, np.square(data01))
-        assert_non_zero_at_equal(squared_data_per_component_out, 1, 0, np.square(data10))
-        assert_non_zero_at_equal(squared_data_per_component_out, 1, 1, np.square(data11))
+        assert_non_zero_at_ij_equal(squared_data_per_component_out, 0, 0, np.square(data00))
+        assert_non_zero_at_ij_equal(squared_data_per_component_out, 0, 1, np.square(data01))
+        assert_non_zero_at_ij_equal(squared_data_per_component_out, 1, 0, np.square(data10))
+        assert_non_zero_at_ij_equal(squared_data_per_component_out, 1, 1, np.square(data11))
 
         self.assertAllClose(mean_new_vals, mean_graph)
         self.assertAllClose(variance_new_vals, variance_graph)
@@ -351,7 +365,7 @@ class TestGaussianQuantile(TestCase):
                               axis=0).astype(np.float32)
 
         gq = spn.GaussianLeaf(num_vars=num_vars, num_components=2, learn_dist_params=False,
-                              data=data)
+                              initialization_data=data)
 
         value_op = gq._compute_value()
         log_value_op = gq._compute_log_value()
@@ -394,7 +408,7 @@ class TestGaussianQuantile(TestCase):
             [np.random.normal(a, size=BATCH_SIZE) + num_vars for a in range(num_vars)], axis=1)],
                               axis=0).astype(np.float32)
 
-        gq = spn.GaussianLeaf(num_vars=num_vars, num_components=2, data=data,
+        gq = spn.GaussianLeaf(num_vars=num_vars, num_components=2, initialization_data=data,
                               learn_dist_params=False)
 
         batch_size = 3
@@ -413,7 +427,7 @@ class TestGaussianQuantile(TestCase):
         with self.test_session() as sess:
             sess.run([gq.initialize()])
             mpe_state_out = sess.run(mpe_state)
-        # Again we must be quite tolerant, but that's ok, the predictions are 1.0 apart
+        # Again we must be quite tolerant, but that's ok, the targets are 1.0 apart
         self.assertAllClose(mpe_truth, mpe_state_out, atol=1e-1, rtol=1e-1)
 
 
