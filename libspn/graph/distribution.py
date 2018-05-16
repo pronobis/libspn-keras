@@ -314,6 +314,20 @@ class GaussianLeaf(VarNode):
         sum_data_squared = tf.reduce_sum(squared_data_per_component, axis=0)
         return {'accum': accum, "sum_data": sum_data, "sum_data_squared": sum_data_squared}
 
+    def _compute_gradient(self, incoming_grad):
+        incoming_grad = tf.reshape(incoming_grad, (-1, self._num_vars, self._num_components))
+        tiled_feed = self._tile_num_components(self._feed)
+        mean = tf.expand_dims(self._mean_variable, 0)
+        var = tf.expand_dims(self._variance_variable, 0)
+
+        one_over_var = tf.reciprocal(var)
+        x_min_mu = tiled_feed - mean
+        mean_grad_out = one_over_var * x_min_mu
+        var_grad_out = tf.negative(0.5 * one_over_var * (1 - one_over_var * tf.square(x_min_mu)))
+        mean_grad = tf.reduce_sum(mean_grad_out * incoming_grad, axis=0)
+        var_grad = tf.reduce_sum(var_grad_out * incoming_grad, axis=0)
+        return mean_grad, var_grad
+
     def assign(self, accum, sum_data, sum_data_squared):
         """
         Assigns new values to variables based on accumulated tensors. It updates the distribution
@@ -343,3 +357,9 @@ class GaussianLeaf(VarNode):
                 tf.assign_add(self._total_count_variable, k),
                 tf.assign(self._variance_variable, variance) if self._train_var else tf.no_op(),
                 tf.assign(self._mean_variable, mean) if self._train_mean else tf.no_op())
+
+    def assign_add(self, delta_mean, delta_variance):
+        new_var = tf.maximum(self._variance_variable + delta_variance, self._min_var)
+        with tf.control_dependencies([new_var]):
+            update_variance = tf.assign(self._variance_variable, new_var)
+        return tf.assign_add(self._mean_variable, delta_mean), update_variance
