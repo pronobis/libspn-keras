@@ -8,10 +8,13 @@
 # ------------------------------------------------------------------------
 
 from context import libspn as spn
-from test import TestCase
+from test import TestCase, arg_product
 import tensorflow as tf
 import numpy as np
 import scipy.stats as stats
+from libspn import conf
+from parameterized import parameterized
+
 
 # Batch size is pretty large to obtain good approximations
 BATCH_SIZE = int(1e5)
@@ -37,17 +40,22 @@ class TestGaussianQuantile(TestCase):
             [self.assertEqual(scope[b], scope[b + i]) for i in range(1, 4)]
             [self.assertNotEqual(scope[b], scope[b + i]) for i in range(4, len(scope) - b, 4)]
 
-    def test_learn_from_data(self):
+    @parameterized.expand(arg_product([False, True]))
+    def test_learn_from_data(self, softplus):
         quantiles = [np.random.rand(32, 32) + i * 2 for i in range(4)]
         data = np.concatenate(quantiles, axis=0)
         np.random.shuffle(data)
         gq = spn.GaussianLeaf(
-            num_vars=32, num_components=4, learn_dist_params=False, initialization_data=data)
+            num_vars=32, num_components=4, learn_dist_params=False, initialization_data=data,
+            softplus_scale=softplus)
         true_vars = np.stack([np.var(q, axis=0) for q in quantiles], axis=-1)
         true_means = np.stack([np.mean(q, axis=0) for q in quantiles], axis=-1)
 
-        self.assertAllClose(gq._variance_init, true_vars)
-        self.assertAllClose(gq._mean_init, true_means)
+        if softplus:
+            self.assertAllClose(np.log(1 + np.exp(gq._scale_init)), np.sqrt(true_vars))
+        else:
+            self.assertAllClose(gq._scale_init, np.sqrt(true_vars))
+        self.assertAllClose(gq._loc_init, true_means)
 
     def test_learn_from_data_prior(self):
         prior_beta = 3.0
@@ -64,13 +72,13 @@ class TestGaussianQuantile(TestCase):
         ssq = np.stack([np.sum((x - mu) ** 2, axis=0) for x, mu in zip(quantiles, mus)], axis=-1)
         true_vars = (2 * prior_beta + ssq) / (2 * prior_alpha + 2 + N)
 
-        self.assertAllClose(gq._variance_init, true_vars)
+        self.assertAllClose(gq._scale_init, np.sqrt(true_vars))
 
     def test_sum_update_1(self):
         child1 = spn.GaussianLeaf(num_vars=1, num_components=1, total_counts_init=3,
-                                  mean_init=0.0, variance_init=1.0, learn_dist_params=True)
+                                  loc_init=0.0, scale_init=1.0, learn_dist_params=True)
         child2 = spn.GaussianLeaf(num_vars=1, num_components=1, total_counts_init=7,
-                                  mean_init=1.0, variance_init=4.0, learn_dist_params=True)
+                                  loc_init=1.0, scale_init=4.0, learn_dist_params=True)
         root = spn.Sum(child1, child2)
         root.generate_weights()
 
@@ -101,7 +109,8 @@ class TestGaussianQuantile(TestCase):
         self.assertEqual(child1_n, 4)
         self.assertEqual(child2_n, 7)
 
-    def test_param_learning(self):
+    @parameterized.expand(arg_product([False, True]))
+    def test_param_learning(self, softplus_scale):
         num_vars = 2
         num_components = 2
         batch_size = 32
@@ -123,7 +132,7 @@ class TestGaussianQuantile(TestCase):
         # Set up SPN
         gq = spn.GaussianLeaf(num_vars=num_vars, num_components=num_components,
                               initialization_data=data, total_counts_init=count_init,
-                              learn_dist_params=True)
+                              learn_dist_params=True, softplus_scale=softplus_scale)
 
         mixture00 = spn.Sum((gq, [0, 1]), name="Mixture00")
         weights00 = spn.Weights(init_value=[0.25, 0.75], num_weights=2)
@@ -155,11 +164,12 @@ class TestGaussianQuantile(TestCase):
              for m, v in zip(means[1] + 1.0, vars[1])])
 
         # Compute actual log probabilities of roots
-        empirical_means = gq._mean_init
-        empirical_vars = gq._variance_init
-        log_probs0 = [stats.norm(loc=m, scale=np.maximum(np.sqrt(v), gq._min_stddev)).logpdf(data0)
+        empirical_means = gq._loc_init
+        empirical_vars = np.square(gq._scale_init) if not softplus_scale else np.square(
+            np.log(np.exp(gq._scale_init) + 1))
+        log_probs0 = [stats.norm(loc=m, scale=np.sqrt(v)).logpdf(data0)
                       for m, v in zip(empirical_means[0], empirical_vars[0])]
-        log_probs1 = [stats.norm(loc=m, scale=np.maximum(np.sqrt(v), gq._min_stddev)).logpdf(data1)
+        log_probs1 = [stats.norm(loc=m, scale=np.sqrt(v)).logpdf(data1)
                       for m, v in zip(empirical_means[1], empirical_vars[1])]
 
         # Compute actual log probabilities of mixtures
@@ -282,11 +292,8 @@ class TestGaussianQuantile(TestCase):
             lh_after = sess.run(avg_train_likelihood, fd)
 
             # Get variables after update
-            total_counts_graph, variance_graph, mean_graph = sess.run([
-                gq._total_count_variable, gq.variance_variable, gq.mean_variable])
-
-        self.assertAllClose(counts_per_step, counts_per_sample.reshape(
-            (batch_size, num_vars, num_components)))
+            total_counts_graph, scale_graph, mean_graph = sess.run([
+                gq._total_count_variable, gq.scale_variable, gq.loc_variable])
 
         self.assertAllClose(prod0_val, prod0_graph.ravel())
         self.assertAllClose(prod1_val, prod1_graph.ravel())
@@ -304,13 +311,15 @@ class TestGaussianQuantile(TestCase):
         self.assertAllEqual(counts, counts_per_component.ravel())
         self.assertAllEqual(accum, counts_per_component)
 
+        self.assertAllClose(counts_per_step, counts_per_sample.reshape(
+            (batch_size, num_vars, num_components)))
+
         self.assertAllClose(sum_data_val, sum_data_graph)
         self.assertAllClose(sum_data_squared_val, sum_data_squared_graph)
 
-        print(variance_graph, gq._variance_init)
         self.assertAllClose(total_counts_graph, count_init + counts_per_component)
-        self.assertTrue(np.all(np.not_equal(mean_graph, gq._mean_init)))
-        self.assertTrue(np.all(np.not_equal(variance_graph, gq._variance_init)))
+        self.assertTrue(np.all(np.not_equal(mean_graph, gq._loc_init)))
+        self.assertTrue(np.all(np.not_equal(scale_graph, gq._scale_init)))
 
         mean_new_vals = []
         variance_new_vals = []
@@ -322,15 +331,19 @@ class TestGaussianQuantile(TestCase):
             x = np.asarray(obs).astype(np.float32)
             n = count_init
             k = len(obs)
-            mean = (n * gq._mean_init.astype(np.float32).ravel()[i] + np.sum(obs)) / (n + k)
-            dx = x - gq._mean_init.astype(np.float32).ravel()[i]
-            dm = mean - gq._mean_init.astype(np.float32).ravel()[i]
-            var = (n * gq._variance_init.astype(np.float32).ravel()[i] +
-                   dx.dot(dx)) / (n + k) - dm * dm
+            if softplus_scale:
+                var_old = np.square(np.log(np.exp(
+                    gq._scale_init.astype(np.float32)).ravel()[i] + 1))
+            else:
+                var_old = np.square(gq._scale_init.astype(np.float32)).ravel()[i]
+            mean = (n * gq._loc_init.astype(np.float32).ravel()[i] + np.sum(obs)) / (n + k)
+            dx = x - gq._loc_init.astype(np.float32).ravel()[i]
+            dm = mean - gq._loc_init.astype(np.float32).ravel()[i]
+            var = (n * var_old + dx.dot(dx)) / (n + k) - dm * dm
 
             mean_new_vals.append(mean)
             variance_new_vals.append(var)
-            variance_left.append((n * gq._variance_init.ravel()[i] + dx.dot(dx)) / (n + k))
+            variance_left.append((n * var_old + dx.dot(dx)) / (n + k))
             variance_right.append(dm * dm)
 
         mean_new_vals = np.asarray(mean_new_vals).reshape((2, 2))
@@ -352,7 +365,9 @@ class TestGaussianQuantile(TestCase):
         assert_non_zero_at_ij_equal(squared_data_per_component_out, 1, 1, np.square(data11))
 
         self.assertAllClose(mean_new_vals, mean_graph)
-        self.assertAllClose(variance_new_vals, variance_graph)
+        # self.assertAllClose(np.asarray(variance_left).reshape((2, 2)), var_graph_left)
+        self.assertAllClose(variance_new_vals, np.square(scale_graph if not softplus_scale else
+            np.log(np.exp(scale_graph) + 1)))
 
         self.assertGreater(lh_after, lh_before)
 
@@ -361,13 +376,13 @@ class TestGaussianQuantile(TestCase):
         num_vars = 2
         num_components = 2
         gl = spn.GaussianLeaf(num_vars=num_vars, num_components=num_components,
-                              mean_init=np.arange(num_vars * num_components).reshape(
+                              loc_init=np.arange(num_vars * num_components).reshape(
                                   (num_vars, num_components)))
         init = gl.initialize()
 
         gl_out = gl._compute_log_value()
 
-        mu_grad_tf, var_grad_tf = tf.gradients(gl_out, [gl.mean_variable, gl.variance_variable])
+        mu_grad_tf, var_grad_tf = tf.gradients(gl_out, [gl.loc_variable, gl.scale_variable])
 
         # Gradient with respect to out, so gradient to propagate is just 1
         incoming_grad = tf.ones((batch_size, num_vars * num_components))
@@ -384,6 +399,60 @@ class TestGaussianQuantile(TestCase):
 
         self.assertAllClose(mu_grad_tf_out, mu_grad_spn_out)
         self.assertAllClose(var_grad_tf_out, var_grad_spn_out)
+
+    @parameterized.expand(arg_product(
+        [1], [2], [4], [spn.DenseSPNGeneratorLayerNodes.InputDist.RAW,
+                        spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE],
+        [16], [2], [False, True]))
+    def test_gradient_on_dense_spn(self, num_decomps, num_subsets, num_mixtures, input_dist,
+                                   num_vars, num_components, softplus):
+        batch_size = 9
+        conf.custom_gather_cols = False
+        conf.custom_gather_cols_3d = False
+        conf.custom_scatter_cols = False
+        conf.custom_scatter_values = False
+
+        mean_init = np.arange(num_vars*num_components).reshape(num_vars, num_components)
+        gl = spn.GaussianLeaf(
+            num_vars=num_vars, num_components=num_components, loc_init=mean_init,
+            softplus_scale=softplus)
+
+        gen = spn.DenseSPNGeneratorLayerNodes(
+            num_decomps=num_decomps, num_subsets=num_subsets, num_mixtures=num_mixtures,
+            node_type=spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER, input_dist=input_dist
+        )
+
+        root = gen.generate(gl, root_name="root")
+
+        with tf.name_scope("Weights"):
+            spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM(), log=True)
+
+        init = spn.initialize_weights(root)
+
+        self.assertTrue(root.is_valid())
+
+        log_val = root.get_log_value()
+
+        spn_grad = spn.Gradient(log=True)
+
+        spn_grad.get_gradients(root)
+
+        mean_grad_custom, var_grad_custom = gl._compute_gradient(spn_grad.gradients[gl])
+
+        mean_grad_tf, var_grad_tf = tf.gradients(log_val, [gl.loc_variable, gl.scale_variable])
+
+        fd = {gl: np.random.rand(batch_size, num_vars)}
+
+        with self.test_session() as sess:
+            sess.run(init)
+            mu_grad_custom_val, var_grad_custom_val = sess.run(
+                [mean_grad_custom, var_grad_custom], fd)
+
+            mu_grad_tf_val, var_grad_tf_val = sess.run(
+                [mean_grad_tf, var_grad_tf], fd)
+
+        self.assertAllClose(mu_grad_custom_val, mu_grad_tf_val, atol=1e-4, rtol=1e-4)
+        self.assertAllClose(var_grad_custom_val, var_grad_tf_val, atol=1e-4, rtol=1e-4)
 
     def test_value(self):
         num_vars = 8
@@ -405,7 +474,7 @@ class TestGaussianQuantile(TestCase):
         val_at_mode = stats.norm.pdf(0)
 
         with self.test_session() as sess:
-            sess.run([gq.mean_variable.initializer, gq.variance_variable.initializer])
+            sess.run([gq.loc_variable.initializer, gq.scale_variable.initializer])
             value_out, log_value_out = sess.run(
                 [value_op, log_value_op], feed_dict={gq.feed: modes})
 
