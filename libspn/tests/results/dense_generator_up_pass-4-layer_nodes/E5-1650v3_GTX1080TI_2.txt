@@ -1,0 +1,132 @@
+Params:
+- num_input_rows=200
+- num_input_vars=10
+- num_input_vals=5
+- num_decomps=4
+- num_subsets=5
+- num_mixtures=5
+- num_input_mixtures=5
+- balanced=True
+- num_runs=50
+
+Running tests:
+--> dense_sing: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, node_type=SINGLE, log=False
+--> dense_sing: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, node_type=SINGLE, log=False
+--> dense_sing: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, node_type=SINGLE, log=False
+--> dense_sing: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, node_type=SINGLE, log=False
+--> dense_block: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, node_type=BLOCK, log=False
+--> dense_block: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, node_type=BLOCK, log=False
+--> dense_block: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, node_type=BLOCK, log=False
+--> dense_block: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, node_type=BLOCK, log=False
+--> dense_layer: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, node_type=LAYER, log=False
+--> dense_layer: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, node_type=LAYER, log=False
+--> dense_layer: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, node_type=LAYER, log=False
+--> dense_layer: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, node_type=LAYER, log=False
+--> dense_sing: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, node_type=SINGLE, log=True
+--> dense_sing: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, node_type=SINGLE, log=True
+--> dense_sing: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, node_type=SINGLE, log=True
+--> dense_sing: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, node_type=SINGLE, log=True
+--> dense_block: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, node_type=BLOCK, log=True
+--> dense_block: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, node_type=BLOCK, log=True
+--> dense_block: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, node_type=BLOCK, log=True
+--> dense_block: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, node_type=BLOCK, log=True
+--> dense_layer: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, node_type=LAYER, log=True
+--> dense_layer: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, node_type=LAYER, log=True
+--> dense_layer: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, node_type=LAYER, log=True
+--> dense_layer: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, node_type=LAYER, log=True
+--> dense_sing: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, node_type=SINGLE, log=False
+--> dense_sing: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, node_type=SINGLE, log=False
+--> dense_sing: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, node_type=SINGLE, log=False
+--> dense_sing: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, node_type=SINGLE, log=False
+--> dense_block: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, node_type=BLOCK, log=False
+--> dense_block: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, node_type=BLOCK, log=False
+--> dense_block: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, node_type=BLOCK, log=False
+--> dense_block: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, node_type=BLOCK, log=False
+--> dense_layer: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, node_type=LAYER, log=False
+--> dense_layer: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, node_type=LAYER, log=False
+--> dense_layer: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, node_type=LAYER, log=False
+--> dense_layer: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, node_type=LAYER, log=False
+--> dense_sing: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, node_type=SINGLE, log=True
+--> dense_sing: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, node_type=SINGLE, log=True
+--> dense_sing: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, node_type=SINGLE, log=True
+--> dense_sing: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, node_type=SINGLE, log=True
+--> dense_block: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, node_type=BLOCK, log=True
+--> dense_block: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, node_type=BLOCK, log=True
+--> dense_block: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, node_type=BLOCK, log=True
+--> dense_block: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, node_type=BLOCK, log=True
+--> dense_layer: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, node_type=LAYER, log=True
+--> dense_layer: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, node_type=LAYER, log=True
+--> dense_layer: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, node_type=LAYER, log=True
+--> dense_layer: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, node_type=LAYER, log=True
+
+-----------------------
+InferenceType: MARGINAL
+-----------------------
+ CPU          op  SPN_size  TF_size  mem_used  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+      dense_sing   13203   56236      0.0000        RAW    29577.32         2121.51         4932.30          38.70         True
+      dense_sing   13603   58636      0.0000    MIXTURE    32107.38         2683.37         4952.40          38.36         True
+     dense_block      67     668      0.0000        RAW      340.12           71.51           80.25          30.35         True
+     dense_block     147    1388      0.0000    MIXTURE      729.12          188.66           93.16          25.93         True
+     dense_layer       7      76      0.0000        RAW     2027.90            7.72           73.05          67.61         True
+     dense_layer       9     100      0.0000    MIXTURE     1031.15           10.73           77.87          56.29         True
+ GPU          op  SPN_size  TF_size  mem_used  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+      dense_sing   13203   56237     51.3165        RAW    30585.24         2825.66         5830.13         291.74         True
+      dense_sing   13603   58637     51.3603    MIXTURE    32198.75         2619.51         5393.26         359.51         True
+     dense_block      67     669     52.6996        RAW      307.51           62.69           31.26           3.22         True
+     dense_block     147    1389     52.7112    MIXTURE      696.96          180.76           50.50           4.18         True
+     dense_layer       7      77     60.7048        RAW     1000.90            8.58           10.09           2.74         True
+     dense_layer       9     101     60.7183    MIXTURE      887.49            9.97           10.02           2.63         True
+
+-----------------------
+InferenceType: MARGINAL-LOG
+-----------------------
+ CPU          op  SPN_size  TF_size  mem_used  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+      dense_sing   13203   57550      0.0000        RAW    30446.65         2157.81         5124.04          43.82         True
+      dense_sing   13603   62550      0.0000    MIXTURE    33226.10         2806.43         5323.06          45.32         True
+     dense_block      67    1042      0.0000        RAW      418.78           98.61          138.51          36.18         True
+     dense_block     147    2482      0.0000    MIXTURE     2404.22          198.43          172.31          27.86         True
+     dense_layer       7     104      0.0000        RAW     1071.51            8.03           50.07          63.26         True
+     dense_layer       9     142      0.0000    MIXTURE     1074.67           11.36           81.08          75.23         True
+ GPU          op  SPN_size  TF_size  mem_used  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+      dense_sing   13203   57551     60.7183        RAW    31686.89         2257.80         5687.18         275.00         True
+      dense_sing   13603   62551     60.7183    MIXTURE    33461.30         2881.13         5915.79         443.10         True
+     dense_block      67    1043     60.7183        RAW      411.38           67.70           55.04           4.22         True
+     dense_block     147    2483     60.7183    MIXTURE     1138.85          170.75          119.86           9.99         True
+     dense_layer       7     105     60.7954        RAW     1001.08            8.75           11.20           2.93         True
+     dense_layer       9     143     60.8090    MIXTURE     1080.41           11.14           12.66           3.05         True
+
+-----------------------
+InferenceType: MPE
+-----------------------
+ CPU          op  SPN_size  TF_size  mem_used  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+      dense_sing   13203   56236      0.0000        RAW    29309.15         2110.24         4961.02          40.33         True
+      dense_sing   13603   58636      0.0000    MIXTURE    31425.58         2548.88         4855.12          42.13         True
+     dense_block      67     748      0.0000        RAW      319.94           68.80           77.30          24.32         True
+     dense_block     147    1628      0.0000    MIXTURE      706.35          158.43           93.58          25.77         True
+     dense_layer       7      76      0.0000        RAW     2073.97            9.03           82.31          65.91         True
+     dense_layer       9     100      0.0000    MIXTURE     1044.04           10.13           47.57          64.34         True
+ GPU          op  SPN_size  TF_size  mem_used  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+      dense_sing   13203   56237     60.8090        RAW    30162.70         2142.29         5295.56         285.34         True
+      dense_sing   13603   58637     60.8090    MIXTURE    31360.86         2524.44         5086.01         273.11         True
+     dense_block      67     749     60.8090        RAW      295.04           61.70           35.46           3.20         True
+     dense_block     147    1629     60.8090    MIXTURE      782.50          167.69           61.43           5.00         True
+     dense_layer       7      77     60.8090        RAW      884.92            8.36            9.46           2.32         True
+     dense_layer       9     101     60.8090    MIXTURE      947.87            9.65            9.08           2.16         True
+
+-----------------------
+InferenceType: MPE-LOG
+-----------------------
+ CPU          op  SPN_size  TF_size  mem_used  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+      dense_sing   13203   56338      0.0000        RAW    29005.99         2022.83         4770.61          39.35         True
+      dense_sing   13603   58938      0.0000    MIXTURE    31495.30         2501.19         4700.00          39.53         True
+     dense_block      67     770      0.0000        RAW      353.55           69.32           78.23          24.39         True
+     dense_block     147    1690      0.0000    MIXTURE      700.73          162.47          112.19          23.42         True
+     dense_layer       7      79      0.0000        RAW      767.97            7.48           81.00          61.72         True
+     dense_layer       9     104      0.0000    MIXTURE     2229.50            9.57           65.66          65.52         True
+ GPU          op  SPN_size  TF_size  mem_used  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+      dense_sing   13203   56339     60.8090        RAW    30160.77         2206.60         5373.89         334.46         True
+      dense_sing   13603   58939     60.8090    MIXTURE    31532.48         2609.58         5184.10         291.89         True
+     dense_block      67     771     60.8090        RAW      302.36           63.19           36.74           3.10         True
+     dense_block     147    1691     60.8090    MIXTURE      699.70          153.99           58.35           4.81         True
+     dense_layer       7      80     60.8090        RAW      967.07            8.39           19.20           2.69         True
+     dense_layer       9     105     60.8146    MIXTURE      976.09            9.59            9.57           2.64         True

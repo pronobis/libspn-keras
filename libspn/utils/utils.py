@@ -63,8 +63,17 @@ def _make_key(args, kwds, typed, kwd_mark=(object(),),
     return _HashedSeq(key)
 
 
-def memoize(f):
-    """ Allows for memoization that can be configured with spn.conf.memoization """
+def lru_cache(f):
+    """Can be used as a decorator for least-recently used caching. This is helpful when traversing
+    some edges several times during construction of the SPN, but also for reusing Tensors defined
+    in upward computation vs. downward computation. 
+    
+    Args:
+        f (function): A function f(*args, **kwargs) to memoize.
+    
+    Returns:
+        A wrapped function with same behavior with f but added memoization.
+    """
     memo = {}
 
     def helper(*args, **kwargs):

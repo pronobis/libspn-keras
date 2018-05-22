@@ -29,6 +29,7 @@ class EMLearning():
                  additive_smoothing=None, add_random=None, initial_accum_value=None,
                  use_unweighted=False):
         self._root = root
+        self._log = log
         self._additive_smoothing = additive_smoothing
         self._initial_accum_value = initial_accum_value
         # Create internal MPE path generator
@@ -92,7 +93,10 @@ class EMLearning():
                     accum = pn.accum
                     if self._additive_smoothing is not None:
                         accum = tf.add(accum, self._additive_smoothing)
-                    assign_ops.append(pn.node.assign(accum))
+                    if pn.node.log:
+                        assign_ops.append(pn.node.assign_log(accum))
+                    else:
+                        assign_ops.append(pn.node.assign(accum))
             return tf.group(*assign_ops, name="update_spn")
 
     def learn(self):
@@ -104,11 +108,19 @@ class EMLearning():
             if node.is_param:
                 with tf.name_scope(node.name) as scope:
                     if self._initial_accum_value is not None:
-                        accum = tf.Variable(tf.ones_like(node.variable,
-                                                         dtype=conf.dtype) *
-                                            self._initial_accum_value,
-                                            dtype=conf.dtype,
-                                            collections=['em_accumulators'])
+                        if node.mask and not all(node.mask):
+                            accum = tf.Variable(tf.cast(tf.reshape(node.mask,
+                                                node.variable.shape),
+                                                dtype=conf.dtype) *
+                                                self._initial_accum_value,
+                                                dtype=conf.dtype,
+                                                collections=['em_accumulators'])
+                        else:
+                            accum = tf.Variable(tf.ones_like(node.variable,
+                                                             dtype=conf.dtype) *
+                                                self._initial_accum_value,
+                                                dtype=conf.dtype,
+                                                collections=['em_accumulators'])
                     else:
                         accum = tf.Variable(tf.zeros_like(node.variable,
                                                           dtype=conf.dtype),

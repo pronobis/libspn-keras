@@ -1,0 +1,66 @@
+Params:
+- num_input_rows=200
+- num_input_vars=5
+- num_input_vals=5
+- num_mixtures=5
+- num_subsets=5
+- num_networks=1
+- num_runs=50
+
+Running tests:
+--> poon_single: on_gpu=False, inputs_shape=(200, 5), inference=MARGINAL, log=False
+--> poon_single: on_gpu=True, inputs_shape=(200, 5), inference=MARGINAL, log=False
+--> poons_multi: on_gpu=False, inputs_shape=(200, 5), inference=MARGINAL, log=False
+--> poons_multi: on_gpu=True, inputs_shape=(200, 5), inference=MARGINAL, log=False
+--> poon_single: on_gpu=False, inputs_shape=(200, 5), inference=MARGINAL, log=True
+--> poon_single: on_gpu=True, inputs_shape=(200, 5), inference=MARGINAL, log=True
+--> poons_multi: on_gpu=False, inputs_shape=(200, 5), inference=MARGINAL, log=True
+--> poons_multi: on_gpu=True, inputs_shape=(200, 5), inference=MARGINAL, log=True
+--> poon_single: on_gpu=False, inputs_shape=(200, 5), inference=MPE, log=False
+--> poon_single: on_gpu=True, inputs_shape=(200, 5), inference=MPE, log=False
+--> poons_multi: on_gpu=False, inputs_shape=(200, 5), inference=MPE, log=False
+--> poons_multi: on_gpu=True, inputs_shape=(200, 5), inference=MPE, log=False
+--> poon_single: on_gpu=False, inputs_shape=(200, 5), inference=MPE, log=True
+--> poon_single: on_gpu=True, inputs_shape=(200, 5), inference=MPE, log=True
+--> poons_multi: on_gpu=False, inputs_shape=(200, 5), inference=MPE, log=True
+--> poons_multi: on_gpu=True, inputs_shape=(200, 5), inference=MPE, log=True
+
+-----------------------
+InferenceType: MARGINAL
+-----------------------
+ CPU          op  SPN_size  TF_size  setup_time weights_init_time  first_run_time  rest_run_time    correct
+     poon_single    3178   12982     6538.62          774.88          659.92          12.30         True
+     poons_multi      14     118       53.91            8.33           33.20          34.26         True
+ GPU          op  SPN_size  TF_size  setup_time weights_init_time  first_run_time  rest_run_time    correct
+     poon_single    3178   12982     6747.76          879.39          932.31         103.45         True
+     poons_multi      14     118       96.32           12.03            5.61           0.96         True
+
+-----------------------
+InferenceType: MARGINAL-LOG
+-----------------------
+ CPU          op  SPN_size  TF_size  setup_time weights_init_time  first_run_time  rest_run_time    correct
+     poon_single    3178   13321     7019.96          570.97          667.96          14.58         True
+     poons_multi      14     222      104.90           12.65           33.45          33.43         True
+ GPU          op  SPN_size  TF_size  setup_time weights_init_time  first_run_time  rest_run_time    correct
+     poon_single    3178   13321     6825.43          558.21          776.88         106.42         True
+     poons_multi      14     222      356.04           10.38            7.72           1.50         True
+
+-----------------------
+InferenceType: MPE
+-----------------------
+ CPU          op  SPN_size  TF_size  setup_time weights_init_time  first_run_time  rest_run_time    correct
+     poon_single    3178   12982     6565.63          524.45          541.93          13.64         True
+     poons_multi      14     138       69.81            9.80           43.69          28.72         True
+ GPU          op  SPN_size  TF_size  setup_time weights_init_time  first_run_time  rest_run_time    correct
+     poon_single    3178   12982     6721.99          552.57          727.40         115.65         True
+     poons_multi      14     138       69.65            9.79            4.80           0.88         True
+
+-----------------------
+InferenceType: MPE-LOG
+-----------------------
+ CPU          op  SPN_size  TF_size  setup_time weights_init_time  first_run_time  rest_run_time    correct
+     poon_single    3178   13009     6902.46          531.00          536.99          12.32         True
+     poons_multi      14     145       63.06            9.40           18.47          29.31         True
+ GPU          op  SPN_size  TF_size  setup_time weights_init_time  first_run_time  rest_run_time    correct
+     poon_single    3178   13009     6834.77          568.13          762.53         109.26         True
+     poons_multi      14     145       99.70           11.85            6.19           1.00         True
