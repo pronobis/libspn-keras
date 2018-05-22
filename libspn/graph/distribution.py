@@ -16,8 +16,9 @@ import tensorflow.contrib.distributions as tfd
 class GaussianLeaf(VarNode):
     """A node representing multiple uni-variate Gaussian distributions for continuous input
     variables. Each variable will have *k* Gaussian components. Each Gaussian component has its
-    own mean and variance. These parameters can be learned or fixed. Lack of evidence must be
-    provided explicitly through feeding :meth:`~libspn.GaussianLeaf.evidence`.
+    own location (mean) and scale (standard deviation). These parameters can be learned or fixed.
+    Lack of evidence must be provided explicitly through feeding
+    :meth:`~libspn.GaussianLeaf.evidence`.
 
     Args:
         feed (Tensor): Tensor feeding this node or ``None``. If ``None``,
@@ -29,12 +30,12 @@ class GaussianLeaf(VarNode):
                                              initialization.
         estimate_variance_init (bool): Boolean marking whether to estimate variance from
                                        ``initialization_data``.
-        mean_init (float or numpy.ndarray): If a float and there's no ``initialization_data``,
-                                            all components are initialized with ``mean_init``. If
+        loc_init (float or numpy.ndarray): If a float and there's no ``initialization_data``,
+                                            all components are initialized with ``loc_init``. If
                                             an numpy.ndarray, must have shape
                                             ``[num_vars, num_components]``.
-        variance_init (float): If a float and there's no ``initialization_data``, variances are
-                               initialized with ``variance_init``.
+        scale_init (float): If a float and there's no ``initialization_data``, scales are
+                            initialized with ``variance_init``.
         train_mean (bool): Whether to make the mean ``Variable`` trainable.
         use_prior (bool): Use prior when initializing variances from data.
                           See :meth:`~libspn.GaussianLeaf.initialize_from_quantiles`.
@@ -51,25 +52,25 @@ class GaussianLeaf(VarNode):
 
     def __init__(self, feed=None, num_vars=1, num_components=2, name="GaussianLeaf",
                  initialization_data=None, estimate_variance_init=True, total_counts_init=1,
-                 learn_dist_params=False, train_var=True, mean_init=0.0, variance_init=1.0,
+                 learn_dist_params=False, train_var=True, loc_init=0.0, scale_init=1.0,
                  train_mean=True, use_prior=False, prior_alpha=2.0, prior_beta=3.0, min_stddev=1e-2,
-                 evidence_indicator_feed=None):
-        self._mean_variable = None
-        self._variance_variable = None
+                 evidence_indicator_feed=None, softplus_scale=False):
+        self._loc_variable = None
+        self._scale_variable = None
         self._num_vars = num_vars
         self._num_components = num_components
+        self._softplus_scale = softplus_scale
 
         # Initial value for means
-        if isinstance(mean_init, float):
-            self._mean_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * mean_init
+        if isinstance(loc_init, float):
+            self._loc_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * loc_init
         else:
-            self._mean_init = mean_init
+            self._loc_init = loc_init
 
         # Initial values for variances.
-        self._variance_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * variance_init
+        self._scale_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * scale_init
         self._learn_dist_params = learn_dist_params
-        self._min_stddev = min_stddev
-        self._min_var = np.square(min_stddev)
+        self._min_stddev = min_stddev if not softplus_scale else np.log(np.exp(min_stddev) - 1)
         if initialization_data is not None:
             self.initialize_from_quantiles(
                 initialization_data, estimate_variance=estimate_variance_init, use_prior=use_prior,
@@ -84,7 +85,7 @@ class GaussianLeaf(VarNode):
 
     def initialize(self):
         """Provide initializers for mean, variance and total counts """
-        return (self._mean_variable.initializer, self._variance_variable.initializer,
+        return (self._loc_variable.initializer, self._scale_variable.initializer,
                 self._total_count_variable.initializer)
 
     @property
@@ -99,17 +100,17 @@ class GaussianLeaf(VarNode):
     @property
     def variables(self):
         """Returns mean and variance variables. """
-        return self._mean_variable, self._variance_variable
+        return self._loc_variable, self._scale_variable
 
     @property
-    def mean_variable(self):
+    def loc_variable(self):
         """Tensor holding mean variable. """
-        return self._mean_variable
+        return self._loc_variable
 
     @property
-    def variance_variable(self):
+    def scale_variable(self):
         """Tensor holding variance variable. """
-        return self._variance_variable
+        return self._scale_variable
 
     @property
     def evidence(self):
@@ -150,13 +151,15 @@ class GaussianLeaf(VarNode):
     @utils.docinherit(Node)
     def _create(self):
         super()._create()
-        self._mean_variable = tf.Variable(
-            self._mean_init, dtype=conf.dtype, collections=['spn_distribution_parameters'])
-        self._variance_variable = tf.Variable(
-            tf.maximum(self._variance_init, self._min_var), dtype=conf.dtype,
+        self._loc_variable = tf.Variable(
+            self._loc_init, dtype=conf.dtype, collections=['spn_distribution_parameters'])
+        self._scale_variable = tf.Variable(
+            tf.maximum(self._scale_init, self._min_stddev), dtype=conf.dtype,
             collections=['spn_distribution_parameters'])
-        self._dist = tfd.Normal(
-            self._mean_variable, tf.maximum(tf.sqrt(self._variance_variable), self._min_stddev))
+        if self._softplus_scale:
+            self._dist = tfd.NormalWithSoftplusScale(self._loc_variable, self._scale_variable)
+        else:
+            self._dist = tfd.Normal(self._loc_variable, self._scale_variable)
 
     def initialize_from_quantiles(self, data, estimate_variance=True, use_prior=False,
                                   prior_alpha=2.0, prior_beta=3.0):
@@ -188,25 +191,29 @@ class GaussianLeaf(VarNode):
         else:
             variance = [np.var(values, axis=0) for values in values_per_quantile]
 
-        self._mean_init = np.stack(means, axis=-1)
+        self._loc_init = np.stack(means, axis=-1)
         if estimate_variance:
-            self._variance_init = np.maximum(np.stack(variance, axis=-1), self._min_var)
+            if self._softplus_scale:
+                self._scale_init = np.log(np.exp(np.sqrt(np.stack(variance, axis=-1))) - 1)
+            else:
+                self._scale_init = np.maximum(
+                    np.stack(np.sqrt(variance), axis=-1), self._min_stddev)
 
     @utils.docinherit(Node)
     def serialize(self):
         data = super().serialize()
         data['num_vars'] = self._num_vars
         data['num_components'] = self._num_components
-        data['mean_init'] = self._mean_init
-        data['variance_init'] = self._variance_init
+        data['mean_init'] = self._loc_init
+        data['variance_init'] = self._scale_init
         return data
 
     @utils.docinherit(Node)
     def deserialize(self, data):
         self._num_vars = data['num_vars']
         self._num_components = data['num_components']
-        self._mean_init = data['mean_init']
-        self._variance_init = data['variance_init']
+        self._loc_init = data['mean_init']
+        self._scale_init = data['variance_init']
         super().deserialize(data)
 
     def _total_accumulates(self, init_val, shape):
@@ -297,7 +304,7 @@ class GaussianLeaf(VarNode):
         counts_reshaped = tf.reshape(counts, (-1, self._num_vars, self._num_components))
         indices = tf.argmax(counts_reshaped, axis=-1) + tf.expand_dims(
             tf.range(self._num_vars, dtype=tf.int64) * self._num_components, axis=0)
-        return tf.gather(tf.reshape(self._mean_variable, (-1,)), indices=indices, axis=0)
+        return tf.gather(tf.reshape(self._loc_variable, (-1,)), indices=indices, axis=0)
 
     @utils.docinherit(Node)
     def _compute_hard_em_update(self, counts):
@@ -315,18 +322,42 @@ class GaussianLeaf(VarNode):
         return {'accum': accum, "sum_data": sum_data, "sum_data_squared": sum_data_squared}
 
     def _compute_gradient(self, incoming_grad):
+        """
+        Computes gradients for location and scales of the distributions propagated gradients via
+        chain rule. The incoming gradient is the summed gradient of the parents of this node.
+
+        Args:
+             incoming_grad (Tensor): A ``Tensor`` holding the summed gradient of the parents of this
+                                     node
+        Returns:
+            Tuple: A ``Tensor`` holding the gradient of the locations and a ``Tensor`` holding the
+                   gradient of the scales.
+        """
         incoming_grad = tf.reshape(incoming_grad, (-1, self._num_vars, self._num_components))
         tiled_feed = self._tile_num_components(self._feed)
-        mean = tf.expand_dims(self._mean_variable, 0)
-        var = tf.expand_dims(self._variance_variable, 0)
+        mean = tf.expand_dims(self._loc_variable, 0)
 
+        # Compute the actual variance of the Gaussian without softplus
+        if self._softplus_scale:
+            scale = tf.nn.softplus(tf.expand_dims(self._scale_variable, 0))
+        else:
+            scale = tf.expand_dims(self._scale_variable, 0)
+        var = tf.square(scale)
+
+        # Compute the gradient
         one_over_var = tf.reciprocal(var)
         x_min_mu = tiled_feed - mean
         mean_grad_out = one_over_var * x_min_mu
+
         var_grad_out = tf.negative(0.5 * one_over_var * (1 - one_over_var * tf.square(x_min_mu)))
-        mean_grad = tf.reduce_sum(mean_grad_out * incoming_grad, axis=0)
-        var_grad = tf.reduce_sum(var_grad_out * incoming_grad, axis=0)
-        return mean_grad, var_grad
+        loc_grad = tf.reduce_sum(mean_grad_out * incoming_grad, axis=0)
+        var_grad = var_grad_out * incoming_grad
+
+        if self._softplus_scale:
+            scale_grad = 2 * var_grad * scale * tf.nn.sigmoid(self._scale_variable)
+        else:
+            scale_grad = 2 * var_grad * scale
+        return loc_grad, tf.reduce_sum(scale_grad, axis=0)
 
     def assign(self, accum, sum_data, sum_data_squared):
         """
@@ -345,21 +376,35 @@ class GaussianLeaf(VarNode):
         """
         n = tf.maximum(self._total_count_variable, tf.ones_like(self._total_count_variable))
         k = accum
-        mean = (n * self._mean_variable + sum_data) / (n + k)
+        mean = (n * self._loc_variable + sum_data) / (n + k)
 
-        variance = (n * self._variance_variable +
-                    sum_data_squared - 2 * self.mean_variable * sum_data +
-                    k * tf.square(self.mean_variable)) / \
-                   (n + k) - tf.square(mean - self._mean_variable)
-        variance = tf.maximum(variance, self._min_var)
-        with tf.control_dependencies([n, mean, variance]):
+        current_var = tf.square(self.scale_variable) if not self._softplus_scale else \
+            tf.square(tf.nn.softplus(self._scale_variable))
+        variance = (n * current_var + sum_data_squared -
+                    2 * self.loc_variable * sum_data + k * tf.square(self.loc_variable)) / \
+                   (n + k) - tf.square(mean - self._loc_variable)
+
+        scale = tf.sqrt(variance)
+        if self._softplus_scale:
+            scale = tfd.softplus_inverse(scale)
+        scale = tf.maximum(scale, self._min_stddev)
+        with tf.control_dependencies([n, mean, scale]):
             return (
                 tf.assign_add(self._total_count_variable, k),
-                tf.assign(self._variance_variable, variance) if self._train_var else tf.no_op(),
-                tf.assign(self._mean_variable, mean) if self._train_mean else tf.no_op())
+                tf.assign(self._scale_variable, scale) if self._train_var else tf.no_op(),
+                tf.assign(self._loc_variable, mean) if self._train_mean else tf.no_op())
 
-    def assign_add(self, delta_mean, delta_variance):
-        new_var = tf.maximum(self._variance_variable + delta_variance, self._min_var)
+    def assign_add(self, delta_loc, delta_scale):
+        """
+        Updates distribution parameters by adding a small delta value.
+
+        Args:
+            delta_loc (Tensor): A delta ``Tensor`` for the locations of the distributions.
+            delta_scale (Tensor): A delta ``Tensor`` for the scales of the distributions.
+        Returns:
+             Tuple: An update ``Op`` for the locations and an update ``Op`` for the scales.
+        """
+        new_var = tf.maximum(self._scale_variable + delta_scale, self._min_stddev)
         with tf.control_dependencies([new_var]):
-            update_variance = tf.assign(self._variance_variable, new_var)
-        return tf.assign_add(self._mean_variable, delta_mean), update_variance
+            update_variance = tf.assign(self._scale_variable, new_var)
+        return tf.assign_add(self._loc_variable, delta_loc), update_variance

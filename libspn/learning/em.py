@@ -158,22 +158,22 @@ class EMLearning():
             if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
                 with tf.name_scope(node.name) as scope:
                     if self._initial_accum_value is not None:
-                        accum = tf.Variable(tf.ones_like(node.mean_variable, dtype=conf.dtype) *
+                        accum = tf.Variable(tf.ones_like(node.loc_variable, dtype=conf.dtype) *
                                             self._initial_accum_value,
                                             dtype=conf.dtype,
                                             collections=['em_accumulators'])
-                        sum_x = tf.Variable(node.mean_variable * self._initial_accum_value,
+                        sum_x = tf.Variable(node.loc_variable * self._initial_accum_value,
                                             dtype=conf.dtype, collections=['em_accumulators'])
-                        sum_x2 = tf.Variable(tf.square(node.mean_variable) *
+                        sum_x2 = tf.Variable(tf.square(node.loc_variable) *
                                              self._initial_accum_value,
                                              dtype=conf.dtype, collections=['em_accumulators'])
                     else:
-                        accum = tf.Variable(tf.zeros_like(node.mean_variable, dtype=conf.dtype),
+                        accum = tf.Variable(tf.zeros_like(node.loc_variable, dtype=conf.dtype),
                                             dtype=conf.dtype,
                                             collections=['em_accumulators'])
-                        sum_x = tf.Variable(tf.zeros_like(node.mean_variable), dtype=conf.dtype,
+                        sum_x = tf.Variable(tf.zeros_like(node.loc_variable), dtype=conf.dtype,
                                             collections=['em_accumulators'])
-                        sum_x2 = tf.Variable(tf.zeros_like(node.mean_variable), dtype=conf.dtype,
+                        sum_x2 = tf.Variable(tf.zeros_like(node.loc_variable), dtype=conf.dtype,
                                              collections=['em_accumulators'])
                     gaussian_node = EMLearning.GaussianLeafNode(
                         node=node, accum=accum, sum_data=sum_x, sum_data_squared=sum_x2,

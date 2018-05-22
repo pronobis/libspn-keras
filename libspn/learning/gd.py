@@ -204,10 +204,10 @@ class GDLearning():
             if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
                 with tf.name_scope(node.name) as scope:
                     mean_grad_accum = tf.Variable(
-                        tf.zeros_like(node.mean_variable, dtype=conf.dtype),
+                        tf.zeros_like(node.loc_variable, dtype=conf.dtype),
                         dtype=conf.dtype, collections=['gd_accumulators'])
                     variance_grad_accum = tf.Variable(
-                        tf.zeros_like(node.variance_variable, dtype=conf.dtype),
+                        tf.zeros_like(node.scale_variable, dtype=conf.dtype),
                         dtype=conf.dtype, collections=['gd_accumulators'])
                     gauss_leaf_node = GDLearning.GaussianLeafNode(
                         node=node, mean_grad=mean_grad_accum, var_grad=variance_grad_accum,
