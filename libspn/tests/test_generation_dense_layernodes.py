@@ -161,7 +161,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
             tf_gradients = tf.gradients(v_log, [w.variable for w in weight_nodes])
 
         # Creating session
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initializing weights
             init.run()
 
@@ -208,9 +208,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         input_dist = [spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE,
                       spn.DenseSPNGeneratorLayerNodes.InputDist.RAW]
         balanced = [True, False]
-        node_type = [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
-                     spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-                     spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER]
+        node_type = [spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER]
         log_weights = [True, False]
         case = 0
 
