@@ -8,6 +8,7 @@
 # Import public interface of the library
 
 from .utils import decode_bytes_array
+from .lrucache import lru_cache
 from .math import gather_cols
 from .math import gather_cols_3d
 from .math import scatter_cols

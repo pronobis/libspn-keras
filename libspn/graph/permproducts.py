@@ -164,6 +164,7 @@ class PermProducts(OpNode):
                     return None
         return self._compute_scope(*value_scopes)
 
+    @utils.lru_cache
     def _compute_value_common(self, *value_tensors):
         """Common actions when computing value."""
         # Check inputs
@@ -190,11 +191,13 @@ class PermProducts(OpNode):
         else:
             return values
 
+    @utils.lru_cache
     def _compute_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
         return tf.reduce_prod(values, axis=-1,
                               keep_dims=(False if self._num_prods > 1 else True))
 
+    @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
         @tf.custom_gradient
@@ -212,6 +215,7 @@ class PermProducts(OpNode):
     def _compute_log_mpe_value(self, *value_tensors):
         return self._compute_log_value(*value_tensors)
 
+    @utils.lru_cache
     def _compute_mpe_path(self, counts, *value_values, add_random=False,
                           use_unweighted=False, with_ivs=False):
         # Path per product node is calculated by permuting backwards to the

@@ -32,3 +32,8 @@ sumslayer_count_sum_strategy = "gather"
 """Strategy to apply when summing counts
 within a SumsLayer. Can be 'segmented',
 'gather' or 'None' """
+
+memoization = True
+"""Whether to use LRU caches to function
+return values in successive calls for reduced
+graph size."""

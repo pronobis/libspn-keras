@@ -106,6 +106,7 @@ class Product(OpNode):
                 return None
         return self._compute_scope(*value_scopes)
 
+    @utils.lru_cache
     def _compute_value_common(self, *value_tensors):
         """Common actions when computing value."""
         # Check inputs
@@ -119,10 +120,12 @@ class Product(OpNode):
             values = value_tensors[0]
         return values
 
+    @utils.lru_cache
     def _compute_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
         return tf.reduce_prod(values, 1, keep_dims=True)
 
+    @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
         @tf.custom_gradient
@@ -140,6 +143,7 @@ class Product(OpNode):
     def _compute_log_mpe_value(self, *value_tensors):
         return self._compute_log_value(*value_tensors)
 
+    @utils.lru_cache
     def _compute_mpe_path(self, counts, *value_values, add_random=False,
                           use_unweighted=False, with_ivs=False):
         # Check inputs
@@ -164,6 +168,7 @@ class Product(OpNode):
                               use_unweighted=False, with_ivs=False):
         return self._compute_mpe_path(counts, *value_values)
 
+    @utils.lru_cache
     def _compute_gradient(self, gradients, *value_values, with_ivs=False):
         values = self._compute_value_common(*value_values)
         output_gradients = (tf.reduce_prod(values, 1, keep_dims=True) *
