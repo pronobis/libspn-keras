@@ -7,6 +7,7 @@
 
 from libspn.inference.type import InferenceType
 from libspn.graph.basesum import BaseSum
+import libspn.utils as utils
 
 
 @utils.register_serializable
