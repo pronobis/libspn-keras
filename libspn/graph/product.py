@@ -125,7 +125,14 @@ class Product(OpNode):
 
     def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
-        return tf.reduce_sum(values, 1, keep_dims=True)
+        @tf.custom_gradient
+        def value_gradient(*value_tensors):
+            def gradient(gradients):
+                scattered_grads = self._compute_mpe_path(gradients, *value_tensors)
+                return [sg for sg in scattered_grads if sg is not None]
+
+            return tf.reduce_sum(values, 1, keep_dims=True), gradient
+        return value_gradient(*value_tensors)
 
     def _compute_mpe_value(self, *value_tensors):
         return self._compute_value(*value_tensors)
