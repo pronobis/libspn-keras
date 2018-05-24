@@ -33,8 +33,8 @@ IndT CountAndCopy(typename TTypes<T>::ConstMatrix params,
     }
     else
     {
-      //--Single column tensor, indices must include it, so if only one column
-      // is gathered, it must be an exact copy of the input--//
+      //--Single column tensor, indices must include it, so just copy params
+      // tensor to output tensor and return--//
       memcpy(&output(0, 0), &params(0, 0), (params_rows * sizeof(T)));
       return -1;
     }

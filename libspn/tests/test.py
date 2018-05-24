@@ -7,6 +7,7 @@
 
 import tensorflow as tf
 import os
+import itertools
 
 
 class TestCase(tf.test.TestCase):
@@ -52,3 +53,7 @@ class TestCase(tf.test.TestCase):
 
     def sid(self):
         return self.id().split('.')[-2]
+
+
+def arg_product(*args):
+    return [tuple(elem) for elem in itertools.product(*args)]
