@@ -29,6 +29,10 @@ class ContVars(VarNode):
         self._num_vars = num_vars
         super().__init__(feed, name)
 
+    def attach_feed(self, feed):
+        super().attach_feed(feed)
+        self._evidence = self._evidence_placeholder()
+
     def serialize(self):
         data = super().serialize()
         data['num_vars'] = self._num_vars
@@ -37,6 +41,14 @@ class ContVars(VarNode):
     def deserialize(self, data):
         self._num_vars = data['num_vars']
         super().deserialize(data)
+
+    @property
+    def evidence(self):
+        return self._evidence
+
+    @property
+    def num_vars(self):
+        return self._num_vars
 
     def _create_placeholder(self):
         """Create a placeholder that will be used to feed this variable when
@@ -47,6 +59,10 @@ class ContVars(VarNode):
             first dimension corresponds to the batch size.
         """
         return tf.placeholder(conf.dtype, [None, self._num_vars])
+
+    def _evidence_placeholder(self):
+        return tf.placeholder_with_default(
+            tf.cast(tf.ones_like(self._feed, dtype=conf.dtype), tf.bool), [None, self._num_vars])
 
     def _compute_out_size(self):
         return self._num_vars

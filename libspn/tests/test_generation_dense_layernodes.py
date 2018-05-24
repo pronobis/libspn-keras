@@ -9,10 +9,11 @@
 
 from context import libspn as spn
 from libspn import conf
-from test import TestCase
+from test import TestCase, arg_product
 import itertools
 import tensorflow as tf
 import numpy as np
+from parameterized import parameterized
 
 
 def printc(string):
@@ -66,8 +67,31 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
     def tearDown(self):
         tf.reset_default_graph()
 
+    # num_decomps = [1, 2]
+    # num_subsets = [2, 3, 6]
+    # num_mixtures = [1, 2]
+    # num_input_mixtures = [1, 2]
+    # input_dist = [spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE,
+    #               spn.DenseSPNGeneratorLayerNodes.InputDist.RAW]
+    # balanced = [True, False]
+    # node_type = [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
+    #              spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
+    #              spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER]
+    # log_weights = [True, False]
+    # case = 0
+
+    @parameterized.expand(arg_product(
+        [1, 2], [2, 3, 6], [1, 2],
+        [spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE,
+         spn.DenseSPNGeneratorLayerNodes.InputDist.RAW],
+        [False, True],
+        [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
+         spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
+         spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
+        [True]
+    ))
     def generic_dense_test(self, num_decomps, num_subsets, num_mixtures, input_dist,
-                           num_input_mixtures, balanced, node_type, log_weights, case):
+                           num_input_mixtures, balanced, node_type, log_weights):
         """A generic test for DenseSPNGeneratorLayerNodes."""
         self.tearDown()
 
@@ -83,7 +107,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
                 conf.custom_scatter_cols = False
                 conf.custom_scatter_values = False
 
-        printc("Case: %s" % case)
+        # printc("Case: %s" % case)
         printc("- num_decomps: %s" % num_decomps)
         printc("- num_subsets: %s" % num_subsets)
         printc("- num_mixtures: %s" % num_mixtures)

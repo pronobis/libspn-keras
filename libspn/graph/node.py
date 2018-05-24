@@ -4,10 +4,12 @@
 # This file is part of LibSPN. Unauthorized use or copying of this file,
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
-
+import abc
 from abc import ABC, abstractmethod, abstractproperty
+from collections import namedtuple, OrderedDict
+
 import tensorflow as tf
-from libspn import utils
+from libspn import utils, conf
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
 from libspn.graph.algorithms import compute_graph_up, traverse_graph
@@ -142,6 +144,10 @@ class Input():
     def is_var(self):
         """Returns ``True`` if the input is connected to a variable node."""
         return isinstance(self.node, VarNode)
+
+    @property
+    def is_distribution(self):
+        return isinstance(self.node, DistributionNode)
 
     def get_size(self, input_tensor):
         """Get the size of the input.
@@ -1049,3 +1055,86 @@ class ParamNode(Node):
         Returns:
             Update operation.
         """
+
+
+class DistributionNode(VarNode, abc.ABC):
+
+    def __init__(self, feed=None, num_vars=1, name="DistributionLeaf"):
+        if not isinstance(num_vars, int) or num_vars < 1:
+            raise ValueError("num_vars must be a positive integer")
+        self._num_vars = num_vars
+        super().__init__(feed, name)
+
+    @property
+    def evidence(self):
+        return self._evidence_indicator
+
+    def _create_placeholder(self):
+        return tf.placeholder(conf.dtype, [None, self._num_vars])
+
+    def _create_evidence_indicator(self):
+        return tf.placeholder_with_default(
+            tf.cast(tf.ones_like(self._placeholder), tf.bool), shape=[None, self._num_vars])
+
+    def _create(self):
+        super()._create()
+        self._evidence_indicator = self._create_evidence_indicator()
+
+
+class ParameterizedDistributionNode(DistributionNode, abc.ABC):
+
+    Accumulate = namedtuple("Accumulate", ["name", "shape", "init"])
+
+    def __init__(self, accumulates=None, feed=None, num_vars=1, trainable=True,
+                 name="ParameterizedDistribution"):
+        self._variables = OrderedDict()
+        self._accumulates = accumulates
+        self._trainable = trainable
+        super().__init__(feed, num_vars, name)
+
+    @property
+    def initialize(self):
+        return tf.group(*[var.initializer for var in self._variables])
+
+    @property
+    def variables(self):
+        return self._variables
+
+    @property
+    def accumulates(self):
+        return self._accumulates
+
+    @abc.abstractmethod
+    def _compute_hard_em_update(self, counts):
+        """Compute hard EM update for all variables contained in this node. """
+
+    def _create(self):
+        super()._create()
+        self._variables = OrderedDict()
+        for name, shape, init in self._accumulates:
+            init_val = utils.broadcast_value(init, shape, dtype=conf.dtype)
+            self._variables[name] = tf.Variable(
+                init_val, dtype=conf.dtype, collections=['spn_distribution_accumulates'])
+
+    # @abc.abstractmethod
+    # def assign(self, accum, ):
+    #     """Assign new values to variables based on accum """
+        # assignment_ops = []
+        # if values and named_values:
+        #     raise ValueError(
+        #         "Cannot specify both keyword arguments for values and names for values.")
+        # if values:
+        #     if len(values) != len(self._variables):
+        #         raise StructureError(
+        #             "{}: number of assignment values does not match the number of parameters. Got "
+        #             "{}, expected {}.".format(self.name, len(values), len(self._variables)))
+        #     for var, val in zip(self._variables.values(), values):
+        #         assignment_ops.append(tf.assign(var, val))
+        # if named_values:
+        #     if len(named_values) != len(self._variables):
+        #         raise StructureError(
+        #             "{}: number of assignment values does not match the number of parameters. Got "
+        #             "{}, expected {}.".format(self.name, len(values), len(self._variables)))
+        #     for name, val in named_values.items():
+        #         assignment_ops.append(tf.assign(self._variables[name], val))
+
