@@ -65,6 +65,7 @@ class BaseSum(OpNode, abc.ABC):
         num_values = sum(input_sizes[2:])  # Skip ivs, weights
         return num_sums * [num_values]
 
+    @utils.docinherit(OpNode)
     def serialize(self):
         data = super().serialize()
         data['values'] = [(i.node.name, i.indices) for i in self._values]
@@ -76,6 +77,7 @@ class BaseSum(OpNode, abc.ABC):
         data['sum_sizes'] = self._sum_sizes
         return data
 
+    @utils.docinherit(OpNode)
     def deserialize(self, data):
         super().deserialize(data)
         self.set_values()
@@ -83,6 +85,7 @@ class BaseSum(OpNode, abc.ABC):
         self.set_ivs()
         self._reset_sum_sizes(num_sums=data['num_sums'], sum_sizes=data['sum_sizes'])
 
+    @utils.docinherit(OpNode)
     def deserialize_inputs(self, data, nodes_by_name):
         super().deserialize_inputs(data, nodes_by_name)
         self._values = tuple(Input(nodes_by_name[nn], i)
@@ -118,9 +121,18 @@ class BaseSum(OpNode, abc.ABC):
         self._weights = weights
 
     def _reset_sum_sizes(self, num_sums=None, sum_sizes=None):
+        """Resets the sizes and number of sums. If number of sums is specified, it will take that
+        value, otherwise it will take the value that is already set. If sum_sizes is specified
+        it will take that value, otherwise it will infer that using
+        :meth:`~libspn.BaseSum._get_sum_sizes`. Finally, it also sets the maximum sum size.
+
+        Args:
+            num_sums (int): Number of sums modeled by this ``Node``.
+            sum_sizes (int): A list of sum sizes with as many ``int``s as there are sums modeled.
+        """
         self._num_sums = num_sums or self._num_sums
         self._sum_sizes = sum_sizes or self._get_sum_sizes(self._num_sums)
-        self._max_sum_size = max(self._sum_sizes)
+        self._max_sum_size = max(self._sum_sizes) if self._sum_sizes else 0
 
     @property
     def ivs(self):
