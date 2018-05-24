@@ -201,6 +201,7 @@ class BaseSum(OpNode, abc.ABC):
         self.set_ivs(ivs)
         return ivs
 
+    @utils.lru_cache
     def _compute_reducible(
             self, w_tensor, ivs_tensor, *input_tensors, log=True, use_ivs=True, weighted=True):
         """Computes a reducible ``Tensor`` so that reducing it over the last axis can be used for
@@ -240,18 +241,43 @@ class BaseSum(OpNode, abc.ABC):
         return reducible
 
     @utils.docinherit(OpNode)
+    @utils.lru_cache
     def _compute_out_size(self, *input_out_sizes):
         return self._num_sums
 
     @utils.docinherit(OpNode)
+    @utils.lru_cache
     def _compute_value(self, w_tensor, ivs_tensor, *input_tensors):
         return self._reduce_marginal_inference(self._compute_reducible(
             w_tensor, ivs_tensor, *input_tensors, log=False, weighted=True, use_ivs=True))
 
     @utils.docinherit(OpNode)
-    def _compute_log_value(self, w_tensor, ivs_tensor, *input_tensors):
-        return self._reduce_marginal_inference_log(self._compute_reducible(
-            w_tensor, ivs_tensor, *input_tensors, log=True, weighted=True, use_ivs=True))
+    @utils.lru_cache
+    def _compute_log_value(self, w_tensor, ivs_tensor, *value_tensors):
+
+        def soft_gradient(grad):
+            scattered_grads = self._compute_log_gradient(
+                grad, w_tensor, ivs_tensor, *value_tensors, sum_weight_grads=True)
+            return [sg for sg in scattered_grads if sg is not None]
+
+        @tf.custom_gradient
+        def _log_value(*input_tensors):
+            ret = self._reduce_marginal_inference_log(self._compute_reducible(
+                w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True, use_ivs=True))
+            return ret, soft_gradient
+        return _log_value(*self._get_differentiable_inputs(w_tensor, ivs_tensor, *value_tensors))
+
+    def _get_differentiable_inputs(self, w_tensor, ivs_tensor, *value_tensors):
+        """Selects the tensors to include for a tf.custom_gradient when computing the log-value.
+
+        Args:
+            w_tensor (Tensor): A ``Tensor`` of shape [num_sums, max_sum_size] with the value of
+                               the weights corresponding to this node.
+            ivs_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] with the
+                                 value of the IVs corresponding to this node.
+
+        """
+        return [w_tensor] + ([ivs_tensor] if self._ivs else []) + list(value_tensors)
 
     @utils.docinherit(OpNode)
     def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors):
@@ -259,10 +285,12 @@ class BaseSum(OpNode, abc.ABC):
             w_tensor, ivs_tensor, *input_tensors, log=False, weighted=True, use_ivs=True))
 
     @utils.docinherit(OpNode)
+    @utils.lru_cache
     def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *input_tensors):
         return self._reduce_mpe_inference_log(self._compute_reducible(
             w_tensor, ivs_tensor, *input_tensors, log=True, weighted=True, use_ivs=True))
 
+    @utils.lru_cache
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors):
         """Common operations for computing the MPE path.
@@ -290,6 +318,7 @@ class BaseSum(OpNode, abc.ABC):
             (max_counts_acc, ivs_tensor),  # IVs
             *[(t, v) for t, v in zip(max_counts_split, input_tensors)])  # Values
 
+    @utils.lru_cache
     def _accumulate_and_split_to_children(self, x, *input_tensors):
         """Accumulates the values in x over the op axis. Potentially also accumulates for every
         unique input if appropriate (e.g. in SumsLayer).
@@ -314,6 +343,7 @@ class BaseSum(OpNode, abc.ABC):
         return x_acc, tf.split(x_acc, value_sizes, axis=self._op_axis)
 
     @utils.docinherit(OpNode)
+    @utils.lru_cache
     def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, *input_tensors,
                           use_unweighted=False, with_ivs=True, add_random=None):
         apply_weights = not use_unweighted or any(v.node.is_var for v in self._values)
@@ -323,6 +353,7 @@ class BaseSum(OpNode, abc.ABC):
             reducible, counts, w_tensor, ivs_tensor, *input_tensors)
 
     @utils.docinherit(OpNode)
+    @utils.lru_cache
     def _compute_log_mpe_path(self, counts, w_tensor, ivs_tensor, *input_tensors,
                               use_unweighted=False, with_ivs=True, add_random=None):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
@@ -336,8 +367,10 @@ class BaseSum(OpNode, abc.ABC):
         return self._compute_mpe_path_common(
                     reducible, counts, w_tensor, ivs_tensor, *input_tensors)
 
+    @utils.lru_cache
     def _compute_log_gradient(
-            self, gradients, w_tensor, ivs_tensor, *input_tensors, with_ivs=True):
+            self, gradients, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
+            sum_weight_grads=False):
         """Computes gradient for log probabilities.
 
         Args:
@@ -347,8 +380,10 @@ class BaseSum(OpNode, abc.ABC):
                                weights corresponding to this node.
             ivs_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] that
                                  corresponds to the IVs of this node.
-            input_tensors (tuple): A ``tuple`` of ``Tensor``s that correspond to the values of the
+            value_tensors (tuple): A ``tuple`` of ``Tensor``s that correspond to the values of the
                                    children of this node.
+            sum_weight_grads (bool): A ``bool`` that marks whether the weight gradients should be
+                                     summed over the batch axis.
         Returns:
             A ``list`` of ``tuple``s where each tuple consists of a gradient and the forward-pass
             tensor corresponding to the gradient. Starts with weights, then IVs and the remaining
@@ -356,7 +391,7 @@ class BaseSum(OpNode, abc.ABC):
         """
 
         reducible = self._compute_reducible(
-            w_tensor, ivs_tensor, *input_tensors, log=True, use_ivs=with_ivs, weighted=True)
+            w_tensor, ivs_tensor, *value_tensors, log=True, use_ivs=with_ivs, weighted=True)
 
         # Below exploits the memoization decorator, since
         log_sum = tf.expand_dims(
@@ -364,11 +399,16 @@ class BaseSum(OpNode, abc.ABC):
         w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(reducible - log_sum)
 
         inp_grad, inp_grad_split = self._accumulate_and_split_to_children(w_grad)
+
+        if sum_weight_grads:
+            w_grad = tf.reduce_sum(w_grad, axis=0, keepdims=False)
+
         return self._scatter_to_input_tensors(
             (w_grad, w_tensor),
             (inp_grad, ivs_tensor),
-            *[(t, v) for t, v in zip(inp_grad_split, input_tensors)])
+            *[(t, v) for t, v in zip(inp_grad_split, value_tensors)])
 
+    @utils.lru_cache
     def _compute_gradient(self, gradients, w_tensor, ivs_tensor, *input_tensors, with_ivs=True):
         """Computes gradient for non-log probabilities.
 
@@ -386,17 +426,7 @@ class BaseSum(OpNode, abc.ABC):
             tensor corresponding to the gradient. Starts with weights, then IVs and the remaining
             ``tuple`` correspond to ``input_tensors``.
         """
-        reducible = self._compute_reducible(
-            w_tensor, ivs_tensor, *input_tensors, log=False, use_ivs=False, weighted=False)
-        gradients = tf.expand_dims(gradients, axis=self._reduce_axis)
-
-        w_grad = tf.reduce_sum(gradients * reducible, axis=self._op_axis)
-        inp_grad, inp_grad_split = self._accumulate_and_split_to_children(gradients * w_tensor)
-
-        return self._scatter_to_input_tensors(
-            (w_grad, w_tensor),  # Weights
-            (w_grad, ivs_tensor),  # IVs
-            *[(t, v) for t, v in zip(inp_grad_split, input_tensors)])  # Values
+        raise NotImplementedError("%s: Currently there is no support for non-log values." % self)
 
     def _get_flat_value_scopes(self, weight_scopes, ivs_scopes, *value_scopes):
         """Get a flat representation of the value scopes per sum.
@@ -463,6 +493,7 @@ class BaseSum(OpNode, abc.ABC):
     def _const_out_size(self):
         return True
 
+    @utils.lru_cache
     def _prepare_component_wise_processing(
             self, w_tensor, ivs_tensor, *input_tensors, zero_prob_val=0.0):
         """Gathers inputs and combines them so that the resulting tensor can be reduced over the
@@ -491,22 +522,28 @@ class BaseSum(OpNode, abc.ABC):
             ivs_tensor = tf.reshape(ivs_tensor, shape=(-1, self._num_sums, self._max_sum_size))
         return w_tensor, ivs_tensor, reducible_inputs
 
+    @utils.lru_cache
     def _reduce_marginal_inference(self, x):
         return tf.reduce_sum(x, axis=self._reduce_axis, keepdims=False)
 
+    @utils.lru_cache
     def _reduce_marginal_inference_log(self, x):
         return tf.reduce_logsumexp(x, axis=self._reduce_axis, keepdims=False)
 
+    @utils.lru_cache
     def _reduce_mpe_inference(self, x):
         return tf.reduce_max(x, axis=self._reduce_axis, keepdims=False)
 
+    @utils.lru_cache
     def _reduce_mpe_inference_log(self, x):
         return self._reduce_mpe_inference(x)
 
+    @utils.lru_cache
     def _reduce_argmax(self, x):
         return tf.argmax(x, axis=self._reduce_axis)
 
     @staticmethod
+    @utils.lru_cache
     def cwise_add(a, b):
         """Component-wise addition of two tensors. Added explicitly for readability elsewhere and
         for straightforward memoization.
@@ -521,6 +558,7 @@ class BaseSum(OpNode, abc.ABC):
         return a + b
 
     @staticmethod
+    @utils.lru_cache
     def cwise_mul(a, b):
         """Component-wise multiplication of two tensors. Added explicitly for readability elsewhere
         and for straightforward memoization.

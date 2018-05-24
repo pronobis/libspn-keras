@@ -13,7 +13,7 @@ from test import TestCase
 import itertools
 import tensorflow as tf
 import numpy as np
-
+from libspn.tests.test import argsprod
 
 def printc(string):
     COLOR = '\033[1m\033[93m'
@@ -66,10 +66,14 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
     def tearDown(self):
         tf.reset_default_graph()
 
-    def generic_dense_test(self, num_decomps, num_subsets, num_mixtures, input_dist,
-                           num_input_mixtures, balanced, node_type, log_weights, case):
+    @argsprod([1, 2], [2, 3, 6], [1, 2], [1, 2],
+              [spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE,
+               spn.DenseSPNGeneratorLayerNodes.InputDist.RAW],
+              [True, False], [spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER], [True])
+    def test_generate_spn(self, num_decomps, num_subsets, num_mixtures, num_input_mixtures,
+                          input_dist, balanced, node_type, log_weights):
         """A generic test for DenseSPNGeneratorLayerNodes."""
-        self.tearDown()
+        # self.tearDown()
 
         def use_custom_ops(custom_ops=True):
             if custom_ops:
@@ -83,7 +87,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
                 conf.custom_scatter_cols = False
                 conf.custom_scatter_values = False
 
-        printc("Case: %s" % case)
+        # printc("Case: %s" % case)
         printc("- num_decomps: %s" % num_decomps)
         printc("- num_subsets: %s" % num_subsets)
         printc("- num_mixtures: %s" % num_mixtures)
@@ -163,7 +167,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         # Creating session
         with self.test_session() as sess:
             # Initializing weights
-            init.run()
+            sess.run(init)
 
             # Generating random feed
             feed = np.array(list(itertools.product(range(num_vals),
@@ -198,38 +202,6 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
             self.assertEqual(np.sum(np.hstack(out_path_log), axis=0).tolist(),
                              [batch_size // num_vals]*num_inputs*num_vars*num_vals)
             self.write_tf_graph(sess, self.sid(), self.cid())
-
-    def test_generate_spn(self):
-        """Generate and test dense SPNs with varying combination of parameters"""
-        num_decomps = [1, 2]
-        num_subsets = [2, 3, 6]
-        num_mixtures = [1, 2]
-        num_input_mixtures = [1, 2]
-        input_dist = [spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE,
-                      spn.DenseSPNGeneratorLayerNodes.InputDist.RAW]
-        balanced = [True, False]
-        node_type = [spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER]
-        log_weights = [True, False]
-        case = 0
-
-        for n_dec in num_decomps:
-            for n_sub in num_subsets:
-                for n_mix in num_mixtures:
-                    for n_imix in num_input_mixtures:
-                        for dist in input_dist:
-                            for bal in balanced:
-                                for n_type in node_type:
-                                    for log_w in log_weights:
-                                        case += 1
-                                        self.generic_dense_test(num_decomps=n_dec,
-                                                                num_subsets=n_sub,
-                                                                num_mixtures=n_mix,
-                                                                input_dist=dist,
-                                                                num_input_mixtures=n_imix,
-                                                                balanced=bal,
-                                                                node_type=n_type,
-                                                                log_weights=log_w,
-                                                                case=case)
 
 
 if __name__ == '__main__':

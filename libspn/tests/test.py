@@ -7,6 +7,8 @@
 
 import tensorflow as tf
 import os
+from parameterized import parameterized
+import itertools
 
 
 class TestCase(tf.test.TestCase):
@@ -52,3 +54,7 @@ class TestCase(tf.test.TestCase):
 
     def sid(self):
         return self.id().split('.')[-2]
+
+
+def argsprod(*args):
+    return parameterized.expand([tuple(elem) for elem in itertools.product(*args)])
