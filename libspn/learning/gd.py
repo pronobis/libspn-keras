@@ -16,7 +16,7 @@ from libspn import conf
 from libspn.graph.distribution import GaussianLeaf
 
 
-class GDLearning():
+class GDLearning:
     """Assembles TF operations performing Gradient Descent learning of an SPN.
 
     Args:
@@ -30,9 +30,10 @@ class GDLearning():
             used while learning.
     """
     ParamNode = namedtuple("ParamNode", ["node", "name_scope", "accum"])
-    GaussianLeafNode = namedtuple("ParamNode", ["node", "name_scope", "mean_grad", "var_grad"])
+    GaussianLeafNode = namedtuple(
+        "GaussianLeafNode", ["node", "name_scope", "mean_grad", "var_grad"])
 
-    def __init__(self, root, mpe_path=None, gradient=None, learning_rate=0.1,
+    def __init__(self, root, mpe_path=None, gradient=None, learning_rate=0.001,
                  log=True, value_inference_type=None,
                  learning_type=LearningType.DISCRIMINATIVE,
                  learning_inference_type=LearningInferenceType.HARD,
@@ -128,27 +129,18 @@ class GDLearning():
             for pn in self._param_nodes:
                 with tf.name_scope(pn.name_scope):
                     if self._learning_inference_type == LearningInferenceType.HARD:
-                        counts = self._mpe_path.counts[pn.node]
-                        actual_counts = self._mpe_path.actual_counts[pn.node] if \
+                        true_gradients = self._mpe_path.counts[pn.node]
+                        actual_gradients = self._mpe_path.actual_counts[pn.node] if \
                             self._learning_type == LearningType.DISCRIMINATIVE else None
-                        update_value = \
-                            pn.node._compute_hard_gd_update(counts, actual_counts)
-                        # Apply learning-rate
-                        update_value *= self._learning_rate
-                        op = tf.assign_add(pn.accum, update_value)
-                        assign_ops.append(op)
                     else:
-                        gradients = self._gradient.gradients[pn.node]
+                        true_gradients = self._gradient.gradients[pn.node]
                         actual_gradients = self._gradient.actual_gradients[pn.node] \
                             if self._learning_type == LearningType.DISCRIMINATIVE \
                             else None
-                        # TODO: Is there a better way to do this?
-                        update_value = \
-                            pn.node._compute_hard_gd_update(gradients, actual_gradients)
-                        # Apply learning-rate
-                        update_value *= self._learning_rate
-                        op = tf.assign_add(pn.accum, update_value)
-                        assign_ops.append(op)
+                    update_value = \
+                        pn.node._compute_hard_gd_update(true_gradients, actual_gradients)
+                    op = tf.assign_sub(pn.accum, update_value)
+                    assign_ops.append(op)
 
             if self._learning_inference_type == LearningInferenceType.HARD:
                 positive_grad_table = self._mpe_path.counts
@@ -163,33 +155,36 @@ class GDLearning():
                     if self._learning_type == LearningType.DISCRIMINATIVE:
                         incoming_grad -= negative_grad_table[gn.node]
                     mean_grad, var_grad = gn.node._compute_gradient(incoming_grad)
-                    assign_ops.append(tf.assign_add(gn.mean_grad, mean_grad * self._learning_rate))
-                    assign_ops.append(tf.assign_add(gn.var_grad, var_grad * self._learning_rate))
+                    assign_ops.append(tf.assign_add(gn.mean_grad, mean_grad))
+                    assign_ops.append(tf.assign_add(gn.var_grad, var_grad))
 
             return tf.group(*assign_ops, name="accumulate_updates")
 
-    def update_spn(self):
+    def update_spn(self, optimizer=None):
+        if not optimizer:
+            raise ValueError("No Optimizer provide for updating SPN")
         # Generate all update operations
         with tf.name_scope(self._name_scope):
-            assign_ops = []
-            for pn in self._param_nodes:
-                with tf.name_scope(pn.name_scope):
-                    if self._learning_inference_type == LearningInferenceType.HARD:
-                        # Add accumulators to respective weights
-                        if pn.node.log:
-                            assign_ops.append(pn.node.update_log(pn.accum))
+            apply_grad_op = \
+                optimizer(self._learning_rate).apply_gradients(self._grads_and_vars)
+
+            # After applying gradients to weights, normalize weights
+            with tf.control_dependencies([apply_grad_op]):
+                weight_norm_ops = []
+
+                def fun(node):
+                    if node.is_param:
+                        if node.log:
+                            weight_norm_ops.append(node.assign_log(node.variable))
                         else:
-                            assign_ops.append(pn.node.update(pn.accum))
-                    else:
-                        # Add gradients to respective weights
-                        if pn.node.log:
-                            assign_ops.append(pn.node.update_log(pn.accum))
-                        else:
-                            assign_ops.append(pn.node.update(pn.accum))
-            for gn in self._gaussian_leaf_nodes:
-                with tf.name_scope(gn.name_scope):
-                    assign_ops.extend(gn.node.assign_add(gn.mean_grad, gn.var_grad))
-            return tf.group(*assign_ops, name="update_spn")
+                            weight_norm_ops.append(node.assign(node.variable))
+
+                    if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
+                        weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
+                            node.scale_variable, node._min_stddev)))
+                with tf.name_scope("Weight_Normalization"):
+                    traverse_graph(self._root, fun=fun)
+            return tf.group(*weight_norm_ops, name="weight_norm")
 
     def _create_accumulators(self):
         def fun(node):
@@ -200,6 +195,7 @@ class GDLearning():
                     param_node = GDLearning.ParamNode(node=node, accum=accum,
                                                       name_scope=scope)
                     self._param_nodes.append(param_node)
+                    self._grads_and_vars.append((accum, node.variable))
 
             if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
                 with tf.name_scope(node.name) as scope:
@@ -215,10 +211,17 @@ class GDLearning():
                     self._gaussian_leaf_nodes.append(gauss_leaf_node)
 
         self._param_nodes = []
+        self._grads_and_vars = []
         self._gaussian_leaf_nodes = []
         with tf.name_scope(self._name_scope):
             traverse_graph(self._root, fun=fun)
 
-    def learn(self):
-        """Assemble TF operations performing gradient descent learning of the SPN."""
-        return None
+    def learn(self, loss=None, optimizer=tf.train.AdamOptimizer):
+        with tf.name_scope(self._name_scope):
+            reset_accum = self.reset_accumulators()
+
+            with tf.control_dependencies([reset_accum]):
+                accum_op = self.accumulate_updates()
+
+            with tf.control_dependencies([accum_op]):
+                return self.update_spn(optimizer)
