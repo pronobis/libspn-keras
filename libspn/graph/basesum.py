@@ -12,12 +12,39 @@ from itertools import chain
 import tensorflow as tf
 
 
+@utils.register_serializable
 class BaseSum(OpNode, abc.ABC):
 
     logger = get_logger()
     info = logger.info
 
-    __info = info
+    """An abstract node representing sums in an SPN.
+
+    Args:
+        *values (input_like): Inputs providing input values to this node.
+            See :meth:`~libspn.Input.as_input` for possible values.
+        num_sums (int): Number of Sum ops modelled by this node.
+        sum_sizes (list): A list of ints corresponding to the sizes of each sum. If both num_sums
+                          and sum_sizes are given, we should have len(sum_sizes) == num_sums.
+        batch_axis (int): The index of the batch axis.
+        op_axis (int): The index of the op axis that contains the individual sums being modeled.
+        reduce_axis (int): The axis over which to perform summing (or max for MPE). in (log-)space
+        weights (input_like): Input providing weights node to this sum node.
+            See :meth:`~libspn.Input.as_input` for possible values. If set
+            to ``None``, the input is disconnected.
+        ivs (input_like): Input providing IVs of an explicit latent variable
+            associated with this sum node. See :meth:`~libspn.Input.as_input`
+            for possible values. If set to ``None``, the input is disconnected.
+        name (str): Name of the node.
+
+    Attributes:
+        inference_type(InferenceType): Flag indicating the preferred inference
+                                       type for this node that will be used
+                                       during value calculation and learning.
+                                       Can be changed at any time and will be
+                                       used during the next inference/learning
+                                       op generation.
+    """
 
     def __init__(self, *values, num_sums, weights=None, ivs=None, sum_sizes=None,
                  inference_type=InferenceType.MARGINAL, batch_axis=0, op_axis=1, reduce_axis=2,
@@ -45,6 +72,8 @@ class BaseSum(OpNode, abc.ABC):
             data['weights'] = (self._weights.node.name, self._weights.indices)
         if self._ivs:
             data['ivs'] = (self._ivs.node.name, self._ivs.indices)
+        data['num_sums'] = self._num_sums
+        data['sum_sizes'] = self._sum_sizes
         return data
 
     def deserialize(self, data):
@@ -52,6 +81,7 @@ class BaseSum(OpNode, abc.ABC):
         self.set_values()
         self.set_weights()
         self.set_ivs()
+        self._reset_sum_sizes(num_sums=data['num_sums'], sum_sizes=data['sum_sizes'])
 
     def deserialize_inputs(self, data, nodes_by_name):
         super().deserialize_inputs(data, nodes_by_name)
@@ -255,11 +285,13 @@ class BaseSum(OpNode, abc.ABC):
     @utils.lru_cache
     def _compute_log_value(self, w_tensor, ivs_tensor, *value_tensors):
 
+        # Defines gradient for the log value
         def soft_gradient(grad):
             scattered_grads = self._compute_log_gradient(
                 grad, w_tensor, ivs_tensor, *value_tensors, sum_weight_grads=True)
             return [sg for sg in scattered_grads if sg is not None]
 
+        # Wrap the log value with its custom gradient
         @tf.custom_gradient
         def _log_value(*input_tensors):
             ret = self._reduce_marginal_inference_log(self._compute_reducible(
@@ -346,9 +378,12 @@ class BaseSum(OpNode, abc.ABC):
     @utils.lru_cache
     def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, *input_tensors,
                           use_unweighted=False, with_ivs=True, add_random=None):
-        apply_weights = not use_unweighted or any(v.node.is_var for v in self._values)
+        weighted = not use_unweighted or any(v.node.is_var for v in self._values)
         reducible = self._compute_reducible(w_tensor, ivs_tensor, *input_tensors, log=False,
-                                            weighted=apply_weights, use_ivs=with_ivs)
+                                            weighted=weighted, use_ivs=with_ivs)
+        if add_random is not None:
+            self.logger.warn(
+                "%s: no support for add_random in non-log MPE path computation." % self)
         return self._compute_mpe_path_common(
             reducible, counts, w_tensor, ivs_tensor, *input_tensors)
 
@@ -361,6 +396,7 @@ class BaseSum(OpNode, abc.ABC):
                                             weighted=weighted, use_ivs=with_ivs)
         if not weighted and self._num_sums > 1 and reducible.shape[self._op_axis].value == 1:
             reducible = tf.tile(reducible, (1, self._num_sums, 1))
+        # Add random
         if add_random is not None:
             reducible += tf.random_uniform(
                 tf.shape(reducible), minval=0.0, maxval=add_random, dtype=conf.dtype)
@@ -524,23 +560,68 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.lru_cache
     def _reduce_marginal_inference(self, x):
+        """Reduces a tensor for marginal non-log inference by sum(x, axis=reduce_axis).
+
+        Args:
+            x (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over the
+                        last axis.
+
+        Returns:
+            A ``Tensor`` reduced over the last axis.
+        """
         return tf.reduce_sum(x, axis=self._reduce_axis, keepdims=False)
 
     @utils.lru_cache
     def _reduce_marginal_inference_log(self, x):
+        """Reduces a tensor for marginal log inference by log(sum(exp(x), axis=reduce_axis)).
+
+        Args:
+            x (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over the
+                        last axis.
+
+        Returns:
+            A ``Tensor`` reduced over the last axis.
+        """
         return tf.reduce_logsumexp(x, axis=self._reduce_axis, keepdims=False)
 
     @utils.lru_cache
     def _reduce_mpe_inference(self, x):
+        """Reduces a tensor for MPE non-log inference by max(x, axis=reduce_axis)).
+
+        Args:
+            x (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over the
+                        last axis.
+
+        Returns:
+            A ``Tensor`` reduced over the last axis.
+        """
         return tf.reduce_max(x, axis=self._reduce_axis, keepdims=False)
 
     @utils.lru_cache
     def _reduce_mpe_inference_log(self, x):
+        """Reduces a tensor for MPE log inference by max(x, axis=reduce_axis).
+
+        Args:
+            x (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over the
+                        last axis.
+
+        Returns:
+            A ``Tensor`` reduced over the last axis.
+        """
         return self._reduce_mpe_inference(x)
 
     @utils.lru_cache
     def _reduce_argmax(self, x):
-        return tf.argmax(x, axis=self._reduce_axis)
+        """Reduces a tensor by argmax(x, axis=reduce_axis)).
+
+        Args:
+            x (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over the
+                        last axis.
+
+        Returns:
+            A ``Tensor`` reduced over the last axis.
+        """
+        return tf.argmax(x, axis=self._reduce_axis)  # Does not have a keepdims parameter
 
     @staticmethod
     @utils.lru_cache

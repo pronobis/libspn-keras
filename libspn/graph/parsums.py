@@ -5,23 +5,11 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-# WORK IN PROGRESS
-
-from itertools import chain
-import tensorflow as tf
-from libspn.graph.scope import Scope
-from libspn.graph.node import OpNode, Input
 from libspn.inference.type import InferenceType
-from libspn.graph.ivs import IVs
-from libspn.graph.weights import Weights
-from libspn import utils
-from libspn.exceptions import StructureError
-from libspn.log import get_logger
-from libspn import conf
-from libspn.utils.serialization import register_serializable
 from libspn.graph.basesum import BaseSum
 
 
+@utils.register_serializable
 class ParSums(BaseSum):
     """A node representing multiple par-sums (which share the same input) in an SPN.
 
