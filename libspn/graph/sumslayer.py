@@ -25,6 +25,34 @@ import itertools
 
 
 class SumsLayerV2(BaseSum):
+    """A node representing multiple sums in an SPN, where each sum possibly has it's own
+    and seperate input and the sums that are modeled can have differently sized inputs.
+
+    Args:
+        *values (input_like): Inputs providing input values to this node.
+            See :meth:`~libspn.Input.as_input` for possible values.
+        num_or_size_sums (int or list of ints): Number of Sum ops modelled by
+            this node or the size of each sum in case of a list. Default is None.
+            If None, it will compute one sum per input. If int, it will attempt
+            to construct num_or_size_sums sums, each of size
+            total_input_size // num_or_size_sums. If a list of ints, it will
+            construct a sum for each size given in the list.
+        weights (input_like): Input providing weights node to this sum node.
+            See :meth:`~libspn.Input.as_input` for possible values. If set
+            to ``None``, the input is disconnected.
+        ivs (input_like): Input providing IVs of an explicit latent variable
+            associated with this sum node. See :meth:`~libspn.Input.as_input`
+            for possible values. If set to ``None``, the input is disconnected.
+        name (str): Name of the node.
+
+    Attributes:
+        inference_type(InferenceType): Flag indicating the preferred inference
+                                       type for this node that will be used
+                                       during value calculation and learning.
+                                       Can be changed at any time and will be
+                                       used during the next inference/learning
+                                       op generation.
+    """
 
     def __init__(self, *values, num_or_size_sums=None, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, name="SumsLayer"):
@@ -37,18 +65,20 @@ class SumsLayerV2(BaseSum):
             super().__init__(
                 *values, num_sums=len(num_or_size_sums), sum_sizes=num_or_size_sums,
                 weights=weights, ivs=ivs, inference_type=inference_type, name=name)
-        # TODO this should maybe be done cleaner, but we need Node.__init__ to be called before
-        # _compute_num_sums_and_sizes is called
-        # self._num_sums, self._sum_sizes = self._compute_num_sums_and_sizes(
-        #     num_or_size_sums)
-        # self._max_sum_size = max(self._sum_sizes) if self._num_sums > 0 else 0
 
     def _reset_sum_sizes(self, num_sums=None, sum_sizes=None):
         _sum_index_lengths = sum(
             len(v.indices) if v and v.indices else v.node.get_out_size() if v else 0
             for v in self._values)
         if num_sums or sum_sizes:
-            if num_sums:
+            if sum_sizes and all(isinstance(elem, int) for elem in sum_sizes):
+                # A list of sum sizes is given
+                if sum_sizes and sum(sum_sizes) != _sum_index_lengths:
+                    raise StructureError(
+                        "The specified total number of sums is incompatible with the value input "
+                        "indices. \nTotal number of sums: {}, total indices in value inputs: "
+                        "{}".format(sum(sum_sizes), _sum_index_lengths))
+            elif not sum_sizes:
                 # Check if we can evenly divide the value inputs over the sums being modeled
                 if not _sum_index_lengths % num_sums == 0:
                     raise StructureError("Cannot divide total number of value inputs ({}) over the "
@@ -58,36 +88,20 @@ class SumsLayerV2(BaseSum):
                     raise ZeroDivisionError("Attempted to divide by zero. Please specify a "
                                             "non-zero number of sums.")
                 sum_sizes = [_sum_index_lengths // num_sums] * num_sums
-            if sum_sizes and all(isinstance(elem, int) for elem in sum_sizes):
-                # A list of sum sizes is given
-                if sum_sizes and sum(sum_sizes) != _sum_index_lengths:
-                    raise StructureError(
-                        "The specified total number of sums is incompatible with the value input "
-                        "indices. \nTotal number of sums: {}, total indices in value inputs: "
-                        "{}".format(sum(sum_sizes), _sum_index_lengths))
         else:
             # Sum input sizes is set to size of each value input
             sum_sizes = [len(v.indices) if v.indices else v.node.get_out_size()
                          for v in self._values]
-        # else:
-        #     raise ValueError("The value of n_sums_or_sizes must be an int or a list of ints.")
-
         self._num_sums = len(sum_sizes)
         self._sum_sizes = sum_sizes
         self._max_sum_size = max(sum_sizes) if sum_sizes else 0
-        # # Set the total number of sums being modeled
-        # return len(sum_sizes), sum_sizes
 
     def set_sum_sizes(self, sizes):
         self._reset_sum_sizes(sum_sizes=sizes)
 
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):
-        if not self._values:
-            raise StructureError("%s is missing input values" % self)
-        _, ivs_scopes, *value_scopes = self._gather_input_scopes(weight_scopes,
-                                                                 ivs_scopes,
-                                                                 *value_scopes)
-        flat_value_scopes = np.asarray(list(chain.from_iterable(value_scopes)))
+        flat_value_scopes, ivs_scopes, *value_scopes = self._get_flat_value_scopes(
+            weight_scopes, ivs_scopes, *value_scopes)
         split_indices = np.cumsum(self._sum_sizes)[:-1]
         # Divide gathered value scopes into sublists, one per modelled Sum node
         value_scopes_sublists = [arr.tolist() for arr in
@@ -103,11 +117,8 @@ class SumsLayerV2(BaseSum):
                 value_scopes_sublists]
 
     def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
-        if not self._values:
-            raise StructureError("%s is missing input values" % self)
-        _, ivs_scopes_, *value_scopes_ = self._gather_input_scopes(weight_scopes,
-                                                                   ivs_scopes,
-                                                                   *value_scopes)
+        flat_value_scopes, ivs_scopes_, *value_scopes_ = self._get_flat_value_scopes(
+            weight_scopes, ivs_scopes, *value_scopes)
         # If already invalid, return None
         if (any(s is None for s in value_scopes_)
                 or (self._ivs and ivs_scopes_ is None)):
@@ -115,7 +126,6 @@ class SumsLayerV2(BaseSum):
 
         # Split the flat value scopes based on value input sizes
         split_indices = np.cumsum(self._sum_sizes)[:-1]
-        flat_value_scopes = np.asarray(list(chain.from_iterable(value_scopes_)))
 
         # IVs
         if self._ivs:
@@ -146,12 +156,9 @@ class SumsLayerV2(BaseSum):
         Constructs mask that could be used to cancel out 'columns' that are padded as a result of
         varying reduction sizes. Returns a Boolean mask.
         """
-        max_size = max(self._sum_sizes)
         sizes = np.asarray(self._sum_sizes).reshape((self._num_sums, 1))
-        indices = np.arange(max_size).reshape((1, max_size))
-
-        # Use broadcasting
-        return np.less(indices, sizes)
+        indices = np.arange(self._max_sum_size).reshape((1, self._max_sum_size))
+        return np.less(indices, sizes)  # Use broadcasting
 
     def generate_weights(self, init_value=1, trainable=True, input_sizes=None,
                          log=False, name=None):
@@ -183,7 +190,7 @@ class SumsLayerV2(BaseSum):
 
         # Set sum node sizes to inferred _sum_input_sizes
         sum_input_sizes = self._sum_sizes
-        max_size = max(sum_input_sizes)
+        max_size = self._max_sum_size
         sum_size = sum(sum_input_sizes)
 
         # Mask is used to select the indices to assign the value to, since the weights tensor can
@@ -243,7 +250,7 @@ class SumsLayerV2(BaseSum):
 
         # Concatenate the unique tensors
         unique_tensors = list(unique_tensors_offsets_dict.keys())
-        return nested_multi_sum_indices, utils.concat_maybe(unique_tensors, axis=1)
+        return nested_multi_sum_indices, utils.concat_maybe(unique_tensors, axis=self._op_axis)
 
     def _flat_indices_offsets_and_unique_tensors(self, value_tensors):
         # Ordered dict since we want the offsets per tensor, but we also want the order of
@@ -280,8 +287,9 @@ class SumsLayerV2(BaseSum):
         flat_col_indices = np.asarray(column_indices)
         return flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict
 
-    def _gather_and_combine_to_reducible(
-            self, w_tensor, ivs_tensor, input_tensors, zero_prob_val=0.0):
+    @utils.docinherit(BaseSum)
+    def _prepare_component_wise_processing(
+            self, w_tensor, ivs_tensor, *input_tensors, zero_prob_val=0.0):
         indices, values = self._combine_values_and_indices(input_tensors)
         # Create a 3D tensor with dimensions [batch, sum node, sum input]
         # The last axis will have zeros when the sum size is less than the max sum size
@@ -302,6 +310,7 @@ class SumsLayerV2(BaseSum):
             ivs_tensor = tf.reshape(ivs_tensor, shape=(-1, self._num_sums, self._max_sum_size))
         return w_tensor, ivs_tensor, reducible_values
 
+    @utils.docinherit(BaseSum)
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors):
         max_indices = tf.argmax(reducible_tensor, axis=self._reduce_axis)
@@ -313,10 +322,11 @@ class SumsLayerV2(BaseSum):
             (max_counts, ivs_tensor)
         ) + tuple(max_counts_split)
 
+    @utils.docinherit(BaseSum)
     def _compute_log_gradient(self, gradients, w_tensor, ivs_tensor, *input_tensors,
                               with_ivs=True):
         reducible = self._compute_reducible(
-            w_tensor, ivs_tensor, *input_tensors, log=True, apply_ivs=with_ivs)
+            w_tensor, ivs_tensor, *input_tensors, log=True, use_ivs=with_ivs)
         log_sum = tf.reduce_logsumexp(reducible, axis=self._reduce_axis, keepdims=True)
         weight_gradients = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(
             reducible - log_sum)
@@ -326,6 +336,7 @@ class SumsLayerV2(BaseSum):
             (weight_gradients, ivs_tensor)
         ) + tuple(inp_grad_split)
 
+    @utils.docinherit(BaseSum)
     def _accumulate_and_split_to_children(self, x, *input_tensors):
         flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
             self._flat_indices_offsets_and_unique_tensors(input_tensors)
@@ -444,7 +455,7 @@ class SumsLayerV2(BaseSum):
 
 
 @register_serializable
-class SumsLayerV1(OpNode):
+class SumsLayer(OpNode):
     """A node representing multiple sums in an SPN, where each sum possibly has it's own
     and seperate input and the sums that are modeled can have differently sized inputs.
 
@@ -505,7 +516,7 @@ class SumsLayerV1(OpNode):
                 raise ZeroDivisionError("Attempted to divide by zero. Please specify a "
                                         "non-zero number of sums.")
             self._sum_input_sizes = [_sum_index_lengths // num_or_size_sums] * num_or_size_sums
-        elif isinstance(num_or_size_sums, list) and \
+        if isinstance(num_or_size_sums, list) and \
                 all(isinstance(elem, int) for elem in num_or_size_sums):
             # A list of sum sizes is given
             self._sum_input_sizes = num_or_size_sums
@@ -1177,6 +1188,4 @@ class SumsLayerV1(OpNode):
             weighted=True, pad_elem=-float('inf'), with_ivs=with_ivs)
         return self._compute_gradient_common(
             values_weighted, gradients, weight_value, ivs_value, *value_values)
-
-SumsLayer = SumsLayerV2
 
