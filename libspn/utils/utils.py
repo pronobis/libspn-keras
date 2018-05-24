@@ -4,7 +4,6 @@
 # This file is part of LibSPN. Unauthorized use or copying of this file,
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
-
 """LibSPN tools and utilities."""
 
 
@@ -14,3 +13,5 @@ def decode_bytes_array(arr):
         return arr.astype(str)
     else:
         return arr
+
+

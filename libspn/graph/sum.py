@@ -254,6 +254,7 @@ class Sum(OpNode):
             return None
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
 
+    @utils.lru_cache
     def _compute_value_common(self, weight_tensor, ivs_tensor, *value_tensors):
         """Common actions when computing value."""
         # Check inputs
@@ -267,18 +268,34 @@ class Sum(OpNode):
         values = utils.concat_maybe(value_tensors, 1)
         return weight_tensor, ivs_tensor, values
 
+    @utils.lru_cache
     def _compute_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
         values_selected = values * ivs_tensor if self._ivs else values
         return tf.matmul(values_selected, tf.reshape(weight_tensor, [-1, 1]))
 
+    @utils.lru_cache
     def _compute_log_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
         values_selected = values + ivs_tensor if self._ivs else values
         values_weighted = values_selected + weight_tensor
-        return utils.reduce_log_sum(values_weighted)
+        log_sum = utils.reduce_log_sum(values_weighted)
+
+        @tf.custom_gradient
+        def value_gradient(*input_tensors):
+            def soft_gradient(gradients):
+                scattered_grads = self._compute_log_gradient(gradients, weight_tensor, ivs_tensor,
+                                                             *value_tensors, sum_weight_grads=True)
+                return [sg for sg in scattered_grads if sg is not None]
+            return log_sum, soft_gradient
+
+        input_tensors = [weight_tensor]
+        if self._ivs:
+            input_tensors.append(ivs_tensor)
+        [input_tensors.append(value_tensor) for value_tensor in value_tensors]
+        return value_gradient(*input_tensors)
 
     def _compute_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
@@ -287,6 +304,7 @@ class Sum(OpNode):
         values_weighted = values_selected * weight_tensor
         return tf.reduce_max(values_weighted, 1, keep_dims=True)
 
+    @utils.lru_cache
     def _compute_log_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
@@ -294,6 +312,7 @@ class Sum(OpNode):
         values_weighted = values_selected + weight_tensor
         return tf.reduce_max(values_weighted, 1, keep_dims=True)
 
+    @utils.lru_cache
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
                                  ivs_value, *value_values):
         # Propagate the counts to the max value
@@ -309,6 +328,7 @@ class Sum(OpNode):
             (max_counts, ivs_value),  # IVs
             *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
 
+    @utils.lru_cache
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
                           add_random=None, use_unweighted=False, with_ivs=True):
         # Get weighted, IV selected values
@@ -319,6 +339,7 @@ class Sum(OpNode):
         return self._compute_mpe_path_common(
             values_weighted, counts, weight_value, ivs_value, *value_values)
 
+    @utils.lru_cache
     def _compute_log_mpe_path(self, counts, weight_value, ivs_value, *value_values,
                               add_random=None, use_unweighted=False, with_ivs=True):
         # Get weighted, IV selected values
@@ -346,25 +367,25 @@ class Sum(OpNode):
         return self._compute_mpe_path_common(
             values_weighted, counts, weight_value, ivs_value, *value_values)
 
-    def _compute_gradient(self, gradients, weight_value, ivs_value,
-                          *value_values, with_ivs=True):
-        weight_value, ivs_value, values = self._compute_value_common(
-            weight_value, ivs_value, *value_values)
+    # def _compute_gradient(self, gradients, weight_value, ivs_value,
+    #                       *value_values, with_ivs=True):
+    #     weight_value, ivs_value, values = self._compute_value_common(
+    #         weight_value, ivs_value, *value_values)
+    #
+    #     weight_gradients = gradients * values
+    #     output_gradients = gradients * weight_value
+    #
+    #     # Split the output_gradients to value inputs
+    #     _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
+    #     output_gradients_split = utils.split_maybe(output_gradients, value_sizes, 1)
+    #
+    #     return self._scatter_to_input_tensors(
+    #         (weight_gradients, weight_value),  # Weights
+    #         (weight_gradients, ivs_value),  # IVs
+    #         *[(t, v) for t, v in zip(output_gradients_split, value_values)])  # Values
 
-        weight_gradients = gradients * values
-        output_gradients = gradients * weight_value
-
-        # Split the output_gradients to value inputs
-        _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
-        output_gradients_split = utils.split_maybe(output_gradients, value_sizes, 1)
-
-        return self._scatter_to_input_tensors(
-            (weight_gradients, weight_value),  # Weights
-            (weight_gradients, ivs_value),  # IVs
-            *[(t, v) for t, v in zip(output_gradients_split, value_values)])  # Values
-
-    def _compute_log_gradient(self, gradients, weight_value, ivs_value,
-                              *value_values, with_ivs=True):
+    def _compute_log_gradient(self, gradients, weight_value, ivs_value, *value_values,
+                              with_ivs=True, sum_weight_grads=False):
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
 
@@ -376,20 +397,25 @@ class Sum(OpNode):
 
         output_gradients = weight_gradients
 
+        if sum_weight_grads:
+            weight_gradients = tf.reduce_sum(weight_gradients, axis=0, keepdims=True)
+
         # Split the output_gradients to value inputs
         _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
         output_gradients_split = utils.split_maybe(output_gradients, value_sizes, 1)
 
         return self._scatter_to_input_tensors(
             (weight_gradients, weight_value),  # Weights
-            (weight_gradients, ivs_value),  # IVs
+            (output_gradients, ivs_value),  # IVs
             *[(t, v) for t, v in zip(output_gradients_split, value_values)])  # Values
 
+    @utils.lru_cache
     def sum_exponents(self, values_weighted):
         log_max = tf.reduce_max(values_weighted, 1, keep_dims=True)
         log_rebased = tf.subtract(values_weighted, log_max)
         return tf.reduce_sum(tf.exp(log_rebased), 1, keep_dims=True)
 
+    @utils.lru_cache
     def _compute_log_gradient_log(self, gradients, weight_value, ivs_value,
                                   *value_values, with_ivs=True):
         weight_value, ivs_value, values = self._compute_value_common(

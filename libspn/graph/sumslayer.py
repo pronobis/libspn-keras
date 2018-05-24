@@ -430,6 +430,7 @@ class SumsLayer(OpNode):
         flat_col_indices = np.asarray(column_indices)
         return flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict
 
+    @utils.lru_cache
     def _compute_value_common(self, cwise_op, reduction_fn, weight_tensor,
                               ivs_tensor, *value_tensors, weighted=True,
                               pad_elem=0.0, with_ivs=True):
@@ -457,10 +458,12 @@ class SumsLayer(OpNode):
         # Reduce on last axis
         return reduction_fn(reducible_values)
 
+    @utils.lru_cache
     def _apply_weighting(self, cwise_op, reducible_values, weight_tensor):
         reducible_values = cwise_op(reducible_values, weight_tensor)
         return reducible_values
 
+    @utils.lru_cache
     def _apply_IVs(self, cwise_op, ivs_tensor, reducible_values):
         if self._ivs:
             # Reshape IVs and apply them component-wise
@@ -469,6 +472,7 @@ class SumsLayer(OpNode):
             reducible_values = cwise_op(reducible_values, ivs_tensor_reshaped)
         return reducible_values
 
+    @utils.lru_cache
     def _reducible_values(self, value_tensors, pad_elem=0.0):
         indices, values = self._combine_values_and_indices(value_tensors)
         # Create a 3D tensor with dimensions [batch, sum node, sum input]
@@ -487,6 +491,7 @@ class SumsLayer(OpNode):
                                                     name="GatherToReducible")
         return reducible_values
 
+    @utils.lru_cache
     def _compute_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes value in non-log space """
         reduce_sum = functools.partial(tf.reduce_sum, axis=2)
@@ -494,6 +499,7 @@ class SumsLayer(OpNode):
                                           ivs_tensor, *value_tensors, weighted=True,
                                           pad_elem=0)
 
+    @utils.lru_cache
     def _compute_log_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes value in log space """
         reduce_logsum = functools.partial(utils.reduce_log_sum_3D, transpose=False)
@@ -501,6 +507,7 @@ class SumsLayer(OpNode):
                                           ivs_tensor, *value_tensors, weighted=True,
                                           pad_elem=-float('inf'))
 
+    @utils.lru_cache
     def _compute_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes MPE value in non-log space """
         reduce_max = functools.partial(tf.reduce_max, axis=2)
@@ -508,6 +515,7 @@ class SumsLayer(OpNode):
                                           ivs_tensor, *value_tensors, weighted=True,
                                           pad_elem=0)
 
+    @utils.lru_cache
     def _compute_log_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         """ Computes MPE value in log space """
         reduce_max = functools.partial(tf.reduce_max, axis=2)
@@ -515,6 +523,7 @@ class SumsLayer(OpNode):
                                           ivs_tensor, *value_tensors, weighted=True,
                                           pad_elem=-float('inf'))
 
+    @utils.lru_cache
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
                                  ivs_value, *value_values):
         """ Common operations for log and non-log MPE path """
@@ -553,6 +562,7 @@ class SumsLayer(OpNode):
             raise ValueError("Unknown count summing strategy {}"
                              .format(conf.sumslayer_count_sum_strategy))
 
+    @utils.lru_cache
     def _compute_gradient_common(self, values_weighted, gradients, weight_value,
                                  ivs_value, *value_values):
         """ Common operations for computing gradients """
@@ -594,6 +604,7 @@ class SumsLayer(OpNode):
             raise ValueError("Unknown count summing strategy {}"
                              .format(conf.sumslayer_count_sum_strategy))
 
+    @utils.lru_cache
     def _sum_counts_gather(self, max_counts_reshaped, value_values, segmented=False):
         flat_col_indices, flat_tensor_offsets, unique_tensors_offsets_dict = \
             self._flat_indices_offsets_and_unique_tensors(value_values)
@@ -707,6 +718,7 @@ class SumsLayer(OpNode):
             if len(unique_lens) > 1 else [summed_counts]
         return tensor_scatter_indices, unique_input_counts
 
+    @utils.lru_cache
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
                           add_random=None, use_unweighted=False, with_ivs=True):
         values_selected_weighted = self._compute_value_common(
@@ -715,6 +727,7 @@ class SumsLayer(OpNode):
         return self._compute_mpe_path_common(values_selected_weighted, counts,
                                              weight_value, ivs_value, *value_values)
 
+    @utils.lru_cache
     def _compute_log_mpe_path(self, counts, weight_value, ivs_value, *value_values,
                               add_random=None, use_unweighted=False, with_ivs=True):
         # Get weighted, IV selected values
@@ -738,6 +751,7 @@ class SumsLayer(OpNode):
         return self._compute_mpe_path_common(
             values_weighted, counts, weight_value, ivs_value, *value_values)
 
+    @utils.lru_cache
     def _compute_log_gradient(self, gradients, weight_value, ivs_value,
                               *value_values, with_ivs=True):
         values_weighted = self._compute_value_common(

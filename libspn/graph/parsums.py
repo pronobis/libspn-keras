@@ -296,6 +296,7 @@ class ParSums(OpNode):
             return None
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
 
+    @utils.lru_cache
     def _compute_value_common(self, weight_tensor, ivs_tensor, *value_tensors):
         """Common actions when computing value."""
         # Check inputs
@@ -309,6 +310,7 @@ class ParSums(OpNode):
         values = utils.concat_maybe(value_tensors, 1)
         return weight_tensor, ivs_tensor, values
 
+    @utils.lru_cache
     def _compute_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
@@ -323,6 +325,7 @@ class ParSums(OpNode):
         else:
             return tf.matmul(values, weight_tensor, transpose_b=True)
 
+    @utils.lru_cache
     def _compute_log_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
@@ -330,13 +333,28 @@ class ParSums(OpNode):
             # IVs tensor shape = (Batch X (num_sums * num_vals))
             # reshape it to (Batch X num_sums X num_feat)
             reshape = (-1, self._num_sums, values.shape[1].value)
-            ivs_tensor = tf.reshape(ivs_tensor, shape=reshape)
-            values_weighted = tf.expand_dims(values, axis=1) + (ivs_tensor +
+            ivs_reshaped = tf.reshape(ivs_tensor, shape=reshape)
+            values_weighted = tf.expand_dims(values, axis=1) + (ivs_reshaped +
                                                                 weight_tensor)
         else:
             values_weighted = tf.expand_dims(values, axis=1) + weight_tensor
-        return utils.reduce_log_sum_3D(values_weighted, transpose=False)
+        log_sum = utils.reduce_log_sum_3D(values_weighted, transpose=False)
 
+        @tf.custom_gradient
+        def value_gradient(*input_tensors):
+            def soft_gradient(gradients):
+                scattered_grads = self._compute_log_gradient(gradients, weight_tensor, ivs_tensor,
+                                                             *value_tensors, sum_weight_grads=True)
+                return [sg for sg in scattered_grads if sg is not None]
+            return log_sum, soft_gradient
+
+        input_tensors = [weight_tensor]
+        if self._ivs:
+            input_tensors.append(ivs_tensor)
+        [input_tensors.append(value_tensor) for value_tensor in value_tensors]
+        return value_gradient(*input_tensors)
+
+    @utils.lru_cache
     def _compute_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
@@ -351,6 +369,7 @@ class ParSums(OpNode):
             values_weighted = tf.expand_dims(values, axis=1) * weight_tensor
         return tf.reduce_max(values_weighted, axis=2)
 
+    @utils.lru_cache
     def _compute_log_mpe_value(self, weight_tensor, ivs_tensor, *value_tensors):
         weight_tensor, ivs_tensor, values = self._compute_value_common(
             weight_tensor, ivs_tensor, *value_tensors)
@@ -365,6 +384,7 @@ class ParSums(OpNode):
             values_weighted = tf.expand_dims(values, axis=1) + weight_tensor
         return tf.reduce_max(values_weighted, axis=2)
 
+    @utils.lru_cache
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
                                  ivs_value, *value_values):
         # Propagate the counts to the max value
@@ -381,6 +401,7 @@ class ParSums(OpNode):
             (max_counts_summed, ivs_value),  # IVs
             *[(t, v) for t, v in zip(max_counts_split, value_values)])  # Values
 
+    @utils.lru_cache
     def _compute_mpe_path(self, counts, weight_value, ivs_value, *value_values,
                           add_random=None, use_unweighted=False, with_ivs=True):
         # Get weighted, IV selected values
@@ -398,6 +419,7 @@ class ParSums(OpNode):
         return self._compute_mpe_path_common(
              values_weighted, counts, weight_value, ivs_value, *value_values)
 
+    @utils.lru_cache
     def _compute_log_mpe_path(self, counts, weight_value, ivs_value,
                               *value_values, add_random=None,
                               use_unweighted=False, with_ivs=True):
@@ -438,24 +460,37 @@ class ParSums(OpNode):
         return self._compute_mpe_path_common(
             values_weighted, counts, weight_value, ivs_value, *value_values)
 
+    @utils.lru_cache
     def _compute_gradient_common(self, values_weighted, gradients, weight_value,
-                                 ivs_value, *value_values):
+                                 ivs_value, *value_values, sum_weight_grads=False):
+        # Get weighted, IV selected values
+        weight_value, ivs_value, values = self._compute_value_common(
+            weight_value, ivs_value, *value_values)
         log_sum = tf.expand_dims(utils.reduce_log_sum_3D(values_weighted,
                                                          transpose=False), axis=-1)
         weight_gradients = \
             tf.expand_dims(gradients, axis=-1) * tf.exp(values_weighted - log_sum)
-        # Sum up max counts between individual sum nodes
+        # Sum up output gradients between individual sum nodes
         output_gradients = tf.reduce_sum(weight_gradients, axis=1)
+        if self._ivs:
+            # Reshape IVs gradients to (Batch X (num_sums * num_vals))
+            reshape = (-1, self._num_sums * values.shape[1].value)
+            ivs_gradient = tf.reshape(weight_gradients, shape=reshape)
+        else:
+            ivs_gradient = None
+        if sum_weight_grads:
+            weight_gradients = tf.reduce_sum(weight_gradients, axis=0)
         # Split the output-gradients to value inputs
         _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)
         output_gradients_split = tf.split(output_gradients, value_sizes, 1)
         return self._scatter_to_input_tensors(
             (weight_gradients, weight_value),  # Weights
-            (output_gradients, ivs_value),  # IVs
+            (ivs_gradient, ivs_value),  # IVs
             *[(t, v) for t, v in zip(output_gradients_split, value_values)])  # Values
 
+    @utils.lru_cache
     def _compute_log_gradient(self, gradients, weight_value, ivs_value,
-                              *value_values, with_ivs=True):
+                              *value_values, with_ivs=True, sum_weight_grads=False):
         # Get weighted, IV selected values
         weight_value, ivs_value, values = self._compute_value_common(
             weight_value, ivs_value, *value_values)
@@ -463,14 +498,14 @@ class ParSums(OpNode):
             # IVs tensor shape = (Batch X (num_sums * num_vals))
             # reshape it to (Batch X num_sums X num_feat)
             reshape = (-1, self._num_sums, values.shape[1].value)
-            ivs_value = tf.reshape(ivs_value, shape=reshape)
+            ivs_reshaped = tf.reshape(ivs_value, shape=reshape)
 
-            values_weighted = tf.expand_dims(values, axis=1) + (ivs_value + weight_value)
+            values_weighted = tf.expand_dims(values, axis=1) + (ivs_reshaped + weight_value)
         else:
             values_weighted = tf.expand_dims(values, axis=1) + weight_value
 
-        return self._compute_gradient_common(values_weighted, gradients, weight_value,
-                                             ivs_value, *value_values)
+        return self._compute_gradient_common(values_weighted, gradients, weight_value, ivs_value,
+                                             *value_values, sum_weight_grads=sum_weight_grads)
 
     # def _compute_log_gradient_log(self, gradients, weight_value, ivs_value,
     #                               *value_values, with_ivs=True):

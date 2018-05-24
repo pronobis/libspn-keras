@@ -228,6 +228,7 @@ class ProductsLayer(OpNode):
 
         return combined_indices, utils.concat_maybe(unique_tensors, 1)
 
+    @utils.lru_cache
     def _compute_value_common(self, *value_tensors, padding_value=0.0):
         """Common actions when computing value."""
         # Check inputs
@@ -247,19 +248,23 @@ class ProductsLayer(OpNode):
             value_tensors = self._gather_input_tensors(*value_tensors)
             return utils.concat_maybe(value_tensors, 1)
 
+    @utils.lru_cache
     def _compute_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors, padding_value=1.0)
         return tf.reduce_prod(values, axis=-1, keep_dims=(False if
                               self._num_prods > 1 else True))
 
+    @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors, padding_value=0.0)
         return tf.reduce_sum(values, axis=-1, keep_dims=(False if
                              self._num_prods > 1 else True))
 
+    @utils.lru_cache
     def _compute_mpe_value(self, *value_tensors):
         return self._compute_value(*value_tensors)
 
+    @utils.lru_cache
     def _compute_log_mpe_value(self, *value_tensors):
         return self._compute_log_value(*value_tensors)
 
@@ -341,6 +346,7 @@ class ProductsLayer(OpNode):
 
         return gather_counts_indices, unique_inps
 
+    @utils.lru_cache
     def _compute_mpe_path(self, counts, *value_values, add_random=False,
                           use_unweighted=False, with_ivs=False):
         # Check inputs
