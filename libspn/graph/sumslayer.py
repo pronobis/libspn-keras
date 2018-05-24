@@ -342,6 +342,7 @@ class SumsLayer(BaseSum):
             (ivs_grads, ivs_tensor)
         ) + tuple(inp_grad_split)
 
+    @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _get_differentiable_inputs(self, w_tensor, ivs_tensor, *value_tensors):
         unique_tensors = list(OrderedDict.fromkeys(value_tensors))

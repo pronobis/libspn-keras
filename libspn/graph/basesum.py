@@ -429,20 +429,22 @@ class BaseSum(OpNode, abc.ABC):
         reducible = self._compute_reducible(
             w_tensor, ivs_tensor, *value_tensors, log=True, use_ivs=with_ivs, weighted=True)
 
-        # Below exploits the memoization decorator, since
+        # Below exploits the memoization since _reduce_marginal_inference_log will
+        # always use keepdims=False, thus yielding the same tensor. One might otherwise
+        # be tempted to use keepdims=True and omit expand_dims here...
         log_sum = tf.expand_dims(
             self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
         w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(reducible - log_sum)
 
-        inp_grad, inp_grad_split = self._accumulate_and_split_to_children(w_grad)
+        value_grad_acc, value_grad_split = self._accumulate_and_split_to_children(w_grad)
 
         if sum_weight_grads:
             w_grad = tf.reduce_sum(w_grad, axis=0, keepdims=False)
 
         return self._scatter_to_input_tensors(
             (w_grad, w_tensor),
-            (inp_grad, ivs_tensor),
-            *[(t, v) for t, v in zip(inp_grad_split, value_tensors)])
+            (value_grad_acc, ivs_tensor),
+            *[(t, v) for t, v in zip(value_grad_split, value_tensors)])
 
     @utils.lru_cache
     def _compute_gradient(self, gradients, w_tensor, ivs_tensor, *input_tensors, with_ivs=True):

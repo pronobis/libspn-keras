@@ -8,7 +8,7 @@
 # Import public interface of the library
 
 from .utils import decode_bytes_array
-from .utils import lru_cache
+from .lrucache import lru_cache
 from .math import gather_cols
 from .math import gather_cols_3d
 from .math import scatter_cols
@@ -50,5 +50,4 @@ __all__ = ['decode_bytes_array', 'scatter_cols', 'scatter_values',
            'register_serializable',
            'json_dumps', 'json_loads', 'json_dump', 'json_load',
            'str2type', 'type2str',
-           'lru_cache',
            'Enum']

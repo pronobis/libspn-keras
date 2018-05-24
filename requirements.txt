@@ -10,4 +10,3 @@ nose2
 python3-tk
 pillow
 pyyaml
-parameterized==0.6.1
