@@ -468,7 +468,7 @@ class TestGraphSum(TestCase):
                                                        v5: v5_feed})
         # Weights
         np.testing.assert_array_almost_equal(
-            out[0], np.array([[10., 0., 0., 0., 0., 0.],
+            np.squeeze(out[0]), np.array([[10., 0., 0., 0., 0., 0.],
                               [0., 0., 11., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 12.],
                               [0., 0., 0., 0., 13., 0.]],
@@ -558,7 +558,7 @@ class TestGraphSum(TestCase):
                                           v5: v5_feed})
         # Weights
         np.testing.assert_array_almost_equal(
-            out[0], np.array([[10., 0., 0., 0., 0., 0.],
+            np.squeeze(out[0]), np.array([[10., 0., 0., 0., 0., 0.],
                               [0., 0., 11., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 12.],
                               [0., 0., 0., 0., 13., 0.],
@@ -617,7 +617,7 @@ class TestGraphSum(TestCase):
                               [0.],
                               [0.]],
                              dtype=np.float32))
-
+    #
     # def test_compute_gradients(self):
     #     v12 = spn.IVs(num_vars=2, num_vals=4)
     #     v34 = spn.ContVars(num_vars=2)
@@ -673,7 +673,7 @@ class TestGraphSum(TestCase):
     #
     #     # Weights
     #     np.testing.assert_array_almost_equal(
-    #         out[0], weights_gradients)
+    #         np.squeeze(out[0]), weights_gradients)
     #     # IVs
     #     np.testing.assert_array_almost_equal(
     #        out[1], gradients_feed * input_values)
@@ -749,7 +749,7 @@ class TestGraphSum(TestCase):
 
         # Weights
         np.testing.assert_array_almost_equal(
-            out[0], weights_gradients)
+            np.squeeze(out[0]), weights_gradients)
         # IVs
         np.testing.assert_array_almost_equal(
            out[1], weights_gradients)
@@ -858,7 +858,7 @@ class TestGraphSum(TestCase):
 
         # Weights
         np.testing.assert_array_almost_equal(
-            out[0], weights_gradients, decimal=6)
+            np.squeeze(out[0]), weights_gradients, decimal=6)
         # IVs
         np.testing.assert_array_almost_equal(
            out[1], weights_gradients)
