@@ -1056,6 +1056,20 @@ class ParamNode(Node):
             Update operation.
         """
 
+    @abstractmethod
+    def _compute_hard_gd_update(self, grads):
+        """Assemble TF operations computing the hard GD update of the parameters
+        of the node.
+
+        To be re-implemented in sub-classes.
+
+        Args:
+            grads (Tensor): Gradients for each output value of this node.
+
+        Returns:
+            Update operation.
+        """
+
 
 class DistributionNode(VarNode, abc.ABC):
 

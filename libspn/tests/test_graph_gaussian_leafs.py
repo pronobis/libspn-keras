@@ -8,7 +8,7 @@
 # ------------------------------------------------------------------------
 
 from context import libspn as spn
-from test import TestCase, arg_product
+from test import TestCase, argsprod
 import tensorflow as tf
 import numpy as np
 import scipy.stats as stats
@@ -40,7 +40,7 @@ class TestGaussianQuantile(TestCase):
             [self.assertEqual(scope[b], scope[b + i]) for i in range(1, 4)]
             [self.assertNotEqual(scope[b], scope[b + i]) for i in range(4, len(scope) - b, 4)]
 
-    @parameterized.expand(arg_product([False, True]))
+    @argsprod([False, True])
     def test_learn_from_data(self, softplus):
         quantiles = [np.random.rand(32, 32) + i * 2 for i in range(4)]
         data = np.concatenate(quantiles, axis=0)
@@ -109,7 +109,7 @@ class TestGaussianQuantile(TestCase):
         self.assertEqual(child1_n, 4)
         self.assertEqual(child2_n, 7)
 
-    @parameterized.expand(arg_product([False, True]))
+    @argsprod([False, True])
     def test_param_learning(self, softplus_scale):
         num_vars = 2
         num_components = 2
@@ -400,10 +400,10 @@ class TestGaussianQuantile(TestCase):
         self.assertAllClose(mu_grad_tf_out, mu_grad_spn_out)
         self.assertAllClose(var_grad_tf_out, var_grad_spn_out)
 
-    @parameterized.expand(arg_product(
+    @argsprod(
         [1], [2], [4], [spn.DenseSPNGeneratorLayerNodes.InputDist.RAW,
                         spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE],
-        [16], [2], [False, True]))
+        [16], [2], [False, True])
     def test_gradient_on_dense_spn(self, num_decomps, num_subsets, num_mixtures, input_dist,
                                    num_vars, num_components, softplus):
         batch_size = 9

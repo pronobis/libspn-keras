@@ -87,11 +87,13 @@ class EMLearning():
             assign_ops = []
             for pn in self._param_nodes:
                 with tf.name_scope(pn.name_scope):
-                    counts = self._mpe_path.counts[pn.node]
-                    update_value = pn.node._compute_hard_em_update(counts)
-                    with tf.control_dependencies([update_value]):
-                        op = tf.assign_add(pn.accum, update_value)
-                    assign_ops.append(op)
+                    # counts = self._mpe_path.counts[pn.node]
+                    # update_value = pn.node._compute_hard_em_update(counts)
+                    # with tf.control_dependencies([update_value]):
+                    # op = tf.assign_add(pn.accum, self._mpe_path.counts[pn.node])
+                    counts_summed_batch = pn.node._compute_hard_em_update(
+                        self._mpe_path.counts[pn.node])
+                    assign_ops.append(tf.assign_add(pn.accum, counts_summed_batch))
 
             for dn in self._gaussian_leaf_nodes:
                 with tf.name_scope(dn.name_scope):
