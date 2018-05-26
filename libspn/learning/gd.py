@@ -106,6 +106,7 @@ class GDLearning:
             ), name="reset_accumulators")
 
     def accumulate_updates(self):
+
         if self._learning_inference_type == LearningInferenceType.HARD:
             # Generate path if not yet generated
             if not self._mpe_path.counts:
@@ -114,6 +115,11 @@ class GDLearning:
             if self._learning_type == LearningType.DISCRIMINATIVE and \
                not self._mpe_path.actual_counts:
                 self._mpe_path.get_mpe_path_actual(self._root)
+
+            # Left hand side of gradient
+            positive_grad_table = self._mpe_path.counts
+            # Right hand side of gradient (when using discriminative learning)
+            negative_grad_table = self._mpe_path.actual_counts
         else:
             # Generate gradients if not yet generated
             if not self._gradient.gradients:
@@ -123,31 +129,21 @@ class GDLearning:
                not self._gradient.actual_gradients:
                 self._gradient.get_actual_gradients(self._root)
 
+            # Left hand side of the gradient
+            positive_grad_table = self._gradient.gradients
+            # Right hand side of the gradient (when using discriminative learning)
+            negative_grad_table = self._gradient.actual_gradients
+
         # Generate all accumulate operations
         with tf.name_scope(self._name_scope):
             assign_ops = []
             for pn in self._param_nodes:
                 with tf.name_scope(pn.name_scope):
-                    if self._learning_inference_type == LearningInferenceType.HARD:
-                        true_gradients = self._mpe_path.counts[pn.node]
-                        actual_gradients = self._mpe_path.actual_counts[pn.node] if \
-                            self._learning_type == LearningType.DISCRIMINATIVE else None
-                    else:
-                        true_gradients = self._gradient.gradients[pn.node]
-                        actual_gradients = self._gradient.actual_gradients[pn.node] \
-                            if self._learning_type == LearningType.DISCRIMINATIVE \
-                            else None
-                    update_value = \
-                        pn.node._compute_hard_gd_update(true_gradients, actual_gradients)
-                    op = tf.assign_sub(pn.accum, update_value)
-                    assign_ops.append(op)
-
-            if self._learning_inference_type == LearningInferenceType.HARD:
-                positive_grad_table = self._mpe_path.counts
-                negative_grad_table = self._mpe_path.actual_counts
-            else:
-                positive_grad_table = self._gradient.gradients
-                negative_grad_table = self._gradient.actual_gradients
+                    incoming_grad = positive_grad_table[pn.node]
+                    if self._learning_type == LearningType.DISCRIMINATIVE:
+                        incoming_grad -= negative_grad_table[pn.node]
+                    grad_batch_summed = pn.node._compute_hard_gd_update(incoming_grad)
+                    assign_ops.append(tf.assign_sub(pn.accum, grad_batch_summed))
 
             for gn in self._gaussian_leaf_nodes:
                 with tf.name_scope(gn.name_scope):
