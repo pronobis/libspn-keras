@@ -249,6 +249,7 @@ class GaussianLeaf(VarNode):
     def _compute_out_size(self):
         return self._num_vars * self._num_components
 
+    @utils.lru_cache
     def _tile_num_components(self, tensor):
         """Tiles a ``Tensor`` so that its last axis contains ``num_components`` repetitions of the
         original values. If the incoming tensor's last dim size equals 1, it will tile along this
@@ -284,11 +285,13 @@ class GaussianLeaf(VarNode):
         return tf.where(evidence, value, no_evidence_fn(value))
 
     @utils.docinherit(Node)
+    @utils.lru_cache
     def _compute_value(self, step=None):
         return self._evidence_mask(
             self._dist.prob(self._tile_num_components(self._feed)), tf.ones_like)
 
     @utils.docinherit(Node)
+    @utils.lru_cache
     def _compute_log_value(self):
         return self._evidence_mask(
             self._dist.log_prob(self._tile_num_components(self._feed)), tf.zeros_like)
@@ -298,6 +301,7 @@ class GaussianLeaf(VarNode):
         return [Scope(self, i) for i in range(self._num_vars) for _ in range(self._num_components)]
 
     @utils.docinherit(Node)
+    @utils.lru_cache
     def _compute_mpe_state(self, counts):
         # MPE state can be found by taking the mean of the mixture components that are 'selected'
         # by the counts
@@ -307,6 +311,7 @@ class GaussianLeaf(VarNode):
         return tf.gather(tf.reshape(self._loc_variable, (-1,)), indices=indices, axis=0)
 
     @utils.docinherit(Node)
+    @utils.lru_cache
     def _compute_hard_em_update(self, counts):
         counts_reshaped = tf.reshape(counts, (-1, self._num_vars, self._num_components))
         # Determine accumulates per component
