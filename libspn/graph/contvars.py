@@ -9,6 +9,7 @@ import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.graph.node import VarNode
 from libspn import conf
+from libspn import utils
 from libspn.utils.serialization import register_serializable
 
 
@@ -70,6 +71,7 @@ class ContVars(VarNode):
     def _compute_scope(self):
         return [Scope(self, i) for i in range(self._num_vars)]
 
+    @utils.lru_cache
     def _compute_value(self):
         # We used identity, since this way we can feed and fetch this node
         # and there is an operation in TensorBoard even if the internal
