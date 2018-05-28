@@ -348,7 +348,7 @@ class ProductsLayer(OpNode):
 
     @utils.lru_cache
     def _compute_mpe_path(self, counts, *value_values, add_random=False,
-                          use_unweighted=False, with_ivs=False):
+                          use_unweighted=False, with_ivs=False, sample=False):
         # Check inputs
         if not self._values:
             raise StructureError("%s is missing input values." % self)
@@ -394,7 +394,7 @@ class ProductsLayer(OpNode):
         return scattered_counts
 
     def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False, with_ivs=False):
+                              use_unweighted=False, with_ivs=False, sample=False):
         return self._compute_mpe_path(counts, *value_values)
 
     def _compute_log_gradient(self, gradients, *value_values, with_ivs=False):

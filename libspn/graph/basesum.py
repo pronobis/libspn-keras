@@ -10,6 +10,7 @@ import libspn.utils as utils
 from libspn.log import get_logger
 from itertools import chain
 import tensorflow as tf
+import tensorflow.contrib.distributions as tfd
 
 
 @utils.register_serializable
@@ -48,7 +49,7 @@ class BaseSum(OpNode, abc.ABC):
 
     def __init__(self, *values, num_sums, weights=None, ivs=None, sum_sizes=None,
                  inference_type=InferenceType.MARGINAL, batch_axis=0, op_axis=1, reduce_axis=2,
-                 name="Sum"):
+                 masked=False, name="Sum"):
         super().__init__(inference_type, name)
         self.set_values(*values)
         self.set_weights(weights)
@@ -60,10 +61,21 @@ class BaseSum(OpNode, abc.ABC):
         self._op_axis = op_axis
         self._reduce_axis = reduce_axis
 
+        self._masked = masked
+
     def _get_sum_sizes(self, num_sums):
         input_sizes = self.get_input_sizes()
         num_values = sum(input_sizes[2:])  # Skip ivs, weights
         return num_sums * [num_values]
+
+    def _build_mask(self):
+        """Constructs mask that could be used to cancel out 'columns' that are padded as a result of
+        varying reduction sizes. Returns a Boolean mask.
+
+        Returns:
+            By default the sums are not masked, returns ``None``
+        """
+        return None
 
     @utils.docinherit(OpNode)
     def serialize(self):
@@ -280,6 +292,8 @@ class BaseSum(OpNode, abc.ABC):
             reducible = cwise_op(reducible, ivs_tensor)
         if weighted:
             reducible = cwise_op(reducible, w_tensor)
+
+        tf.add_to_collection("spn_reducible", reducible)
         return reducible
 
     @utils.docinherit(OpNode)
@@ -336,7 +350,8 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.lru_cache
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors):
+            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
+            log=True, sample=False):
         """Common operations for computing the MPE path.
 
         Args:
@@ -352,7 +367,11 @@ class BaseSum(OpNode, abc.ABC):
             to the Weights of this node, the second corresponds to the IVs and the remaining
             tuples correspond to the nodes in ``self._values``.
         """
-        max_indices = self._reduce_argmax(reducible_tensor)
+        if sample:
+            max_indices = self._reduce_sample_log(reducible_tensor) if \
+                log else self._reduce_sample(reducible_tensor)
+        else:
+            max_indices = self._reduce_argmax(reducible_tensor)
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_acc, max_counts_split = self._accumulate_and_split_to_children(
@@ -389,20 +408,22 @@ class BaseSum(OpNode, abc.ABC):
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, *input_tensors,
-                          use_unweighted=False, with_ivs=True, add_random=None):
+                          use_unweighted=False, with_ivs=True, add_random=None,
+                          sample=False):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
         reducible = self._compute_reducible(w_tensor, ivs_tensor, *input_tensors, log=False,
                                             weighted=weighted, use_ivs=with_ivs)
         if add_random is not None:
             self.logger.warn(
                 "%s: no support for add_random in non-log MPE path computation." % self)
-        return self._compute_mpe_path_common(
-            reducible, counts, w_tensor, ivs_tensor, *input_tensors)
+        return self._compute_mpe_path_common(reducible, counts, w_tensor, ivs_tensor,
+                                             *input_tensors, log=False, sample=sample)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_log_mpe_path(self, counts, w_tensor, ivs_tensor, *input_tensors,
-                              use_unweighted=False, with_ivs=True, add_random=None):
+                              use_unweighted=False, with_ivs=True, add_random=None,
+                              sample=False):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
         reducible = self._compute_reducible(w_tensor, ivs_tensor, *input_tensors, log=True,
                                             weighted=weighted, use_ivs=with_ivs)
@@ -412,8 +433,8 @@ class BaseSum(OpNode, abc.ABC):
         if add_random is not None:
             reducible += tf.random_uniform(
                 tf.shape(reducible), minval=0.0, maxval=add_random, dtype=conf.dtype)
-        return self._compute_mpe_path_common(
-                    reducible, counts, w_tensor, ivs_tensor, *input_tensors)
+        return self._compute_mpe_path_common(reducible, counts, w_tensor, ivs_tensor,
+                                             *input_tensors, log=True, sample=sample)
 
     @utils.lru_cache
     def _compute_log_gradient(
@@ -635,7 +656,47 @@ class BaseSum(OpNode, abc.ABC):
         Returns:
             A ``Tensor`` reduced over the last axis.
         """
-        return tf.argmax(x, axis=self._reduce_axis)  # Does not have a keepdims parameter
+        if conf.argmax_zero:
+            return tf.argmax(x, axis=self._reduce_axis)
+
+        # Return random index in case multiple values equal max
+        x_max = tf.expand_dims(self._reduce_mpe_inference(x), self._reduce_axis)
+        x_eq_max = tf.to_float(tf.equal(x, x_max))
+        if self._masked:
+            x_eq_max *= tf.expand_dims(tf.to_float(self._build_mask()), axis=self._batch_axis)
+        x_eq_max /= tf.reduce_sum(x_eq_max, axis=self._reduce_axis, keepdims=True)
+
+        return tfd.Categorical(probs=x_eq_max).sample()
+
+    @utils.lru_cache
+    def _reduce_sample_log(self, x):
+        """Samples a tensor with log likelihoods, i.e. sample(x, axis=reduce_axis)).
+
+        Args:
+            x (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over the
+                        last axis.
+
+        Returns:
+            A ``Tensor`` reduced over the last axis.
+        """
+        x_normalized = x - tf.expand_dims(
+            self._reduce_marginal_inference_log(x), axis=self._reduce_axis)
+        return tfd.Categorical(logits=x_normalized).sample()
+
+    @utils.lru_cache
+    def _reduce_sample(self, x, epsilon=1e-8):
+        """Samples a tensor with likelihoods, i.e. sample(x, axis=reduce_axis)).
+
+        Args:
+            x (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over the
+                        last axis.
+
+        Returns:
+            A ``Tensor`` reduced over the last axis.
+        """
+        x_normalized = x / (tf.expand_dims(
+            self._reduce_marginal_inference(x, axis=self.reduce_axis)) + epsilon)
+        return tfd.Categorical(probs=x_normalized).sample()
 
     @staticmethod
     @utils.lru_cache

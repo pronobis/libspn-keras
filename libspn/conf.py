@@ -37,3 +37,10 @@ memoization = True
 """Whether to use LRU caches to function
 return values in successive calls for reduced
 graph size."""
+
+argmax_zero = False
+"""Whether to always return zero when 
+argmax in BaseSum is faced with multiple maxes. 
+If False, selects random a 'winner' among 
+the maxes.
+"""
