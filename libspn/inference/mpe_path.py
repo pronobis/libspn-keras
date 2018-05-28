@@ -26,12 +26,13 @@ class MPEPath:
     """
 
     def __init__(self, value=None, value_inference_type=None, log=True, add_random=None,
-                 use_unweighted=False):
+                 use_unweighted=False, sample=False):
         self._true_counts = {}
         self._actual_counts = {}
         self._log = log
         self._add_random = add_random
         self._use_unweighted = use_unweighted
+        self._sample = sample
         # Create internal value generator
         if value is None:
             if log:
@@ -90,7 +91,8 @@ class MPEPath:
                                       for i in node.inputs],
                             add_random=self._add_random,
                             use_unweighted=self._use_unweighted,
-                            with_ivs=True)
+                            with_ivs=True,
+                            sample=self._sample)
                     else:
                         return node._compute_mpe_path(
                             summed, *[self._value.values[i.node]
@@ -98,7 +100,8 @@ class MPEPath:
                                       for i in node.inputs],
                             add_random=self._add_random,
                             use_unweighted=self._use_unweighted,
-                            with_ivs=True)
+                            with_ivs=True,
+                            sample=self._sample)
 
         # Generate values if not yet generated
         if not self._value.values:
@@ -137,7 +140,8 @@ class MPEPath:
                                       for i in node.inputs],
                             add_random=self._add_random,
                             use_unweighted=self._use_unweighted,
-                            with_ivs=False)
+                            with_ivs=False,
+                            sample=self._sample)
                     else:
                         return node._compute_mpe_path(
                             summed, *[self._value.values[i.node]
@@ -145,7 +149,8 @@ class MPEPath:
                                       for i in node.inputs],
                             add_random=self._add_random,
                             use_unweighted=self._use_unweighted,
-                            with_ivs=False)
+                            with_ivs=False,
+                            sample=self._sample)
 
         # Generate values if not yet generated
         if not self._value.values:
