@@ -37,6 +37,6 @@ class ParSums(BaseSum):
 
     def __init__(self, *values, num_sums=1, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, name="ParallelSums"):
-        super().__init__(
+        super().__init__( 
             *values, num_sums=num_sums, weights=weights, ivs=ivs,
             inference_type=inference_type, name=name)
