@@ -49,20 +49,23 @@ class SumsLayer(BaseSum):
     """
 
     def __init__(self, *values, num_or_size_sums=None, weights=None, ivs=None,
-                 inference_type=InferenceType.MARGINAL, name="SumsLayer"):
+                 inference_type=InferenceType.MARGINAL, sample_prob=None, dropconnect_keep_prob=None,
+                 name="SumsLayer"):
 
         if isinstance(num_or_size_sums, int) or num_or_size_sums is None:
             # In case it is an int, pass it to num_sums. In case it is None, pass None to num_sums.
             # The latter will trigger the default behavior where each sum corresponds to an Input.
             super().__init__(
                 *values, num_sums=num_or_size_sums, weights=weights, ivs=ivs,
-                inference_type=inference_type, name=name, masked=True)
+                inference_type=inference_type, sample_prob=sample_prob, dropconnect_keep_prob=dropconnect_keep_prob,
+                name=name, masked=True)
         else:
             # In this case we have a list of sum sizes, so it is straightforward to determine the
             # number of sums.
             super().__init__(
                 *values, num_sums=len(num_or_size_sums), sum_sizes=num_or_size_sums,
-                weights=weights, ivs=ivs, inference_type=inference_type, name=name, masked=True)
+                weights=weights, ivs=ivs, inference_type=inference_type, sample_prob=sample_prob,
+                dropconnect_keep_prob=dropconnect_keep_prob, name=name, masked=True)
 
     @utils.docinherit(BaseSum)
     def _reset_sum_sizes(self, num_sums=None, sum_sizes=None):
@@ -316,7 +319,7 @@ class SumsLayer(BaseSum):
     @utils.lru_cache
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
-            log=True, sample=False, sample_prob=None):
+            log=True, sample=False, sample_prob=None, dropout_prob=None):
         if sample:
             if log:
                 max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
