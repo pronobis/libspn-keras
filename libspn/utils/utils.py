@@ -15,3 +15,7 @@ def decode_bytes_array(arr):
         return arr
 
 
+def maybe_first(a, b):
+    if a is None:
+        return b
+    return a
