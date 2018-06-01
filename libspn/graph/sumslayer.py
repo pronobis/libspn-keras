@@ -57,8 +57,8 @@ class SumsLayer(BaseSum):
             # The latter will trigger the default behavior where each sum corresponds to an Input.
             super().__init__(
                 *values, num_sums=num_or_size_sums, weights=weights, ivs=ivs,
-                inference_type=inference_type, sample_prob=sample_prob, dropconnect_keep_prob=dropconnect_keep_prob,
-                name=name, masked=True)
+                inference_type=inference_type, sample_prob=sample_prob,
+                dropconnect_keep_prob=dropconnect_keep_prob, name=name, masked=True)
         else:
             # In this case we have a list of sum sizes, so it is straightforward to determine the
             # number of sums.
@@ -319,12 +319,14 @@ class SumsLayer(BaseSum):
     @utils.lru_cache
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
-            log=True, sample=False, sample_prob=None, dropout_prob=None):
+            log=True, sample=False, sample_prob=None, dropout_prob=None, sample_rank_based=False):
         if sample:
             if log:
-                max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
+                max_indices = self._reduce_sample_log(
+                    reducible_tensor, sample_prob=sample_prob, rank_based=sample_rank_based)
             else:
-                max_indices = self._reduce_sample(reducible_tensor, sample_prob=sample_prob)
+                max_indices = self._reduce_sample(
+                    reducible_tensor, sample_prob=sample_prob, rank_based=sample_rank_based)
         else:
             max_indices = self._reduce_argmax(reducible_tensor)
         max_counts = utils.scatter_values(
@@ -338,10 +340,25 @@ class SumsLayer(BaseSum):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_log_gradient(self, gradients, w_tensor, ivs_tensor, *value_tensors,
-                              with_ivs=True, sum_weight_grads=False):
+                              with_ivs=True, sum_weight_grads=False, dropout_keep_prob=None,
+                              dropconnect_keep_prob=None):
         reducible = self._compute_reducible(
-            w_tensor, ivs_tensor, *value_tensors, log=True, use_ivs=with_ivs)
-        log_sum = tf.reduce_logsumexp(reducible, axis=self._reduce_axis, keepdims=True)
+            w_tensor, ivs_tensor, *value_tensors, log=True, use_ivs=with_ivs,
+            dropconnect_keep_prob=dropconnect_keep_prob)
+        log_sum = tf.expand_dims(
+            self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
+
+        dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
+        if dropout_keep_prob is not None and not \
+                (isinstance(dropout_keep_prob, (float, int)) and float(dropout_keep_prob) == 1.0):
+            mask = self._get_or_create_dropout_mask(
+                batch_size=tf.shape(gradients)[self._batch_axis], keep_prob=dropout_keep_prob,
+                log=True)
+            gradients = self.cwise_mul(gradients, tf.exp(mask))
+
+        # A number - (-inf) is undefined. In fact, the gradient in those cases should be zero
+        log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
+
         weight_gradients = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(
             reducible - log_sum)
         inp_grad_split = self._accumulate_and_split_to_children(weight_gradients, *value_tensors)

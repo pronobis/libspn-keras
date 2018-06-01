@@ -25,10 +25,12 @@ class Value:
             MPE inference will be used for all nodes.
     """
 
-    def __init__(self, inference_type=None, dropconnect_keep_prob=None, name="Value"):
+    def __init__(self, inference_type=None, dropconnect_keep_prob=None, dropout_keep_prob=None,
+                 name="Value"):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
+        self._dropout_keep_prob = dropout_keep_prob
         self._name = name
 
     @property
@@ -56,7 +58,9 @@ class Value:
         """
         def fun(node, *args):
             if self._dropconnect_keep_prob and isinstance(node, BaseSum):
-                kwargs = dict(dropconnect_keep_prob=self._dropconnect_keep_prob)
+                kwargs = dict(
+                    dropconnect_keep_prob=self._dropconnect_keep_prob,
+                    dropout_keep_prob=self._dropout_keep_prob)
             else:
                 kwargs = dict()
             with tf.name_scope(node.name):
@@ -86,10 +90,12 @@ class LogValue:
             MPE inference will be used for all nodes.
     """
 
-    def __init__(self, inference_type=None, dropconnect_keep_prob=None, name="LogValue"):
+    def __init__(self, inference_type=None, dropout_keep_prob=None, dropconnect_keep_prob=None,
+                 name="LogValue"):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
+        self._dropout_keep_prob = dropout_keep_prob
         self._name = name
 
     @property
@@ -118,7 +124,9 @@ class LogValue:
         """
         def fun(node, *args):
             if self._dropconnect_keep_prob and isinstance(node, BaseSum):
-                kwargs = dict(dropconnect_keep_prob=self._dropconnect_keep_prob)
+                kwargs = dict(
+                    dropconnect_keep_prob=self._dropconnect_keep_prob,
+                    dropout_keep_prob=self._dropout_keep_prob)
             else:
                 kwargs = dict()
             with tf.name_scope(node.name):

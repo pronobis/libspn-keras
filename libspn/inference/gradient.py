@@ -9,6 +9,7 @@ from types import MappingProxyType
 import tensorflow as tf
 from libspn.inference.value import Value, LogValue
 from libspn.graph.algorithms import compute_graph_up_down
+from libspn.graph.basesum import BaseSum
 
 
 class Gradient:
@@ -23,16 +24,24 @@ class Gradient:
                     if ``value`` is given.
     """
 
-    def __init__(self, value=None, value_inference_type=None, log=True):
+    def __init__(self, value=None, value_inference_type=None, log=True, dropout_keep_prob=None,
+                 dropconnect_keep_prob=None):
         self._true_gradients = {}
         self._actual_gradients = {}
         self._log = log
+        self._dropconnect_keep_prob = dropconnect_keep_prob
+        self._dropout_keep_prob = dropout_keep_prob
         # Create internal value generator
         if value is None:
             if log:
-                self._value = LogValue(value_inference_type)
+                self._value = LogValue(
+                    value_inference_type,
+                    dropout_keep_prob=dropout_keep_prob,
+                    dropconnect_keep_prob=dropconnect_keep_prob)
             else:
-                self._value = Value(value_inference_type)
+                self._value = Value(
+                    value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob,
+                    dropout_keep_prob=dropout_keep_prob)
         else:
             self._value = value
             self._log = value.log()
@@ -75,17 +84,23 @@ class Gradient:
             self._true_gradients[node] = summed
             if node.is_op:
                 # Compute for inputs
+                if isinstance(node, BaseSum):
+                    kwargs = dict(
+                        with_ivs=True, dropconnect_keep_prob=self._dropconnect_keep_prob,
+                        dropout_keep_prob=self._dropout_keep_prob)
+                else:
+                    kwargs = dict(with_ivs=True)
                 with tf.name_scope(node.name):
                     if self._log:
                         return node._compute_log_gradient(
                             summed, *[self._value.values[i.node]
                                       if i else None
-                                      for i in node.inputs], with_ivs=True)
+                                      for i in node.inputs], **kwargs)
                     else:
                         return node._compute_log_gradient(
                             summed, *[self._value.values[i.node]
                                       if i else None
-                                      for i in node.inputs], with_ivs=True)
+                                      for i in node.inputs], **kwargs)
 
         # Generate values if not yet generated
         if not self._value.values:
@@ -115,18 +130,24 @@ class Gradient:
                 summed = parent_vals[0]
             self._actual_gradients[node] = summed
             if node.is_op:
+                if isinstance(node, BaseSum):
+                    kwargs = dict(
+                        with_ivs=False, dropconnect_keep_prob=self._dropconnect_keep_prob,
+                        dropout_keep_prob=self._dropout_keep_prob)
+                else:
+                    kwargs = dict(with_ivs=False)
                 # Compute for inputs
                 with tf.name_scope(node.name):
                     if self._log:
                         return node._compute_log_gradient(
                             summed, *[self._value.values[i.node]
                                       if i else None
-                                      for i in node.inputs], with_ivs=False)
+                                      for i in node.inputs], **kwargs)
                     else:
                         return node._compute_log_gradient(
                             summed, *[self._value.values[i.node]
                                       if i else None
-                                      for i in node.inputs], with_ivs=False)
+                                      for i in node.inputs], **kwargs)
 
         # Generate values if not yet generated
         if not self._value.values:
