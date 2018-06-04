@@ -29,7 +29,7 @@ class BaseSum(OpNode, abc.ABC):
                           and sum_sizes are given, we should have len(sum_sizes) == num_sums.
         batch_axis (int): The index of the batch axis.
         op_axis (int): The index of the op axis that contains the individual sums being modeled.
-        reduce_axis (int): The axis over which to perform summing (or max for MPE). in (log-)space
+        reduce_axis (int): The axis over which to perform summing (or max for MPE)
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
@@ -311,10 +311,9 @@ class BaseSum(OpNode, abc.ABC):
         if weighted:
             reducible = cwise_op(reducible, w_tensor)
 
-        if dropconnect_keep_prob != 1.0:
-            dropconnect_keep_prob = utils.maybe_first(
-                self._dropconnect_keep_prob, dropconnect_keep_prob)
-            if dropconnect_keep_prob is not None:
+        dropconnect_keep_prob = utils.maybe_first(
+            dropconnect_keep_prob, self._dropconnect_keep_prob)
+        if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
                 if use_ivs and self._ivs:
                     self.logger.warn(
                         "Using dropconnect and latent IVs simultaneously. "
@@ -325,7 +324,6 @@ class BaseSum(OpNode, abc.ABC):
                         dropconnect_keep_prob, tf.shape(reducible), log=log)
                     reducible = cwise_op(reducible, mask)
 
-        tf.add_to_collection("spn_reducible", reducible)
         return reducible
 
     @utils.docinherit(OpNode)
@@ -531,9 +529,8 @@ class BaseSum(OpNode, abc.ABC):
             sum_weight_grads (bool): A ``bool`` that marks whether the weight gradients should be
                                      summed over the batch axis.
         Returns:
-            A ``list`` of ``tuple``s where each tuple consists of a gradient and the forward-pass
-            tensor corresponding to the gradient. Starts with weights, then IVs and the remaining
-            ``tuple`` correspond to ``input_tensors``.
+            A ``tuple`` of gradients. Starts with weights, then IVs  and the remainder corresponds
+            to ``value_tensors``.
         """
 
         reducible = self._compute_reducible(
