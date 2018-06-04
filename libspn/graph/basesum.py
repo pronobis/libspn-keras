@@ -347,10 +347,6 @@ class BaseSum(OpNode, abc.ABC):
 
         # Defines gradient for the log value
         def soft_gradient(grad):
-            # if dropout_keep_prob is not None or self._dropout_keep_prob is not None:
-            #     keep_prob = dropout_keep_prob or self._dropout_keep_prob
-            #     if not (isinstance(keep_prob, (int, float)) and float(keep_prob) == 1.0):
-            #         raise NotImplementedError("No gradient support for dropout.")
             scattered_grads = self._compute_log_gradient(
                 grad, w_tensor, ivs_tensor, *value_tensors, sum_weight_grads=True,
                 dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob)
