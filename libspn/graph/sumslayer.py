@@ -348,7 +348,7 @@ class SumsLayer(BaseSum):
         log_sum = tf.expand_dims(
             self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
 
-        dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
+        dropout_keep_prob = utils.maybe_first(dropout_keep_prob, self._dropout_keep_prob)
         if dropout_keep_prob is not None and not \
                 (isinstance(dropout_keep_prob, (float, int)) and float(dropout_keep_prob) == 1.0):
             mask = self._get_or_create_dropout_mask(
