@@ -11,6 +11,7 @@ from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode, Input
 from libspn.inference.type import InferenceType
 from libspn import utils
+from libspn import conf
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
 from libspn.utils.serialization import register_serializable
@@ -200,14 +201,22 @@ class PermProducts(OpNode):
     @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
+
+        # Wrap the log value with its custom gradient
         @tf.custom_gradient
-        def value_gradient(*value_tensors):
+        def log_value(*value_tensors):
+            # Defines gradient for the log value
             def gradient(gradients):
                 scattered_grads = self._compute_mpe_path(gradients, *value_tensors)
                 return [sg for sg in scattered_grads if sg is not None]
             return tf.reduce_sum(values, axis=-1, keep_dims=(False if self._num_prods > 1
                                                              else True)), gradient
-        return value_gradient(*value_tensors)
+
+        if conf.custom_gradient:
+            return log_value(*value_tensors)
+        else:
+            return tf.reduce_sum(values, axis=-1,
+                                 keep_dims=(False if self._num_prods > 1 else True))
 
     def _compute_mpe_value(self, *value_tensors):
         return self._compute_value(*value_tensors)

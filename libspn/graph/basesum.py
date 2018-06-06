@@ -309,7 +309,14 @@ class BaseSum(OpNode, abc.ABC):
             ret = self._reduce_marginal_inference_log(self._compute_reducible(
                 w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True, use_ivs=True))
             return ret, soft_gradient
-        return _log_value(*self._get_differentiable_inputs(w_tensor, ivs_tensor, *value_tensors))
+
+        if conf.custom_gradient:
+            return _log_value(*self._get_differentiable_inputs(
+                w_tensor, ivs_tensor, *value_tensors))
+        else:
+            return self._reduce_marginal_inference_log(self._compute_reducible(
+                w_tensor, ivs_tensor, *value_tensors, log=True,
+                weighted=True, use_ivs=True))
 
     def _get_differentiable_inputs(self, w_tensor, ivs_tensor, *value_tensors):
         """Selects the tensors to include for a tf.custom_gradient when computing the log-value.

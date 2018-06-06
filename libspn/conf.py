@@ -37,3 +37,7 @@ memoization = True
 """Whether to use LRU caches to function
 return values in successive calls for reduced
 graph size."""
+
+custom_gradient = True
+"""Whether or not to use custom gradient implementations,
+implemented within the respective Op nodes."""
