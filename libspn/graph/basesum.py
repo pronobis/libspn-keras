@@ -57,7 +57,7 @@ class BaseSum(OpNode, abc.ABC):
         self._reset_sum_sizes(num_sums=num_sums, sum_sizes=sum_sizes)
 
         self._batch_axis = batch_axis
-        self._op_axis = op_axis
+        self._op_axis = [op_axis] if isinstance(op_axis, int) else op_axis
         self._reduce_axis = reduce_axis
 
     def _get_sum_sizes(self, num_sums):
@@ -384,7 +384,7 @@ class BaseSum(OpNode, abc.ABC):
             x_acc = tf.squeeze(x, axis=self._op_axis)
 
         _, _, *value_sizes = self.get_input_sizes()
-        return x_acc, tf.split(x_acc, value_sizes, axis=self._op_axis)
+        return x_acc, tf.split(x_acc, value_sizes, axis=self._batch_axis + 1)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
@@ -406,7 +406,8 @@ class BaseSum(OpNode, abc.ABC):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
         reducible = self._compute_reducible(w_tensor, ivs_tensor, *input_tensors, log=True,
                                             weighted=weighted, use_ivs=with_ivs)
-        if not weighted and self._num_sums > 1 and reducible.shape[self._op_axis].value == 1:
+        if not weighted and self._num_sums > 1 and all(reducible.shape[ax].value == 1
+                                                       for ax in self._op_axis):
             reducible = tf.tile(reducible, (1, self._num_sums, 1))
         # Add random
         if add_random is not None:
