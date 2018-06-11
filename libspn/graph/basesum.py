@@ -75,6 +75,9 @@ class BaseSum(OpNode, abc.ABC):
             data['ivs'] = (self._ivs.node.name, self._ivs.indices)
         data['num_sums'] = self._num_sums
         data['sum_sizes'] = self._sum_sizes
+        data['op_axis'] = self._op_axis
+        data['reduce_axis'] = self._reduce_axis
+        data['batch_axis'] = self._batch_axis
         return data
 
     @utils.docinherit(OpNode)
@@ -96,6 +99,11 @@ class BaseSum(OpNode, abc.ABC):
         ivs = data.get('ivs', None)
         if ivs:
             self._ivs = Input(nodes_by_name[ivs[0]], ivs[1])
+        self._num_sums = data['num_sums']
+        self._sum_sizes = data['sum_sizes']
+        self._batch_axis = data['batch_axis']
+        self._op_axis = data['op_axis']
+        self._reduce_axis = data['reduce_axis']
 
     @property
     @utils.docinherit(OpNode)
