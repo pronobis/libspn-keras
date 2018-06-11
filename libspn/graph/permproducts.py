@@ -195,7 +195,7 @@ class PermProducts(OpNode):
     def _compute_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
         return tf.reduce_prod(values, axis=-1,
-                              keep_dims=(False if self._num_prods > 1 else True))
+                              keepdims=(False if self._num_prods > 1 else True))
 
     @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
@@ -205,7 +205,7 @@ class PermProducts(OpNode):
             def gradient(gradients):
                 scattered_grads = self._compute_mpe_path(gradients, *value_tensors)
                 return [sg for sg in scattered_grads if sg is not None]
-            return tf.reduce_sum(values, axis=-1, keep_dims=(False if self._num_prods > 1
+            return tf.reduce_sum(values, axis=-1, keepdims=(False if self._num_prods > 1
                                                              else True)), gradient
         return value_gradient(*value_tensors)
 

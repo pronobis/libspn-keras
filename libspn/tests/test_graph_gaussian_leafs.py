@@ -129,171 +129,174 @@ class TestGaussianQuantile(TestCase):
                  for m, v in zip(means[1], vars[1])]
         data = np.stack([np.concatenate(data0), np.concatenate(data1)], axis=-1)
 
-        # Set up SPN
-        gq = spn.GaussianLeaf(num_vars=num_vars, num_components=num_components,
-                              initialization_data=data, total_counts_init=count_init,
-                              learn_dist_params=True, softplus_scale=softplus_scale)
 
-        mixture00 = spn.Sum((gq, [0, 1]), name="Mixture00")
-        weights00 = spn.Weights(init_value=[0.25, 0.75], num_weights=2)
-        mixture00.set_weights(weights00)
-        mixture01 = spn.Sum((gq, [0, 1]), name="Mixture01")
-        weights01 = spn.Weights(init_value=[0.75, 0.25], num_weights=2)
-        mixture01.set_weights(weights01)
+        with tf.Graph().as_default() as graph:
+            # Set up SPN
+            gq = spn.GaussianLeaf(num_vars=num_vars, num_components=num_components,
+                                  initialization_data=data, total_counts_init=count_init,
+                                  learn_dist_params=True, softplus_scale=softplus_scale)
 
-        mixture10 = spn.Sum((gq, [2, 3]), name="Mixture10")
-        weights10 = spn.Weights(init_value=[2/3, 1/3], num_weights=2)
-        mixture10.set_weights(weights10)
-        mixture11 = spn.Sum((gq, [2, 3]), name="Mixture11")
-        weights11 = spn.Weights(init_value=[1/3, 2/3], num_weights=2)
-        mixture11.set_weights(weights11)
+            mixture00 = spn.Sum((gq, [0, 1]), name="Mixture00")
+            weights00 = spn.Weights(init_value=[0.25, 0.75], num_weights=2)
+            mixture00.set_weights(weights00)
+            mixture01 = spn.Sum((gq, [0, 1]), name="Mixture01")
+            weights01 = spn.Weights(init_value=[0.75, 0.25], num_weights=2)
+            mixture01.set_weights(weights01)
 
-        prod0 = spn.Product(mixture00, mixture10, name="Prod0")
-        prod1 = spn.Product(mixture01, mixture11, name="Prod1")
+            mixture10 = spn.Sum((gq, [2, 3]), name="Mixture10")
+            weights10 = spn.Weights(init_value=[2/3, 1/3], num_weights=2)
+            mixture10.set_weights(weights10)
+            mixture11 = spn.Sum((gq, [2, 3]), name="Mixture11")
+            weights11 = spn.Weights(init_value=[1/3, 2/3], num_weights=2)
+            mixture11.set_weights(weights11)
 
-        root = spn.Sum(prod0, prod1, name="Root")
-        root_weights = spn.Weights(init_value=[1/2, 1/2], num_weights=2)
-        root.set_weights(root_weights)
+            prod0 = spn.Product(mixture00, mixture10, name="Prod0")
+            prod1 = spn.Product(mixture01, mixture11, name="Prod1")
 
-        # Generate new data from slightly shifted Gaussians
-        data0 = np.concatenate(
-            [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
-             for m, v in zip(means[0] + 0.2, vars[0])])
-        data1 = np.concatenate(
-            [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
-             for m, v in zip(means[1] + 1.0, vars[1])])
+            root = spn.Sum(prod0, prod1, name="Root")
+            root_weights = spn.Weights(init_value=[1/2, 1/2], num_weights=2)
+            root.set_weights(root_weights)
 
-        # Compute actual log probabilities of roots
-        empirical_means = gq._loc_init
-        empirical_vars = np.square(gq._scale_init) if not softplus_scale else np.square(
-            np.log(np.exp(gq._scale_init) + 1))
-        log_probs0 = [stats.norm(loc=m, scale=np.sqrt(v)).logpdf(data0)
-                      for m, v in zip(empirical_means[0], empirical_vars[0])]
-        log_probs1 = [stats.norm(loc=m, scale=np.sqrt(v)).logpdf(data1)
-                      for m, v in zip(empirical_means[1], empirical_vars[1])]
+            # Generate new data from slightly shifted Gaussians
+            data0 = np.concatenate(
+                [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
+                 for m, v in zip(means[0] + 0.2, vars[0])])
+            data1 = np.concatenate(
+                [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
+                 for m, v in zip(means[1] + 1.0, vars[1])])
 
-        # Compute actual log probabilities of mixtures
-        mixture00_val = np.logaddexp(log_probs0[0] + np.log(1/4), log_probs0[1] + np.log(3/4))
-        mixture01_val = np.logaddexp(log_probs0[0] + np.log(3/4), log_probs0[1] + np.log(1/4))
+            # Compute actual log probabilities of roots
+            empirical_means = gq._loc_init
+            empirical_vars = np.square(gq._scale_init) if not softplus_scale else np.square(
+                np.log(np.exp(gq._scale_init) + 1))
+            log_probs0 = [stats.norm(loc=m, scale=np.sqrt(v)).logpdf(data0)
+                          for m, v in zip(empirical_means[0], empirical_vars[0])]
+            log_probs1 = [stats.norm(loc=m, scale=np.sqrt(v)).logpdf(data1)
+                          for m, v in zip(empirical_means[1], empirical_vars[1])]
 
-        mixture10_val = np.logaddexp(log_probs1[0] + np.log(2/3), log_probs1[1] + np.log(1/3))
-        mixture11_val = np.logaddexp(log_probs1[0] + np.log(1/3), log_probs1[1] + np.log(2/3))
+            # Compute actual log probabilities of mixtures
+            mixture00_val = np.logaddexp(log_probs0[0] + np.log(1/4), log_probs0[1] + np.log(3/4))
+            mixture01_val = np.logaddexp(log_probs0[0] + np.log(3/4), log_probs0[1] + np.log(1/4))
 
-        # Compute actual log probabilities of products
-        prod0_val = mixture00_val + mixture10_val
-        prod1_val = mixture01_val + mixture11_val
+            mixture10_val = np.logaddexp(log_probs1[0] + np.log(2/3), log_probs1[1] + np.log(1/3))
+            mixture11_val = np.logaddexp(log_probs1[0] + np.log(1/3), log_probs1[1] + np.log(2/3))
 
-        # Compute the index of the max probability at the products layer
-        prod_winner = np.argmax(np.stack([prod0_val, prod1_val], axis=-1), axis=-1)
+            # Compute actual log probabilities of products
+            prod0_val = mixture00_val + mixture10_val
+            prod1_val = mixture01_val + mixture11_val
 
-        # Compute the indices of the max component per mixture
-        component_winner00 = np.argmax(
-            np.stack([log_probs0[0] + np.log(1/4), log_probs0[1] + np.log(3/4)], axis=-1), axis=-1)
-        component_winner01 = np.argmax(
-            np.stack([log_probs0[0] + np.log(3/4), log_probs0[1] + np.log(1/4)], axis=-1), axis=-1)
-        component_winner10 = np.argmax(
-            np.stack([log_probs1[0] + np.log(2/3), log_probs1[1] + np.log(1/3)], axis=-1), axis=-1)
-        component_winner11 = np.argmax(
-            np.stack([log_probs1[0] + np.log(1/3), log_probs1[1] + np.log(2/3)], axis=-1), axis=-1)
+            # Compute the index of the max probability at the products layer
+            prod_winner = np.argmax(np.stack([prod0_val, prod1_val], axis=-1), axis=-1)
 
-        # Initialize true counts
-        counts_per_component = np.zeros((2, 2))
-        sum_data_val = np.zeros((2, 2))
-        sum_data_squared_val = np.zeros((2, 2))
+            # Compute the indices of the max component per mixture
+            component_winner00 = np.argmax(
+                np.stack([log_probs0[0] + np.log(1/4), log_probs0[1] + np.log(3/4)], axis=-1), axis=-1)
+            component_winner01 = np.argmax(
+                np.stack([log_probs0[0] + np.log(3/4), log_probs0[1] + np.log(1/4)], axis=-1), axis=-1)
+            component_winner10 = np.argmax(
+                np.stack([log_probs1[0] + np.log(2/3), log_probs1[1] + np.log(1/3)], axis=-1), axis=-1)
+            component_winner11 = np.argmax(
+                np.stack([log_probs1[0] + np.log(1/3), log_probs1[1] + np.log(2/3)], axis=-1), axis=-1)
 
-        data00 = []
-        data01 = []
-        data10 = []
-        data11 = []
+            # Initialize true counts
+            counts_per_component = np.zeros((2, 2))
+            sum_data_val = np.zeros((2, 2))
+            sum_data_squared_val = np.zeros((2, 2))
 
-        # Compute true counts
-        counts_per_step = np.zeros((batch_size, num_vars, num_components))
-        for i, (prod_ind, d0, d1) in enumerate(zip(prod_winner, data0, data1)):
-            if prod_ind == 0:
-                # mixture 00 and mixture 10
-                counts_per_step[i, 0, component_winner00[i]] = 1
-                counts_per_component[0, component_winner00[i]] += 1
-                sum_data_val[0, component_winner00[i]] += data0[i]
-                sum_data_squared_val[0, component_winner00[i]] += data0[i] * data0[i]
-                (data00 if component_winner00[i] == 0 else data01).append(data0[i])
+            data00 = []
+            data01 = []
+            data10 = []
+            data11 = []
 
-                counts_per_step[i, 1, component_winner10[i]] = 1
-                counts_per_component[1, component_winner10[i]] += 1
-                sum_data_val[1, component_winner10[i]] += data1[i]
-                sum_data_squared_val[1, component_winner10[i]] += data1[i] * data1[i]
-                (data10 if component_winner10[i] == 0 else data11).append(data1[i])
-            else:
-                counts_per_step[i, 0, component_winner01[i]] = 1
-                counts_per_component[0, component_winner01[i]] += 1
-                sum_data_val[0, component_winner01[i]] += data0[i]
-                sum_data_squared_val[0, component_winner01[i]] += data0[i] * data0[i]
-                (data00 if component_winner01[i] == 0 else data01).append(data0[i])
+            # Compute true counts
+            counts_per_step = np.zeros((batch_size, num_vars, num_components))
+            for i, (prod_ind, d0, d1) in enumerate(zip(prod_winner, data0, data1)):
+                if prod_ind == 0:
+                    # mixture 00 and mixture 10
+                    counts_per_step[i, 0, component_winner00[i]] = 1
+                    counts_per_component[0, component_winner00[i]] += 1
+                    sum_data_val[0, component_winner00[i]] += data0[i]
+                    sum_data_squared_val[0, component_winner00[i]] += data0[i] * data0[i]
+                    (data00 if component_winner00[i] == 0 else data01).append(data0[i])
 
-                counts_per_step[i, 1, component_winner11[i]] = 1
-                counts_per_component[1, component_winner11[i]] += 1
-                sum_data_val[1, component_winner11[i]] += data1[i]
-                sum_data_squared_val[1, component_winner11[i]] += data1[i] * data1[i]
-                (data10 if component_winner11[i] == 0 else data11).append(data1[i])
+                    counts_per_step[i, 1, component_winner10[i]] = 1
+                    counts_per_component[1, component_winner10[i]] += 1
+                    sum_data_val[1, component_winner10[i]] += data1[i]
+                    sum_data_squared_val[1, component_winner10[i]] += data1[i] * data1[i]
+                    (data10 if component_winner10[i] == 0 else data11).append(data1[i])
+                else:
+                    counts_per_step[i, 0, component_winner01[i]] = 1
+                    counts_per_component[0, component_winner01[i]] += 1
+                    sum_data_val[0, component_winner01[i]] += data0[i]
+                    sum_data_squared_val[0, component_winner01[i]] += data0[i] * data0[i]
+                    (data00 if component_winner01[i] == 0 else data01).append(data0[i])
 
-        # Setup learning Ops
-        value_inference_type = spn.InferenceType.MARGINAL
-        init_weights = spn.initialize_weights(root)
-        learning = spn.EMLearning(root, log=True, value_inference_type=value_inference_type)
-        reset_accumulators = learning.reset_accumulators()
-        accumulate_updates = learning.accumulate_updates()
-        update_spn = learning.update_spn()
-        train_likelihood = learning.value.values[root]
-        avg_train_likelihood = tf.reduce_mean(train_likelihood)
+                    counts_per_step[i, 1, component_winner11[i]] = 1
+                    counts_per_component[1, component_winner11[i]] += 1
+                    sum_data_val[1, component_winner11[i]] += data1[i]
+                    sum_data_squared_val[1, component_winner11[i]] += data1[i] * data1[i]
+                    (data10 if component_winner11[i] == 0 else data11).append(data1[i])
 
-        # Setup feed dict and update ops
-        fd = {gq: np.stack([data0, data1], axis=-1)}
-        update_ops = gq._compute_hard_em_update(learning._mpe_path.counts[gq])
+            # Setup learning Ops
+            value_inference_type = spn.InferenceType.MARGINAL
+            init_weights = spn.initialize_weights(root)
+            learning = spn.EMLearning(root, log=True, value_inference_type=value_inference_type)
+            reset_accumulators = learning.reset_accumulators()
+            accumulate_updates = learning.accumulate_updates()
+            update_spn = learning.update_spn()
+            train_likelihood = learning.value.values[root]
+            avg_train_likelihood = tf.reduce_mean(train_likelihood)
 
-        with self.test_session() as sess:
-            sess.run(init_weights)
+            # Setup feed dict and update ops
+            fd = {gq: np.stack([data0, data1], axis=-1)}
+            update_ops = gq._compute_hard_em_update(learning._mpe_path.counts[gq])
 
-            # Get log probabilities of Gaussian leaf
-            log_probs = sess.run(learning.value.values[gq], fd)
+            with self.test_session(graph=graph) as sess:
+                sess.run(init_weights)
 
-            # Get log probabilities of mixtures
-            mixture00_graph, mixture01_graph, mixture10_graph, mixture11_graph = sess.run([
-                learning.value.values[mixture00],
-                learning.value.values[mixture01],
-                learning.value.values[mixture10],
-                learning.value.values[mixture11]], fd)
+                # Get log probabilities of Gaussian leaf
+                log_probs = sess.run(learning.value.values[gq], fd)
 
-            # Get log probabilities of products
-            prod0_graph, prod1_graph = sess.run(
-                [learning.value.values[prod0], learning.value.values[prod1]], fd)
+                # Get log probabilities of mixtures
+                mixture00_graph, mixture01_graph, mixture10_graph, mixture11_graph = sess.run([
+                    learning.value.values[mixture00],
+                    learning.value.values[mixture01],
+                    learning.value.values[mixture10],
+                    learning.value.values[mixture11]], fd)
 
-            # Get counts for graph
-            counts = sess.run(tf.reduce_sum(learning._mpe_path.counts[gq], axis=0), fd)
-            counts_per_sample = sess.run(learning._mpe_path.counts[gq], fd)
+                # Get log probabilities of products
+                prod0_graph, prod1_graph = sess.run(
+                    [learning.value.values[prod0], learning.value.values[prod1]], fd)
 
-            accum, sum_data_graph, sum_data_squared_graph = sess.run([
-                update_ops['accum'], update_ops['sum_data'], update_ops['sum_data_squared']], fd)
+                # Get counts for graph
+                counts = sess.run(tf.reduce_sum(learning._mpe_path.counts[gq], axis=0), fd)
+                counts_per_sample = sess.run(learning._mpe_path.counts[gq], fd)
 
-        with self.test_session() as sess:
-            sess.run(init_weights)
-            sess.run(reset_accumulators)
+                accum, sum_data_graph, sum_data_squared_graph = sess.run([
+                    update_ops['accum'], update_ops['sum_data'], update_ops['sum_data_squared']], fd)
 
-            data_per_component_op = sess.graph.get_tensor_by_name("DataPerComponent:0")
-            squared_data_per_component_op = sess.graph.get_tensor_by_name(
-                "SquaredDataPerComponent:0")
+            with self.test_session(graph=graph) as sess:
+                sess.run(init_weights)
+                sess.run(reset_accumulators)
 
-            update_vals, data_per_component_out, squared_data_per_component_out = sess.run(
-                [accumulate_updates, data_per_component_op, squared_data_per_component_op], fd)
+                data_per_component_op = graph.get_tensor_by_name(
+                    "EMLearning/GaussianLeaf/DataPerComponent:0")
+                squared_data_per_component_op = graph.get_tensor_by_name(
+                    "EMLearning/GaussianLeaf/SquaredDataPerComponent:0")
 
-            # Get likelihood before update
-            lh_before = sess.run(avg_train_likelihood, fd)
-            sess.run(update_spn)
+                update_vals, data_per_component_out, squared_data_per_component_out = sess.run(
+                    [accumulate_updates, data_per_component_op, squared_data_per_component_op], fd)
 
-            # Get likelihood after update
-            lh_after = sess.run(avg_train_likelihood, fd)
+                # Get likelihood before update
+                lh_before = sess.run(avg_train_likelihood, fd)
+                sess.run(update_spn)
 
-            # Get variables after update
-            total_counts_graph, scale_graph, mean_graph = sess.run([
-                gq._total_count_variable, gq.scale_variable, gq.loc_variable])
+                # Get likelihood after update
+                lh_after = sess.run(avg_train_likelihood, fd)
+
+                # Get variables after update
+                total_counts_graph, scale_graph, mean_graph = sess.run([
+                    gq._total_count_variable, gq.scale_variable, gq.loc_variable])
 
         self.assertAllClose(prod0_val, prod0_graph.ravel())
         self.assertAllClose(prod1_val, prod1_graph.ravel())
@@ -521,7 +524,7 @@ class TestGaussianQuantile(TestCase):
 
         mpe_truth = np.reshape(mpe_truth, (-1, num_vars))
 
-        mpe_state = gq._compute_mpe_state(counts)
+        mpe_state = gq._compute_mpe_state(tf.convert_to_tensor(counts, dtype=tf.float32))
 
         with self.test_session() as sess:
             sess.run([gq.initialize()])
