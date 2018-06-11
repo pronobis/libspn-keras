@@ -251,7 +251,7 @@ class ProductsLayer(OpNode):
     @utils.lru_cache
     def _compute_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors, padding_value=1.0)
-        return tf.reduce_prod(values, axis=-1, keep_dims=(False if
+        return tf.reduce_prod(values, axis=-1, keepdims=(False if
                               self._num_prods > 1 else True))
 
     @utils.lru_cache
@@ -262,7 +262,7 @@ class ProductsLayer(OpNode):
             def gradient(gradients):
                 scattered_grads = self._compute_mpe_path(gradients, *value_tensors)
                 return [sg for sg in scattered_grads if sg is not None]
-            return tf.reduce_sum(values, axis=-1, keep_dims=(False if self._num_prods > 1
+            return tf.reduce_sum(values, axis=-1, keepdims=(False if self._num_prods > 1
                                                              else True)), gradient
         unique_tensors = self._get_differentiable_inputs(*value_tensors)
         return value_gradient(*unique_tensors)

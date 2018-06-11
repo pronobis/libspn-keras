@@ -331,6 +331,7 @@ class SumsLayer(BaseSum):
         reducible = self._compute_reducible(
             w_tensor, ivs_tensor, *value_tensors, log=True, use_ivs=with_ivs)
         log_sum = tf.reduce_logsumexp(reducible, axis=self._reduce_axis, keepdims=True)
+        log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
         weight_gradients = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(
             reducible - log_sum)
         inp_grad_split = self._accumulate_and_split_to_children(weight_gradients, *value_tensors)
