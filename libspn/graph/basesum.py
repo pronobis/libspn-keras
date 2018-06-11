@@ -454,6 +454,7 @@ class BaseSum(OpNode, abc.ABC):
         # be tempted to use keepdims=True and omit expand_dims here...
         log_sum = tf.expand_dims(
             self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
+        log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
         w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(reducible - log_sum)
 
         value_grad_acc, value_grad_split = self._accumulate_and_split_to_children(w_grad)
