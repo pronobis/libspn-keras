@@ -520,12 +520,12 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.docinherit(OpNode)
     def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
-        flat_value_scopes, ivs_scopes_, *value_scopes_ = self._get_flat_value_scopes(
-            weight_scopes, ivs_scopes, *value_scopes)
         # If already invalid, return None
         if (any(s is None for s in value_scopes)
                 or (self._ivs and ivs_scopes is None)):
             return None
+        flat_value_scopes, ivs_scopes_, *value_scopes_ = self._get_flat_value_scopes(
+            weight_scopes, ivs_scopes, *value_scopes)
         # IVs
         if self._ivs:
             # Verify number of IVs
