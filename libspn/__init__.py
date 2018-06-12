@@ -39,7 +39,6 @@ from libspn.graph.distribution import GaussianLeaf
 
 # Generators
 from libspn.generation.dense import DenseSPNGenerator
-from libspn.generation.dense_multinodes import DenseSPNGeneratorMultiNodes
 from libspn.generation.dense_layernodes import DenseSPNGeneratorLayerNodes
 from libspn.generation.weights import WeightsGenerator
 from libspn.generation.weights import generate_weights
@@ -122,8 +121,8 @@ __all__ = [
     'compute_graph_up', 'compute_graph_up_down',
     'traverse_graph',
     # Generators
-    'DenseSPNGenerator', 'DenseSPNGeneratorMultiNodes',
-    'DenseSPNGeneratorLayerNodes', 'WeightsGenerator', 'generate_weights',
+    'DenseSPNGenerator', 'DenseSPNGeneratorLayerNodes',
+    'WeightsGenerator', 'generate_weights',
     # Inference and learning
     'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient', 'MPEState',
     'EMLearning', 'GDLearning', 'LearningType', 'LearningInferenceType',
