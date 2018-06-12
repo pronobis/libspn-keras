@@ -10,6 +10,7 @@ import libspn.utils as utils
 from libspn.log import get_logger
 from itertools import chain
 import tensorflow as tf
+import tensorflow.contrib.distributions as tfd
 
 
 @utils.register_serializable

@@ -70,6 +70,42 @@ class ConvSum(BaseSum):
 
         return w_tensor, ivs_tensor, reducible_inputs
 
+    def generate_weights(self, init_value=1, trainable=True, input_sizes=None,
+                         log=False, name=None):
+        """Generate a weights node matching this sum node and connect it to
+        this sum.
+
+        The function calculates the number of weights based on the number
+        of input values of this sum. Therefore, weights should be generated
+        once all inputs are added to this node.
+
+        Args:
+            init_value: Initial value of the weights. For possible values, see
+                :meth:`~libspn.utils.broadcast_value`.
+            trainable (bool): See :class:`~libspn.Weights`.
+            input_sizes (list of int): Pre-computed sizes of each input of
+                this node.  If given, this function will not traverse the graph
+                to discover the sizes.
+            log (bool): If "True", the weights are represented in log space.
+            name (str): Name of the weighs node. If ``None`` use the name of the
+                        sum + ``_Weights``.
+
+        Return:
+            Weights: Generated weights node.
+        """
+        if not self._values:
+            raise StructureError("%s is missing input values" % self)
+        if name is None:
+            name = self._name + "_Weights"
+        # Count all input values
+        num_values = max(self._sum_sizes)
+        # Generate weights
+        weights = Weights(
+            init_value=init_value, num_weights=num_values, num_sums=self._num_sums,
+            log=log, trainable=trainable, name=name)
+        self.set_weights(weights)
+        return weights
+
     def _spatial_reshape(self, t, forward=True):
         """Reshapes a Tensor ``t``` to one that represents the spatial dimensions.
 
@@ -116,37 +152,50 @@ class ConvSum(BaseSum):
         return num_sums * int(np.prod(self._grid_dim_sizes)) * [num_values]
 
     @utils.docinherit(BaseSum)
-    def _compute_out_size(self):
+    def _compute_out_size(self, *input_out_sizes):
         return int(np.prod(self._grid_dim_sizes) * self._num_sums)
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
-    def _compute_value(self, w_tensor, ivs_tensor, *input_tensors):
-        val = super(ConvSum, self)._compute_value(w_tensor, ivs_tensor, *input_tensors)
+    def _compute_value(self, w_tensor, ivs_tensor, *input_tensors,
+                           dropconnect_keep_prob=None, dropout_keep_prob=None):
+        val = super(ConvSum, self)._compute_value(
+            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob,
+            dropout_keep_prob=dropout_keep_prob)
         return tf.reshape(val, (-1, self._compute_out_size()))
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
-    def _compute_log_value(self, w_tensor, ivs_tensor, *input_tensors):
-        val = super(ConvSum, self)._compute_log_value(w_tensor, ivs_tensor, *input_tensors)
+    def _compute_log_value(self, w_tensor, ivs_tensor, *input_tensors,
+                           dropconnect_keep_prob=None, dropout_keep_prob=None):
+        val = super(ConvSum, self)._compute_log_value(
+            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob,
+            dropout_keep_prob=dropout_keep_prob)
         return tf.reshape(val, (-1, self._compute_out_size()))
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
-    def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors):
-        val = super(ConvSum, self)._compute_mpe_value(w_tensor, ivs_tensor, *input_tensors)
+    def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors,
+                           dropconnect_keep_prob=None, dropout_keep_prob=None):
+        val = super(ConvSum, self)._compute_mpe_value(
+            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob,
+            dropout_keep_prob=dropout_keep_prob)
         return tf.reshape(val, (-1, self._compute_out_size()))
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
-    def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *input_tensors):
-        val = super(ConvSum, self)._compute_log_mpe_value(w_tensor, ivs_tensor, *input_tensors)
+    def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *input_tensors,
+                           dropconnect_keep_prob=None, dropout_keep_prob=None):
+        val = super(ConvSum, self)._compute_log_mpe_value(
+            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob,
+            dropout_keep_prob=dropout_keep_prob)
         return tf.reshape(val, (-1, self._compute_out_size()))
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors):
+            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
+            sample=False, sample_prob=None, sample_rank_based=None):
         """Common operations for computing the MPE path.
 
         Args:
@@ -162,7 +211,17 @@ class ConvSum(BaseSum):
             to the Weights of this container, the second corresponds to the IVs and the remaining
             tuples correspond to the nodes in ``self._values``.
         """
-        max_indices = self._reduce_argmax(reducible_tensor)
+        sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
+        if sample:
+            if log:
+                max_indices = self._reduce_sample_log(
+                    reducible_tensor, sample_prob=sample_prob, rank_based=sample_rank_based)
+            else:
+                max_indices = self._reduce_sample(
+                    reducible_tensor, sample_prob=sample_prob, rank_based=sample_rank_based)
+        else:
+            max_indices = self._reduce_argmax(reducible_tensor)
+
         max_indices = tf.reshape(max_indices, (-1, self._compute_out_size()))
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
