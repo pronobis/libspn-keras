@@ -160,13 +160,13 @@ class Products(OpNode):
 
     def _compute_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
-        return tf.reduce_prod(values, axis=-1, keep_dims=(False if
+        return tf.reduce_prod(values, axis=-1, keepdims=(False if
                               self._num_prods > 1 else True))
 
     def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
         return tf.reduce_sum(values, axis=-1,
-                             keep_dims=(False if self._num_prods > 1 else True))
+                             keepdims=(False if self._num_prods > 1 else True))
 
     def _compute_mpe_value(self, *value_tensors):
         return self._compute_value(*value_tensors)

@@ -257,55 +257,6 @@ class TestGraphProduct(TestCase):
         np.testing.assert_array_almost_equal(
             out[3], output_gradients[3])
 
-    def test_compute_log_gradients(self):
-        v12 = spn.ContVars(num_vars=8)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
-        p = spn.Product((v12, [0, 5]), v34, (v12, [3]), v5)
-        gradients = tf.placeholder(tf.float32, shape=(None, 1))
-        op = p._compute_log_gradient(tf.identity(gradients),
-                                     v12.get_log_value(),
-                                     v34.get_log_value(),
-                                     v12.get_log_value(),
-                                     v5.get_log_value())
-        batch_size = 100
-        gradients_feed = np.random.rand(batch_size, 1)
-        v12_feed = np.random.rand(batch_size, 8)
-        v34_feed = np.random.rand(batch_size, 2)
-        v5_feed = np.random.rand(batch_size, 1)
-
-        with tf.Session() as sess:
-            out = sess.run(op, feed_dict={gradients: gradients_feed,
-                                          v12: v12_feed,
-                                          v34: v34_feed,
-                                          v5: v5_feed})
-
-        # Calculate true outputs
-        input_values = np.hstack([np.expand_dims(v12_feed[:, 0], axis=1),
-                                  np.expand_dims(v12_feed[:, 5], axis=1),
-                                  v34_feed,
-                                  np.expand_dims(v12_feed[:, 3], axis=1),
-                                  v5_feed])
-        inputs_reduce_prod = np.prod(input_values, axis=1, keepdims=True)
-        output_gradients = (inputs_reduce_prod * gradients_feed) / input_values
-        output_gradients = np.split(output_gradients, [2, 4, 5, 6], axis=1)
-        output_gradients_0 = np.zeros((batch_size, 8))
-        output_gradients_0[:, 0] = output_gradients[0][:, 0]
-        output_gradients_0[:, 5] = output_gradients[0][:, 1]
-        output_gradients[0] = output_gradients_0
-        output_gradients_2 = np.zeros((batch_size, 8))
-        output_gradients_2[:, 3] = output_gradients[2][:, 0]
-        output_gradients[2] = output_gradients_2
-
-        np.testing.assert_array_almost_equal(
-            out[0], output_gradients[0])
-        np.testing.assert_array_almost_equal(
-            out[1], output_gradients[1])
-        np.testing.assert_array_almost_equal(
-            out[2], output_gradients[2])
-        np.testing.assert_array_almost_equal(
-            out[3], output_gradients[3])
-
 
 if __name__ == '__main__':
     tf.test.main()

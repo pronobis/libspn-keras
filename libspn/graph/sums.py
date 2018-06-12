@@ -369,7 +369,7 @@ class Sums(OpNode):
     def _compute_mpe_path_common(self, values_weighted, counts, weight_value,
                                  ivs_value, *value_values):
         # Propagate the counts to the max value
-        max_indices = tf.argmax(values_weighted, dimension=2)
+        max_indices = tf.argmax(values_weighted, axis=2)
         max_counts = utils.scatter_values(params=counts, indices=max_indices,
                                           num_out_cols=values_weighted.shape[2].value)
         _, _, *value_sizes = self.get_input_sizes(None, None, *value_values)

@@ -463,7 +463,7 @@ def normalize_tensor_2D(tensor, num_weights=1, num_sums=1, name=None):
     with tf.name_scope(name, "normalize_tensor_2D", [tensor]):
         tensor = tf.convert_to_tensor(tensor)
         tensor = tf.reshape(tensor, [num_sums, num_weights])
-        s = tf.reduce_sum(tensor, axis=1, keep_dims=True)
+        s = tf.reduce_sum(tensor, axis=1, keepdims=True)
         return tf.truediv(tensor, s)
 
 
@@ -497,11 +497,11 @@ def reduce_log_sum(log_input, name=None):
         dimension corresponds to the first dimension of ``log_input``.
     """
     with tf.name_scope(name, "reduce_log_sum", [log_input]):
-        log_max = tf.reduce_max(log_input, 1, keep_dims=True)
+        log_max = tf.reduce_max(log_input, 1, keepdims=True)
         # Compute the value assuming at least one input is not -inf
         log_rebased = tf.subtract(log_input, log_max)
         out_normal = log_max + tf.log(tf.reduce_sum(tf.exp(log_rebased),
-                                                    1, keep_dims=True))
+                                                    1, keepdims=True))
         # Check if all input values in a row are -inf (all non-log inputs are 0)
         # and produce output for that case
         # We use float('inf') for compatibility with Python<3.5
@@ -529,13 +529,13 @@ def reduce_log_sum_3D(log_input, transpose=True, name=None):
     """
     with tf.name_scope(name, "reduce_log_sum_3D", [log_input]):
         # log(x)
-        log_max = tf.reduce_max(log_input, axis=-1, keep_dims=True)
+        log_max = tf.reduce_max(log_input, axis=-1, keepdims=True)
         # Compute the value assuming at least one input is not -inf
         # r = log(y) - log(x)
         log_rebased = tf.subtract(log_input, log_max)
         # log(x) + log(1 + exp(r))???
         out_normal = log_max + tf.log(tf.reduce_sum(tf.exp(log_rebased),
-                                                    axis=-1, keep_dims=True))
+                                                    axis=-1, keepdims=True))
         # Check if all input values in a row are -inf (all non-log inputs are 0)
         # and produce output for that case
         all_zero = tf.equal(log_max,

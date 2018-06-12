@@ -1387,17 +1387,27 @@ class TestNodesParSums(unittest.TestCase):
                                   v5_feed])
         weights_normalised = weights / np.sum(weights, axis=-1, keepdims=True)
         weights_log = np.log(weights_normalised)
-        inputs_log = np.log(input_values)
+
+        with np.warnings.catch_warnings():
+            np.warnings.filterwarnings('ignore', r'divide by zero encountered in log')
+            inputs_log = np.log(input_values)
         ivs_values = np.eye(6)[ivs_feed]
-        ivs_log = np.log(ivs_values)
+        with np.warnings.catch_warnings():
+            np.warnings.filterwarnings('ignore', r'divide by zero encountered in log')
+            ivs_log = np.log(ivs_values)
         if with_ivs:
             weighted_inputs = np.expand_dims(inputs_log, axis=1) + (ivs_log + weights_log)
         else:
             weighted_inputs = np.expand_dims(inputs_log, axis=1) + weights_log
         weighted_inputs_exp = np.exp(weighted_inputs)
-        weights_gradients = np.expand_dims(gradients_feed, axis=-1) * \
-            np.divide(weighted_inputs_exp, np.sum(weighted_inputs_exp, axis=-1,
-                                                  keepdims=True))
+
+        with np.warnings.catch_warnings():
+            np.warnings.filterwarnings('ignore', r'invalid value encountered in true_divide')
+            weights_gradients = np.expand_dims(gradients_feed, axis=-1) * \
+                np.divide(weighted_inputs_exp, np.sum(weighted_inputs_exp, axis=-1,
+                                                      keepdims=True))
+        weights_gradients = np.where(
+            weighted_inputs_exp == 0, np.zeros_like(weights_gradients), weights_gradients)
         output_gradients = np.split(np.sum(weights_gradients, axis=1),
                                     [2, 4, 5, 6], axis=1)
         output_gradients_0 = np.zeros((batch_size, 8))
