@@ -413,7 +413,8 @@ class DenseSPNGeneratorLayerNodes:
             if node.is_op:
                 for i in node.inputs:
                     if (i and  # Input not empty
-                            not(i.is_param or i.is_var)):
+                            not(i.is_param or i.is_var or
+                                isinstance(i.node, (SumsLayer, ProductsLayer)))):
                         parents[i.node].append(node)
                         node_to_depth[i.node] = node_to_depth[node] + 1
 
@@ -557,6 +558,6 @@ class DenseSPNGeneratorLayerNodes:
                 # set num-prods parameter accordingly
                 prods_layer.set_prod_sizes(num_or_size_prods)
             else:
-                raise StructureError("Unknown node-type: %s", depths[depth][0])
+                raise StructureError("Unknown node-type: {}".format(depths[depth][0]))
 
         return root

@@ -28,7 +28,7 @@ class BaseSum(OpNode, abc.ABC):
                           and sum_sizes are given, we should have len(sum_sizes) == num_sums.
         batch_axis (int): The index of the batch axis.
         op_axis (int): The index of the op axis that contains the individual sums being modeled.
-        reduce_axis (int): The axis over which to perform summing (or max for MPE). in (log-)space
+        reduce_axis (int): The axis over which to perform summing (or max for MPE)
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
@@ -48,8 +48,10 @@ class BaseSum(OpNode, abc.ABC):
 
     def __init__(self, *values, num_sums, weights=None, ivs=None, sum_sizes=None,
                  inference_type=InferenceType.MARGINAL, batch_axis=0, op_axis=1, reduce_axis=2,
-                 name="Sum"):
-        super().__init__(inference_type, name)
+                 masked=False, sample_prob=None, dropconnect_keep_prob=None, sample_rank_based=None,
+                 dropout_keep_prob=None, name="Sum"):
+        super().__init__(
+            inference_type=inference_type, name=name, dropout_keep_prob=dropout_keep_prob)
         self.set_values(*values)
         self.set_weights(weights)
         self.set_ivs(ivs)
@@ -60,10 +62,29 @@ class BaseSum(OpNode, abc.ABC):
         self._op_axis = [op_axis] if isinstance(op_axis, int) else op_axis
         self._reduce_axis = reduce_axis
 
+        self._masked = masked
+
+        self._sample_prob = sample_prob
+        self._sample_rank_based = sample_rank_based
+
+        self._dropconnect_keep_prob = dropconnect_keep_prob
+        self._dropout_keep_prob = dropout_keep_prob
+
+        self._dropout_mask = None
+
     def _get_sum_sizes(self, num_sums):
         input_sizes = self.get_input_sizes()
         num_values = sum(input_sizes[2:])  # Skip ivs, weights
         return num_sums * [num_values]
+
+    def _build_mask(self):
+        """Constructs mask that could be used to cancel out 'columns' that are padded as a result of
+        varying reduction sizes. Returns a Boolean mask.
+
+        Returns:
+            By default the sums are not masked, returns ``None``
+        """
+        return None
 
     @utils.docinherit(OpNode)
     def serialize(self):
@@ -109,6 +130,13 @@ class BaseSum(OpNode, abc.ABC):
     @utils.docinherit(OpNode)
     def inputs(self):
         return (self._weights, self._ivs) + self._values
+
+    @property
+    def dropconnect_keep_prob(self):
+        return self._dropconnect_keep_prob
+
+    def set_dropconnect_keep_prob(self, p):
+        self._dropconnect_keep_prob = p
 
     @property
     def weights(self):
@@ -253,7 +281,8 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.lru_cache
     def _compute_reducible(
-            self, w_tensor, ivs_tensor, *input_tensors, log=True, use_ivs=True, weighted=True):
+            self, w_tensor, ivs_tensor, *input_tensors, log=True, use_ivs=True, weighted=True,
+            dropconnect_keep_prob=None):
         """Computes a reducible ``Tensor`` so that reducing it over the last axis can be used for
         marginal inference, MPE inference and MPE path computation.
 
@@ -288,6 +317,20 @@ class BaseSum(OpNode, abc.ABC):
             reducible = cwise_op(reducible, ivs_tensor)
         if weighted:
             reducible = cwise_op(reducible, w_tensor)
+
+        dropconnect_keep_prob = utils.maybe_first(
+            dropconnect_keep_prob, self._dropconnect_keep_prob)
+        if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
+                if use_ivs and self._ivs:
+                    self.logger.warn(
+                        "Using dropconnect and latent IVs simultaneously. "
+                        "This might result in zero probabilities throughout and unpredictable "
+                        "behavior of learning.")
+                else:
+                    mask = self._create_dropout_mask(
+                        dropconnect_keep_prob, tf.shape(reducible), log=log)
+                    reducible = cwise_op(reducible, mask)
+
         return reducible
 
     @utils.docinherit(OpNode)
@@ -297,27 +340,46 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_value(self, w_tensor, ivs_tensor, *input_tensors):
-        return self._reduce_marginal_inference(self._compute_reducible(
-            w_tensor, ivs_tensor, *input_tensors, log=False, weighted=True, use_ivs=True))
+    def _compute_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None,
+                       dropout_keep_prob=None):
+        val = self._reduce_marginal_inference(self._compute_reducible(
+            w_tensor, ivs_tensor, *input_tensors, log=False, weighted=True, use_ivs=True,
+            dropconnect_keep_prob=dropconnect_keep_prob))
+        return self._maybe_dropout(val, dropout_keep_prob=dropout_keep_prob, log=False)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_value(self, w_tensor, ivs_tensor, *value_tensors):
+    def _compute_log_value(self, w_tensor, ivs_tensor, *value_tensors, dropconnect_keep_prob=None,
+                           dropout_keep_prob=None):
 
         # Defines gradient for the log value
         def soft_gradient(grad):
             scattered_grads = self._compute_log_gradient(
-                grad, w_tensor, ivs_tensor, *value_tensors, sum_weight_grads=True)
+                grad, w_tensor, ivs_tensor, *value_tensors, sum_weight_grads=True,
+                dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob)
             return [sg for sg in scattered_grads if sg is not None]
 
         # Wrap the log value with its custom gradient
         @tf.custom_gradient
         def _log_value(*input_tensors):
             ret = self._reduce_marginal_inference_log(self._compute_reducible(
-                w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True, use_ivs=True))
+                w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True, use_ivs=True,
+                dropconnect_keep_prob=dropconnect_keep_prob))
+            ret = self._maybe_dropout(ret, dropout_keep_prob=dropout_keep_prob, log=True)
             return ret, soft_gradient
         return _log_value(*self._get_differentiable_inputs(w_tensor, ivs_tensor, *value_tensors))
+
+    @utils.lru_cache
+    def _maybe_dropout(self, x, dropout_keep_prob, log=True):
+        dropout_keep_prob = utils.maybe_first(dropout_keep_prob, self._dropout_keep_prob)
+        # print("DROPOUT KEEP PROB", dropout_keep_prob)
+        if dropout_keep_prob is None or isinstance(dropout_keep_prob, (float, int)) \
+                and float(dropout_keep_prob) == 1.0:
+            return x
+
+        mask = self._get_or_create_dropout_mask(
+            keep_prob=dropout_keep_prob, batch_size=tf.shape(x)[self._batch_axis], log=log)
+        return self.cwise_add(x, mask) if log else self.cwise_mul(x, mask)
 
     def _get_differentiable_inputs(self, w_tensor, ivs_tensor, *value_tensors):
         """Selects the tensors to include for a tf.custom_gradient when computing the log-value.
@@ -327,24 +389,32 @@ class BaseSum(OpNode, abc.ABC):
                                the weights corresponding to this node.
             ivs_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] with the
                                  value of the IVs corresponding to this node.
-
+`
         """
         return [w_tensor] + ([ivs_tensor] if self._ivs else []) + list(value_tensors)
 
     @utils.docinherit(OpNode)
-    def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors):
-        return self._reduce_mpe_inference(self._compute_reducible(
-            w_tensor, ivs_tensor, *input_tensors, log=False, weighted=True, use_ivs=True))
+    def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None,
+                           dropout_keep_prob=None):
+        value = self._reduce_mpe_inference(self._compute_reducible(
+            w_tensor, ivs_tensor, *input_tensors, log=False, weighted=True, use_ivs=True,
+            dropconnect_keep_prob=dropconnect_keep_prob))
+        return self._maybe_dropout(value, dropout_keep_prob=dropout_keep_prob, log=False)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *input_tensors):
-        return self._reduce_mpe_inference_log(self._compute_reducible(
-            w_tensor, ivs_tensor, *input_tensors, log=True, weighted=True, use_ivs=True))
+    def _compute_log_mpe_value(
+            self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None,
+            dropout_keep_prob=None):
+        value = self._reduce_mpe_inference_log(self._compute_reducible(
+            w_tensor, ivs_tensor, *input_tensors, log=True, weighted=True, use_ivs=True,
+            dropconnect_keep_prob=dropconnect_keep_prob))
+        return self._maybe_dropout(value, dropout_keep_prob=dropout_keep_prob, log=True)
 
     @utils.lru_cache
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors):
+            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
+            log=True, sample=False, sample_prob=None, sample_rank_based=None):
         """Common operations for computing the MPE path.
 
         Args:
@@ -354,13 +424,26 @@ class BaseSum(OpNode, abc.ABC):
             w_tensor (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
             ivs_tensor (Tensor): A ``Tensor`` containing the (log-)value of the IVs.
             input_tensors (list): A list of ``Tensor``s with outputs of the child nodes.
-
+            log (bool): Whether the computation is in log-space or not
+            sample (bool): Whether to sample the 'winner' of the max or not
+            sample_prob (Tensor): A scalar ``Tensor`` indicating the probability of drawing
+                a sample. If a sample is drawn, the probability for each index is given by the
+                (log-)normalized probability as given by ``reducible_tensor``.
         Returns:
             A ``list`` of ``tuple``s [(MPE counts, input tensor), ...] where the first corresponds
             to the Weights of this node, the second corresponds to the IVs and the remaining
             tuples correspond to the nodes in ``self._values``.
         """
-        max_indices = self._reduce_argmax(reducible_tensor)
+        sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
+        if sample:
+            if log:
+                max_indices = self._reduce_sample_log(
+                    reducible_tensor, sample_prob=sample_prob, rank_based=sample_rank_based)
+            else:
+                max_indices = self._reduce_sample(
+                    reducible_tensor, sample_prob=sample_prob, rank_based=sample_rank_based)
+        else:
+            max_indices = self._reduce_argmax(reducible_tensor)
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_acc, max_counts_split = self._accumulate_and_split_to_children(
@@ -396,24 +479,31 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, *input_tensors,
-                          use_unweighted=False, with_ivs=True, add_random=None):
+    def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, *value_tensors,
+                          use_unweighted=False, with_ivs=True, add_random=None,
+                          sample=False, sample_prob=None, dropconnect_keep_prob=False,
+                          sample_rank_based=False):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
-        reducible = self._compute_reducible(w_tensor, ivs_tensor, *input_tensors, log=False,
-                                            weighted=weighted, use_ivs=with_ivs)
+        reducible = self._compute_reducible(w_tensor, ivs_tensor, *value_tensors, log=False,
+                                            weighted=weighted, use_ivs=with_ivs,
+                                            dropconnect_keep_prob=dropconnect_keep_prob)
         if add_random is not None:
             self.logger.warn(
                 "%s: no support for add_random in non-log MPE path computation." % self)
         return self._compute_mpe_path_common(
-            reducible, counts, w_tensor, ivs_tensor, *input_tensors)
+            reducible, counts, w_tensor, ivs_tensor, *value_tensors, log=False, sample=sample,
+            sample_prob=sample_prob, sample_rank_based=sample_rank_based)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_path(self, counts, w_tensor, ivs_tensor, *input_tensors,
-                              use_unweighted=False, with_ivs=True, add_random=None):
+    def _compute_log_mpe_path(self, counts, w_tensor, ivs_tensor, *value_tensors,
+                              use_unweighted=False, with_ivs=True, add_random=None,
+                              sample=False, sample_prob=None, dropconnect_keep_prob=None,
+                              sample_rank_based=False):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
-        reducible = self._compute_reducible(w_tensor, ivs_tensor, *input_tensors, log=True,
-                                            weighted=weighted, use_ivs=with_ivs)
+        reducible = self._compute_reducible(w_tensor, ivs_tensor, *value_tensors, log=True,
+                                            weighted=weighted, use_ivs=with_ivs,
+                                            dropconnect_keep_prob=dropconnect_keep_prob)
         if not weighted and self._num_sums > 1 and all(reducible.shape[ax].value == 1
                                                        for ax in self._op_axis):
             reducible = tf.tile(reducible, (1, self._num_sums, 1))
@@ -422,12 +512,13 @@ class BaseSum(OpNode, abc.ABC):
             reducible += tf.random_uniform(
                 tf.shape(reducible), minval=0.0, maxval=add_random, dtype=conf.dtype)
         return self._compute_mpe_path_common(
-                    reducible, counts, w_tensor, ivs_tensor, *input_tensors)
+            reducible, counts, w_tensor, ivs_tensor, *value_tensors, log=True, sample=sample,
+            sample_prob=sample_prob, sample_rank_based=sample_rank_based)
 
     @utils.lru_cache
     def _compute_log_gradient(
             self, gradients, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
-            sum_weight_grads=False):
+            sum_weight_grads=False, dropconnect_keep_prob=None, dropout_keep_prob=None):
         """Computes gradient for log probabilities.
 
         Args:
@@ -442,19 +533,31 @@ class BaseSum(OpNode, abc.ABC):
             sum_weight_grads (bool): A ``bool`` that marks whether the weight gradients should be
                                      summed over the batch axis.
         Returns:
-            A ``list`` of ``tuple``s where each tuple consists of a gradient and the forward-pass
-            tensor corresponding to the gradient. Starts with weights, then IVs and the remaining
-            ``tuple`` correspond to ``input_tensors``.
+            A ``tuple`` of gradients. Starts with weights, then IVs  and the remainder corresponds
+            to ``value_tensors``.
         """
 
         reducible = self._compute_reducible(
-            w_tensor, ivs_tensor, *value_tensors, log=True, use_ivs=with_ivs, weighted=True)
+            w_tensor, ivs_tensor, *value_tensors, log=True, use_ivs=with_ivs, weighted=True,
+            dropconnect_keep_prob=dropconnect_keep_prob)
 
         # Below exploits the memoization since _reduce_marginal_inference_log will
         # always use keepdims=False, thus yielding the same tensor. One might otherwise
         # be tempted to use keepdims=True and omit expand_dims here...
-        log_sum = tf.expand_dims(
-            self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
+        log_sum = self._maybe_dropout(
+            self._reduce_marginal_inference_log(reducible),
+            dropout_keep_prob=dropout_keep_prob, log=True)
+        log_sum = tf.expand_dims(log_sum, axis=self._reduce_axis)
+
+        dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
+        if dropout_keep_prob is not None and not \
+                (isinstance(dropout_keep_prob, (float, int)) and float(dropout_keep_prob) == 1.0):
+            mask = self._get_or_create_dropout_mask(
+                batch_size=tf.shape(gradients)[self._batch_axis], keep_prob=dropout_keep_prob,
+                log=True)
+            gradients = self.cwise_mul(gradients, tf.exp(mask))
+
+        # A number - (-inf) is undefined. In fact, the gradient in those cases should be zero
         log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
         w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(reducible - log_sum)
 
@@ -645,7 +748,83 @@ class BaseSum(OpNode, abc.ABC):
         Returns:
             A ``Tensor`` reduced over the last axis.
         """
-        return tf.argmax(x, axis=self._reduce_axis)  # Does not have a keepdims parameter
+        if conf.argmax_zero:
+            return tf.argmax(x, axis=self._reduce_axis)
+
+        # Return random index in case multiple values equal max
+        x_max = tf.expand_dims(self._reduce_mpe_inference(x), self._reduce_axis)
+        x_eq_max = tf.to_float(tf.equal(x, x_max))
+        if self._masked:
+            x_eq_max *= tf.expand_dims(tf.to_float(self._build_mask()), axis=self._batch_axis)
+        x_eq_max /= tf.reduce_sum(x_eq_max, axis=self._reduce_axis, keepdims=True)
+
+        return tfd.Categorical(probs=x_eq_max, name="StochasticArgMax", dtype=tf.int32).sample()
+
+    @utils.lru_cache
+    def _reduce_sample_log(self, x, sample_prob=None, rank_based=None):
+        """Samples a tensor with log likelihoods, i.e. sample(x, axis=reduce_axis)).
+
+        Args:
+            x (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over the
+                        last axis.
+
+        Returns:
+            A ``Tensor`` reduced over the last axis.
+        """
+        x_sum = self._reduce_marginal_inference_log(x)
+        rank_based = utils.maybe_first(self._sample_rank_based, rank_based)
+        if rank_based:
+            sample = tfd.Categorical(probs=self._rank_probs(x), dtype=tf.int32).sample()
+        else:
+            x_normalized = x - tf.expand_dims(x_sum, axis=self._reduce_axis)
+            sample = tfd.Categorical(logits=x_normalized, dtype=tf.int32).sample()
+        if sample_prob is not None:
+            sample_mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.int32).sample(
+                sample_shape=tf.shape(x_sum))
+            return (1 - sample_mask) * tf.to_int32(self._reduce_argmax(x)) + sample_mask * sample
+        return sample
+
+    def _rank_probs(self, x):
+        x = tf.reshape(x, (-1, self._max_sum_size))
+        _, sorted_indices = tf.nn.top_k(-x, k=self._max_sum_size, sorted=True)
+        ranks = tf.to_float(self._max_sum_size + 1 - sorted_indices)
+        probs = tf.reshape(tf.reciprocal(ranks), (-1, self._num_sums, self._max_sum_size))
+        probs /= tf.reduce_sum(probs, axis=self._reduce_axis, keepdims=True)
+        return probs
+
+    def _get_or_create_dropout_mask(self, batch_size, keep_prob, log=True):
+        if self._dropout_mask is None:
+            # TODO need to think about what happens when you call this with a different value...
+            shape = [None] * 2
+            shape[self._batch_axis] = batch_size
+            shape[self._op_axis] = self._num_sums
+            self._dropout_mask = self._create_dropout_mask(
+                keep_prob, shape=tf.stack(shape), log=log)
+        return self._dropout_mask
+
+    @utils.lru_cache
+    def _reduce_sample(self, x, epsilon=1e-8, sample_prob=None, rank_based=False):
+        """Samples a tensor with likelihoods, i.e. sample(x, axis=reduce_axis)).
+
+        Args:
+            x (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over the
+                        last axis.
+
+        Returns:
+            A ``Tensor`` reduced over the last axis.
+        """
+        x_sum = self._reduce_marginal_inference(x, axis=self._reduce_axis)
+        if rank_based:
+            sample = tfd.Categorical(probs=self._rank_probs(x_sum), dtype=tf.int32).sample()
+        else:
+            x_normalized = x / tf.expand_dims(x_sum + epsilon, axis=self._reduce_axis)
+            sample = tfd.Categorical(probs=x_normalized, dtype=tf.int32).sample()
+
+        if sample_prob is not None:
+            sample_mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.int32).sample(
+                sample_shape=tf.shape(x_sum))
+            return (1 - sample_mask) * tf.to_int32(self._reduce_argmax(x)) + sample_mask * sample
+        return sample
 
     @staticmethod
     @utils.lru_cache

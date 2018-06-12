@@ -9,6 +9,7 @@ import tensorflow as tf
 from types import MappingProxyType
 from libspn.graph.algorithms import compute_graph_up
 from libspn.inference.type import InferenceType
+from libspn.graph.basesum import BaseSum
 
 
 class Value:
@@ -24,9 +25,13 @@ class Value:
             MPE inference will be used for all nodes.
     """
 
-    def __init__(self, inference_type=None):
+    def __init__(self, inference_type=None, dropconnect_keep_prob=None, dropout_keep_prob=None,
+                 name="Value"):
         self._inference_type = inference_type
         self._values = {}
+        self._dropconnect_keep_prob = dropconnect_keep_prob
+        self._dropout_keep_prob = dropout_keep_prob
+        self._name = name
 
     @property
     def values(self):
@@ -52,16 +57,22 @@ class Value:
             dimension corresponds to the batch size.
         """
         def fun(node, *args):
+            if self._dropconnect_keep_prob and isinstance(node, BaseSum):
+                kwargs = dict(
+                    dropconnect_keep_prob=self._dropconnect_keep_prob,
+                    dropout_keep_prob=self._dropout_keep_prob)
+            else:
+                kwargs = dict()
             with tf.name_scope(node.name):
                 if (self._inference_type == InferenceType.MARGINAL
                     or (self._inference_type is None and
                         node.inference_type == InferenceType.MARGINAL)):
-                    return node._compute_value(*args)
+                    return node._compute_value(*args, **kwargs)
                 else:
-                    return node._compute_mpe_value(*args)
+                    return node._compute_mpe_value(*args, **kwargs)
 
         self._values = {}
-        with tf.name_scope("Value"):
+        with tf.name_scope(self._name):
             return compute_graph_up(root, val_fun=fun,
                                     all_values=self._values)
 
@@ -79,9 +90,13 @@ class LogValue:
             MPE inference will be used for all nodes.
     """
 
-    def __init__(self, inference_type=None):
+    def __init__(self, inference_type=None, dropout_keep_prob=None, dropconnect_keep_prob=None,
+                 name="LogValue"):
         self._inference_type = inference_type
         self._values = {}
+        self._dropconnect_keep_prob = dropconnect_keep_prob
+        self._dropout_keep_prob = dropout_keep_prob
+        self._name = name
 
     @property
     def values(self):
@@ -108,15 +123,20 @@ class LogValue:
             dimension corresponds to the batch size.
         """
         def fun(node, *args):
+            if self._dropconnect_keep_prob and isinstance(node, BaseSum):
+                kwargs = dict(
+                    dropconnect_keep_prob=self._dropconnect_keep_prob,
+                    dropout_keep_prob=self._dropout_keep_prob)
+            else:
+                kwargs = dict()
             with tf.name_scope(node.name):
                 if (self._inference_type == InferenceType.MARGINAL
                     or (self._inference_type is None and
                         node.inference_type == InferenceType.MARGINAL)):
-                    return node._compute_log_value(*args)
+                    return node._compute_log_value(*args, **kwargs)
                 else:
-                    return node._compute_log_mpe_value(*args)
+                    return node._compute_log_mpe_value(*args, **kwargs)
 
         self._values = {}
-        with tf.name_scope("LogValue"):
-            return compute_graph_up(root, val_fun=fun,
-                                    all_values=self._values)
+        with tf.name_scope(self._name):
+            return compute_graph_up(root, val_fun=fun, all_values=self._values)
