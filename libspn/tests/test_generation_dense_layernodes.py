@@ -66,7 +66,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
     def tearDown(self):
         tf.reset_default_graph()
 
-    @argsprod([1, 2], [2, 3, 6], [1, 2], [1, 2],
+    @argsprod([1, 2], [2, 3, 6], [1, 2], [1, 2], [[2, 3], [1, 1]],
               [spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE,
                spn.DenseSPNGeneratorLayerNodes.InputDist.RAW],
               [True, False], [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
@@ -74,7 +74,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
                               spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
               [True])
     def test_generate_spn(self, num_decomps, num_subsets, num_mixtures, num_input_mixtures,
-                          input_dist, balanced, node_type, log_weights):
+                          input_dims, input_dist, balanced, node_type, log_weights):
         """A generic test for DenseSPNGeneratorLayerNodes."""
 
         if input_dist == spn.DenseSPNGeneratorLayerNodes.InputDist.RAW \
@@ -82,6 +82,14 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
             # Redundant test case, so just return
             return
 
+        # Input parameters
+        num_inputs = input_dims[0]
+        num_vars = input_dims[1]
+        num_vals = 2
+
+        printc("\n- num_inputs: %s" % num_inputs)
+        printc("- num_vars: %s" % num_vars)
+        printc("- num_vals: %s" % num_vals)
         printc("- num_decomps: %s" % num_decomps)
         printc("- num_subsets: %s" % num_subsets)
         printc("- num_mixtures: %s" % num_mixtures)
@@ -94,11 +102,6 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
                node_type == spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK else
                "LAYER"))
         printc("- log_weights: %s" % log_weights)
-
-        # Input parameters
-        num_inputs = 2
-        num_vars = 3
-        num_vals = 2
 
         # Inputs
         inputs = [spn.IVs(num_vars=num_vars, num_vals=num_vals, name="IVs%s" % i)
