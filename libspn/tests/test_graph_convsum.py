@@ -75,3 +75,46 @@ class TestBaseSum(tf.test.TestCase):
                        [spn.Scope(ivs, 2)] * 2 + \
                        [spn.Scope(ivs, 3)] * 2
         self.assertAllEqual(scope, target_scope)
+
+    def test_compute_value_conv(self):
+        batch_size = 8
+        grid_size = 16
+        ivs = spn.IVs(num_vals=2, num_vars=grid_size ** 2)
+        convsum = ConvSum(ivs, grid_dim_sizes=[grid_size, grid_size], num_channels=4)
+        weights = convsum.generate_weights(spn.ValueType.RANDOM_UNIFORM(0.0, 1.0))
+        values = np.random.randint(2, size=batch_size * grid_size ** 2).reshape((batch_size, -1))
+        ivs_flat_value = ivs.get_value()
+        ivs_spatial = tf.reshape(ivs_flat_value, (-1, grid_size, grid_size, 2))
+        weights_for_conv = tf.reshape(
+            tf.transpose(weights.variable), (1, 1, 2, 4))
+
+        conv_layer = tf.layers.Conv2D(filters=4, kernel_size=1, activation=None, use_bias=False)
+        conv_layer.build(input_shape=[None, grid_size, grid_size, 2])
+        conv_layer.kernel = weights_for_conv
+
+        conv_truth_op = tf.layers.flatten(conv_layer(ivs_spatial))
+
+        conv_op = convsum.get_value()
+
+        with self.test_session() as sess:
+            sess.run(weights.initialize())
+            conv_truth_out, conv_out = sess.run(
+                [conv_truth_op, conv_op], {ivs: values})
+
+        self.assertAllEqual(conv_truth_out, conv_out)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
