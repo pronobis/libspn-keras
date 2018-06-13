@@ -14,7 +14,7 @@ from context import libspn as spn
 from collections import namedtuple
 import abc
 
-from libspn.tests.abstract_performance_test import AbstractPerformanceTest, \
+from libspn.tests.abstract_performance_profiling import AbstractPerformanceTest, \
     AbstractPerformanceUnit, PerformanceTestArgs, ConfigGenerator
 from libspn.tests.perf_sum_value_varying_sizes import sums_layer_numpy_common
 

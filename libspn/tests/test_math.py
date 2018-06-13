@@ -679,11 +679,17 @@ class TestMath(TestCase):
         v7 = spn.utils.normalize_log_tensor_2D(np.log([[1, 1],
                                                        [1, 2]]),
                                                num_weights=2, num_sums=2)
-        v8 = spn.utils.normalize_log_tensor_2D(np.log([1.25, 2.05, 0.0, 5.67, 3.52],
-                                                      dtype=np.float32), num_weights=5)
-        v9 = spn.utils.normalize_log_tensor_2D(np.log([[1, 0],
-                                                       [3, 7]]),
-                                               num_weights=2, num_sums=2)
+
+        with np.warnings.catch_warnings():
+            np.warnings.filterwarnings('ignore', r'divide by zero encountered in log')
+            v8 = spn.utils.normalize_log_tensor_2D(np.log([1.25, 2.05, 0.0, 5.67, 3.52],
+                                                          dtype=np.float32), num_weights=5)
+
+        with np.warnings.catch_warnings():
+            np.warnings.filterwarnings('ignore', r'divide by zero encountered in log')
+            v9 = spn.utils.normalize_log_tensor_2D(np.log([[1, 0],
+                                                           [3, 7]]),
+                                                   num_weights=2, num_sums=2)
 
         with self.test_session() as sess:
             out1 = sess.run(tf.exp(v1))

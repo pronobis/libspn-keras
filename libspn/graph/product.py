@@ -124,7 +124,7 @@ class Product(OpNode):
     @utils.lru_cache
     def _compute_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
-        return tf.reduce_prod(values, 1, keep_dims=True)
+        return tf.reduce_prod(values, 1, keepdims=True)
 
     @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
@@ -138,12 +138,12 @@ class Product(OpNode):
                 scattered_grads = self._compute_mpe_path(gradients, *value_tensors)
                 return [sg for sg in scattered_grads if sg is not None]
 
-            return tf.reduce_sum(values, 1, keep_dims=True), gradient
+            return tf.reduce_sum(values, 1, keepdims=True), gradient
 
         if conf.custom_gradient:
             return log_value(*value_tensors)
         else:
-            return tf.reduce_sum(values, 1, keep_dims=True)
+            return tf.reduce_sum(values, 1, keepdims=True)
 
     def _compute_mpe_value(self, *value_tensors):
         return self._compute_value(*value_tensors)
@@ -179,7 +179,7 @@ class Product(OpNode):
     @utils.lru_cache
     def _compute_gradient(self, gradients, *value_values, with_ivs=False):
         values = self._compute_value_common(*value_values)
-        output_gradients = (tf.reduce_prod(values, 1, keep_dims=True) *
+        output_gradients = (tf.reduce_prod(values, 1, keepdims=True) *
                             gradients) / values
 
         # Split the output_gradients to value inputs
@@ -191,7 +191,7 @@ class Product(OpNode):
 
     # def _compute_log_gradient(self, gradients, *value_values):
     #     values = self._compute_value_common(*value_values)
-    #     output_gradients = tf.exp(tf.reduce_sum(values, 1, keep_dims=True) -
+    #     output_gradients = tf.exp(tf.reduce_sum(values, 1, keepdims=True) -
     #                               values) * gradients
     #
     #     # Split the output_gradients to value inputs
