@@ -417,7 +417,8 @@ class TestNodesPermProducts(unittest.TestCase):
                               spn.Scope(s3.ivs.node, 0)] * 24)
         self.assertListEqual(pp8.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0)])
+                              spn.Scope(s1.ivs.node, 0) | spn.Scope(v34, 0) |
+                              spn.Scope(v34, 1)])
         self.assertListEqual(pp9.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
@@ -450,11 +451,14 @@ class TestNodesPermProducts(unittest.TestCase):
         p11 = spn.PermProducts((v345, [3, 5]), (v678, [0]), (v678, [0]))
         p12 = spn.PermProducts((v910, [1]), (v910, [1]))
         p13 = spn.PermProducts(v910, v910)
+        p14 = spn.PermProducts((v12, [0]), (v12, [1]))
         self.assertFalse(p9.is_valid())
         self.assertFalse(p10.is_valid())
         self.assertFalse(p11.is_valid())
         self.assertFalse(p12.is_valid())
         self.assertFalse(p13.is_valid())
+        self.assertEqual(p14.num_prods, 1)
+        self.assertFalse(p14.is_valid())
 
     def test_compute_mpe_path(self):
         """Calculating MPE path of PermProducts"""
