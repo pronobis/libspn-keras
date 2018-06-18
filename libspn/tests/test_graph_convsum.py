@@ -103,9 +103,69 @@ class TestBaseSum(tf.test.TestCase):
 
         self.assertAllEqual(conv_truth_out, conv_out)
 
+    @argsprod([2, 3])
+    def test_compute_value_sum(self, grid_size):
+        ivs = spn.IVs(num_vals=2, num_vars=grid_size ** 2)
+        convsum = ConvSum(ivs, grid_dim_sizes=[grid_size, grid_size], num_channels=4)
+        convsum2 = ConvSum(ivs, grid_dim_sizes=[grid_size, grid_size], num_channels=4)
+        dense_generator = spn.DenseSPNGeneratorLayerNodes(
+            num_mixtures=4, num_subsets=4, num_decomps=1, 
+            input_dist=spn.DenseSPNGeneratorLayerNodes.InputDist.RAW)
+        root = dense_generator.generate(convsum, convsum2)
+        spn.generate_weights(root, init_value=spn.ValueType.RANDOM_UNIFORM())
+        init = spn.initialize_weights(root)
+        
+        num_possibilities = 2 ** (grid_size ** 2)
+        nums = np.arange(num_possibilities).reshape((num_possibilities, 1))
+        powers = 2 ** np.arange(grid_size ** 2).reshape((1, grid_size ** 2))
+        ivs_feed = np.bitwise_and(nums, powers) // powers
+        
+        value_op = spn.LogValue(spn.InferenceType.MARGINAL).get_value(root)
+        value_op_sum = tf.reduce_logsumexp(value_op)
+        
+        with self.test_session() as sess:
+            sess.run(init)
+            root_sum = sess.run(value_op_sum, feed_dict={ivs: ivs_feed})
 
+        print(ivs_feed[:10])
+        self.assertAllClose(root_sum, 0.0)
 
+    @argsprod([2], ['single'])
+    def test_compute_value_simple(self, grid_size, dense_gen_type):
+        ivs = spn.IVs(num_vals=2, num_vars=grid_size ** 2)
+        sums = [spn.Sum((ivs, [0 + 2*i, 1 + 2*i]), name="Var{}_S{}".format(i, j))
+                for j in range(2) for i in range(grid_size ** 2)]
 
+        if dense_gen_type == 'layer':
+            dense_generator = spn.DenseSPNGeneratorLayerNodes(
+                num_mixtures=4, num_subsets=4, num_decomps=1,
+                input_dist=spn.DenseSPNGeneratorLayerNodes.InputDist.RAW)
+        else:
+            dense_generator = spn.DenseSPNGenerator(
+                num_mixtures=4, num_subsets=4, num_decomps=1,
+                input_dist=spn.DenseSPNGenerator.InputDist.RAW)
+        root = dense_generator.generate(*sums)
+        spn.generate_weights(root, init_value=spn.ValueType.RANDOM_UNIFORM())
+        init = spn.initialize_weights(root)
+
+        num_possibilities = 2 ** (grid_size ** 2)
+        nums = np.arange(num_possibilities).reshape((num_possibilities, 1))
+        powers = 2 ** np.arange(grid_size ** 2).reshape((1, grid_size ** 2))
+        ivs_feed = np.bitwise_and(nums, powers) // powers
+
+        value_op = spn.LogValue(spn.InferenceType.MARGINAL).get_value(root)
+        value_op_sum = tf.reduce_logsumexp(value_op)
+
+        with self.test_session() as sess:
+            sess.run(init)
+            root_sum = sess.run(value_op_sum, feed_dict={ivs: ivs_feed})
+            root_sum_no_evidence = sess.run(value_op_sum,
+                                            {ivs: np.ones((1, grid_size**2), dtype=np.int32)})
+
+        print(ivs_feed[:10])
+        self.assertTrue(root.is_valid())
+        self.assertAllClose(root_sum_no_evidence, 0.0)
+        self.assertAllClose(root_sum, 0.0)
 
 
 
