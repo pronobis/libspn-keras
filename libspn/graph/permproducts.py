@@ -144,9 +144,13 @@ class PermProducts(OpNode):
         if not self._values:
             raise StructureError("%s is missing input values." % self)
         value_scopes = self._gather_input_scopes(*value_scopes)
+        if self._num_prods == 1:
+            return [Scope.merge_scopes(chain.from_iterable(value_scopes))]
+
         value_scopes_list = [Scope.merge_scopes(pvs) for pvs in product(*[vs for
                              vs in value_scopes])]
-        return [value_scopes_list[0]] if self._num_prods == 1 else value_scopes_list
+
+        return value_scopes_list
 
     def _compute_valid(self, *value_scopes):
         if not self._values:
@@ -155,9 +159,15 @@ class PermProducts(OpNode):
         # If already invalid, return None
         if any(s is None for s in value_scopes_):
             return None
+        if self._num_prods == 1:
+            for s1, s2 in combinations(chain(*value_scopes_), 2):
+                if s1 & s2:
+                    PermProducts.info("%s is not decomposable with input value "
+                                      "scopes %s", self, value_scopes_)
+                    return None
+
         # Check product decomposability
-        permuted_value_scopes = list(product(*value_scopes_))
-        for perm_val_scope in permuted_value_scopes:
+        for perm_val_scope in product(*value_scopes_):
             for s1, s2 in combinations(perm_val_scope, 2):
                 if s1 & s2:
                     PermProducts.info("%s is not decomposable with input value "
