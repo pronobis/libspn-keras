@@ -332,14 +332,14 @@ class SumsLayer(BaseSum):
             w_tensor, ivs_tensor, *value_tensors, log=True, use_ivs=with_ivs)
         log_sum = tf.reduce_logsumexp(reducible, axis=self._reduce_axis, keepdims=True)
         log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
-        weight_gradients = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(
+        w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(
             reducible - log_sum)
-        inp_grad_split = self._accumulate_and_split_to_children(weight_gradients, *value_tensors)
-        ivs_grads = weight_gradients
+        inp_grad_split = self._accumulate_and_split_to_children(w_grad, *value_tensors)
+        ivs_grads = w_grad
         if sum_weight_grads:
-            weight_gradients = tf.reduce_sum(weight_gradients, axis=self._batch_axis)
+            w_grad = tf.reduce_sum(w_grad, axis=self._batch_axis)
         return self._scatter_to_input_tensors(
-            (weight_gradients, w_tensor),
+            (w_grad, w_tensor),
             (ivs_grads, ivs_tensor)
         ) + tuple(inp_grad_split)
 
