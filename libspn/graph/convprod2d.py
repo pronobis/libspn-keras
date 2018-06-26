@@ -4,6 +4,7 @@
 # This file is part of LibSPN. Unauthorized use or copying of this file,
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
+import itertools
 
 from libspn.inference.type import InferenceType
 import libspn.utils as utils
@@ -17,8 +18,8 @@ from libspn.log import get_logger
 
 
 @utils.register_serializable
-class ConvProd(OpNode):
-    """A container representing convolutional sums (which share the same input) in an SPN.
+class ConvProd2D(OpNode):
+    """A container representing convolutional products in an SPN.
 
     Args:
         *values (input_like): Inputs providing input values to this container.
@@ -43,30 +44,26 @@ class ConvProd(OpNode):
 
     logger = get_logger()
 
-    def __init__(self, *values, num_channels, padding='same', dilation_rate=1, strides=1,
-                 kernel_size=(2, 2),
-                 inference_type=InferenceType.MARGINAL, name="ConvProds",
-                 sparse_connections=None, dense_connections=None, grid_dim_sizes=None,
-                 num_spatial_dims=2):
+    def __init__(self, *values, num_channels, padding='same', dilation_rate=1, strides=2,
+                 kernel_size=2, inference_type=InferenceType.MARGINAL, name="ConvProd2D",
+                 sparse_connections=None, dense_connections=None, grid_dim_sizes=None):
         self._batch_axis = 0
         self._channel_axis = 3
         super().__init__(inference_type=inference_type, name=name)
         self.set_values(*values)
-        if num_spatial_dims != 2:
-            raise NotImplementedError("{}: Currently only supports 2D convolutions.")
 
-        if not grid_dim_sizes:
+        if grid_dim_sizes is None:
             raise NotImplementedError(
                 "{}: Must also provide grid_dim_sizes at this point.".format(self))
 
-        self._grid_dim_sizes = grid_dim_sizes or [-1] * num_spatial_dims
+        self._grid_dim_sizes = grid_dim_sizes or [-1] * 2
         self._padding = padding
-        self._dilation_rate = [dilation_rate] * num_spatial_dims \
-            if isinstance(dilation_rate, int) else dilation_rate
-        self._strides = [strides] * num_spatial_dims \
-            if isinstance(strides, int) else strides
+        self._dilation_rate = [dilation_rate] * 2 \
+            if isinstance(dilation_rate, int) else list(dilation_rate)
+        self._strides = [strides] * 2 \
+            if isinstance(strides, int) else list(strides)
         self._num_channels = num_channels
-        self._kernel_size = [kernel_size] * num_spatial_dims if isinstance(kernel_size, int) \
+        self._kernel_size = [kernel_size] * 2 if isinstance(kernel_size, int) \
             else list(kernel_size)
 
         if sparse_connections is not None:
@@ -95,7 +92,7 @@ class ConvProd(OpNode):
     def sparse_connections_to_dense(self, sparse):
         # Sparse has shape [rows, cols, out_channels]
         # Dense will have shape [rows, cols, in_channels, out_channels]
-        num_input_channels = self._input_channels()
+        num_input_channels = self._num_input_channels()
         batch_grid_prod = int(np.prod(self._kernel_size + [self._num_channels]))
         dense = np.zeros([batch_grid_prod, num_input_channels])
 
@@ -108,7 +105,7 @@ class ConvProd(OpNode):
         return np.argmax(dense, axis=2)
 
     def generate_sparse_connections(self, num_channels):
-        num_input_channels = self._input_channels()
+        num_input_channels = self._num_input_channels()
         kernel_surface = int(np.prod(self._kernel_size))
         total_possibilities = num_input_channels ** kernel_surface
         if num_channels >= total_possibilities:
@@ -122,12 +119,12 @@ class ConvProd(OpNode):
                 p //= num_input_channels
             return np.stack(kernel_cells, axis=0).reshape(self._kernel_size + [total_possibilities])
 
-        size = int(np.prod(self._grid_dim_sizes + [num_channels]))
-        return np.random.randint(num_input_channels, size=size).reshape(
-            self._grid_dim_sizes + [num_channels])
+        sparse_shape = self._kernel_size + [num_channels]
+        size = int(np.prod(sparse_shape))
+        return np.random.randint(num_input_channels, size=size).reshape(sparse_shape)
 
     @utils.lru_cache
-    def _concatenate_input_tensors(self, *input_tensors):
+    def _spatial_concat(self, *input_tensors):
         input_tensors = [self._spatial_reshape(t) for t in input_tensors]
         reducible_inputs = utils.concat_maybe(input_tensors, axis=self._channel_axis)
         return reducible_inputs
@@ -162,7 +159,7 @@ class ConvProd(OpNode):
                                       if i != self._batch_axis])
         return int(non_batch_dim_size)
 
-    def _get_input_num_channels(self):
+    def _num_channels_per_input(self):
         """Returns a list of number of input channels for each value Input.
 
         Returns:
@@ -171,27 +168,48 @@ class ConvProd(OpNode):
         input_sizes = self.get_input_sizes()
         return [int(s // np.prod(self._grid_dim_sizes)) for s in input_sizes]
 
-    def _input_channels(self):
-        return sum(self._get_input_num_channels())
+    def _num_input_channels(self):
+        return sum(self._num_channels_per_input())
 
     def _compute_out_size(self, *input_out_sizes):
-        cols_pad_left, cols_pad_right, rows_pad_left, rows_pad_right = self.pad_sizes()
-        total_rows = self._grid_dim_sizes[0] + rows_pad_left + rows_pad_right
-        total_cols = self._grid_dim_sizes[1] + cols_pad_left + cols_pad_right
-        out_rows = total_rows // self._strides[0]
-        out_cols = total_cols // self._strides[1]
+        # See https://www.tensorflow.org/api_guides/python/nn#Convolution
+        kernel_size0, kernel_size1 = self._effective_kernel_size()
+        if self.same_padding:
+            out_rows = np.ceil(self._grid_dim_sizes[0] / self._strides[0])
+            out_cols = np.ceil(self._grid_dim_sizes[1] / self._strides[1])
+        else:
+            out_rows = np.ceil((self._grid_dim_sizes[0] - kernel_size0 + 1) / self._strides[0])
+            out_cols = np.ceil((self._grid_dim_sizes[1] - kernel_size1 + 1) / self._strides[1])
         return int(out_rows * out_cols * self._num_channels)
+
+    @property
+    def same_padding(self):
+        return self._padding.lower() == "same"
+
+    @property
+    def valid_padding(self):
+        return self._padding.lower() == "valid"
+
+    def _effective_kernel_size(self):
+        # See https://www.tensorflow.org/api_docs/python/tf/nn/convolution
+        return [
+            (self._kernel_size[0] - 1) * self._dilation_rate[0] + 1,
+            (self._kernel_size[1] - 1) * self._dilation_rate[1] + 1
+        ]
 
     def _compute_value(self, *input_tensors):
         raise NotImplementedError("{}: No linear value implementation for ConvProd".format(self))
 
     @utils.lru_cache
     def _compute_log_value(self, *input_tensors):
-        concat_inp = self._concatenate_input_tensors(*input_tensors)
+        # Concatenate along channel axis
+        concat_inp = self._spatial_concat(*input_tensors)
+        # Convolve
         conv_out = tf.nn.convolution(
             concat_inp, filter=self._dense_connections, padding=self._padding.upper(),
             strides=self._strides, dilation_rate=self._dilation_rate)
-        return tf.reshape(conv_out, (-1, self._compute_out_size()))
+        # Flatten output
+        return self._flatten(conv_out)
 
     def _compute_mpe_value(self, *input_tensors):
         raise NotImplementedError("{}: No linear MPE value implementation for ConvProd"
@@ -203,7 +221,12 @@ class ConvProd(OpNode):
     def _compute_mpe_path_common(self, counts, *input_values):
         if not self._values:
             raise StructureError("{} is missing input values.".format(self))
-        inp_concat = self._concatenate_input_tensors(*input_values)
+        # Concatenate inputs along channel axis, should already be done during forward pass
+        inp_concat = self._spatial_concat(*input_values)
+
+        # We can use the backprop Op, as the counts should be passed on to the input tensor. Note
+        # that our 'kernels' are either 0 or 1, so either passing on the counts through multiplying
+        # with 1, or not passing them on through multiplying with 0
         input_counts = tf.nn.conv2d_backprop_input(
             input_sizes=tf.shape(inp_concat),
             filter=self._dense_connections,
@@ -225,7 +248,7 @@ class ConvProd(OpNode):
 
     @utils.lru_cache
     def _split_to_children(self, x):
-        x_split = tf.split(x, num_or_size_splits=self._get_input_num_channels(),
+        x_split = tf.split(x, num_or_size_splits=self._num_channels_per_input(),
                            axis=self._channel_axis)
         return [self._flatten(t) for t in x_split]
 
@@ -264,28 +287,32 @@ class ConvProd(OpNode):
         kernel_size = self._kernel_size
         grid_dims = self._grid_dim_sizes
         strides = self._strides
-        input_channels = self._input_channels()
+        input_channels = self._num_input_channels()
 
-        if self._padding.lower() == "same":
+        if self.same_padding:
             cols_pad_left, cols_pad_right, rows_pad_left, rows_pad_right = self.pad_sizes()
-
             padded_value_scopes_concat = np.empty(
                 (rows_pad_left + grid_dims[0] + rows_pad_right,
                  cols_pad_left + grid_dims[1] + cols_pad_right,
-                 input_channels))
-            padded_value_scopes_concat[:, :cols_pad_left] = Scope.__empty()
-            padded_value_scopes_concat[:rows_pad_left, :] = Scope.__empty()
-            padded_value_scopes_concat[-rows_pad_right:, :] = Scope.__empty()
-            padded_value_scopes_concat[:, -cols_pad_right:] = Scope.__empty()
+                 input_channels), dtype=Scope)
+            # Pad with empty scopes
+            empty_scope = Scope.merge_scopes([])
+            padded_value_scopes_concat[:, :cols_pad_left] = empty_scope
+            padded_value_scopes_concat[:rows_pad_left, :] = empty_scope
+            padded_value_scopes_concat[-rows_pad_right:, :] = empty_scope
+            padded_value_scopes_concat[:, -cols_pad_right:] = empty_scope
             padded_value_scopes_concat \
                 [rows_pad_left:-rows_pad_right, cols_pad_left:-cols_pad_right] = value_scopes_concat
             value_scopes_concat = padded_value_scopes_concat
-
+        
         scope_list = []
-        for row in range(0, grid_dims[0] - kernel_size[0] * dilate[0] + 1, strides[0]):
-            row_indices = list(range(row, row + kernel_size[0] * dilate[0], dilate[0]))
-            for col in range(0, grid_dims[1] - kernel_size[1] * dilate[1] + 1, strides[1]):
-                col_indices = list(range(col, col + kernel_size[1] * dilate[1], dilate[1]))
+        kernel_size0, kernel_size1 = self._effective_kernel_size()
+        # Reset grid dims as we might have padded the scopes
+        grid_dims = value_scopes_concat.shape[:2]
+        for row in range(0, grid_dims[0] - kernel_size0 + 1, strides[0]):
+            row_indices = list(range(row, row + kernel_size0, dilate[0]))
+            for col in range(0, grid_dims[1] - kernel_size1 + 1, strides[1]):
+                col_indices = list(range(col, col + kernel_size1, dilate[1]))
                 for channel in range(self._num_channels):
                     single_scope = []
                     for im_row, kernel_row in zip(row_indices, range(kernel_size[0])):
@@ -294,34 +321,40 @@ class ConvProd(OpNode):
                                 value_scopes_concat[
                                     im_row, im_col,
                                     self._sparse_connections[kernel_row, kernel_col, channel]])
+                    # Ensure valid
+                    for sc1, sc2 in itertools.combinations(single_scope, 2):
+                        if sc1 & sc2:
+                            # Invalid if intersection not empty
+                            return None
                     scope_list.append(Scope.merge_scopes(single_scope))
 
         return scope_list
 
     def pad_sizes(self):
-        if self._padding.lower() == "valid":
+        if self.valid_padding:
+            # No padding
             return 0, 0, 0, 0
 
-        dilate = self._dilation_rate
-        kernel_size = self._kernel_size
-        rows_pad = kernel_size[0] * dilate[0] - 1
-        cols_pad = kernel_size[1] * dilate[1] - 1
-        if rows_pad % 2 != 0:
-            rows_pad_left = rows_pad // 2
-            rows_pad_right = rows_pad // 2 + 1
+        # See https://www.tensorflow.org/api_guides/python/nn#Convolution
+        filter_height, filter_width = self._effective_kernel_size()
+        if self._grid_dim_sizes[0] % self._strides[0] == 0:
+            pad_along_height = max(filter_height - self._strides[0], 0)
         else:
-            rows_pad_left = rows_pad_right = rows_pad // 2
-        if cols_pad % 2 != 0:
-            cols_pad_left = cols_pad // 2
-            cols_pad_right = cols_pad // 2 + 1
+            pad_along_height = max(filter_height - (self._grid_dim_sizes[0] % self._strides[0]), 0)
+        if self._grid_dim_sizes[1] % self._strides[1] == 0:
+            pad_along_width = max(filter_width - self._strides[1], 0)
         else:
-            cols_pad_left = cols_pad_right = cols_pad // 2
-        return cols_pad_left, cols_pad_right, rows_pad_left, rows_pad_right
+            pad_along_width = max(filter_width - (self._grid_dim_sizes[1] % self._strides[1]), 0)
+
+        pad_top = pad_along_height // 2
+        pad_bottom = pad_along_height - pad_top
+        pad_left = pad_along_width // 2
+        pad_right = pad_along_width - pad_left
+        return pad_left, pad_right, pad_top, pad_bottom
 
     @utils.docinherit(OpNode)
-    def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
-        self.logger.warn("{}: validity is skipped for convolutional sum layer.".format(self))
-        return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
+    def _compute_valid(self, *value_scopes):
+        return self._compute_scope(*value_scopes)
 
     def deserialize_inputs(self, data, nodes_by_name):
         pass

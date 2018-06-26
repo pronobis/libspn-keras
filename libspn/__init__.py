@@ -26,7 +26,7 @@ from libspn.graph.product import Product
 from libspn.graph.permproducts import PermProducts
 from libspn.graph.products import Products
 from libspn.graph.productslayer import ProductsLayer
-from libspn.graph.convprod import ConvProd
+from libspn.graph.convprod2d import ConvProd2D
 from libspn.graph.weights import Weights
 from libspn.graph.weights import assign_weights
 from libspn.graph.weights import initialize_weights
@@ -116,7 +116,7 @@ __all__ = [
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IVs', 'ContVars',
     'Sum', 'ParSums', 'Sums', 'SumsLayer', 'ConvSum',
-    'Product', 'PermProducts', 'Products', 'ProductsLayer', 'ConvProd',
+    'Product', 'PermProducts', 'Products', 'ProductsLayer', 'ConvProd2D',
     'GaussianLeaf',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
