@@ -50,6 +50,8 @@ class ConvSum(BaseSum):
                 "{}: Must also provide grid_dim_sizes at this point.".format(self))
 
         self._grid_dim_sizes = grid_dim_sizes or [-1] * 2
+        self._grid_dim_sizes = list(grid_dim_sizes) if isinstance(grid_dim_sizes, tuple) \
+            else grid_dim_sizes
         self._channel_axis = 3
         super().__init__(
             *values, num_sums=num_channels, weights=weights, ivs=ivs,
@@ -69,6 +71,10 @@ class ConvSum(BaseSum):
             ivs_tensor = tf.reshape(ivs_tensor, shape=[-1] + self._grid_dim_sizes + shape_suffix)
 
         return w_tensor, ivs_tensor, reducible_inputs
+
+    @property
+    def out_shape_spatial(self):
+        return tuple(self._grid_dim_sizes + [self.num_sums])
 
     def generate_weights(self, init_value=1, trainable=True, input_sizes=None,
                          log=False, name=None):

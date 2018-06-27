@@ -60,7 +60,7 @@ class BaseSum(OpNode, abc.ABC):
         self._reset_sum_sizes(num_sums=num_sums, sum_sizes=sum_sizes)
 
         self._batch_axis = batch_axis
-        self._op_axis = [op_axis] if isinstance(op_axis, int) else op_axis
+        self._op_axis = op_axis
         self._reduce_axis = reduce_axis
 
         self._masked = masked

@@ -7,6 +7,7 @@
 
 from collections import deque
 from libspn import utils
+from libspn.graph.convprod2d import ConvProd2D
 from libspn.graph.node import Input
 from libspn.graph.sum import Sum
 from libspn.graph.parsums import ParSums
@@ -415,7 +416,8 @@ class DenseSPNGeneratorLayerNodes:
                 for i in node.inputs:
                     if (i and  # Input not empty
                             not(i.is_param or i.is_var or
-                                isinstance(i.node, (SumsLayer, ProductsLayer, ConvSum)))):
+                                isinstance(i.node, (SumsLayer, ProductsLayer, ConvSum,
+                                                    ConvProd2D)))):
                         parents[i.node].append(node)
                         node_to_depth[i.node] = node_to_depth[node] + 1
 
