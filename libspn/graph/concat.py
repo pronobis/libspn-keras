@@ -6,6 +6,7 @@
 # ------------------------------------------------------------------------
 
 from itertools import chain
+import tensorflow as tf
 from libspn.graph.node import OpNode, Input
 from libspn import utils
 from libspn.inference.type import InferenceType
@@ -97,9 +98,16 @@ class Concat(OpNode):
         # Check inputs
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
-        # Concatenate inputs
-        input_tensors = self._gather_input_tensors(*input_tensors)
-        return utils.concat_maybe(input_tensors, 1)
+        @tf.custom_gradient
+        def value_gradient(*input_tensors):
+            def gradient(gradients):
+                scattered_grads = self._compute_mpe_path(gradients, *input_tensors)
+                return [sg for sg in scattered_grads if sg is not None]
+
+            gathered_inputs = self._gather_input_tensors(*input_tensors)
+            # Concatenate inputs
+            return utils.concat_maybe(gathered_inputs, 1), gradient
+        return value_gradient(*input_tensors)
 
     @utils.docinherit(OpNode)
     def _compute_log_value(self, *input_tensors):
@@ -113,7 +121,8 @@ class Concat(OpNode):
     def _compute_log_mpe_value(self, *input_tensors):
         return self._compute_value(*input_tensors)
 
-    def _compute_mpe_path(self, counts, *input_values, add_random=False, use_unweighted=False):
+    def _compute_mpe_path(self, counts, *input_values, add_random=False,
+                          use_unweighted=False, with_ivs=False):
         # Check inputs
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
@@ -123,5 +132,6 @@ class Concat(OpNode):
         return self._scatter_to_input_tensors(*[(t, v) for t, v in
                                                 zip(split, input_values)])
 
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False, use_unweighted=False):
+    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
+                              use_unweighted=False, with_ivs=False):
         return self._compute_mpe_path(counts, *value_values)
