@@ -66,13 +66,13 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
     def tearDown(self):
         tf.reset_default_graph()
 
-    @argsprod([1, 2], [2, 3, 6], [1, 2], [1, 2], [[2, 3], [1, 1]],
+    @argsprod([1, 2], [2, 4], [1, 2], [1, 2], [[2, 2], [1, 1]],
               [spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE,
                spn.DenseSPNGeneratorLayerNodes.InputDist.RAW],
               [True, False], [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
                               spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
                               spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
-              [True, False])
+              [True])
     def test_generate_spn(self, num_decomps, num_subsets, num_mixtures, num_input_mixtures,
                           input_dims, input_dist, balanced, node_type, log_weights):
         """A generic test for DenseSPNGeneratorLayerNodes."""
