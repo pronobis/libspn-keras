@@ -373,7 +373,6 @@ class BaseSum(OpNode, abc.ABC):
     @utils.lru_cache
     def _maybe_dropout(self, x, dropout_keep_prob, log=True):
         dropout_keep_prob = utils.maybe_first(dropout_keep_prob, self._dropout_keep_prob)
-        # print("DROPOUT KEEP PROB", dropout_keep_prob)
         if dropout_keep_prob is None or isinstance(dropout_keep_prob, (float, int)) \
                 and float(dropout_keep_prob) == 1.0:
             return x
@@ -505,9 +504,10 @@ class BaseSum(OpNode, abc.ABC):
         reducible = self._compute_reducible(w_tensor, ivs_tensor, *value_tensors, log=True,
                                             weighted=weighted, use_ivs=with_ivs,
                                             dropconnect_keep_prob=dropconnect_keep_prob)
-        if not weighted and self._num_sums > 1 and all(reducible.shape[ax].value == 1
-                                                       for ax in self._op_axis):
-            reducible = tf.tile(reducible, (1, self._num_sums, 1))
+        # TODO this will probably not work for ConvSum...
+        op_axis = [self._op_axis] if isinstance(self._op_axis, int) else self._op_axis
+        if not weighted and self._num_sums > 1 and reducible.shape[self._reduce_axis-1].value == 1:
+            reducible = tf.tile(reducible, [1] * (len(reducible.shape) - 2) + [self._num_sums, 1])
         # Add random
         if add_random is not None:
             reducible += tf.random_uniform(
