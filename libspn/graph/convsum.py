@@ -67,13 +67,14 @@ class ConvSum(BaseSum):
         input_tensors = [self._spatial_reshape(t) for t in input_tensors]
 
         reducible_inputs = utils.concat_maybe(input_tensors, axis=self._reduce_axis)
+
         if ivs_tensor is not None:
             ivs_tensor = tf.reshape(ivs_tensor, shape=[-1] + self._grid_dim_sizes + shape_suffix)
 
         return w_tensor, ivs_tensor, reducible_inputs
 
     @property
-    def out_shape_spatial(self):
+    def output_shape_spatial(self):
         return tuple(self._grid_dim_sizes + [self.num_sums])
 
     def generate_weights(self, init_value=1, trainable=True, input_sizes=None,
