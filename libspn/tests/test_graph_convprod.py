@@ -67,6 +67,19 @@ class TestConvProd(tf.test.TestCase):
 
         self.assertAllClose(logval_out, truth)
 
+    def test_conv_min_inf(self):
+        image = np.log(np.stack([np.exp(np.ones((4, 4))), np.zeros((4, 4))], axis=-1)
+                       .reshape((1, 4, 4, 2)))
+        image = tf.constant(image, dtype=tf.float32)
+        image = tf.where(tf.is_inf(image), tf.fill([1, 4, 4, 2], value=-1e20), image)
+        filter = np.concatenate([np.ones((2, 2, 1, 1)), np.zeros((2, 2, 1, 1))], axis=2)
+        conv_op = tf.nn.conv2d(input=image, filter=filter, strides=[1, 2, 2, 1], padding="VALID")
+
+        with self.test_session() as sess:
+            conv_out = sess.run(conv_op)
+
+        self.assertAllClose(conv_out, np.ones((2, 2)) * 4)
+
     def test_compute_mpe_path(self):
         grid_dims = [4, 4]
         input_channels = 2
@@ -426,7 +439,7 @@ class TestConvProd(tf.test.TestCase):
                spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE])
     def test_conv_spn_pad_decomps(self, node_type, input_dist):
         input_channels = 2
-        grid_dims = [16, 16]
+        grid_dims = [28, 28]
         num_vars = grid_dims[0] * grid_dims[1]
         vars = spn.IVs(num_vars=num_vars, num_vals=input_channels)
 
