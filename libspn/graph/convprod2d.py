@@ -182,12 +182,16 @@ class ConvProd2D(OpNode):
     def _compute_out_size_spatial(self, *input_out_sizes):
         # See https://www.tensorflow.org/api_guides/python/nn#Convolution
         kernel_size0, kernel_size1 = self._effective_kernel_size()
-        if self.same_padding:
-            out_rows = np.ceil(self._grid_dim_sizes[0] / self._strides[0])
-            out_cols = np.ceil(self._grid_dim_sizes[1] / self._strides[1])
-        else:
-            out_rows = np.ceil((self._grid_dim_sizes[0] - kernel_size0 + 1) / self._strides[0])
-            out_cols = np.ceil((self._grid_dim_sizes[1] - kernel_size1 + 1) / self._strides[1])
+
+        pad_left, pad_right, pad_top, pad_bottom = self.pad_sizes()
+
+        # TODO determine the grid dimensions from the input nodes
+        rows_post_pad = pad_top + pad_bottom + self._grid_dim_sizes[0]
+        cols_post_pad = pad_left + pad_right + self._grid_dim_sizes[1]
+        rows_post_pad -= kernel_size0 - 1
+        cols_post_pad -= kernel_size1 - 1
+        out_rows = int(np.ceil(rows_post_pad / self._strides[0]))
+        out_cols = int(np.ceil(cols_post_pad / self._strides[1]))
         return int(out_rows), int(out_cols), self._num_channels
 
     def _compute_out_size(self, *input_out_sizes):
@@ -245,17 +249,21 @@ class ConvProd2D(OpNode):
         input_counts = tf.nn.conv2d_backprop_input(
             input_sizes=tf.shape(inp_concat),
             filter=self._dense_connections,
-            out_backprop=counts,
+            out_backprop=tf.reshape(counts, (-1,) + self.output_shape_spatial),
             strides=[1] + self._strides + [1],
             padding=self._padding.upper(),
             use_cudnn_on_gpu=True,
             data_format="NHWC",
             dilations=[1] + self._dilation_rate + [1])
-        
-        pad_bottom, pad_left, pad_right, pad_top = self._explicit_pad_sizes()
-        if not (pad_bottom == pad_left == pad_right == pad_top == 0):
+
+        if self._no_explicit_padding:
             return self._split_to_children(input_counts)
-        self._split_to_children(input_counts[:, pad_top:-pad_bottom, pad_left:-pad_right, :])
+        pad_bottom, pad_left, pad_right, pad_top = self._explicit_pad_sizes()
+        return self._split_to_children(input_counts[:, pad_top:-pad_bottom, pad_left:-pad_right, :])
+
+    @property
+    def _no_explicit_padding(self):
+        return all(e == 0 for e in self._explicit_pad_sizes())
 
     @utils.lru_cache
     def _prepare_convolutional_processing(self, *input_values):
@@ -263,11 +271,10 @@ class ConvProd2D(OpNode):
         return self._maybe_explicit_pad(inp_concat)
 
     def _maybe_explicit_pad(self, x):
-        pad_bottom, pad_left, pad_right, pad_top = self._explicit_pad_sizes()
-
-        if pad_top == pad_bottom == pad_left == pad_right == 0:
+        if self._no_explicit_padding:
             return x
 
+        pad_bottom, pad_left, pad_right, pad_top = self._explicit_pad_sizes()
         paddings = [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]]
         return tf.pad(x, paddings=paddings, mode="CONSTANT", constant_values=0)
 
@@ -292,6 +299,8 @@ class ConvProd2D(OpNode):
 
     @utils.lru_cache
     def _split_to_children(self, x):
+        if len(self.inputs) == 1:
+            return [self._flatten(x)]
         x_split = tf.split(x, num_or_size_splits=self._num_channels_per_input(),
                            axis=self._channel_axis)
         return [self._flatten(t) for t in x_split]
@@ -320,7 +329,7 @@ class ConvProd2D(OpNode):
         raise NotImplementedError("{}: No log-gradient implementation available.".format(self))
 
     @utils.docinherit(OpNode)
-    def _compute_scope(self, *value_scopes):
+    def _compute_scope(self, *value_scopes, check_valid=False):
         flat_value_scopes = self._gather_input_scopes(*value_scopes)
 
         value_scopes_grid = [
@@ -366,10 +375,11 @@ class ConvProd2D(OpNode):
                                     im_row, im_col,
                                     self._sparse_connections[kernel_row, kernel_col, channel]])
                     # Ensure valid
-                    for sc1, sc2 in itertools.combinations(single_scope, 2):
-                        if sc1 & sc2:
-                            # Invalid if intersection not empty
-                            return None
+                    if check_valid:
+                        for sc1, sc2 in itertools.combinations(single_scope, 2):
+                            if sc1 & sc2:
+                                # Invalid if intersection not empty
+                                return None
                     scope_list.append(Scope.merge_scopes(single_scope))
 
         return scope_list
@@ -382,6 +392,7 @@ class ConvProd2D(OpNode):
             if pad_top_explicit == pad_bottom_explicit \
                     == pad_left_explicit == pad_right_explicit == 0:
                 return 0, 0, 0, 0
+            return pad_left_explicit, pad_right_explicit, pad_top_explicit, pad_bottom_explicit
 
         # See https://www.tensorflow.org/api_guides/python/nn#Convolution
         filter_height, filter_width = self._effective_kernel_size()
@@ -407,7 +418,7 @@ class ConvProd2D(OpNode):
 
     @utils.docinherit(OpNode)
     def _compute_valid(self, *value_scopes):
-        return self._compute_scope(*value_scopes)
+        return self._compute_scope(*value_scopes, check_valid=True)
 
     def deserialize_inputs(self, data, nodes_by_name):
         pass

@@ -105,6 +105,46 @@ class TestConvProd(tf.test.TestCase):
 
         self.assertAllClose(truth, var_counts_out)
 
+    def test_compute_value_padding(self):
+        grid_dims = [2, 2]
+        vars = spn.ContVars(num_vars=4)
+        convprod = spn.ConvProd2D(vars, num_channels=1, strides=1, kernel_size=2,
+                                  pad_left=1, pad_right=1, pad_top=1, pad_bottom=1,
+                                  grid_dim_sizes=grid_dims)
+        value_op = convprod.get_log_value()
+
+        var_feed = np.exp(np.arange(16, dtype=np.float32).reshape((4, 4)))
+
+        truth = [[0, 1, 1, 2, 6, 4, 2, 5, 3],
+                 [4, 9, 5, 10, 22, 12, 6, 13, 7],
+                 [8, 17, 9, 18, 38, 20, 10, 21, 11],
+                 [12, 25, 13, 26, 54, 28, 14, 29, 15]]
+
+        with self.test_session() as sess:
+            value_out = sess.run(value_op, feed_dict={vars: var_feed})
+
+        self.assertAllClose(value_out, truth)
+
+    def test_compute_mpe_path_padding(self):
+        grid_dims = [2, 2]
+        vars = spn.ContVars(num_vars=4)
+        convprod = spn.ConvProd2D(vars, num_channels=1, strides=1, kernel_size=2,
+                                  pad_left=1, pad_right=1, pad_top=1, pad_bottom=1,
+                                  grid_dim_sizes=grid_dims)
+        counts_feed = tf.constant(np.arange(18, dtype=np.float32).reshape((2, 9)))
+
+        truth = [
+            [0 + 1 + 3 + 4, 1 + 2 + 4 + 5, 3 + 4 + 6 + 7, 4 + 5 + 7 + 8],
+            [9 + 10 + 12 + 13, 10 + 11 + 13 + 14, 12 + 13 + 15 + 16, 13 + 14 + 16 + 17]
+        ]
+
+        counts_op = convprod._compute_mpe_path_common(counts_feed, tf.ones(shape=(2, 4)))
+
+        with self.test_session() as sess:
+            counts_out = sess.run(counts_op)
+
+        self.assertAllClose(counts_out[0], truth)
+
     @argsprod([False, True])
     def test_compute_scope(self, dilate):
         grid_dims = [4, 4]
@@ -142,19 +182,22 @@ class TestConvProd(tf.test.TestCase):
         input_channels = 2
         vars = spn.IVs(num_vars=grid_dims[0] * grid_dims[1], num_vals=input_channels)
         convprod0 = spn.ConvProd2D(vars, num_channels=32, padding_algorithm='valid', strides=1,
-                                   grid_dim_sizes=grid_dims, dilation_rate=1)
-        convprod10 = spn.ConvProd2D(convprod0, num_channels=32, padding_algorithm='valid', strides=1,
-                                    dilation_rate=1, grid_dim_sizes=[15, 15])
+                                   grid_dim_sizes=grid_dims, dilation_rate=1, name="ConvProd0")
+        convprod10 = spn.ConvProd2D(convprod0, num_channels=32, padding_algorithm='valid',
+                                    strides=1, dilation_rate=1, grid_dim_sizes=[15, 15],
+                                    name="ConvProd00")
         self.assertFalse(convprod10.is_valid())
 
-        convprod11 = spn.ConvProd2D(convprod0, num_channels=32, padding_algorithm='valid', strides=1,
-                                    dilation_rate=2, grid_dim_sizes=[15, 15])
+        convprod11 = spn.ConvProd2D(convprod0, num_channels=32, padding_algorithm='valid',
+                                    strides=1, dilation_rate=2, grid_dim_sizes=[15, 15],
+                                    name="ConvProd11")
         self.assertTrue(convprod11.is_valid())
 
         convprod_a = spn.ConvProd2D(vars, num_channels=16, padding_algorithm='valid', strides=1,
                                     dilation_rate=2, grid_dim_sizes=grid_dims, name="ConvProdA")
-        convprod_a_ds = spn.ConvProd2D(convprod_a, num_channels=512, padding_algorithm='valid', strides=2,
-                                       grid_dim_sizes=[14, 14], name="ConvProdADownSample")
+        convprod_a_ds = spn.ConvProd2D(convprod_a, num_channels=512, padding_algorithm='valid',
+                                       strides=2, grid_dim_sizes=[14, 14],
+                                       name="ConvProdADownSample")
         convprod_a_inv = spn.ConvProd2D(convprod_a, num_channels=512, padding_algorithm='valid', strides=1,
                                         dilation_rate=2, grid_dim_sizes=[14, 14],
                                         name="ConvProdAInvalid")
