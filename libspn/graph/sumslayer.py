@@ -126,13 +126,13 @@ class SumsLayer(BaseSum):
 
     @utils.docinherit(BaseSum)
     def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
-        flat_value_scopes, ivs_scopes_, *value_scopes_ = self._get_flat_value_scopes(
-            weight_scopes, ivs_scopes, *value_scopes)
         # If already invalid, return None
-        if (any(s is None for s in value_scopes_)
-                or (self._ivs and ivs_scopes_ is None)):
+        if (any(s is None for s in value_scopes)
+                or (self._ivs and ivs_scopes is None)):
             return None
 
+        flat_value_scopes, ivs_scopes_, *value_scopes_ = self._get_flat_value_scopes(
+            weight_scopes, ivs_scopes, *value_scopes)
         # Split the flat value scopes based on value input sizes
         split_indices = np.cumsum(self._sum_sizes)[:-1]
 
@@ -155,7 +155,8 @@ class SumsLayer(BaseSum):
         for scope_slice in np.split(flat_value_scopes, split_indices):
             first_scope = scope_slice[0]
             if any(s != first_scope for s in scope_slice[1:]):
-                self.info("%s is not complete with input value scopes %s", self, flat_value_scopes)
+                self.info("%s is not complete with input value scopes %s ...",
+                          self, flat_value_scopes[:10])
                 return None
 
         return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
