@@ -224,9 +224,17 @@ class ConvProd2D(OpNode):
         # Concatenate along channel axis
         concat_inp = self._prepare_convolutional_processing(*input_tensors)
         # Convolve
+        # TODO, this the quickest workaround for TensorFlow's apparent optimization whenever
+        # part of the kernel computation involves a -inf:
+        concat_inp = tf.where(
+            tf.is_inf(concat_inp), tf.fill(tf.shape(concat_inp), value=-1e20), concat_inp)
         conv_out = tf.nn.convolution(
             concat_inp, filter=self._dense_connections, padding=self._padding.upper(),
-            strides=self._strides, dilation_rate=self._dilation_rate)
+            strides=self._strides, dilation_rate=self._dilation_rate, data_format="NHWC")
+        # conv_out = tf.nn.conv2d(
+        #     input=concat_inp, filter=self._dense_connections, padding=self._padding.upper(),
+        #     strides=[1] + self  ._strides + [1], dilations=[1] + self._dilation_rate + [1]
+        # )
         # Flatten output
         return self._flatten(conv_out)
 
@@ -354,8 +362,9 @@ class ConvProd2D(OpNode):
             padded_value_scopes_concat[:pad_top, :] = empty_scope
             padded_value_scopes_concat[-pad_bottom:, :] = empty_scope
             padded_value_scopes_concat[:, -pad_right:] = empty_scope
-            padded_value_scopes_concat \
-                [pad_top:-pad_bottom, pad_left:-pad_right] = value_scopes_concat
+            padded_value_scopes_concat[\
+                pad_top:pad_top + value_scopes_concat.shape[0],
+                pad_left:pad_left + value_scopes_concat.shape[0]] = value_scopes_concat
             value_scopes_concat = padded_value_scopes_concat
         
         scope_list = []
@@ -379,6 +388,8 @@ class ConvProd2D(OpNode):
                         for sc1, sc2 in itertools.combinations(single_scope, 2):
                             if sc1 & sc2:
                                 # Invalid if intersection not empty
+                                self.logger.warn("{} is not decomposable with input scopes {}"
+                                                 .format(self, flat_value_scopes[:10]))
                                 return None
                     scope_list.append(Scope.merge_scopes(single_scope))
 
