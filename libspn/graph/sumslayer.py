@@ -321,14 +321,12 @@ class SumsLayer(BaseSum):
     @utils.lru_cache
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
-            log=True, sample=False, sample_prob=None, dropout_prob=None, sample_rank_based=False):
+            log=True, sample=False, sample_prob=None, dropout_prob=None):
         if sample:
             if log:
-                max_indices = self._reduce_sample_log(
-                    reducible_tensor, sample_prob=sample_prob, rank_based=sample_rank_based)
+                max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
             else:
-                max_indices = self._reduce_sample(
-                    reducible_tensor, sample_prob=sample_prob, rank_based=sample_rank_based)
+                max_indices = self._reduce_sample(reducible_tensor, sample_prob=sample_prob)
         else:
             max_indices = self._reduce_argmax(reducible_tensor)
         max_counts = utils.scatter_values(
