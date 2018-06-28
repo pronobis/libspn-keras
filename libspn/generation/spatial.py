@@ -54,7 +54,7 @@ class ConvSPN:
         level, spatial_dims_parsed, input_nodes = self._prepare_inputs(*input_nodes)
         spatial_dims = spatial_dims_parsed or spatial_dims
 
-        if any(p is not None for p in [pad_left, pad_right, pad_top, pad_bottom]):
+        if all(p is None for p in [pad_left, pad_right, pad_top, pad_bottom]):
             pad_bottom = pad_top = pad_left = pad_right = pad_all
 
         for stride, dilation_r, kernel_s, prod_nc, pad_algo, pad_l, pad_r, pad_t, pad_b, sum_nc,\
@@ -70,6 +70,7 @@ class ConvSPN:
                 kernel_size=kernel_s, padding_algorithm=pad_algo, strides=stride)
             spatial_dims = next_node.output_shape_spatial[:2]
             input_nodes = [next_node]
+            print("Built node {}: {} x {} x {}".format(next_node, *next_node.output_shape_spatial))
             self._register_node(next_node, level)
             
             if not use_convsums:
@@ -78,6 +79,7 @@ class ConvSPN:
             next_node = ConvSum(*input_nodes, num_channels=sum_nc, grid_dim_sizes=spatial_dims,
                                 name="{}Sum{}".format(name_pref, name_suff))
             input_nodes = [next_node]
+            print("Built node {}: {} x {} x {}".format(next_node, *next_node.output_shape_spatial))
             self._register_node(next_node, level + 1)
         
         self.last_nodes = input_nodes
@@ -98,7 +100,7 @@ class ConvSPN:
     def _compute_spatial_dims(self, input_nodes):
         if any(not isinstance(n, (ConvProd2D, ConvSum)) for n in input_nodes):
             return None
-        spatial_dims = [n.out_shape_spatial[:2] for n in input_nodes]
+        spatial_dims = [n.output_shape_spatial[:2] for n in input_nodes]
         if not all(s == spatial_dims[0] for s in spatial_dims):
             raise StructureError("Incompatible spatial dimensions: \n{}".format(
                 "\n".join(["{}: {}".format(node.name, s)
