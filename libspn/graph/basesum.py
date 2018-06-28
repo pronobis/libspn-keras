@@ -57,23 +57,38 @@ class BaseSum(OpNode, abc.ABC):
         self.set_weights(weights)
         self.set_ivs(ivs)
 
+        # Initialize the number of sums and the sum sizes
         self._reset_sum_sizes(num_sums=num_sums, sum_sizes=sum_sizes)
 
+        # Set the axes
         self._batch_axis = batch_axis
         self._op_axis = op_axis
         self._reduce_axis = reduce_axis
 
+        # Set whether this instance is masked (e.g. SumsLayer)
         self._masked = masked
 
+        # Set the sampling probability and sampling type
         self._sample_prob = sample_prob
         self._sample_rank_based = sample_rank_based
 
+        # Set dropconnect and dropout probabilities
         self._dropconnect_keep_prob = dropconnect_keep_prob
         self._dropout_keep_prob = dropout_keep_prob
 
+        # The dropout mask will be made with potentially different batch size Tensors.
+        # TODO figure out some way of doing the same through lru_cache
         self._dropout_mask = None
 
     def _get_sum_sizes(self, num_sums):
+        """Computes a list of sum sizes given the number of sums and the currently attached input
+        nodes.
+
+        Args:
+            num_sums (int): The number of sums modeled by this node.
+        Returns:
+            A list of sum sizes, where the i-th element corresponds to the size of the i-th sum.
+        """
         input_sizes = self.get_input_sizes()
         num_values = sum(input_sizes[2:])  # Skip ivs, weights
         return num_sums * [num_values]
@@ -192,10 +207,12 @@ class BaseSum(OpNode, abc.ABC):
 
     @property
     def num_sums(self):
+        """int: The number of sums modeled by this node. """
         return self._num_sums
 
     @property
     def sum_sizes(self):
+        """list of int: A list of the sum sizes. """
         return self._sum_sizes
 
     def set_values(self, *values):
@@ -289,14 +306,17 @@ class BaseSum(OpNode, abc.ABC):
 
         Args:
             w_tensor (Tensor): A ``Tensor`` with the value of the weights of shape
-                               ``[num_sums, max_sum_size]``
+                ``[num_sums, max_sum_size]``
             ivs_tensor (Tensor): A ``Tensor`` with the value of the IVs corresponding to this node
-                                 of shape ``[batch, num_sums * max_sum_size]``.
+                of shape ``[batch, num_sums * max_sum_size]``.
             input_tensors (tuple): A ``tuple`` of ``Tensors``s with the values of the children of
-                                   this node.
+                this node.
             log (bool): A ``bool`` marking whether the computation is performed in log space or not.
             use_ivs (bool): Whether to apply the IVs to the reducible values if possible.
             weighted (bool): Whether to apply the weights to the reducible values if possible.
+            dropconnect_keep_prob (Tensor or float): A scalar ``Tensor`` or float that holds the
+                dropconnect keep probability. By default it is None, in which case no dropconnect
+                is being used.
 
         Returns:
             A ``Tensor`` of shape ``[batch, num_sums, max_sum_size]`` that can be used for computing
@@ -307,18 +327,25 @@ class BaseSum(OpNode, abc.ABC):
         if not self._weights:
             raise StructureError("%s is missing weights" % self)
 
-        # Set up component-wise Op and zero probability value depending on log-space flag
+        # Set up component-wise Op and zero probability value depending on log-space flag. The
+        # zero-probability value will be used for padding e.g. in case of SumsLayer, where not all
+        # sums equally sized.
         zero_prob_val = -float('inf') if log else 0.0
         cwise_op = self.cwise_add if log else self.cwise_mul
 
         # Prepare tensors for component-wise application of weights and IVs
         w_tensor, ivs_tensor, reducible = self._prepare_component_wise_processing(
             w_tensor, ivs_tensor, *input_tensors, zero_prob_val=zero_prob_val)
+
+        # Apply latent IVs
         if use_ivs and self._ivs:
             reducible = cwise_op(reducible, ivs_tensor)
+
+        # Apply weights
         if weighted:
             reducible = cwise_op(reducible, w_tensor)
 
+        # Maybe apply dropconnect
         dropconnect_keep_prob = utils.maybe_first(
             dropconnect_keep_prob, self._dropconnect_keep_prob)
         if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
@@ -343,9 +370,12 @@ class BaseSum(OpNode, abc.ABC):
     @utils.lru_cache
     def _compute_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None,
                        dropout_keep_prob=None):
+        # Reduce over last axis
         val = self._reduce_marginal_inference(self._compute_reducible(
             w_tensor, ivs_tensor, *input_tensors, log=False, weighted=True, use_ivs=True,
             dropconnect_keep_prob=dropconnect_keep_prob))
+
+        # Maybe apply dropout
         return self._maybe_dropout(val, dropout_keep_prob=dropout_keep_prob, log=False)
 
     @utils.docinherit(OpNode)
@@ -355,6 +385,8 @@ class BaseSum(OpNode, abc.ABC):
 
         # Defines gradient for the log value
         def soft_gradient(grad):
+            # Use the _compute_log_gradient method to compute the gradient w.r.t. to the
+            # inputs of this node.
             scattered_grads = self._compute_log_gradient(
                 grad, w_tensor, ivs_tensor, *value_tensors, sum_weight_grads=True,
                 dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob)
@@ -363,21 +395,26 @@ class BaseSum(OpNode, abc.ABC):
         # Wrap the log value with its custom gradient
         @tf.custom_gradient
         def _log_value(*input_tensors):
+            # First reduce over last axis
             ret = self._reduce_marginal_inference_log(self._compute_reducible(
                 w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True, use_ivs=True,
                 dropconnect_keep_prob=dropconnect_keep_prob))
+            # Maybe apply dropout
             ret = self._maybe_dropout(ret, dropout_keep_prob=dropout_keep_prob, log=True)
             return ret, soft_gradient
+
+        # Calls the _log_value function above
         return _log_value(*self._get_differentiable_inputs(w_tensor, ivs_tensor, *value_tensors))
 
     @utils.lru_cache
     def _maybe_dropout(self, x, dropout_keep_prob, log=True):
+        # Check if there should be dropout
         dropout_keep_prob = utils.maybe_first(dropout_keep_prob, self._dropout_keep_prob)
-        # print("DROPOUT KEEP PROB", dropout_keep_prob)
         if dropout_keep_prob is None or isinstance(dropout_keep_prob, (float, int)) \
                 and float(dropout_keep_prob) == 1.0:
             return x
 
+        # Get or create the mask and apply it component-wise
         mask = self._get_or_create_dropout_mask(
             keep_prob=dropout_keep_prob, batch_size=tf.shape(x)[self._batch_axis], log=log)
         return self.cwise_add(x, mask) if log else self.cwise_mul(x, mask)
@@ -430,6 +467,8 @@ class BaseSum(OpNode, abc.ABC):
             sample_prob (Tensor): A scalar ``Tensor`` indicating the probability of drawing
                 a sample. If a sample is drawn, the probability for each index is given by the
                 (log-)normalized probability as given by ``reducible_tensor``.
+            sample_rank_based: (bool): Whether to sample according to rank, where the unnormalized
+                probability is set at 1/(K+1) where K is the rank.
         Returns:
             A ``list`` of ``tuple``s [(MPE counts, input tensor), ...] where the first corresponds
             to the Weights of this node, the second corresponds to the IVs and the remaining
@@ -549,13 +588,14 @@ class BaseSum(OpNode, abc.ABC):
             dropout_keep_prob=dropout_keep_prob, log=True)
         log_sum = tf.expand_dims(log_sum, axis=self._reduce_axis)
 
-        dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
-        if dropout_keep_prob is not None and not \
-                (isinstance(dropout_keep_prob, (float, int)) and float(dropout_keep_prob) == 1.0):
-            mask = self._get_or_create_dropout_mask(
-                batch_size=tf.shape(gradients)[self._batch_axis], keep_prob=dropout_keep_prob,
-                log=True)
-            gradients = self.cwise_mul(gradients, tf.exp(mask))
+        # gradients = self._maybe_dropout(gradients, dropout_keep_prob=dropout_keep_prob, log=log)
+        # dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
+        # if dropout_keep_prob is not None and not \
+        #         (isinstance(dropout_keep_prob, (float, int)) and float(dropout_keep_prob) == 1.0):
+        #     mask = self._get_or_create_dropout_mask(
+        #         batch_size=tf.shape(gradients)[self._batch_axis], keep_prob=dropout_keep_prob,
+        #         log=True)
+        #     gradients = self.cwise_mul(gradients, tf.exp(mask))
 
         # A number - (-inf) is undefined. In fact, the gradient in those cases should be zero
         log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
@@ -749,6 +789,7 @@ class BaseSum(OpNode, abc.ABC):
             A ``Tensor`` reduced over the last axis.
         """
         if conf.argmax_zero:
+            # If true, uses TensorFlow's argmax directly, yielding a bias towards the zeroth index
             return tf.argmax(x, axis=self._reduce_axis)
 
         # Return random index in case multiple values equal max
@@ -767,6 +808,10 @@ class BaseSum(OpNode, abc.ABC):
         Args:
             x (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over the
                         last axis.
+            sample_prob (Tensor or float): A ``Tensor`` or float indicating the probability of
+                taking a sample.
+            rank_based (bool): Whether to sample according to rank, where the unnormalized
+                probability is set at 1/(K+1) where K is the rank.
 
         Returns:
             A ``Tensor`` reduced over the last axis.
@@ -779,12 +824,22 @@ class BaseSum(OpNode, abc.ABC):
             x_normalized = x - tf.expand_dims(x_sum, axis=self._reduce_axis)
             sample = tfd.Categorical(logits=x_normalized, dtype=tf.int32).sample()
         if sample_prob is not None:
-            sample_mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.int32).sample(
+            sample_mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.bool).sample(
                 sample_shape=tf.shape(x_sum))
-            return (1 - sample_mask) * tf.to_int32(self._reduce_argmax(x)) + sample_mask * sample
+            return tf.where(sample_mask, sample, self._reduce_argmax(x))
         return sample
 
     def _rank_probs(self, x):
+        """Computes the ranking probabilities by sorting the last axis. The largest value along this
+        axis will take an unnormalized probability of 1/2, the second highest 1/3 etc. In general,
+        the unnormalized probability is 1/(1+K).
+
+        Args:
+            x (Tensor): The ``Tensor`` to compute the ranking probability for along the last axis.
+
+        Returns:
+            A ``Tensor`` containing the rank probabilities on the last axis.
+        """
         x = tf.reshape(x, (-1, self._max_sum_size))
         _, sorted_indices = tf.nn.top_k(-x, k=self._max_sum_size, sorted=True)
         ranks = tf.to_float(self._max_sum_size + 1 - sorted_indices)
@@ -793,6 +848,15 @@ class BaseSum(OpNode, abc.ABC):
         return probs
 
     def _get_or_create_dropout_mask(self, batch_size, keep_prob, log=True):
+        """
+
+        Args:
+            batch_size (Tensor): A scalar ``Tensor`` holding the batch size.
+            keep_prob (Tensor or float):  A scalar ``Tensor`` or float that holds the probability
+                for a single value for the mask to be 1.0
+            log (bool): Marks whether the output should be in log space (-inf and 0) or linear space
+                (0 and 1)
+        """
         if self._dropout_mask is None:
             # TODO need to think about what happens when you call this with a different value...
             shape = [None] * 2
@@ -813,7 +877,7 @@ class BaseSum(OpNode, abc.ABC):
         Returns:
             A ``Tensor`` reduced over the last axis.
         """
-        x_sum = self._reduce_marginal_inference(x, axis=self._reduce_axis)
+        x_sum = self._reduce_marginal_inference(x)
         if rank_based:
             sample = tfd.Categorical(probs=self._rank_probs(x_sum), dtype=tf.int32).sample()
         else:
