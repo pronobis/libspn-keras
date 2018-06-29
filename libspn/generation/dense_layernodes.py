@@ -17,6 +17,7 @@ from libspn.graph.permproducts import PermProducts
 from libspn.graph.productslayer import ProductsLayer
 from libspn.graph.concat import Concat
 from libspn.graph.convsum import ConvSum
+from libspn.graph.localsum import LocalSum
 from libspn.graph.algorithms import traverse_graph
 from libspn.log import get_logger
 from libspn.exceptions import StructureError
@@ -418,7 +419,7 @@ class DenseSPNGeneratorLayerNodes:
                     if (i and  # Input not empty
                             not(i.is_param or i.is_var or
                                 isinstance(i.node, (SumsLayer, ProductsLayer, ConvSum,
-                                                    ConvProd2D, Concat)))):
+                                                    ConvProd2D, Concat, LocalSum)))):
                         parents[i.node].append(node)
                         node_to_depth[i.node] = node_to_depth[node] + 1
 
