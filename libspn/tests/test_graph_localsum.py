@@ -1,9 +1,7 @@
 import tensorflow as tf
 from libspn.tests.test import argsprod
 import libspn as spn
-from libspn.graph.convsum import ConvSum
 import numpy as np
-import random
 
 
 class TestBaseSum(tf.test.TestCase):
@@ -14,10 +12,10 @@ class TestBaseSum(tf.test.TestCase):
         grid_dims = [2, 2]
         nrows, ncols = grid_dims
         num_vals = 4
-        batch_size = 128
+        batch_size = 256
         num_vars = grid_dims[0] * grid_dims[1]
         ivs = spn.IVs(num_vars=num_vars, num_vals=num_vals)
-        num_sums = 6
+        num_sums = 32
         weights = spn.Weights(
             num_weights=num_vals, num_sums=num_sums * num_vars,
             init_value=spn.ValueType.RANDOM_UNIFORM(), log=log_weights)
@@ -31,29 +29,49 @@ class TestBaseSum(tf.test.TestCase):
                                      row * (ncols * num_vals) + (col + 1) * num_vals))
                 parsums.append(spn.ParSums((ivs, indices), num_sums=num_sums))
 
+        parsum_concat = spn.Concat(*parsums, name="ParSumConcat")
         convsum = spn.LocalSum(
             ivs, num_channels=num_sums, weights=weights, grid_dim_sizes=grid_dims)
 
-        dense_gen = spn.DenseSPNGeneratorLayerNodes(
-            num_decomps=1, num_mixtures=2, num_subsets=2,
-            input_dist=spn.DenseSPNGeneratorLayerNodes.InputDist.RAW,
-            node_type=spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK)
+        prod00_conv = spn.PermProducts(
+            (convsum, list(range(num_sums))), (convsum, list(range(num_sums, num_sums * 2))),
+            name="Prod00")
+        prod01_conv = spn.PermProducts(
+            (convsum, list(range(num_sums * 2, num_sums * 3))),
+            (convsum, list(range(num_sums * 3, num_sums * 4))),
+            name="Prod01")
+        sum00_conv = spn.ParSums(prod00_conv, num_sums=2)
+        sum01_conv = spn.ParSums(prod01_conv, num_sums=2)
 
-        rnd = random.Random(1234)
-        rnd_state = rnd.getstate()
-        conv_root = dense_gen.generate(convsum, rnd=rnd)
-        rnd.setstate(rnd_state)
+        prod10_conv = spn.PermProducts(sum00_conv, sum01_conv, name="Prod10")
 
-        parsum_concat = spn.Concat(*parsums, name="ParSumConcat")
-        parsum_root = dense_gen.generate(parsum_concat, rnd=rnd)
+        conv_root = spn.Sum(prod10_conv)
+
+        prod00_pars = spn.PermProducts(
+            (parsum_concat, list(range(num_sums))),
+            (parsum_concat, list(range(num_sums, num_sums * 2))))
+        prod01_pars = spn.PermProducts(
+            (parsum_concat, list(range(num_sums * 2, num_sums * 3))),
+            (parsum_concat, list(range(num_sums * 3, num_sums * 4))))
+
+        sum00_pars = spn.ParSums(prod00_pars, num_sums=2)
+        sum01_pars = spn.ParSums(prod01_pars, num_sums=2)
+
+        prod10_pars = spn.PermProducts(sum00_pars, sum01_pars)
+
+        parsum_root = spn.Sum(prod10_pars)
+
+        node_pairs = [(sum00_conv, sum00_pars), (sum01_conv, sum01_pars), (conv_root, parsum_root)]
 
         self.assertTrue(conv_root.is_valid())
         self.assertTrue(parsum_root.is_valid())
 
         self.assertAllEqual(parsum_concat.get_scope(), convsum.get_scope())
 
-        spn.generate_weights(conv_root, log=log_weights)
-        spn.generate_weights(parsum_root, log=log_weights)
+        spn.generate_weights(conv_root, log=log_weights, 
+                             init_value=spn.ValueType.RANDOM_UNIFORM())
+        spn.generate_weights(parsum_root, log=log_weights, 
+                             init_value=spn.ValueType.RANDOM_UNIFORM())
 
         convsum.set_weights(weights)
         copy_weight_ops = []
@@ -61,8 +79,11 @@ class TestBaseSum(tf.test.TestCase):
         for p, w in zip(parsums, weights_per_cell):
             copy_weight_ops.append(tf.assign(p.weights.node.variable, w))
             parsum_weight_nodes.append(p.weights.node)
+
+        for wc, wp in node_pairs:
+            copy_weight_ops.append(tf.assign(wp.weights.node.variable, wc.weights.node.variable))
+
         copy_weights_op = tf.group(*copy_weight_ops)
-        # [p.set_weights(weights) for p in parsums]
 
         init_conv = spn.initialize_weights(conv_root)
         init_parsum = spn.initialize_weights(parsum_root)
@@ -76,7 +97,6 @@ class TestBaseSum(tf.test.TestCase):
         ivs_counts_parsum = path_parsum.counts[ivs]
         ivs_counts_conv = path_conv.counts[ivs]
 
-        # weight_counts_parsum = path_parsum.counts[weights]
         weight_counts_parsum = tf.concat(
             [path_parsum.counts[w] for w in parsum_weight_nodes], axis=1)
         weight_counts_conv = path_conv.counts[weights]
@@ -90,7 +110,7 @@ class TestBaseSum(tf.test.TestCase):
         parsum_counts = path_parsum.counts[parsum_concat]
         conv_counts = path_conv.counts[convsum]
 
-        ivs_feed = np.random.randint(2, size=batch_size * num_vars)\
+        ivs_feed = np.random.randint(-1, 2, size=batch_size * num_vars)\
             .reshape((batch_size, num_vars))
         with tf.Session() as sess:
             sess.run([init_conv, init_parsum])
@@ -114,8 +134,7 @@ class TestBaseSum(tf.test.TestCase):
                 [path_parsum.value.values[parsum_concat], path_conv.value.values[convsum]],
                 feed_dict={ivs: ivs_feed})
 
-        self.assertTrue(np.all(np.less_equal(convsum_val, 0.0)))
-        self.assertTrue(np.all(np.less_equal(parsum_concat_val, 0.0)))
+        self.assertAllClose(convsum_val, parsum_concat_val)
         self.assertAllClose(weight_value_conv_out, weight_value_parsum_out)
         self.assertAllClose(root_conv_value_out, root_parsum_value_out)
         self.assertAllEqual(ivs_counts_conv_out, ivs_counts_parsum_out)

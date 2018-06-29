@@ -1,6 +1,7 @@
 from collections import defaultdict
 from libspn.graph.convprod2d import ConvProd2D
 from libspn.graph.convsum import ConvSum
+from libspn.graph.localsum import LocalSum
 from libspn.exceptions import StructureError
 
 
@@ -16,14 +17,14 @@ class ConvSPN:
             self, *input_nodes, kernel_size=2, strides=(1, 4), dilation_rate=(2, 1), 
             prod_num_channels=512, padding_algorithm='valid', pad_left=None, pad_right=None, 
             pad_top=None, pad_bottom=None, name_prefixes="DilateStride", name_suffixes=("A", "B"), 
-            spatial_dims=None, use_convsums=True, sum_num_channels=None, stack_size=2, 
+            spatial_dims=None, sum_node_type='local', sum_num_channels=None, stack_size=2,
             pad_all=None):
         return self.add_stack(*input_nodes, kernel_size=kernel_size, strides=strides,
                               dilation_rate=dilation_rate, prod_num_channels=prod_num_channels,
                               padding_algorithm=padding_algorithm, pad_left=pad_left,
                               pad_right=pad_right, pad_top=pad_top, pad_bottom=pad_bottom,
                               name_prefixes=name_prefixes, name_suffixes=name_suffixes,
-                              spatial_dims=spatial_dims, use_convsums=use_convsums, 
+                              spatial_dims=spatial_dims, sum_node_type=sum_node_type,
                               sum_num_channels=sum_num_channels, stack_size=stack_size,
                               pad_all=pad_all)
     
@@ -31,24 +32,24 @@ class ConvSPN:
             self, *input_nodes, kernel_size=2, strides=(2, 2), dilation_rate=(1, 1), 
             prod_num_channels=512, padding_algorithm='valid', pad_left=None, pad_right=None, 
             pad_top=None, pad_bottom=None, name_prefixes="DoubleStride", name_suffixes=("A", "B"), 
-            spatial_dims=None, use_convsums=True, sum_num_channels=None, stack_size=2, 
+            spatial_dims=None, sum_node_type='local', sum_num_channels=None, stack_size=2,
             pad_all=None):
         return self.add_stack(*input_nodes, kernel_size=kernel_size, strides=strides,
                               dilation_rate=dilation_rate, prod_num_channels=prod_num_channels,
                               padding_algorithm=padding_algorithm, pad_left=pad_left,
                               pad_right=pad_right, pad_top=pad_top, pad_bottom=pad_bottom,
                               name_prefixes=name_prefixes, name_suffixes=name_suffixes,
-                              spatial_dims=spatial_dims, use_convsums=use_convsums, 
-                              sum_num_channels=sum_num_channels, stack_size=stack_size, 
+                              spatial_dims=spatial_dims, sum_node_type=sum_node_type,
+                              sum_num_channels=sum_num_channels, stack_size=stack_size,
                               pad_all=pad_all)
 
     def add_stack(
             self, *input_nodes, kernel_size=2, strides=2, dilation_rate=1, 
             prod_num_channels=512, padding_algorithm='valid', pad_left=None, pad_right=None, 
             pad_top=None, pad_bottom=None, name_prefixes="ConvStack", name_suffixes=None, 
-            spatial_dims=None, use_convsums=True, sum_num_channels=None, stack_size=2,
+            spatial_dims=None, sum_node_type='local', sum_num_channels=None, stack_size=2,
             pad_all=None):
-        if use_convsums and sum_num_channels is None:
+        if sum_node_type and sum_num_channels is None:
             raise StructureError("Must provide the number of channels for ConvolutionalSums")
         name_suffixes = name_suffixes or list(range(stack_size))
         level, spatial_dims_parsed, input_nodes = self._prepare_inputs(*input_nodes)
@@ -58,11 +59,11 @@ class ConvSPN:
             pad_bottom = pad_top = pad_left = pad_right = pad_all
 
         for stride, dilation_r, kernel_s, prod_nc, pad_algo, pad_l, pad_r, pad_t, pad_b, sum_nc,\
-                name_pref, name_suff in \
+                name_pref, name_suff, s_node_type in \
                 self._ensure_tuples_and_zip(
                     strides, dilation_rate, kernel_size, prod_num_channels, padding_algorithm, 
                     pad_left, pad_right, pad_top, pad_bottom, sum_num_channels, name_prefixes, 
-                    name_suffixes):
+                    name_suffixes, sum_node_type):
             next_node = ConvProd2D(
                 *input_nodes, grid_dim_sizes=spatial_dims, pad_bottom=pad_b, pad_top=pad_t,
                 pad_left=pad_l, pad_right=pad_r, num_channels=prod_nc, 
@@ -73,11 +74,15 @@ class ConvSPN:
             print("Built node {}: {} x {} x {}".format(next_node, *next_node.output_shape_spatial))
             self._register_node(next_node, level)
             
-            if not use_convsums:
-                continue
-            
-            next_node = ConvSum(*input_nodes, num_channels=sum_nc, grid_dim_sizes=spatial_dims,
-                                name="{}Sum{}".format(name_pref, name_suff))
+            if s_node_type == "conv":
+                next_node = ConvSum(*input_nodes, num_channels=sum_nc, grid_dim_sizes=spatial_dims,
+                                    name="{}ConvSum{}".format(name_pref, name_suff))
+            elif s_node_type == "local":
+                next_node = LocalSum(*input_nodes, num_channels=sum_nc, grid_dim_sizes=spatial_dims,
+                                     name="{}LocalSum{}".format(name_pref, name_suff))
+            else:
+                raise ValueError("Unknown sum node type '{}', use either 'conv' or 'local'."
+                                 .format(s_node_type))
             input_nodes = [next_node]
             print("Built node {}: {} x {} x {}".format(next_node, *next_node.output_shape_spatial))
             self._register_node(next_node, level + 1)
