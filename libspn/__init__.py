@@ -22,6 +22,7 @@ from libspn.graph.parsums import ParSums
 from libspn.graph.sums import Sums
 from libspn.graph.sumslayer import SumsLayer
 from libspn.graph.convsum import ConvSum
+from libspn.graph.localsum import LocalSum
 from libspn.graph.product import Product
 from libspn.graph.permproducts import PermProducts
 from libspn.graph.products import Products
