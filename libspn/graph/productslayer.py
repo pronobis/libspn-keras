@@ -38,7 +38,7 @@ class ProductsLayer(OpNode):
 
     def __init__(self, *values, num_or_size_prods=1, name="ProductsLayer"):
         self._values = []
-        super().__init__(InferenceType.MARGINAL, name)
+        super().__init__(inference_type=InferenceType.MARGINAL, name=name)
         self.set_values(*values)
         self.set_prod_sizes(num_or_size_prods)
 
