@@ -254,15 +254,26 @@ class ConvProd2D(OpNode):
         # We can use the backprop Op, as the counts should be passed on to the input tensor. Note
         # that our 'kernels' are either 0 or 1, so either passing on the counts through multiplying
         # with 1, or not passing them on through multiplying with 0
+        # print(self, "DEFINING MPE PATH {}".format(counts.shape))
+        # transposed = tf.transpose(input_counts, (0, 2, 3, 1))
+        input_shape = tf.shape(inp_concat)
+        input_shape_py = inp_concat.shape.as_list()
+        transposed_shape = [input_shape[0], input_shape_py[3]] + input_shape_py[1:3]
+
+        transposed_spatial_counts = tf.transpose(
+            tf.reshape(counts, (-1,) + self.output_shape_spatial), (0, 3, 1, 2))
+
         input_counts = tf.nn.conv2d_backprop_input(
-            input_sizes=tf.shape(inp_concat),
+            input_sizes=transposed_shape,
             filter=self._dense_connections,
-            out_backprop=tf.reshape(counts, (-1,) + self.output_shape_spatial),
-            strides=[1] + self._strides + [1],
+            out_backprop=transposed_spatial_counts,
+            strides=[1, 1] + self._strides,  #[1] + self._strides + [1],
             padding=self._padding.upper(),
-            use_cudnn_on_gpu=True,
-            data_format="NHWC",
-            dilations=[1] + self._dilation_rate + [1])
+            dilations=[1, 1] + self._dilation_rate,
+            data_format="NCHW")  #[1] + self._dilation_rate + [1])
+
+        input_counts = tf.transpose(input_counts, (0, 2, 3, 1))
+        # print(input_counts.shape)
 
         if self._no_explicit_padding:
             return self._split_to_children(input_counts)
