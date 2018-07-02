@@ -11,6 +11,11 @@ from libspn import utils
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
 from libspn.utils.serialization import register_serializable
+from libspn.graph.convsum import ConvSum
+from libspn.graph.localsum import LocalSum
+from libspn.graph.convprod2d import ConvProd2D, ConvProd2DV2
+import tensorflow as tf
+import numpy as np
 
 
 @register_serializable
@@ -23,9 +28,10 @@ class Concat(OpNode):
         name (str): Name of the node.
     """
 
-    def __init__(self, *inputs, name="Concat"):
+    def __init__(self, *inputs, name="Concat", axis=1):
         super().__init__(InferenceType.MARGINAL, name)
         self.set_inputs(*inputs)
+        self._axis = axis
 
     def serialize(self):
         data = super().serialize()
@@ -99,8 +105,45 @@ class Concat(OpNode):
             raise StructureError("%s is missing inputs." % self)
         # Concatenate inputs
         input_tensors = self._gather_input_tensors(*input_tensors)
-        return utils.concat_maybe(input_tensors, 1)
+        input_shapes = self._gather_input_shapes()
+        reshaped_tensors = [tf.reshape(t, (-1,) + s) for t, s in zip(input_tensors, input_shapes)]
+        out = utils.concat_maybe(reshaped_tensors, axis=self._axis)
+        if self.is_spatial:
+            out = tf.reshape(out, (-1, int(np.prod(self.output_shape_spatial))))
+        return out
 
+    @property
+    def output_shape_spatial(self):
+        if self._axis != 3:
+            raise AttributeError("Requested spatial output shape of a Concat node that is "
+                                 "not spatial.")
+        shapes = self._gather_input_shapes()
+        concat_axis_sum = sum(s[self._axis - 1] for s in shapes)
+        return shapes[0][:self._axis-1] + (concat_axis_sum,)
+    
+    def _gather_input_shapes(self):
+        shapes = []
+        for inp in self.inputs:
+            if isinstance(inp.node, (ConvProd2D, ConvProd2DV2, ConvSum, LocalSum)):
+                shapes.append(inp.node.output_shape_spatial)
+            else:
+                shapes.append((inp.node.get_out_size(),))
+                
+        if any(len(shapes[0]) != len(s) for s in shapes):
+            raise StructureError("All shapes must be of same dimension, now have: {}".format(
+                [len(s) for s in shapes]
+            ))
+        if any(shapes[0][:self._axis - 1] != s[:self._axis - 1] for s in shapes):
+            raise StructureError("All non-concatenation axes must be identical.")
+        return shapes
+    
+    def _num_channels_per_input(self):
+        if not self.is_spatial:
+            raise AttributeError("Requested number of channels per input while this Concat node "
+                                 "is not spatial.")
+        shapes = self._gather_input_shapes()
+        return [s[self._axis - 1] for s in shapes]
+    
     @utils.docinherit(OpNode)
     def _compute_log_value(self, *input_tensors):
         return self._compute_value(*input_tensors)
@@ -112,6 +155,10 @@ class Concat(OpNode):
     @utils.docinherit(OpNode)
     def _compute_log_mpe_value(self, *input_tensors):
         return self._compute_value(*input_tensors)
+    
+    @property
+    def is_spatial(self):
+        return self._axis == 3
 
     def _compute_mpe_path(self, counts, *input_values, add_random=False, use_unweighted=False):
         # Check inputs
@@ -119,7 +166,14 @@ class Concat(OpNode):
             raise StructureError("%s is missing inputs." % self)
         # Split counts for each input
         input_sizes = self.get_input_sizes(*input_values)
-        split = utils.split_maybe(counts, input_sizes, 1)
+        # input_shapes = self._gather_input_shapes()
+        if self.is_spatial:
+            input_shapes = self._gather_input_shapes()
+            counts = tf.reshape(counts, (-1,) + self.output_shape_spatial)
+            split = utils.split_maybe(counts, self._num_channels_per_input(), axis=self._axis)
+            split = [tf.reshape(t, (-1, int(np.prod(s)))) for t, s in zip(split, input_shapes)]
+        else:
+            split = utils.split_maybe(counts, input_sizes, 1)
         return self._scatter_to_input_tensors(*[(t, v) for t, v in
                                                 zip(split, input_values)])
 

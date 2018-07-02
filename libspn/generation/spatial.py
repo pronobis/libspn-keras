@@ -1,17 +1,19 @@
 from collections import defaultdict
-from libspn.graph.convprod2d import ConvProd2D
+from libspn.graph.convprod2d import ConvProd2D, ConvProd2DV2
 from libspn.graph.convsum import ConvSum
 from libspn.graph.localsum import LocalSum
+from libspn.graph.concat import Concat
 from libspn.exceptions import StructureError
 
 
 class ConvSPN:
 
-    def __init__(self):
+    def __init__(self, convprod_version='v1'):
         self.level_at = 0
         self.nodes_per_level = defaultdict(list)
         self.last_nodes = None
         self.node_level = dict()
+        self._convprod_version = convprod_version
     
     def add_dilate_stride(
             self, *input_nodes, kernel_size=2, strides=(1, 4), dilation_rate=(2, 1), 
@@ -64,11 +66,20 @@ class ConvSPN:
                     strides, dilation_rate, kernel_size, prod_num_channels, padding_algorithm, 
                     pad_left, pad_right, pad_top, pad_bottom, sum_num_channels, name_prefixes, 
                     name_suffixes, sum_node_type):
-            next_node = ConvProd2D(
-                *input_nodes, grid_dim_sizes=spatial_dims, pad_bottom=pad_b, pad_top=pad_t,
-                pad_left=pad_l, pad_right=pad_r, num_channels=prod_nc, 
-                name="{}Prod{}".format(name_pref, name_suff), dilation_rate=dilation_r, 
-                kernel_size=kernel_s, padding_algorithm=pad_algo, strides=stride)
+            if self._convprod_version == 'v2':
+                if len(*input_nodes) > 1:
+                    input_concat = Concat(*input_nodes, axis=3)
+                    next_node = ConvProd2DV2(
+                        input_concat, grid_dim_sizes=spatial_dims, pad_bottom=pad_b, pad_top=pad_t,
+                        pad_left=pad_l, pad_right=pad_r, num_channels=prod_nc,
+                        name="{}Prod{}".format(name_pref, name_suff), dilation_rate=dilation_r,
+                        kernel_size=kernel_s, padding_algorithm=pad_algo, strides=stride)
+                else:
+                    next_node = ConvProd2D(
+                        *input_nodes, grid_dim_sizes=spatial_dims, pad_bottom=pad_b, pad_top=pad_t,
+                        pad_left=pad_l, pad_right=pad_r, num_channels=prod_nc,
+                        name="{}Prod{}".format(name_pref, name_suff), dilation_rate=dilation_r,
+                        kernel_size=kernel_s, padding_algorithm=pad_algo, strides=stride)
             spatial_dims = next_node.output_shape_spatial[:2]
             input_nodes = [next_node]
             print("Built node {}: {} x {} x {}".format(next_node, *next_node.output_shape_spatial))

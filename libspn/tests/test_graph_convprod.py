@@ -148,6 +148,103 @@ def grid_spn(var_node, patch_size, num_mixtures, num_alterations, input_dist, nu
 
 class TestConvProd(tf.test.TestCase):
 
+    @argsprod([4, 2, 1], [4, 2, 1])
+    def test_compare_v1_and_v2_value(self, stride, dilate):
+        if dilate > 1:
+            if stride > 1:
+                # Not supported by TF's convolution
+                return
+        ivs_rows, ivs_cols = 16, 16
+        batch_size = 32
+        num_vars = ivs_rows * ivs_cols
+        num_vals = 3
+        ivs = spn.ContVars(num_vars=num_vars * 2)
+        ivs2 = spn.ContVars(num_vars=num_vars * 2)
+
+        localsum0 = spn.LocalSum(ivs, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=2)
+        localsum1 = spn.LocalSum(ivs2, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=2)
+
+        ivs_concat = spn.Concat(localsum0, localsum1, axis=3)
+
+        convprod_v1 = spn.ConvProd2DV2(
+            ivs_concat, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=256,
+            strides=stride, dilation_rate=dilate)
+        convprod_v2 = spn.ConvProd2D(
+            ivs_concat, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=256,
+            strides=stride, dilation_rate=dilate)
+
+        spn.generate_weights(convprod_v1)
+        spn.generate_weights(convprod_v2)
+        init_v1 = spn.initialize_weights(convprod_v1)
+        init_v2 = spn.initialize_weights(convprod_v2)
+
+        val_v1 = convprod_v1.get_log_value()
+        val_v2 = convprod_v2.get_log_value()
+
+        # ivs_feed = np.random.randint(-1, 2, size=num_vars * batch_size).reshape(
+        #     (batch_size, num_vars))
+        ivs_feed = np.random.rand(batch_size, num_vars * 2)
+        ivs_feed2 = np.random.rand(batch_size, num_vars * 2)
+
+        with self.test_session() as sess:
+            sess.run([init_v1, init_v2])
+            val_v1_out, val_v2_out = sess.run(
+                [val_v1, val_v2], {ivs: ivs_feed, ivs2: ivs_feed2})
+
+        self.assertAllClose(np.exp(val_v1_out), np.exp(val_v2_out))
+
+    @argsprod([4, 2, 1], [4, 2, 1], [0, 1])
+    def test_compare_v1_and_v2_counts(self, stride, dilate, pad_size):
+        if dilate > 1:
+            if stride > 1:
+                # Not supported by TF's convolution
+                return
+        ivs_rows, ivs_cols = 16, 16
+        batch_size = 32
+        num_vars = ivs_rows * ivs_cols
+        num_vals = 3
+        ivs = spn.ContVars(num_vars=num_vars * 2)
+        ivs2 = spn.ContVars(num_vars=num_vars * 2)
+
+        localsum0 = spn.LocalSum(ivs, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=2)
+        localsum1 = spn.LocalSum(ivs2, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=2)
+
+        ivs_concat = spn.Concat(localsum0, localsum1, axis=3)
+
+        convprod_v1 = spn.ConvProd2DV2(
+            ivs_concat, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=256,
+            strides=stride, dilation_rate=dilate, pad_left=pad_size, pad_right=pad_size,
+            pad_top=pad_size, pad_bottom=pad_size)
+        convprod_v2 = spn.ConvProd2D(
+            ivs_concat, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=256,
+            strides=stride, dilation_rate=dilate, pad_left=pad_size, pad_right=pad_size,
+            pad_top=pad_size, pad_bottom=pad_size)
+
+
+        spn.generate_weights(convprod_v1)
+        spn.generate_weights(convprod_v2)
+        init_v1 = spn.initialize_weights(convprod_v1)
+        init_v2 = spn.initialize_weights(convprod_v2)
+
+
+        mpe_path_gen_v1 = spn.MPEPath()
+        mpe_path_gen_v2 = spn.MPEPath()
+
+        mpe_path_gen_v1.get_mpe_path(convprod_v1)
+        mpe_path_gen_v2.get_mpe_path(convprod_v2)
+
+        ivs_feed = np.random.rand(batch_size, num_vars * 2)
+        ivs_feed2 = np.random.rand(batch_size, num_vars * 2)
+        with self.test_session() as sess:
+            sess.run([init_v1, init_v2])
+            val_v1_out, val_v2_out = sess.run(
+                [mpe_path_gen_v1.counts[ivs], mpe_path_gen_v2.counts[ivs]],
+                {ivs: ivs_feed, ivs2: ivs_feed2})
+
+        # print(val_v1_out[0])
+        # print(val_v2_out[0])
+        self.assertAllClose(val_v1_out, val_v2_out)
+
     def test_generate_sparse_connections(self):
         grid_dims = [4, 4]
         input_channels = 2
