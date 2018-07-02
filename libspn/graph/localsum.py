@@ -164,6 +164,10 @@ class LocalSum(BaseSum):
     def _compute_out_size(self, *input_out_sizes):
         return self._num_sums
 
+    @property
+    def _tile_unweighted_size(self):
+        return self._num_channels
+
     @utils.lru_cache
     @utils.docinherit(BaseSum)
     def _compute_value(self, w_tensor, ivs_tensor, *input_tensors,

@@ -505,9 +505,11 @@ class BaseSum(OpNode, abc.ABC):
                                             weighted=weighted, use_ivs=with_ivs,
                                             dropconnect_keep_prob=dropconnect_keep_prob)
         # TODO this will probably not work for ConvSum...
-        op_axis = [self._op_axis] if isinstance(self._op_axis, int) else self._op_axis
-        if not weighted and self._num_sums > 1 and reducible.shape[self._reduce_axis-1].value == 1:
-            reducible = tf.tile(reducible, [1] * (len(reducible.shape) - 2) + [self._num_sums, 1])
+        # op_axis = [self._op_axis] if isinstance(self._op_axis, int) else self._op_axis
+        if not weighted and self._tile_unweighted_size > 1 \
+                and reducible.shape[self._reduce_axis - 1].value == 1:
+            reducible = tf.tile(
+                reducible, [1] * (len(reducible.shape) - 2) + [self._tile_unweighted_size, 1])
         # Add random
         if add_random is not None:
             reducible += tf.random_uniform(
@@ -515,6 +517,10 @@ class BaseSum(OpNode, abc.ABC):
         return self._compute_mpe_path_common(
             reducible, counts, w_tensor, ivs_tensor, *value_tensors, log=True, sample=sample,
             sample_prob=sample_prob, sample_rank_based=sample_rank_based)
+
+    @property
+    def _tile_unweighted_size(self):
+        return self._num_sums
 
     @utils.lru_cache
     def _compute_log_gradient(
