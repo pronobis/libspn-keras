@@ -13,6 +13,9 @@ class ConvSPN:
         self.nodes_per_level = defaultdict(list)
         self.last_nodes = None
         self.node_level = dict()
+        if convprod_version not in ['v1', 'v2']:
+            raise ValueError("Unsupported ConvProd version {}, choose either v1 or v2"
+                             .format(convprod_version))
         self._convprod_version = convprod_version
     
     def add_dilate_stride(
@@ -67,19 +70,19 @@ class ConvSPN:
                     pad_left, pad_right, pad_top, pad_bottom, sum_num_channels, name_prefixes, 
                     name_suffixes, sum_node_type):
             if self._convprod_version == 'v2':
-                if len(*input_nodes) > 1:
-                    input_concat = Concat(*input_nodes, axis=3)
-                    next_node = ConvProd2DV2(
-                        input_concat, grid_dim_sizes=spatial_dims, pad_bottom=pad_b, pad_top=pad_t,
-                        pad_left=pad_l, pad_right=pad_r, num_channels=prod_nc,
-                        name="{}Prod{}".format(name_pref, name_suff), dilation_rate=dilation_r,
-                        kernel_size=kernel_s, padding_algorithm=pad_algo, strides=stride)
-                else:
-                    next_node = ConvProd2D(
-                        *input_nodes, grid_dim_sizes=spatial_dims, pad_bottom=pad_b, pad_top=pad_t,
-                        pad_left=pad_l, pad_right=pad_r, num_channels=prod_nc,
-                        name="{}Prod{}".format(name_pref, name_suff), dilation_rate=dilation_r,
-                        kernel_size=kernel_s, padding_algorithm=pad_algo, strides=stride)
+                if len(input_nodes) > 1:
+                    input_nodes = [Concat(*input_nodes, axis=3)]
+                next_node = ConvProd2DV2(
+                    *input_nodes, grid_dim_sizes=spatial_dims, pad_bottom=pad_b, pad_top=pad_t,
+                    pad_left=pad_l, pad_right=pad_r, num_channels=prod_nc,
+                    name="{}Prod{}".format(name_pref, name_suff), dilation_rate=dilation_r,
+                    kernel_size=kernel_s, padding_algorithm=pad_algo, strides=stride)
+            else:
+                next_node = ConvProd2D(
+                    *input_nodes, grid_dim_sizes=spatial_dims, pad_bottom=pad_b, pad_top=pad_t,
+                    pad_left=pad_l, pad_right=pad_r, num_channels=prod_nc,
+                    name="{}Prod{}".format(name_pref, name_suff), dilation_rate=dilation_r,
+                    kernel_size=kernel_s, padding_algorithm=pad_algo, strides=stride)
             spatial_dims = next_node.output_shape_spatial[:2]
             input_nodes = [next_node]
             print("Built node {}: {} x {} x {}".format(next_node, *next_node.output_shape_spatial))

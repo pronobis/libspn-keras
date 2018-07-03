@@ -85,6 +85,12 @@ class Concat(OpNode):
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
         input_scopes = self._gather_input_scopes(*input_scopes)
+        if self.is_spatial:
+            input_shapes = self._gather_input_shapes()
+            reshaped_scopes = [np.asarray(sc).reshape(s) for sc, s in
+                               zip(input_scopes, input_shapes)]
+            return np.concatenate(reshaped_scopes, axis=self._axis - 1).ravel().tolist()
+
         return list(chain.from_iterable(input_scopes))
 
     @utils.docinherit(OpNode)

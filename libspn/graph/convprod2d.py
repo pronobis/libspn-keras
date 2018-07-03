@@ -496,9 +496,9 @@ class ConvProd2DV2(ProductsLayer):
             pad_bottom + pad_bottom_explicit
         )
 
-    @utils.docinherit(OpNode)
-    def _compute_valid(self, *value_scopes):
-        return self._compute_scope(*value_scopes, check_valid=True)
+    # @utils.docinherit(OpNode)
+    # def _compute_valid(self, *value_scopes):
+    #     return self._compute_scope(*value_scopes, check_valid=True)
 
     def deserialize_inputs(self, data, nodes_by_name):
         pass
