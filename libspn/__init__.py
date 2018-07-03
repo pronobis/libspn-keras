@@ -28,6 +28,7 @@ from libspn.graph.permproducts import PermProducts
 from libspn.graph.products import Products
 from libspn.graph.productslayer import ProductsLayer
 from libspn.graph.convprod2d import ConvProd2D, ConvProd2DV2
+from libspn.graph.stridedslice import StridedSlice2D
 from libspn.graph.weights import Weights
 from libspn.graph.weights import assign_weights
 from libspn.graph.weights import initialize_weights

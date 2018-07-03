@@ -933,9 +933,9 @@ class ConvProd2D(OpNode):
             padded_value_scopes_concat[:pad_top, :] = empty_scope
             padded_value_scopes_concat[-pad_bottom:, :] = empty_scope
             padded_value_scopes_concat[:, -pad_right:] = empty_scope
-            padded_value_scopes_concat[ \
-            pad_top:pad_top + value_scopes_concat.shape[0],
-            pad_left:pad_left + value_scopes_concat.shape[0]] = value_scopes_concat
+            padded_value_scopes_concat[
+                pad_top:pad_top + value_scopes_concat.shape[0],
+                pad_left:pad_left + value_scopes_concat.shape[0]] = value_scopes_concat
             value_scopes_concat = padded_value_scopes_concat
 
         scope_list = []
