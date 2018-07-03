@@ -572,18 +572,19 @@ class ConvProd2D(OpNode):
         self._kernel_size = [kernel_size] * 2 if isinstance(kernel_size, int) \
             else list(kernel_size)
 
+        # Generate connections if needed
         if sparse_connections is not None:
             if dense_connections is not None:
                 raise ValueError("{}: Must provide either spare connections or dense connections, "
                                  "not both.".format(self))
             self._sparse_connections = sparse_connections
-            self._dense_connections = self.sparse_connections_to_dense(sparse_connections)
+            self._dense_connections = self.sparse_kernels_to_onehot(sparse_connections)
         elif dense_connections is not None:
             self._dense_connections = dense_connections
-            self._sparse_connections = self.dense_connections_to_sparse(dense_connections)
+            self._sparse_connections = self.onehot_kernels_to_sparse(dense_connections)
         else:
-            self._sparse_connections = self.generate_sparse_connections(num_channels)
-            self._dense_connections = self.sparse_connections_to_dense(self._sparse_connections)
+            self._sparse_connections = self.generate_sparse_kernels(num_channels)
+            self._dense_connections = self.sparse_kernels_to_onehot(self._sparse_connections)
 
         self._pad_top, self._pad_bottom = pad_top, pad_bottom
         self._pad_left, self._pad_right = pad_left, pad_right
@@ -598,7 +599,18 @@ class ConvProd2D(OpNode):
         """
         self._values = self._parse_inputs(*values)
 
-    def sparse_connections_to_dense(self, sparse):
+    def sparse_kernels_to_onehot(self, sparse):
+        """Converts an index-based representation of sparse kernels to a dense onehot
+        representation.
+
+        Args:
+            sparse (numpy.ndarray): A sparse kernel representation of shape
+                [rows, cols, output_channel] containing the indices for which the kernel equals 1.
+
+        Returns:
+            A onehot representation of the same kernel with shape
+            [rows, cols, input_channel, output_channel].
+        """
         # Sparse has shape [rows, cols, out_channels]
         # Dense will have shape [rows, cols, in_channels, out_channels]
         num_input_channels = self._num_input_channels()
@@ -610,10 +622,33 @@ class ConvProd2D(OpNode):
         # [rows, cols, out_channels, in_channels] to [rows, cols, in_channels, out_channels]
         return np.transpose(dense, (0, 1, 3, 2)).astype(conf.dtype.as_numpy_dtype())
 
-    def dense_connections_to_sparse(self, dense):
+    def onehot_kernels_to_sparse(self, dense):
+        """Converts a dense kernel to an index-based representation.
+
+        Args:
+            dense (numpy.ndarray): The dense one-hot representation of the kernels with shape
+                [rows, cols, input_channel, output_channel]
+
+        Returns:
+            An index-based representation of the kernels of shape [rows, cols, output_channel].
+        """
         return np.argmax(dense, axis=2)
 
-    def generate_sparse_connections(self, num_channels):
+    def generate_sparse_kernels(self, num_channels):
+        """Generates sparse kernels kernels. These kernels only contain '1' on a single channel
+        per row and column. The remaining values are all zero. This method returns the sparse
+        representation, containing only the indices for which the kernels are 1 along the input
+        channel axis.
+
+        Args:
+            num_channels (int): The number of channels. In case the number of channels given is
+                larger than the number of possible one-hot assignments, a warning is given and the
+                number of channels is set accordingly before generating the connections.
+        Returns:
+            A `numpy.ndarray` containing the 'sparse' representation of the kernels with shape
+            `[row, column, channel]`, containing the indices of the input channel for which the
+            kernel is 1.
+        """
         num_input_channels = self._num_input_channels()
         kernel_surface = int(np.prod(self._kernel_size))
         total_possibilities = num_input_channels ** kernel_surface
@@ -634,9 +669,16 @@ class ConvProd2D(OpNode):
 
     @utils.lru_cache
     def _spatial_concat(self, *input_tensors):
+        """Concatenates input tensors spatially. Makes sure to reshape them before.
+
+        Args:
+            input_tensors (tuple): A tuple of `Tensor`s to concatenate along the channel axis.
+
+        Returns:
+            The concatenated tensor.
+        """
         input_tensors = [self._spatial_reshape(t) for t in input_tensors]
-        reducible_inputs = utils.concat_maybe(input_tensors, axis=self._channel_axis)
-        return reducible_inputs
+        return utils.concat_maybe(input_tensors, axis=self._channel_axis)
 
     def _spatial_reshape(self, t, forward=True):
         """Reshapes a Tensor ``t``` to one that represents the spatial dimensions.
@@ -678,19 +720,26 @@ class ConvProd2D(OpNode):
         return [int(s // np.prod(self._grid_dim_sizes)) for s in input_sizes]
 
     def _num_input_channels(self):
+        """Computes the total number of input channels.
+
+        Returns:
+            An int indicating the number of input channels for the convolution operation.
+        """
         return sum(self._num_channels_per_input())
 
     def _compute_out_size_spatial(self, *input_out_sizes):
-        # See https://www.tensorflow.org/api_guides/python/nn#Convolution
+        """Computes spatial output shape.
+
+        Returns:
+            A tuple with (num_rows, num_cols, num_channels).
+        """
         kernel_size0, kernel_size1 = self._effective_kernel_size()
 
         pad_left, pad_right, pad_top, pad_bottom = self.pad_sizes()
 
         # TODO determine the grid dimensions from the input nodes
-        rows_post_pad = pad_top + pad_bottom + self._grid_dim_sizes[0]
-        cols_post_pad = pad_left + pad_right + self._grid_dim_sizes[1]
-        rows_post_pad -= kernel_size0 - 1
-        cols_post_pad -= kernel_size1 - 1
+        rows_post_pad = pad_top + pad_bottom + self._grid_dim_sizes[0] - kernel_size0 + 1
+        cols_post_pad = pad_left + pad_right + self._grid_dim_sizes[1] - kernel_size1 + 1
         out_rows = int(np.ceil(rows_post_pad / self._strides[0]))
         out_cols = int(np.ceil(cols_post_pad / self._strides[1]))
         return int(out_rows), int(out_cols), self._num_channels
@@ -700,18 +749,25 @@ class ConvProd2D(OpNode):
 
     @property
     def output_shape_spatial(self):
+        """tuple: The spatial shape of this node, formatted as (rows, columns, channels). """
         return self._compute_out_size_spatial()
 
     @property
     def same_padding(self):
+        """bool: Whether the padding algorithm is set to SAME. """
         return self._padding.lower() == "same"
 
     @property
     def valid_padding(self):
+        """bool: Whether the padding algrorithm is set to VALID """
         return self._padding.lower() == "valid"
 
     def _effective_kernel_size(self):
-        # See https://www.tensorflow.org/api_docs/python/tf/nn/convolution
+        """Computes the 'effective' kernel size by also taking into account the dilation rate.
+
+        Returns:
+            tuple: A tuple with (num_kernel_rows, num_kernel_cols)
+        """
         return [
             (self._kernel_size[0] - 1) * self._dilation_rate[0] + 1,
             (self._kernel_size[1] - 1) * self._dilation_rate[1] + 1
@@ -751,15 +807,16 @@ class ConvProd2D(OpNode):
         # We can use the backprop Op, as the counts should be passed on to the input tensor. Note
         # that our 'kernels' are either 0 or 1, so either passing on the counts through multiplying
         # with 1, or not passing them on through multiplying with 0
-        # print(self, "DEFINING MPE PATH {}".format(counts.shape))
-        # transposed = tf.transpose(input_counts, (0, 2, 3, 1))
         input_shape = tf.shape(inp_concat)
         input_shape_py = inp_concat.shape.as_list()
         transposed_shape = [input_shape[0], input_shape_py[3]] + input_shape_py[1:3]
 
+        # Transpose from NHWC to NCHW
         transposed_spatial_counts = tf.transpose(
             tf.reshape(counts, (-1,) + self.output_shape_spatial), (0, 3, 1, 2))
 
+        # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
+        # to be a TF debug. Now we transpose before and after
         input_counts = tf.nn.conv2d_backprop_input(
             input_sizes=transposed_shape,
             filter=self._dense_connections,
@@ -769,11 +826,14 @@ class ConvProd2D(OpNode):
             dilations=[1, 1] + self._dilation_rate,
             data_format="NCHW")  # [1] + self._dilation_rate + [1])
 
+        # Transpose from NCHW to NHWC
         input_counts = tf.transpose(input_counts, (0, 2, 3, 1))
-        # print(input_counts.shape)
 
         if self._no_explicit_padding:
             return self._split_to_children(input_counts)
+
+        # In case we have explicitly padded the tensor before forward convolution, we should
+        # slice the counts now
         pad_bottom, pad_left, pad_right, pad_top = self._explicit_pad_sizes()
         return self._split_to_children(input_counts[:, pad_top:-pad_bottom, pad_left:-pad_right, :])
 
@@ -788,13 +848,16 @@ class ConvProd2D(OpNode):
 
     def _maybe_explicit_pad(self, x):
         if self._no_explicit_padding:
+            # If all pad sizes are 0, just return x
             return x
 
+        # Pad x
         pad_bottom, pad_left, pad_right, pad_top = self._explicit_pad_sizes()
         paddings = [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]]
         return tf.pad(x, paddings=paddings, mode="CONSTANT", constant_values=0)
 
     def _explicit_pad_sizes(self):
+        # Replace any 'None' with 0
         pad_top = self._pad_or_zero(self._pad_top)
         pad_bottom = self._pad_or_zero(self._pad_bottom)
         pad_left = self._pad_or_zero(self._pad_left)
@@ -904,6 +967,12 @@ class ConvProd2D(OpNode):
         return scope_list
 
     def pad_sizes(self):
+        """Determines the pad sizes. Possibly adds up explicit padding and padding through SAME
+        padding algorithm of `tf.nn.convolution`.
+
+        Returns:
+            A tuple of left, right, top and bottom padding sizes.
+        """
         pad_top_explicit, pad_bottom_explicit, pad_left_explicit, pad_right_explicit = \
             self._explicit_pad_sizes()
         if self.valid_padding:

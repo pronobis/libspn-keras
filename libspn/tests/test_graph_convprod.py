@@ -253,7 +253,7 @@ class TestConvProd(tf.test.TestCase):
         convprod = spn.ConvProd2D(vars, num_channels=32, strides=2, padding_algorithm='valid',
                                   grid_dim_sizes=grid_dims)
 
-        connections = convprod.generate_sparse_connections(32)
+        connections = convprod.generate_sparse_kernels(32)
         connection_tuples = [tuple(c) for c in
                              connections.reshape((-1, convprod._num_channels)).transpose()]
         self.assertEqual(len(set(connection_tuples)), len(connection_tuples))
