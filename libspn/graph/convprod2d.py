@@ -785,11 +785,26 @@ class ConvProd2D(OpNode):
         # part of the kernel computation involves a -inf:
         concat_inp = tf.where(
             tf.is_inf(concat_inp), tf.fill(tf.shape(concat_inp), value=-1e20), concat_inp)
-        conv_out = tf.nn.convolution(
-            concat_inp, filter=self._dense_connections, padding=self._padding.upper(),
-            strides=self._strides, dilation_rate=self._dilation_rate, data_format="NHWC")
+        # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
+        # to be a TF debug. Now we transpose before and after
+        conv_out = tf.nn.conv2d(
+            input=self._transpose_channel_last_to_first(concat_inp),
+            filter=self._dense_connections, padding=self._padding.upper(),
+            strides=[1, 1] + self._strides,
+            dilations=[1, 1] + self._dilation_rate,
+            data_format='NCHW'
+        )
+        conv_out = self._transpose_channel_first_to_last(conv_out)
 
         return self._flatten(conv_out)
+
+    @utils.lru_cache
+    def _transpose_channel_last_to_first(self, t):
+        return tf.transpose(t, (0, 3, 1, 2))
+
+    @utils.lru_cache
+    def _transpose_channel_first_to_last(self, t):
+        return tf.transpose(t, (0, 2, 3, 1))
 
     def _compute_mpe_value(self, *input_tensors):
         raise NotImplementedError("{}: No linear MPE value implementation for ConvProd"
@@ -812,8 +827,8 @@ class ConvProd2D(OpNode):
         transposed_shape = [input_shape[0], input_shape_py[3]] + input_shape_py[1:3]
 
         # Transpose from NHWC to NCHW
-        transposed_spatial_counts = tf.transpose(
-            tf.reshape(counts, (-1,) + self.output_shape_spatial), (0, 3, 1, 2))
+        transposed_spatial_counts = self._transpose_channel_last_to_first(
+            tf.reshape(counts, (-1,) + self.output_shape_spatial))
 
         # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
         # to be a TF debug. Now we transpose before and after
@@ -827,7 +842,7 @@ class ConvProd2D(OpNode):
             data_format="NCHW")  # [1] + self._dilation_rate + [1])
 
         # Transpose from NCHW to NHWC
-        input_counts = tf.transpose(input_counts, (0, 2, 3, 1))
+        input_counts = self._transpose_channel_first_to_last(input_counts)
 
         if self._no_explicit_padding:
             return self._split_to_children(input_counts)

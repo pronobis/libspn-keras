@@ -197,7 +197,7 @@ class TestConvProd(tf.test.TestCase):
     def test_compare_v1_and_v2_counts(self, stride, dilate, pad_size):
         if dilate > 1:
             if stride > 1:
-                # Not supported by TF's convolution
+                # Not supported by TF's convolution, it seems to be a bug...
                 return
         ivs_rows, ivs_cols = 16, 16
         batch_size = 32
