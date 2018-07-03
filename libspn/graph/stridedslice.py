@@ -260,9 +260,9 @@ class StridedSlice2D(OpNode):
         value_scopes_concat = np.concatenate(value_scopes_grid, axis=2)
 
         row_b, col_b = self._begin
-        row_e, col_e = self._end
+        row_e, col_e = self._slice_end_row_col()
         row_s, col_s = self._strides
-        return value_scopes_concat[:, row_b:row_e:row_s, col_b:col_e:col_s, :].ravel().tolist()
+        return value_scopes_concat[row_b:row_e:row_s, col_b:col_e:col_s, :].ravel().tolist()
         
 
     @utils.docinherit(OpNode)

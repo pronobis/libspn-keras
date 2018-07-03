@@ -84,7 +84,6 @@ class TestConvProd(tf.test.TestCase):
         mpe_path_gen.get_mpe_path(root)
         sum_counts = mpe_path_gen.counts[root]
 
-
         ivs_feed = np.random.rand(batch_size, num_vars * 2)
         ivs_feed2 = np.random.rand(batch_size, num_vars * 2)
 
@@ -110,3 +109,39 @@ class TestConvProd(tf.test.TestCase):
 
         self.assertAllClose(
             counts_ivs2_out.reshape((batch_size, ivs_rows, ivs_cols, 2)), truth_ivs2)
+
+    @argsprod([2, 0], [None, -2], [2, 0], [None, -2], [1, 2], [1, 2])
+    def test_compute_scope(self, row_b, row_e, col_b, col_e, stride_row, stride_col):
+        ivs_rows, ivs_cols = 16, 16
+        num_vars = ivs_rows * ivs_cols
+        ivs = spn.IVs(num_vars=num_vars, num_vals=2)
+        ivs2 = spn.IVs(num_vars=num_vars, num_vals=2)
+
+        if row_e is None:
+            if col_e is None:
+                end = None
+            else:
+                end = (ivs_rows, col_e)
+        elif col_e is None:
+            end = (row_e, ivs_cols)
+        else:
+            end = (row_e, col_e)
+
+        strided_slice = spn.StridedSlice2D(
+            ivs, ivs2, begin=(row_b, col_b), end=end, strides=(stride_row, stride_col),
+            grid_dim_sizes=[ivs_rows, ivs_cols])
+
+        shape = (ivs_rows, ivs_cols, 2)
+        scopes_iv1 = np.repeat([spn.Scope(ivs, i) for i in range(num_vars)], 2).reshape(shape)
+        scopes_iv2 = np.repeat([spn.Scope(ivs2, i) for i in range(num_vars)], 2).reshape(shape)
+
+        if end is None:
+            scopes_ivs1_slice = scopes_iv1[row_b::stride_row, col_b::stride_col, :]
+            scopes_ivs2_slice = scopes_iv2[row_b::stride_row, col_b::stride_col, :]
+        else:
+            scopes_ivs1_slice = scopes_iv1[row_b:row_e:stride_row, col_b:col_e:stride_col, :]
+            scopes_ivs2_slice = scopes_iv2[row_b:row_e:stride_row, col_b:col_e:stride_col, :]
+
+        scopes_out = np.concatenate([scopes_ivs1_slice, scopes_ivs2_slice], axis=2).ravel().tolist()
+
+        self.assertAllEqual(strided_slice.get_scope(), scopes_out)
