@@ -54,23 +54,22 @@ class ConvSPN:
     def wicker_stack(self, *input_nodes, stack_size=2, sum_node_type='local', sum_num_channels=2, 
                      pad_top=None, pad_bottom=None, pad_left=None, pad_right=None, 
                      spatial_dims=None, kernel_size=2, strides=1, prod_num_channels=16,
-                     dense_generator=None):
+                     dense_generator=None, add_root=True):
         pad_left_new, pad_right_new, pad_top_new, pad_bottom_new = [], [], [], []
-        pad_at_level = 1
 
         def none_to_zero(x):
             return 0 if x is None else x
 
-        for pad_l, pad_r, pad_t, pad_b in self._ensure_tuples_and_zip(
-            pad_left, pad_right, pad_bottom, pad_top):
-            
+        strides_cum_prod = np.cumprod(np.concatenate(([1], strides[:-1])))
+        for pad_l, pad_r, pad_t, pad_b, s_prod, level in self._ensure_tuples_and_zip(
+                pad_left, pad_right, pad_bottom, pad_top, strides_cum_prod.tolist(),
+                list(range(stack_size)), size=stack_size):
+            pad_at_level = int(2 ** level // s_prod)
             pad_left_new.append(none_to_zero(pad_l) + pad_at_level)
             pad_right_new.append(none_to_zero(pad_r) + pad_at_level)
             pad_top_new.append(none_to_zero(pad_t) + pad_at_level)
             pad_bottom_new.append(none_to_zero(pad_b) + pad_at_level)
-            
-            pad_at_level *= 2
-        
+
         dilation_rates = np.power(2, np.arange(0, stack_size))
 
         if isinstance(strides, int):
@@ -78,7 +77,6 @@ class ConvSPN:
         else:
             strides = np.asarray(strides)
 
-        strides_cum_prod = np.cumprod(np.concatenate(([1], strides[:-1])))
         if np.any(np.greater(strides_cum_prod, dilation_rates)):
             raise ValueError("Given strides exceed dilation rates.")
         dilation_rates_effective = (dilation_rates // strides_cum_prod).astype(int).tolist()
@@ -91,7 +89,7 @@ class ConvSPN:
             dilation_rate=dilation_rates_effective, pad_left=pad_left_new, pad_right=pad_right_new,
             pad_top=pad_top_new, pad_bottom=pad_bottom_new, sum_num_channels=sum_num_channels,
             prod_num_channels=prod_num_channels, sum_node_type=sum_node_type, 
-            spatial_dims=spatial_dims, name_prefixes="WickerStack")
+            spatial_dims=spatial_dims, name_prefixes="WickerStack", stack_size=stack_size)
 
         out_rows, out_cols = stack_out.output_shape_spatial[:2]
 
@@ -102,10 +100,12 @@ class ConvSPN:
                     stack_out, name="WickerSliceRow{}Col{}".format(begin_row, begin_col),
                     begin=(begin_row, begin_col), strides=(num_slices, num_slices),
                     grid_dim_sizes=[out_rows, out_cols]))
-                print(conv_heads[-1].get_scope()[:10])
         if dense_generator is not None:
-            root = Sum(*[dense_generator.generate(head) for head in conv_heads])
-            return root
+            dense_heads = [dense_generator.generate(head) for head in conv_heads]
+            if add_root:
+                root = Sum(*dense_heads)
+                return root
+            return dense_heads
         
         return conv_heads
     
@@ -127,7 +127,7 @@ class ConvSPN:
                 self._ensure_tuples_and_zip(
                     strides, dilation_rate, kernel_size, prod_num_channels, padding_algorithm, 
                     pad_left, pad_right, pad_top, pad_bottom, sum_num_channels, name_prefixes, 
-                    name_suffixes, sum_node_type):
+                    name_suffixes, sum_node_type, size=stack_size):
             if self._convprod_version == 'v2':
                 if len(input_nodes) > 1:
                     input_nodes = [Concat(*input_nodes, axis=3)]
@@ -151,7 +151,7 @@ class ConvSPN:
                   "\n\tKernel size: {}"
                   "\n\tPadding: [{},{}] x [{},{}]"
                   .format(next_node, *next_node.output_shape_spatial,
-                          stride, dilation_rate, kernel_size,
+                          stride, dilation_r, kernel_s,
                           pad_t, pad_b, pad_l, pad_r))
             self._register_node(next_node, level)
             
