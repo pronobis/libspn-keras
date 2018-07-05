@@ -581,15 +581,6 @@ class BaseSum(OpNode, abc.ABC):
             dropout_keep_prob=dropout_keep_prob, log=True)
         log_sum = tf.expand_dims(log_sum, axis=self._reduce_axis)
 
-        # gradients = self._maybe_dropout(gradients, dropout_keep_prob=dropout_keep_prob, log=log)
-        # dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
-        # if dropout_keep_prob is not None and not \
-        #         (isinstance(dropout_keep_prob, (float, int)) and float(dropout_keep_prob) == 1.0):
-        #     mask = self._get_or_create_dropout_mask(
-        #         batch_size=tf.shape(gradients)[self._batch_axis], keep_prob=dropout_keep_prob,
-        #         log=True)
-        #     gradients = self.cwise_mul(gradients, tf.exp(mask))
-
         # A number - (-inf) is undefined. In fact, the gradient in those cases should be zero
         log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
         w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(reducible - log_sum)
@@ -803,7 +794,7 @@ class BaseSum(OpNode, abc.ABC):
                         last axis.
             sample_prob (Tensor or float): A ``Tensor`` or float indicating the probability of
                 taking a sample.
-            
+
         Returns:
             A ``Tensor`` reduced over the last axis.
         """

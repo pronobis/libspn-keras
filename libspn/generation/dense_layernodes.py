@@ -98,7 +98,7 @@ class DenseSPNGeneratorLayerNodes:
 
     def __init__(self, num_decomps, num_subsets, num_mixtures,
                  input_dist=InputDist.MIXTURE, num_input_mixtures=None,
-                 balanced=True, node_type=NodeType.BLOCK):
+                 balanced=True, node_type=NodeType.LAYER):
         # Args
         if not isinstance(num_decomps, int) or num_decomps < 1:
             raise ValueError("num_decomps must be a positive integer")
@@ -245,7 +245,7 @@ class DenseSPNGeneratorLayerNodes:
             # For each unique input, collect all associated indices
             # into a single list, then create a list of tuples,
             # where each tuple contains an unique input and it's
-            # list of incices
+            # list of indices
             inputs_list = []
             for unique_inp in unique_inputs:
                 indices_list = []
@@ -347,8 +347,8 @@ class DenseSPNGeneratorLayerNodes:
             if self.node_type == DenseSPNGeneratorLayerNodes.NodeType.SINGLE:
                 products = self.__add_products(prod_inputs)
             else:
-                products = [PermProducts(*prod_inputs,
-                            name="PermProducts%s" % self.__decomp_id)]
+                products = ([PermProducts(*prod_inputs, name="PermProducts%s" % self.__decomp_id)]
+                            if len(prod_inputs) > 1 else prod_inputs)
             # Connect products to each parent Sum
             for p in subset_info.parents:
                 p.add_values(*products)
@@ -374,10 +374,14 @@ class DenseSPNGeneratorLayerNodes:
         product_num = 1
         with tf.name_scope("Products%s" % self.__decomp_id):
             while cont:
-                # Add a product node
-                products.append(Product(*[pi[s] for (pi, s) in
-                                          zip(prod_inputs, selected)],
-                                        name="Product%s" % product_num))
+                if len(prod_inputs) > 1:
+                    # Add a product node
+                    products.append(Product(*[pi[s] for (pi, s) in
+                                              zip(prod_inputs, selected)],
+                                            name="Product%s" % product_num))
+                else:
+                    products.append(*[pi[s] for (pi, s) in
+                                      zip(prod_inputs, selected)])
                 product_num += 1
                 # Increment selected
                 cont = False

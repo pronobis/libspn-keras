@@ -49,7 +49,7 @@ class SumsLayer(BaseSum):
     """
 
     def __init__(self, *values, num_or_size_sums=None, weights=None, ivs=None,
-                 inference_type=InferenceType.MARGINAL, sample_prob=None, 
+                 inference_type=InferenceType.MARGINAL, sample_prob=None,
                  dropconnect_keep_prob=None, dropout_keep_prob=None, name="SumsLayer"):
 
         if isinstance(num_or_size_sums, int) or num_or_size_sums is None:
@@ -58,7 +58,7 @@ class SumsLayer(BaseSum):
             super().__init__(
                 *values, num_sums=num_or_size_sums, weights=weights, ivs=ivs,
                 inference_type=inference_type, sample_prob=sample_prob,
-                dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob, 
+                dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob,
                 name=name, masked=True)
         else:
             # In this case we have a list of sum sizes, so it is straightforward to determine the
@@ -66,7 +66,7 @@ class SumsLayer(BaseSum):
             super().__init__(
                 *values, num_sums=len(num_or_size_sums), sum_sizes=num_or_size_sums,
                 weights=weights, ivs=ivs, inference_type=inference_type, sample_prob=sample_prob,
-                dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob, 
+                dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob,
                 name=name, masked=True)
 
     @utils.docinherit(BaseSum)
