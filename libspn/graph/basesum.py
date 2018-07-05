@@ -792,7 +792,7 @@ class BaseSum(OpNode, abc.ABC):
             x_eq_max *= tf.expand_dims(tf.to_float(self._build_mask()), axis=self._batch_axis)
         x_eq_max /= tf.reduce_sum(x_eq_max, axis=self._reduce_axis, keepdims=True)
 
-        return tfd.Categorical(probs=x_eq_max, name="StochasticArgMax", dtype=tf.int32).sample()
+        return tfd.Categorical(probs=x_eq_max, name="StochasticArgMax", dtype=tf.int64).sample()
 
     @utils.lru_cache
     def _reduce_sample_log(self, x, sample_prob=None):
@@ -809,7 +809,7 @@ class BaseSum(OpNode, abc.ABC):
         """
         x_sum = self._reduce_marginal_inference_log(x)
         x_normalized = x - tf.expand_dims(x_sum, axis=self._reduce_axis)
-        sample = tfd.Categorical(logits=x_normalized, dtype=tf.int32).sample()
+        sample = tfd.Categorical(logits=x_normalized, dtype=tf.int64).sample()
         if sample_prob is not None:
             sample_mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.bool).sample(
                 sample_shape=tf.shape(x_sum))
@@ -848,7 +848,7 @@ class BaseSum(OpNode, abc.ABC):
         """
         x_sum = self._reduce_marginal_inference(x)
         x_normalized = x / tf.expand_dims(x_sum + epsilon, axis=self._reduce_axis)
-        sample = tfd.Categorical(probs=x_normalized, dtype=tf.int32).sample()
+        sample = tfd.Categorical(probs=x_normalized, dtype=tf.int64).sample()
 
         if sample_prob is not None:
             sample_mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.bool).sample(
