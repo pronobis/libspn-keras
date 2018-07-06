@@ -114,6 +114,9 @@ class BaseSum(OpNode, abc.ABC):
         data['op_axis'] = self._op_axis
         data['reduce_axis'] = self._reduce_axis
         data['batch_axis'] = self._batch_axis
+        data['dropconnect_keep_prob'] = self._dropconnect_keep_prob
+        data['dropout_keep_prob'] = self._dropout_keep_prob
+        data['sample_prob'] = self._sample_prob
         return data
 
     @utils.docinherit(OpNode)
@@ -123,6 +126,9 @@ class BaseSum(OpNode, abc.ABC):
         self.set_weights()
         self.set_ivs()
         self._reset_sum_sizes(num_sums=data['num_sums'], sum_sizes=data['sum_sizes'])
+        self._dropconnect_keep_prob = data['dropconnect_keep_prob']
+        self._dropout_keep_prob = data['dropout_keep_prob']
+        self._sample_prob = data['sample_prob']
 
     @utils.docinherit(OpNode)
     def deserialize_inputs(self, data, nodes_by_name):
@@ -347,6 +353,7 @@ class BaseSum(OpNode, abc.ABC):
         # Maybe apply dropconnect
         dropconnect_keep_prob = utils.maybe_first(
             dropconnect_keep_prob, self._dropconnect_keep_prob)
+
         if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
                 if use_ivs and self._ivs:
                     self.logger.warn(
@@ -516,7 +523,7 @@ class BaseSum(OpNode, abc.ABC):
     @utils.lru_cache
     def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, *value_tensors,
                           use_unweighted=False, with_ivs=True, add_random=None,
-                          sample=False, sample_prob=None, dropconnect_keep_prob=False):
+                          sample=False, sample_prob=None, dropconnect_keep_prob=None):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
         reducible = self._compute_reducible(w_tensor, ivs_tensor, *value_tensors, log=False,
                                             weighted=weighted, use_ivs=with_ivs,
