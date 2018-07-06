@@ -66,7 +66,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
     def tearDown(self):
         tf.reset_default_graph()
 
-    @argsprod([1, 2], [2, 3, 6], [1, 2], [1, 2], [[2, 3], [1, 1]],
+    @argsprod([1, 2], [2, 4], [1, 2], [1, 2], [[2, 2], [1, 1]],
               [spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE,
                spn.DenseSPNGeneratorLayerNodes.InputDist.RAW],
               [True, False], [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
@@ -104,7 +104,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         printc("- log_weights: %s" % log_weights)
 
         # Inputs
-        inputs = [spn.IVs(num_vars=num_vars, num_vals=num_vals, name="IVs%s" % i)
+        inputs = [spn.IVs(num_vars=num_vars, num_vals=num_vals, name=("IVs_%d" % (i+1)))
                   for i in range(num_inputs)]
 
         gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
@@ -115,47 +115,98 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
                                               num_input_mixtures=num_input_mixtures,
                                               node_type=node_type)
 
-        # Generating SPN
-        root = gen.generate(*inputs, root_name="root")
+        # Generate Sub-SPNs
+        sub_spns = [gen.generate(*inputs, root_name=("sub_root_%d" % (i+1)))
+                    for i in range(3)]
 
-        # Generating random weights
+        # Generate random weights for the first sub-SPN
+        with tf.name_scope("Weights"):
+            spn.generate_weights(sub_spns[0], spn.ValueType.RANDOM_UNIFORM(),
+                                 log=log_weights)
+
+        # Initialize weights of the first sub-SPN
+        sub_spn_init = spn.initialize_weights(sub_spns[0])
+
+        # Testing validity of the first sub-SPN
+        self.assertTrue(sub_spns[0].is_valid())
+
+        # Generate value ops of the first sub-SPN
+        sub_spn_v = sub_spns[0].get_value()
+        sub_spn_v_log = sub_spns[0].get_log_value()
+
+        # Generate path ops of the first sub-SPN
+        sub_spn_mpe_path_gen = spn.MPEPath(log=False)
+        sub_spn_mpe_path_gen_log = spn.MPEPath(log=True)
+        sub_spn_mpe_path_gen.get_mpe_path(sub_spns[0])
+        sub_spn_mpe_path_gen_log.get_mpe_path(sub_spns[0])
+        sub_spn_path = [sub_spn_mpe_path_gen.counts[inp] for inp in inputs]
+        sub_spn_path_log = [sub_spn_mpe_path_gen_log.counts[inp] for inp in inputs]
+
+        # Collect all weight nodes of the first sub-SPN
+        sub_spn_weight_nodes = []
+
+        def fun(node):
+            if node.is_param:
+                sub_spn_weight_nodes.append(node)
+        spn.traverse_graph(sub_spns[0], fun=fun)
+
+        # Generate an upper-SPN over sub-SPNs
+        products_lower = []
+        for sub_spn in sub_spns:
+            products_lower.append([v.node for v in sub_spn.values])
+
+        num_top_mixtures = [2, 1, 3]
+        sums_lower = []
+        for prods, num_top_mix in zip(products_lower, num_top_mixtures):
+            if node_type == spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE:
+                sums_lower.append([spn.Sum(*prods) for _ in range(num_top_mix)])
+            elif node_type == spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK:
+                sums_lower.append([spn.ParSums(*prods, num_sums=num_top_mix)])
+            else:
+                sums_lower.append([spn.SumsLayer(*prods * num_top_mix,
+                                                 num_or_size_sums=num_top_mix)])
+
+        # Generate upper-SPN
+        root = gen.generate(*list(itertools.chain(*sums_lower)), root_name="root")
+
+        # Generate random weights for the SPN
         with tf.name_scope("Weights"):
             spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM(),
                                  log=log_weights)
 
-        # Generating weight initializers
-        init = spn.initialize_weights(root)
+        # Initialize weight of the SPN
+        spn_init = spn.initialize_weights(root)
 
         # Testing validity of the SPN
         self.assertTrue(root.is_valid())
 
-        # Generating value ops
-        v = root.get_value()
-        v_log = root.get_log_value()
+        # Generate value ops of the SPN
+        spn_v = root.get_value()
+        spn_v_log = root.get_log_value()
 
-        # Generating path ops
-        mpe_path_gen = spn.MPEPath(log=False)
-        mpe_path_gen_log = spn.MPEPath(log=True)
-        mpe_path_gen.get_mpe_path(root)
-        mpe_path_gen_log.get_mpe_path(root)
-        path = [mpe_path_gen.counts[inp] for inp in inputs]
-        path_log = [mpe_path_gen_log.counts[inp] for inp in inputs]
+        # Generate path ops of the SPN
+        spn_mpe_path_gen = spn.MPEPath(log=False)
+        spn_mpe_path_gen_log = spn.MPEPath(log=True)
+        spn_mpe_path_gen.get_mpe_path(root)
+        spn_mpe_path_gen_log.get_mpe_path(root)
+        spn_path = [spn_mpe_path_gen.counts[inp] for inp in inputs]
+        spn_path_log = [spn_mpe_path_gen_log.counts[inp] for inp in inputs]
 
-        if log_weights:
-            # Collect all weight nodes in the SPN
-            weight_nodes = []
+        # Collect all weight nodes in the SPN
+        spn_weight_nodes = []
 
-            def fun(node):
-                if node.is_param:
-                    weight_nodes.append(node)
-            spn.traverse_graph(root, fun=fun)
+        def fun(node):
+            if node.is_param:
+                spn_weight_nodes.append(node)
+        spn.traverse_graph(root, fun=fun)
 
-        # Creating session
+        # Create a session
         with self.test_session() as sess:
             # Initializing weights
-            sess.run(init)
+            sess.run(sub_spn_init)
+            sess.run(spn_init)
 
-            # Generating random feed
+            # Generate input feed
             feed = np.array(list(itertools.product(range(num_vals),
                                                    repeat=(num_inputs*num_vars))))
             batch_size = feed.shape[0]
@@ -163,31 +214,54 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
             for inp, f in zip(inputs, np.split(feed, num_inputs, axis=1)):
                 feed_dict[inp] = f
 
-            # Computing all values and paths
-            out = sess.run(v, feed_dict=feed_dict)
-            out_log = sess.run(tf.exp(v_log), feed_dict=feed_dict)
-            out_path = sess.run(path, feed_dict=feed_dict)
-            out_path_log = sess.run(path_log, feed_dict=feed_dict)
-            # Numerical gradient test
-            if log_weights:
-                gradients = \
-                    tf.test.compute_gradient([w.variable for w in weight_nodes],
-                                             [w.variable.shape for w in weight_nodes],
-                                             v_log, (batch_size, 1),
-                                             extra_feed_dict=feed_dict)
-                [self.assertAllClose(grad[0], grad[1], atol=1e-3, rtol=1e-3)
-                 for grad in gradients]
+            # Compute all values and paths of sub-SPN
+            sub_spn_out = sess.run(sub_spn_v, feed_dict=feed_dict)
+            sub_spn_out_log = sess.run(tf.exp(sub_spn_v_log), feed_dict=feed_dict)
+            sub_spn_out_path = sess.run(sub_spn_path, feed_dict=feed_dict)
+            sub_spn_out_path_log = sess.run(sub_spn_path_log, feed_dict=feed_dict)
 
-            # Test if partition function is 1.0
-            self.assertAlmostEqual(out.sum(), 1.0, places=6)
-            self.assertAlmostEqual(out_log.sum(), 1.0, places=6)
+            # Compute all values and paths of the complete SPN
+            spn_out = sess.run(spn_v, feed_dict=feed_dict)
+            spn_out_log = sess.run(tf.exp(spn_v_log), feed_dict=feed_dict)
+            spn_out_path = sess.run(spn_path, feed_dict=feed_dict)
+            spn_out_path_log = sess.run(spn_path_log, feed_dict=feed_dict)
+
+            # Compute numerical and theoretical gradients of sub-SPN
+            # and the complete SPN
+            sub_spn_gradients = \
+                tf.test.compute_gradient([w.variable for w in sub_spn_weight_nodes],
+                                         [w.variable.shape for w in sub_spn_weight_nodes],
+                                         sub_spn_v_log, (batch_size, 1),
+                                         extra_feed_dict=feed_dict)
+            spn_gradients = \
+                tf.test.compute_gradient([w.variable for w in spn_weight_nodes],
+                                         [w.variable.shape for w in spn_weight_nodes],
+                                         spn_v_log, (batch_size, 1),
+                                         extra_feed_dict=feed_dict)
+
+            # Test if partition function of the sub-SPN and of the
+            # complete SPN is 1.0
+            self.assertAlmostEqual(sub_spn_out.sum(), 1.0, places=6)
+            self.assertAlmostEqual(sub_spn_out_log.sum(), 1.0, places=6)
+            self.assertAlmostEqual(spn_out.sum(), 1.0, places=6)
+            self.assertAlmostEqual(spn_out_log.sum(), 1.0, places=6)
+
             # Test if the sum of counts for each value of each variable
             # (6 variables, with 2 values each) = batch-size / num-vals
-            self.assertEqual(np.sum(np.hstack(out_path), axis=0).tolist(),
+            self.assertEqual(np.sum(np.hstack(sub_spn_out_path), axis=0).tolist(),
                              [batch_size // num_vals]*num_inputs*num_vars*num_vals)
-            self.assertEqual(np.sum(np.hstack(out_path_log), axis=0).tolist(),
+            self.assertEqual(np.sum(np.hstack(sub_spn_out_path_log), axis=0).tolist(),
                              [batch_size // num_vals]*num_inputs*num_vars*num_vals)
-            self.write_tf_graph(sess, self.sid(), self.cid())
+            self.assertEqual(np.sum(np.hstack(spn_out_path), axis=0).tolist(),
+                             [batch_size // num_vals] * num_inputs * num_vars * num_vals)
+            self.assertEqual(np.sum(np.hstack(spn_out_path_log), axis=0).tolist(),
+                             [batch_size // num_vals] * num_inputs * num_vars * num_vals)
+
+            # Test if numerical and theoretical gradients are similar
+            [self.assertAllClose(grad[0], grad[1], atol=1e-3, rtol=1e-3)
+             for grad in sub_spn_gradients]
+            [self.assertAllClose(grad[0], grad[1], atol=1e-3, rtol=1e-3)
+             for grad in spn_gradients]
 
 
 if __name__ == '__main__':
