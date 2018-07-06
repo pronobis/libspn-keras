@@ -806,8 +806,7 @@ class BaseSum(OpNode, abc.ABC):
             A ``Tensor`` reduced over the last axis.
         """
         x_sum = self._reduce_marginal_inference_log(x)
-        x_normalized = x - tf.expand_dims(x_sum, axis=self._reduce_axis)
-        sample = tfd.Categorical(logits=x_normalized, dtype=tf.int64).sample()
+        sample = tfd.Categorical(logits=x, dtype=tf.int64).sample()
         if sample_prob is not None:
             sample_mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.bool).sample(
                 sample_shape=tf.shape(x_sum))
