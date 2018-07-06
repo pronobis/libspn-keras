@@ -16,6 +16,5 @@ def decode_bytes_array(arr):
 
 
 def maybe_first(a, b):
-    if a is None:
-        return b
-    return a
+    """Returns first argument 'a' if it is not None else 'b' """
+    return b if a is None else a
