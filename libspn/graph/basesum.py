@@ -793,25 +793,43 @@ class BaseSum(OpNode, abc.ABC):
         return tfd.Categorical(probs=x_eq_max, name="StochasticArgMax", dtype=tf.int64).sample()
 
     @utils.lru_cache
-    def _reduce_sample_log(self, x, sample_prob=None):
+    def _reduce_sample_log(self, logits, sample_prob=None):
         """Samples a tensor with log likelihoods, i.e. sample(x, axis=reduce_axis)).
 
         Args:
-            x (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over the
-                        last axis.
+            logits (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over
+                the last axis.
             sample_prob (Tensor or float): A ``Tensor`` or float indicating the probability of
                 taking a sample.
 
         Returns:
             A ``Tensor`` reduced over the last axis.
         """
-        x_sum = self._reduce_marginal_inference_log(x)
-        sample = tfd.Categorical(logits=x, dtype=tf.int64).sample()
+        # Categorical eventually uses non-log probabilities, so here we reuse as much as we can to
+        # predetermine it
+        def _sample():
+            logits_sum = self._reduce_marginal_inference_log(logits)
+            log_prob = tf.exp(logits - tf.expand_dims(logits_sum, axis=self._reduce_axis))
+            return tfd.Categorical(probs=tf.exp(log_prob), dtype=tf.int64).sample()
+
+        def _select_sample_or_argmax(x):
+            mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.bool).sample(sample_shape=tf.shape(x))
+            return tf.where(mask, x, self._reduce_argmax(logits))
+
         if sample_prob is not None:
-            sample_mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.bool).sample(
-                sample_shape=tf.shape(x_sum))
-            return tf.where(sample_mask, sample, self._reduce_argmax(x))
-        return sample
+            if isinstance(sample_prob, (float, int)):
+                if sample_prob < 0 or sample_prob > 1:
+                    raise ValueError("{}: Sample probability should be between 0 and 1. Got {} "
+                                     "instead.".format(self, sample_prob))
+                if sample_prob != 0:
+                    sample_op = _sample()
+                    if sample_prob == 1.0:
+                        return sample_op
+                    return _select_sample_or_argmax(sample_op)
+
+            return _select_sample_or_argmax(_sample())
+        else:
+            return _sample()
 
     def _get_or_create_dropout_mask(self, batch_size, keep_prob, log=True):
         """
