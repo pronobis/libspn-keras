@@ -25,11 +25,15 @@ DEFAULT_COMPUTE_CAPABILITIES = ["3.5", "5.2", "6.1"]
 SOURCES_CUDA = ['gather_columns_functor_gpu.cu.cc',
                 'gather_columns_3d_functor_gpu.cu.cc',
                 'scatter_columns_functor_gpu.cu.cc',
-                'scatter_values_functor_gpu.cu.cc']
+                'scatter_values_functor_gpu.cu.cc',
+                'one_hot_conv2d_functor_gpu.cu.cc',
+                'one_hot_conv2d_backprop_functor_gpu.cu.cc']
 HEADERS_CUDA = ['gather_columns_functor_gpu.cu.h',
                 'gather_columns_3d_functor_gpu.cu.h',
                 'scatter_columns_functor_gpu.cu.h',
-                'scatter_values_functor_gpu.cu.h']
+                'scatter_values_functor_gpu.cu.h',
+                'one_hot_conv2d_functor_gpu.cu.h',
+                'one_hot_conv2d_backprop_functor_gpu.cu.h']
 SOURCES = ['gather_columns.cc',
            'gather_columns_functor.cc',
            'gather_columns_3d.cc',
@@ -37,11 +41,17 @@ SOURCES = ['gather_columns.cc',
            'scatter_columns.cc',
            'scatter_columns_functor.cc',
            'scatter_values.cc',
-           'scatter_values_functor.cc']
+           'scatter_values_functor.cc',
+           'one_hot_conv2d.cc',
+           'one_hot_conv2d_functor.cc',
+           'one_hot_conv2d_backprop.cc',
+           'one_hot_conv2d_backprop_functor.cc']
 HEADERS = ['gather_columns_functor.h',
            'gather_columns_3d_functor.h',
            'scatter_columns_functor.h',
-           'scatter_values_functor.h']
+           'scatter_values_functor.h',
+           'one_hot_conv2d_functor.h',
+           'one_hot_conv2d_backprop_functor.h']
 
 
 ###############################

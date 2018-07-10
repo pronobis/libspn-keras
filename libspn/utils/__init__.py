@@ -22,6 +22,7 @@ from .math import reduce_log_sum
 from .math import reduce_log_sum_3D
 from .math import concat_maybe
 from .math import split_maybe
+from .math import one_hot_conv2d
 from .partition import StirlingNumber
 from .partition import StirlingRatio
 from .partition import Stirling
@@ -39,7 +40,7 @@ from .utils import maybe_first
 from .enum import Enum
 
 # All
-__all__ = ['decode_bytes_array', 'scatter_cols', 'scatter_values',
+__all__ = ['decode_bytes_array', 'scatter_cols', 'scatter_values', 'one_hot_conv2d',
            'gather_cols', 'gather_cols_3d', 'ValueType', 'broadcast_value',
            'normalize_tensor', 'normalize_tensor_2D', 'normalize_log_tensor_2D',
            'reduce_log_sum', 'reduce_log_sum_3D', 'concat_maybe', 'split_maybe',

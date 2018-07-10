@@ -20,3 +20,5 @@ gather_cols = libspn_ops_module.gather_columns
 gather_cols_3d = libspn_ops_module.gather_columns3d
 scatter_cols = libspn_ops_module.scatter_columns
 scatter_values = libspn_ops_module.scatter_values
+one_hot_conv2d = libspn_ops_module.one_hot_conv2d
+one_hot_conv2d_backprop = libspn_ops_module.one_hot_conv2d_backprop
