@@ -32,100 +32,46 @@ __global__ void OneHotConv2DBackpropOpKernel(
         const int64 strides_row, const int64 strides_col,
         const int64 dilation_row, const int64 dilation_col,
         const int64 in_depth, const int64 out_depth,
-        const int64 out_grad_size, bool overlapping_patches)
+        const int64 out_grad_size, bool overlapping_patches,
+        const int64 out_dim0, const int64 out_dim1,
+        const int64 in_dim0, const int64 in_dim1,
+        const int64 filter_dim0)
 {
     // From the perspective of the out gradient
     CUDA_1D_KERNEL_LOOP(i, out_grad_size)
     {
-
-        // TODO SET TO ZERO FIRST
-        const int64 batch_ind = i / (out_rows * out_cols * out_depth);
-        const int64 out_row = (i % (out_rows * out_cols * out_depth)) / (out_cols * out_depth);
-        const int64 out_col = (i % (out_cols * out_depth)) / out_depth;
+        const int64 batch_ind = i / out_dim0;
+        const int64 out_row = (i % out_dim0) / out_dim1;
+        const int64 out_col = (i % out_dim1) / out_depth;
         const int64 out_channel = i % out_depth;
 
         const int64 in_row_0 = out_row * strides_row;
         const int64 in_col_0 = out_col * strides_col;
 
-        const int64 in_batch_ind0 = batch_ind * (in_rows * in_cols * in_depth);
+        const int64 in_batch_ind0 = batch_ind * in_dim0;
 
 
         const T grad_val = ldg(out_grad + i);
         for (int filter_row = 0; filter_row < filter_rows; ++filter_row)
         {
             const int64 in_row = in_row_0 + filter_row * dilation_row;
-            const int64 in_row_ind0 = in_row * (in_cols * in_depth);
-            const int64 filter_row_ind0 = filter_row * (filter_cols * out_depth);
+            const int64 in_row_ind0 = in_row * in_dim1;
+            const int64 filter_row_ind0 = filter_row * filter_dim0;
             for (int filter_col = 0; filter_col < filter_cols; ++filter_col)
             {
                 const int64 in_col = in_col_0 + filter_col * dilation_col;
                 const int64 input_channel = static_cast<int64>(
                     ldg(filter + filter_row_ind0 + filter_col * out_depth + out_channel));
                 const int64 in_ind = in_batch_ind0 + in_row_ind0 + in_col * in_depth + input_channel;
-                // HAS TO BE ATOMIC
-//                printf("%d: row      %lld\n"
-//                       "%d: col      %lld\n"
-//                       "%d: channel  %lld\n"
-//                       "%d: in_ind   %lld\n"
-//                       "\n"
-//                       "%d: out_row  %lld\n"
-//                       "%d: out_col  %lld\n",
-//                       i, in_row, i, in_col, i, input_channel, i, in_ind, i, out_row, i, out_col);
-//                if (overlapping_patches)
                 // TODO should be able to exploit the fact that the there is no overlap between
                 // patches...
                 CudaAtomicAdd(in_grad + in_ind, grad_val);
-//                else
-//                    in_grad[in_ind] += ldg(out_grad + i);
             }
         }
     }
 }
 
 
-//template <typename T, typename IndT>
-//__global__ void OneHotConv2DBackpropOpKernelV2(
-//        const T* out_grad, const IndT* filter, T* in_grad,
-//        const int64 in_rows, const int64 in_cols,
-//        const int64 out_rows, const int64 out_cols,
-//        const int64 filter_rows, const int64 filter_cols,
-//        const int64 strides_row, const int64 strides_col,
-//        const int64 dilation_row, const int64 dilation_col,
-//        const int64 in_depth, const int64 out_depth,
-//        const int64 out_grad_size)
-//{
-//    // From the perspective of the out gradient
-//    CUDA_1D_KERNEL_LOOP(i, out_grad_size)
-//    {
-
-//        // TODO SET TO ZERO FIRST
-//        const int64 batch_ind = i / (out_rows * out_cols);
-//        const int64 out_row = (i % (out_rows * out_cols)) / out_cols;
-//        const int64 out_col = i % out_cols;
-
-//        const int64 in_row_0 = out_row * strides_row;
-//        const int64 in_col_0 = out_col * strides_col;
-
-//        const int64 in_batch_ind0 = batch_ind * (in_rows * in_cols * in_depth);
-
-//        in_grad[i] = static_cast<T>(0);
-//        for (int filter_row = 0; filter_row < filter_rows; ++filter_row)
-//        {
-//            const int64 in_row = in_row_0 + filter_row * dilation_row;
-//            const int64 in_row_ind0 = in_row * (in_cols * in_depth);
-//            const int64 filter_row_ind0 = filter_row * (filter_cols * out_depth);
-//            for (int filter_col = 0; filter_col < filter_cols; ++filter_col)
-//            {
-//                const int64 in_col = in_col_0 + filter_col * dilation_col;
-//                const int64 input_channel = static_cast<int64>(
-//                    ldg(filter + filter_row_ind0 + filter_col * out_depth + out_channel));
-//                const int64 in_ind = in_batch_ind0 + in_row_ind0 + in_col * in_depth + input_channel;
-//                // HAS TO BE ATOMIC
-//                CudaAtomicAdd(in_grad + in_ind, ldg(out_grad + i));
-//            }
-//        }
-//    }
-//}
 
 namespace functor
 {
@@ -143,10 +89,11 @@ struct OneHotConv2DBackpropFunctor<GPUDevice, T, IndT>
     const int64 in_rows     = in_grad.dimension(1),     in_cols     = in_grad.dimension(2);
     const int64 filter_rows = filter.dimension(0),      filter_cols = filter.dimension(1);
     const int64 in_depth    = in_grad.dimension(3),     out_depth   = out_grad.dimension(3);
-//    printf("filter_rows      %lld\n"
-//           "filter_cols      %lld\n",
-//           filter_rows, filter_cols);
-
+    const int64 out_dim0 = out_rows * out_cols * out_depth;
+    const int64 out_dim1 = out_cols * out_depth;
+    const int64 in_dim0 = in_rows * in_cols * in_depth;
+    const int64 in_dim1 = in_cols * in_depth;
+    const int64 filter_dim0 = filter_cols * out_depth;
 
 //--Debugging flag disabled by default--//
 #if EXEC_TIME_CALC
@@ -159,8 +106,7 @@ struct OneHotConv2DBackpropFunctor<GPUDevice, T, IndT>
 
     int64 num_elements = in_grad.size();
 
-    //--Initialize output tensor with pad_element--//
-//    printf("Launching Zero Init\n");
+    // Initialize input gradient Tensor with zeros
     CudaLaunchConfig config_zero_init = GetCudaLaunchConfig(num_elements, d);
     ZeroInitKernel<T>
         <<<config_zero_init.block_count, config_zero_init.thread_per_block, 0, d.stream()>>>(
@@ -169,12 +115,12 @@ struct OneHotConv2DBackpropFunctor<GPUDevice, T, IndT>
     num_elements = out_grad.size();
     CudaLaunchConfig config_backprop = GetCudaLaunchConfig(num_elements, d);
 
-//    printf("Launching Backprop\n");
     OneHotConv2DBackpropOpKernel<T, IndT>
         <<<config_backprop.block_count, config_backprop.thread_per_block, 0, d.stream()>>>(
         out_grad.data(), filter.data(), in_grad.data(), in_rows, in_cols,
         out_rows, out_cols, filter_rows, filter_cols, stride_rows, stride_cols,
-        dilation_rows, dilation_cols, in_depth, out_depth, num_elements, overlapping_patches);
+        dilation_rows, dilation_cols, in_depth, out_depth, num_elements, overlapping_patches,
+        out_dim0, out_dim1, in_dim0, in_dim1, filter_dim0);
 
 //--Debugging flag disabled by default--//
 #if EXEC_TIME_CALC

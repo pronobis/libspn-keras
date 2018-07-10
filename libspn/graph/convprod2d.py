@@ -780,21 +780,26 @@ class ConvProd2D(OpNode):
     def _compute_log_value(self, *input_tensors):
         # Concatenate along channel axis
         concat_inp = self._prepare_convolutional_processing(*input_tensors)
-        # Convolve
-        # TODO, this the quickest workaround for TensorFlow's apparent optimization whenever
-        # part of the kernel computation involves a -inf:
-        concat_inp = tf.where(
-            tf.is_inf(concat_inp), tf.fill(tf.shape(concat_inp), value=-1e20), concat_inp)
-        # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
-        # to be a TF debug. Now we transpose before and after
-        conv_out = tf.nn.conv2d(
-            input=self._transpose_channel_last_to_first(concat_inp),
-            filter=self._dense_connections, padding=self._padding.upper(),
-            strides=[1, 1] + self._strides,
-            dilations=[1, 1] + self._dilation_rate,
-            data_format='NCHW'
-        )
-        conv_out = self._transpose_channel_first_to_last(conv_out)
+        
+        if conf.custom_one_hot_conv2d:
+            conv_out = utils.one_hot_conv2d(
+                concat_inp, self._sparse_connections, self._strides, self._dilation_rate)        
+        else:
+            # Convolve
+            # TODO, this the quickest workaround for TensorFlow's apparent optimization whenever
+            # part of the kernel computation involves a -inf:
+            # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
+            # to be a TF debug. Now we transpose before and after
+            concat_inp = tf.where(
+                tf.is_inf(concat_inp), tf.fill(tf.shape(concat_inp), value=-1e20), concat_inp)
+            conv_out = tf.nn.conv2d(
+                input=self._transpose_channel_last_to_first(concat_inp),
+                filter=self._dense_connections, padding=self._padding.upper(),
+                strides=[1, 1] + self._strides,
+                dilations=[1, 1] + self._dilation_rate,
+                data_format='NCHW'
+            )
+            conv_out = self._transpose_channel_first_to_last(conv_out)
 
         return self._flatten(conv_out)
 
@@ -818,31 +823,36 @@ class ConvProd2D(OpNode):
             raise StructureError("{} is missing input values.".format(self))
         # Concatenate inputs along channel axis, should already be done during forward pass
         inp_concat = self._prepare_convolutional_processing(*input_values)
+        spatial_counts = tf.reshape(counts, (-1,) + self.output_shape_spatial)
 
-        # We can use the backprop Op, as the counts should be passed on to the input tensor. Note
-        # that our 'kernels' are either 0 or 1, so either passing on the counts through multiplying
-        # with 1, or not passing them on through multiplying with 0
-        input_shape = tf.shape(inp_concat)
-        input_shape_py = inp_concat.shape.as_list()
-        transposed_shape = [input_shape[0], input_shape_py[3]] + input_shape_py[1:3]
+        if conf.custom_one_hot_conv2d:
+            input_counts = utils.one_hot_conv2d_backprop(
+                inp_concat, self._sparse_connections, spatial_counts, strides=self._strides,
+                dilations=self._dilation_rate)
+        else:
+            # We can use the backprop Op, as the counts should be passed on to the input tensor.
+            # Note that our 'kernels' are either 0 or 1, so either passing on the counts through
+            # multiplying with 1, or not passing them on through multiplying with 0
+            input_shape = tf.shape(inp_concat)
+            input_shape_py = inp_concat.shape.as_list()
+            transposed_shape = [input_shape[0], input_shape_py[3]] + input_shape_py[1:3]
 
-        # Transpose from NHWC to NCHW
-        transposed_spatial_counts = self._transpose_channel_last_to_first(
-            tf.reshape(counts, (-1,) + self.output_shape_spatial))
+            # Transpose from NHWC to NCHW
+            transposed_spatial_counts = self._transpose_channel_last_to_first(spatial_counts)
 
-        # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
-        # to be a TF debug. Now we transpose before and after
-        input_counts = tf.nn.conv2d_backprop_input(
-            input_sizes=transposed_shape,
-            filter=self._dense_connections,
-            out_backprop=transposed_spatial_counts,
-            strides=[1, 1] + self._strides,  # [1] + self._strides + [1],
-            padding=self._padding.upper(),
-            dilations=[1, 1] + self._dilation_rate,
-            data_format="NCHW")  # [1] + self._dilation_rate + [1])
+            # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
+            # to be a TF debug. Now we transpose before and after
+            input_counts = tf.nn.conv2d_backprop_input(
+                input_sizes=transposed_shape,
+                filter=self._dense_connections,
+                out_backprop=transposed_spatial_counts,
+                strides=[1, 1] + self._strides,  # [1] + self._strides + [1],
+                padding=self._padding.upper(),
+                dilations=[1, 1] + self._dilation_rate,
+                data_format="NCHW")  # [1] + self._dilation_rate + [1])
 
-        # Transpose from NCHW to NHWC
-        input_counts = self._transpose_channel_first_to_last(input_counts)
+            # Transpose from NCHW to NHWC
+            input_counts = self._transpose_channel_first_to_last(input_counts)
 
         if self._no_explicit_padding:
             return self._split_to_children(input_counts)

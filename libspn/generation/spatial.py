@@ -3,6 +3,7 @@ from libspn.graph.convprod2d import ConvProd2D, ConvProd2DV2
 from libspn.graph.convsum import ConvSum
 from libspn.graph.stridedslice import StridedSlice2D
 from libspn.graph.localsum import LocalSum
+from libspn.graph.sum import Sum
 from libspn.graph.concat import Concat
 from libspn.graph.sum import Sum
 import numpy as np
@@ -51,10 +52,37 @@ class ConvSPN:
                               sum_num_channels=sum_num_channels, stack_size=stack_size,
                               pad_all=pad_all)
 
+    def full_wicker(self, *input_nodes, sum_node_type='local',
+                    sum_num_channels=16, prod_num_channels=256, spatial_dims=None, kernel_size=2,
+                    strides=1, num_channels_top=128):
+        if spatial_dims[0] != spatial_dims[1]:
+            raise ValueError("Spatial dimensions must be square.")
+        stack_size = int(np.ceil(np.log2(spatial_dims[0])))
+        if isinstance(strides, int):
+            strides = [strides] * stack_size
+        wicker_head = self.wicker_stack(
+            *input_nodes, strides=strides, stack_size=stack_size, sum_node_type=sum_node_type,
+            kernel_size=kernel_size, stack_only=True, spatial_dims=spatial_dims,
+            sum_num_channels=sum_num_channels, prod_num_channels=prod_num_channels)
+        out_shape = wicker_head.output_shape_spatial[:2]
+        if 2 ** stack_size > spatial_dims[0]:
+            pad_bottom = pad_right = 1
+        else:
+            pad_bottom = pad_right = None
+
+        final_conv = ConvProd2D(
+            wicker_head, strides=1, pad_right=pad_right,
+            pad_bottom=pad_bottom, grid_dim_sizes=out_shape,
+            dilation_rate=int((2 ** stack_size) // np.prod(strides)),
+            num_channels=num_channels_top
+        )
+        root = Sum(final_conv)
+        return root
+
     def wicker_stack(self, *input_nodes, stack_size=2, sum_node_type='local', sum_num_channels=2, 
                      pad_top=None, pad_bottom=None, pad_left=None, pad_right=None, 
                      spatial_dims=None, kernel_size=2, strides=1, prod_num_channels=16,
-                     dense_generator=None, add_root=True):
+                     dense_generator=None, add_root=True, stack_only=False):
         pad_left_new, pad_right_new, pad_top_new, pad_bottom_new = [], [], [], []
 
         def none_to_zero(x):
@@ -90,6 +118,9 @@ class ConvSPN:
             pad_top=pad_top_new, pad_bottom=pad_bottom_new, sum_num_channels=sum_num_channels,
             prod_num_channels=prod_num_channels, sum_node_type=sum_node_type, 
             spatial_dims=spatial_dims, name_prefixes="WickerStack", stack_size=stack_size)
+
+        if stack_only:
+            return stack_out
 
         out_rows, out_cols = stack_out.output_shape_spatial[:2]
 
@@ -161,6 +192,8 @@ class ConvSPN:
             elif s_node_type == "local":
                 next_node = LocalSum(*input_nodes, num_channels=sum_nc, grid_dim_sizes=spatial_dims,
                                      name="{}LocalSum{}".format(name_pref, name_suff))
+            elif s_node_type == "skip":
+                continue
             else:
                 raise ValueError("Unknown sum node type '{}', use either 'conv' or 'local'."
                                  .format(s_node_type))

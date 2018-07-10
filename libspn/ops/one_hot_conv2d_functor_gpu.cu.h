@@ -23,26 +23,29 @@ __global__ void OneHotConv2DOpKernel(
         const int64 strides_row, const int64 strides_col,
         const int64 dilation_row, const int64 dilation_col,
         const int64 in_depth, const int64 out_depth,
-        const int64 out_size)
+        const int64 out_size,
+        const int64 out_dim0, const int64 out_dim1,
+        const int64 in_dim0, const int64 in_dim1,
+        const int64 filter_dim0)
 {
     CUDA_1D_KERNEL_LOOP(i, out_size)
     {
-        const int64 batch_ind = i / (out_rows * out_cols * out_depth);
-        const int64 out_row = (i % (out_rows * out_cols * out_depth)) / (out_cols * out_depth);
-        const int64 out_col = (i % (out_cols * out_depth)) / out_depth;
+        const int64 batch_ind = i / out_dim0;
+        const int64 out_row = (i % out_dim0) / out_dim1;
+        const int64 out_col = (i % out_dim1) / out_depth;
         const int64 out_channel = i % out_depth;
 
         const int64 in_row_0 = out_row * strides_row;
         const int64 in_col_0 = out_col * strides_col;
 
-        const int64 in_batch_ind0 = batch_ind * (in_rows * in_cols * in_depth);
+        const int64 in_batch_ind0 = batch_ind * in_dim0;
 
         output[i] = static_cast<T>(0);
         for (int filter_row = 0; filter_row < filter_rows; ++filter_row)
         {
             const int64 in_row = in_row_0 + filter_row * dilation_row;
-            const int64 in_row_ind0 = in_row * (in_cols * in_depth);
-            const int64 filter_row_ind0 = filter_row * (filter_cols * out_depth);
+            const int64 in_row_ind0 = in_row * in_dim1;
+            const int64 filter_row_ind0 = filter_row * filter_dim0;
             for (int filter_col = 0; filter_col < filter_cols; ++filter_col)
             {
                 const int64 in_col = in_col_0 + filter_col * dilation_col;
@@ -71,7 +74,11 @@ struct OneHotConv2DFunctor<GPUDevice, T, IndT>
     const int64 in_rows = input.dimension(1), in_cols = input.dimension(2);
     const int64 in_depth = input.dimension(3), out_depth = output.dimension(3);
     const int64 filter_rows = filter.dimension(0), filter_cols = filter.dimension(1);
-
+    const int64 out_dim0 = out_rows * out_cols * out_depth;
+    const int64 out_dim1 = out_cols * out_depth;
+    const int64 in_dim0 = in_rows * in_cols * in_depth;
+    const int64 in_dim1 = in_cols * in_depth;
+    const int64 filter_dim0 = filter_cols * out_depth;
 
 //--Debugging flag disabled by default--//
 #if EXEC_TIME_CALC
@@ -90,7 +97,8 @@ struct OneHotConv2DFunctor<GPUDevice, T, IndT>
         <<<config.block_count, config.thread_per_block, 0, d.stream()>>>(
         input.data(), filter.data(), output.data(), in_rows, in_cols,
         out_rows, out_cols, filter_rows, filter_cols, stride_rows, stride_cols,
-        dilation_rows, dilation_cols, in_depth, out_depth, out_size);
+        dilation_rows, dilation_cols, in_depth, out_depth, out_size,
+        out_dim0, out_dim1, in_dim0, in_dim1, filter_dim0);
 
 //--Debugging flag disabled by default--//
 #if EXEC_TIME_CALC

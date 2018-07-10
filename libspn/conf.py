@@ -28,6 +28,10 @@ custom_scatter_values = True
 """Whether to use custom op for implementing
 :meth:`~libspn.utils.scatter_values`."""
 
+custom_one_hot_conv2d = True
+"""Whether to use custom op for implementing
+:meth:`~libspn.utils.one_hot_conv2d`."""
+
 sumslayer_count_sum_strategy = "gather"
 """Strategy to apply when summing counts
 within a SumsLayer. Can be 'segmented',

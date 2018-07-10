@@ -725,11 +725,13 @@ class TestConvProd(tf.test.TestCase):
             vars, prod_num_channels=16, sum_num_channels=2, spatial_dims=grid_dims)
         convsum_stride = conv_spn_gen.add_double_stride(
             vars, prod_num_channels=16, sum_num_channels=2, spatial_dims=grid_dims)
-
+        grid_dims = [grid_dims[0] // 4, grid_dims[1] // 4]
         convsum_dilate_level2 = conv_spn_gen.add_dilate_stride(
-            convsum_dilate, convsum_stride, prod_num_channels=16, sum_num_channels=2)
+            convsum_dilate, convsum_stride, prod_num_channels=16, sum_num_channels=2,
+            spatial_dims=grid_dims)
         convsum_stride_level2 = conv_spn_gen.add_double_stride(
-            convsum_dilate, convsum_stride, prod_num_channels=16, sum_num_channels=2)
+            convsum_dilate, convsum_stride, prod_num_channels=16, sum_num_channels=2,
+            spatial_dims=grid_dims)
 
         dense_gen = spn.DenseSPNGeneratorLayerNodes(
             num_mixtures=2, num_decomps=1, num_subsets=2, node_type=node_type,
