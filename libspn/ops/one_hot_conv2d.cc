@@ -13,13 +13,13 @@ using shape_inference::InferenceContext;
 using shape_inference::DimensionHandle;
 
 REGISTER_OP("OneHotConv2D")
+    .Input("input: T")
+    .Input("filters: IndT")
+    .Output("convolved: T")
     .Attr("T: type")
     .Attr("IndT: {int32,int64}")
     .Attr("dilations: list(int) = [1, 1]")
     .Attr("strides: list(int)")
-    .Input("input: T")
-    .Input("filters: IndT")
-    .Output("convolved: T")
     .SetShapeFn([](InferenceContext* ctx) {
       ShapeHandle input_shape;
       TF_RETURN_IF_ERROR(ctx->WithRank(ctx->input(0), 4, &input_shape));
@@ -130,8 +130,7 @@ class OneHotConv2DOp : public OpKernel
           errors::InvalidArgument("filter too large"));
     }
 
-    // Get input and output depths
-    const int64 input_depth = input.dim_size(3);
+    // Get output depth
     const int64 output_depth = filter.dim_size(2);
 
     // Obtain input dimension sizes
@@ -143,19 +142,19 @@ class OneHotConv2DOp : public OpKernel
     const int64 filter_rows = filter.dim_size(0);
     const int64 filter_cols = filter.dim_size(1);
 
-    // TODO get the dilation rates
+    // Compute the effective kernel size (taking into account dilations as well)
     const int64 kernel_rows_effective = (filter_rows - 1) * dilations_[0] + 1;
     const int64 kernel_cols_effective = (filter_cols - 1) * dilations_[1] + 1;
 
-    // TODO take care of the rounding and casting, needs something like np.ceil
+    // Compute number of rows and columns in output
     const int64 out_rows = (input_rows - kernel_rows_effective) / strides_[0] + 1;
     const int64 out_cols = (input_cols - kernel_cols_effective) / strides_[1] + 1;
 
+    // Create a TensorShape for the output
     gtl::InlinedVector<int64, 4> dim_sizes = {batch_size, out_rows, out_cols, output_depth};
-
     TensorShape out_shape(dim_sizes);
 
-    //--Create an output tensor--//
+    // Allocate output
     Tensor* output = nullptr;
     OP_REQUIRES_OK(ctx, ctx->allocate_output(0, out_shape, &output));
 

@@ -68,6 +68,7 @@ def one_hot_conv2d(input, filter, strides=(1, 1), dilations=(1, 1), padding="VAL
 
 def one_hot_conv2d_backprop(input, filter, grad, strides=(1, 1), dilations=(1, 1),
                             padding="VALID", name=None):
+    # TODO should be a way to only specify the input shape...
     if padding != "VALID":
         raise NotImplementedError("Currently only supports padding == VALID")
     with tf.name_scope(name, "one_hot_conv2d_backprop", [input, filter]):
@@ -81,14 +82,12 @@ def one_hot_conv2d_backprop(input, filter, grad, strides=(1, 1), dilations=(1, 1
 
         return ops.one_hot_conv2d_backprop(
             input, filter, grad, strides=strides, dilations=dilations)
-        # return ops.one_hot_conv2d(input, filter, strides=strides, dilations=dilations)
 
 
 @tfops.RegisterGradient("OneHotConv2D")
 def _OneHotConv2DGrad(op, grad):
   dilations = op.get_attr("dilations")
   strides = op.get_attr("strides")
-  shape_0 = tf.shape(op.inputs[0])
   return [
       ops.one_hot_conv2d_backprop(
           op.inputs[0],

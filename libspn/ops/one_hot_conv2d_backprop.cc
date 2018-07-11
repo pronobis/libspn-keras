@@ -30,11 +30,6 @@ REGISTER_OP("OneHotConv2DBackprop")
         ShapeHandle input_shape;
         TF_RETURN_IF_ERROR(ctx->WithRank(ctx->input(0), 4, &input_shape));
 
-        // TODO shouldn't be necessary to pass in the input tensor. Should be able to
-        // work with just its shape...
-//        ShapeHandle out_shape;
-//        TF_RETURN_IF_ERROR(ctx->MakeShapeFromShapeTensor(0, &out_shape));
-//        TF_RETURN_IF_ERROR(ctx->WithRank(out_shape, 4, &out_shape));
         ctx->set_output(0, input_shape);
 
         return Status::OK();
@@ -74,7 +69,6 @@ class OneHotConv2DBackpropOp : public OpKernel
   {
     //--Grab the input tensor - params--//
 
-//    printf("Compute OneHotConv2DBackprop started\n");
     const Tensor& input = ctx->input(0);
 
     //--Grab the input tensor - indices--//
@@ -82,29 +76,6 @@ class OneHotConv2DBackpropOp : public OpKernel
 
     const Tensor& out_backprop = ctx->input(2);
 
-//    printf("Checking input_sizes\n");
-//    OP_REQUIRES(
-//        ctx, TensorShapeUtils::IsVector(input_sizes.shape()),
-//        errors::InvalidArgument(
-//            "OneHotConv2DBackprop: input_sizes input must be 1-dim, not ",
-//            input_sizes.dims()));
-
-//    printf("Setting input shape\n");
-//    printf("Input sizes %s\n", input_sizes.shape().DebugString().c_str());
-//    auto input_sizes_vec = input_sizes.vec<int32>().data();
-//    auto input_sizes_flat = input_sizes.flat<int32>().data();
-//    printf("Converted to vec\n");
-//    printf("Input sizes size %d\n", input_sizes.vec<int32>().size());
-
-//    gtl::InlinedVector<int32, 4> dim_sizes = {batch_size, out_rows, out_cols, output_depth};
-//    printf("Input sizes (%d, %d, %d, %d)", input_sizes_flat[0], input_sizes_flat[1], input_sizes_flat[2], input_sizes_flat[3]);
-//    gtl::InlinedVector<int32, 4> dim_sizes(input_sizes_vec);
-//    TensorShape input_shape;
-//    OP_REQUIRES_OK(ctx, TensorShapeUtils::MakeShape(
-//                                input_sizes.vec<int32>(), &input_shape));
-//    printf("Input shape %s", input_shape.DebugString().c_str());
-
-//    printf("Input shape set\n");
     // For 2D convolution, there should be 4 dimensions.
     OP_REQUIRES(ctx, out_backprop.dims() == 4,
                 errors::InvalidArgument("out grad must be 4-dimensional",
