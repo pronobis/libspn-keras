@@ -98,6 +98,32 @@ def _OneHotConv2DGrad(op, grad):
       None
   ]
 
+
+def logmatmul(a, b, transpose_a=False, transpose_b=False, name=None):
+    
+    with tf.name_scope(name, "logmatmul", [a, b]):
+        reduce_axis_a = 0 if transpose_a else 1
+        reduce_axis_b = 1 if transpose_b else 0
+    
+        max_a = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(a, axis=reduce_axis_a, keepdims=True)))
+    
+        max_b = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(b, axis=reduce_axis_b, keepdims=True)))
+        
+        a -= max_a
+        b -= max_b
+        
+        out = tf.log(tf.matmul(
+            tf.exp(a), tf.exp(b), transpose_a=transpose_a, transpose_b=transpose_b))
+        out += max_a + max_b
+    return out
+        
+        
+def replace_infs_with_zeros(x):
+    return tf.where(tf.is_inf(x), tf.zeros_like(x), x)
+
+
 def gather_cols(params, indices, name=None):
     """Gather columns of a 2D tensor or values of a 1D tensor.
 

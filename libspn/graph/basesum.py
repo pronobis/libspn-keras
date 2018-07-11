@@ -684,10 +684,13 @@ class BaseSum(OpNode, abc.ABC):
         """
         w_tensor, ivs_tensor, *input_tensors = self._gather_input_tensors(
             w_tensor, ivs_tensor, *input_tensors)
-        input_tensors = [tf.expand_dims(t, axis=self._op_axis) if len(t.shape) == 2 else t for
-                         t in input_tensors]
+        reducible_inputs = tf.expand_dims(
+            utils.concat_maybe(input_tensors, axis=self._reduce_axis - 1), axis=self._op_axis)
+
+        # input_tensors = [tf.expand_dims(t, axis=self._op_axis) if len(t.shape) == 2 else t for
+        #                  t in input_tensors]
         w_tensor = tf.expand_dims(w_tensor, axis=self._batch_axis)
-        reducible_inputs = utils.concat_maybe(input_tensors, axis=self._reduce_axis)
+        # reducible_inputs = utils.concat_maybe(input_tensors, axis=self._reduce_axis)
         if ivs_tensor is not None:
             ivs_tensor = tf.reshape(ivs_tensor, shape=(-1, self._num_sums, self._max_sum_size))
         return w_tensor, ivs_tensor, reducible_inputs
