@@ -3,7 +3,13 @@ import itertools
 import numpy as np
 import tensorflow as tf
 
-from libspn import utils as utils, OpNode, get_logger, InferenceType, conf, StructureError, Scope
+from libspn import utils
+from libspn.graph.node import OpNode
+from libspn.log import get_logger
+from libspn.inference.type import InferenceType
+import libspn.conf as conf
+from libspn.exceptions import StructureError
+from libspn.graph.scope import Scope
 from libspn.utils.math import maybe_random_0toN_permutations
 
 
