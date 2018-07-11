@@ -14,6 +14,7 @@ from libspn.graph.weights import Weights
 import numpy as np
 from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode
+from libspn.utils.math import non_batch_dim_prod
 
 
 @utils.register_serializable
@@ -126,25 +127,12 @@ class LocalSum(BaseSum):
         Returns:
              A reshaped ``Tensor``.
         """
-        non_batch_dim_size = self._non_batch_dim_prod(t)
+        non_batch_dim_size = non_batch_dim_prod(t)
         if forward:
             input_channels = non_batch_dim_size // np.prod(self._grid_dim_sizes)
             return tf.reshape(t, [-1] + self._grid_dim_sizes + [1, input_channels])
         return tf.reshape(t, [-1] + self._grid_dim_sizes + [non_batch_dim_size // (
             self._max_sum_size * np.prod(self._grid_dim_sizes)), self._max_sum_size])
-
-    def _non_batch_dim_prod(self, t):
-        """Computes the product of the non-batch dimensions to be used for reshaping purposes.
-
-        Args:
-            t (Tensor): A ``Tensor`` for which to compute the product.
-
-        Returns:
-            An ``int``: product of non-batch dimensions.
-        """
-        non_batch_dim_size = np.prod([ds for i, ds in enumerate(t.shape.as_list())
-                                      if i != self._batch_axis])
-        return int(non_batch_dim_size)
 
     def _get_input_num_channels(self):
         """Returns a list of number of input channels for each value Input.
@@ -268,7 +256,7 @@ class LocalSum(BaseSum):
         if self._batch_axis != 0:
             raise NotImplementedError("{}: Cannot flatten if batch axis isn't equal to zero."
                                       .format(self))
-        non_batch_dim_size = self._non_batch_dim_prod(t)
+        non_batch_dim_size = non_batch_dim_prod(t)
         return tf.reshape(t, (-1, non_batch_dim_size))
 
     @utils.docinherit(BaseSum)

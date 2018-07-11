@@ -15,6 +15,7 @@ from libspn.ops import ops
 from libspn.utils.serialization import register_serializable
 from tensorflow.python.framework import ops as tfops
 from tensorflow.python.ops import array_ops
+from libspn.utils.lrucache import lru_cache
 
 
 class ValueType:
@@ -122,6 +123,39 @@ def logmatmul(a, b, transpose_a=False, transpose_b=False, name=None):
         
 def replace_infs_with_zeros(x):
     return tf.where(tf.is_inf(x), tf.zeros_like(x), x)
+
+
+def maybe_random_0toN_permutations(range_sizes, max_size):
+    total_possibilities = int(np.prod(range_sizes))
+    if total_possibilities > max_size:
+        if total_possibilities < 1e6:
+            r = np.random.choice(total_possibilities, size=max_size, replace=False)
+        else:
+            r = np.random.randint(total_possibilities, size=max_size)
+    else:
+        r = np.arange(total_possibilities)
+    indices = []
+    for s in range_sizes:
+        indices.append(r % s)
+        r //= s
+    return np.stack(indices, axis=1)
+
+
+def pow2_combinations(n):
+    rows = 2 ** n
+    pow2 = np.power(2, np.arange(n)).reshape(1, n)
+    return np.greater(np.bitwise_and(
+        np.arange(rows).reshape(rows, 1), pow2), 0)
+
+
+@lru_cache
+def transpose_channel_last_to_first(t):
+    return tf.transpose(t, (0, 3, 1, 2))
+
+
+@lru_cache
+def transpose_channel_first_to_last(t):
+    return tf.transpose(t, (0, 2, 3, 1))
 
 
 def gather_cols(params, indices, name=None):
@@ -666,3 +700,15 @@ def split_maybe(value, split_sizes, axis, name='split'):
 
 def print_tensor(*tensors):
     return tf.Print(tensors[0], tensors)
+
+
+def non_batch_dim_prod(t):
+    """Computes the product of the non-batch dimensions to be used for reshaping purposes.
+
+    Args:
+        t (Tensor): A ``Tensor`` for which to compute the product.
+
+    Returns:
+        An ``int``: product of non-batch dimensions.
+    """
+    return int(np.prod(t.shape.as_list()[1:]))
