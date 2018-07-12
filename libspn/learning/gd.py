@@ -37,7 +37,8 @@ class GDLearning:
                  log=True, value_inference_type=None,
                  learning_type=LearningType.DISCRIMINATIVE,
                  learning_inference_type=LearningInferenceType.HARD,
-                 add_random=None, use_unweighted=False):
+                 add_random=None, use_unweighted=False, dropconnect_keep_prob=None,
+                 sample_path=False, sample_prob=None, dropout_keep_prob=None):
         self._root = root
         if learning_rate <= 0.0:
             raise ValueError("learning_rate must be a positive number")
@@ -50,10 +51,11 @@ class GDLearning:
             self._gradient = None
             # Create internal MPE path generator
             if mpe_path is None:
-                self._mpe_path = MPEPath(log=log,
-                                         value_inference_type=value_inference_type,
-                                         add_random=add_random,
-                                         use_unweighted=use_unweighted)
+                self._mpe_path = MPEPath(
+                    log=log, value_inference_type=value_inference_type, add_random=add_random,
+                    use_unweighted=use_unweighted, sample_prob=sample_prob, sample=sample_path,
+                    dropout_keep_prob=dropout_keep_prob,
+                    dropconnect_keep_prob=dropconnect_keep_prob)
             else:
                 self._mpe_path = mpe_path
                 self._log = mpe_path.log
@@ -62,7 +64,9 @@ class GDLearning:
             # Create internal gradient generator
             if gradient is None:
                 self._gradient = \
-                    Gradient(log=log, value_inference_type=value_inference_type)
+                    Gradient(log=log, value_inference_type=value_inference_type,
+                             dropout_keep_prob=dropout_keep_prob,
+                             dropconnect_keep_prob=dropconnect_keep_prob)
             else:
                 self._gradient = gradient
                 self._log = gradient.log
