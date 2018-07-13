@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from libspn.graph.convprod2d import ConvProd2D, ConvProd2DV2
 from libspn.graph.convsum import ConvSum
 from libspn.graph.stridedslice import StridedSlice2D
@@ -16,7 +16,7 @@ class ConvSPN:
         self.level_at = 0
         self.nodes_per_level = defaultdict(list)
         self.last_nodes = None
-        self.node_level = dict()
+        self.node_level = OrderedDict()
         if convprod_version not in ['v1', 'v2']:
             raise ValueError("Unsupported ConvProd version {}, choose either v1 or v2"
                              .format(convprod_version))
@@ -79,14 +79,17 @@ class ConvSPN:
         root = Sum(final_conv)
         return root
 
-    def wicker_stack(self, *input_nodes, stack_size=2, sum_node_type='local', sum_num_channels=2, 
-                     pad_top=None, pad_bottom=None, pad_left=None, pad_right=None, 
+    def wicker_stack(self, *input_nodes, stack_size=2, sum_node_type='local', sum_num_channels=2,
+                     pad_top=None, pad_bottom=None, pad_left=None, pad_right=None,
                      spatial_dims=None, kernel_size=2, strides=1, prod_num_channels=16,
-                     dense_generator=None, add_root=True, stack_only=False):
+                     dense_generator=None, add_root=True, stack_only=False,
+                     name_prefix="WickerStack"):
         pad_left_new, pad_right_new, pad_top_new, pad_bottom_new = [], [], [], []
 
         def none_to_zero(x):
             return 0 if x is None else x
+
+        strides = [strides] * stack_size if isinstance(strides, int) else strides
 
         strides_cum_prod = np.cumprod(np.concatenate(([1], strides[:-1])))
         for pad_l, pad_r, pad_t, pad_b, s_prod, level in self._ensure_tuples_and_zip(
@@ -117,7 +120,7 @@ class ConvSPN:
             dilation_rate=dilation_rates_effective, pad_left=pad_left_new, pad_right=pad_right_new,
             pad_top=pad_top_new, pad_bottom=pad_bottom_new, sum_num_channels=sum_num_channels,
             prod_num_channels=prod_num_channels, sum_node_type=sum_node_type, 
-            spatial_dims=spatial_dims, name_prefixes="WickerStack", stack_size=stack_size)
+            spatial_dims=spatial_dims, name_prefixes=name_prefix, stack_size=stack_size)
 
         if stack_only:
             return stack_out
@@ -128,7 +131,7 @@ class ConvSPN:
         for begin_row in range(num_slices):
             for begin_col in range(num_slices):
                 conv_heads.append(StridedSlice2D(
-                    stack_out, name="WickerSliceRow{}Col{}".format(begin_row, begin_col),
+                    stack_out, name="{}Row{}Col{}".format(name_prefix, begin_row, begin_col),
                     begin=(begin_row, begin_col), strides=(num_slices, num_slices),
                     grid_dim_sizes=[out_rows, out_cols]))
         if dense_generator is not None:
@@ -249,3 +252,11 @@ class ConvSPN:
         if isinstance(x, list):
             return tuple(x)
         return tuple([x] * size) if not isinstance(x, tuple) else x
+    
+    @property
+    def prod_nodes(self):
+        return [n for n in self.node_level.keys() if isinstance(n, (ConvProd2DV2, ConvProd2D))]
+    
+    @property
+    def sum_nodes(self):
+        return [n for n in self.node_level.keys() if isinstance(n, (LocalSum, ConvSum))]
