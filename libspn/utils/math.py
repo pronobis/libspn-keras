@@ -99,11 +99,37 @@ def _OneHotConv2DGrad(op, grad):
   ]
 
 
+def logtensordot(a, b, axes, name=None):
+    with tf.name_scope(name, "logtensordot", [a, b]):
+        if isinstance(axes, int):
+            axes = [[axes], [axes]]
+        reduce_axis_a = axes[0]
+        reduce_axis_b = axes[1]
+
+        max_a = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(a, axis=reduce_axis_a, keepdims=True)))
+
+        max_b = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(b, axis=reduce_axis_b, keepdims=True)))
+
+        a -= max_a
+        b -= max_b
+
+        print(a)
+        print(b)
+        out = tf.log(tf.tensordot(tf.exp(a), tf.exp(b), axes=axes))
+        out += max_a + max_b
+    return out
+
+
 def logmatmul(a, b, transpose_a=False, transpose_b=False, name=None):
     
     with tf.name_scope(name, "logmatmul", [a, b]):
         reduce_axis_a = 0 if transpose_a else 1
         reduce_axis_b = 1 if transpose_b else 0
+
+        reduce_axis_a += max(0, len(a.shape) - 2)
+        reduce_axis_b += max(0, len(b.shape) - 2)
     
         max_a = replace_infs_with_zeros(
             tf.stop_gradient(tf.reduce_max(a, axis=reduce_axis_a, keepdims=True)))
@@ -116,6 +142,10 @@ def logmatmul(a, b, transpose_a=False, transpose_b=False, name=None):
         
         out = tf.log(tf.matmul(
             tf.exp(a), tf.exp(b), transpose_a=transpose_a, transpose_b=transpose_b))
+        if transpose_a:
+            max_a = tf.transpose(max_a)
+        if transpose_b:
+            max_b = tf.transpose(max_b)
         out += max_a + max_b
     return out
         

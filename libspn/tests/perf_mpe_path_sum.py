@@ -18,7 +18,7 @@ from libspn.tests.abstract_performance_profiling import AbstractPerformanceTest,
     AbstractPerformanceUnit, PerformanceTestArgs, ConfigGenerator
 from libspn.tests.perf_sum_value_varying_sizes import sums_layer_numpy_common
 
-MPEPathPerformanceInput = namedtuple("MPEPathPerformanceInput",
+MPEPathPerformanceInput = namedtuple("LogMatMulInput",
                                      ["values", "indices", "num_parallel", "sum_sizes", "num_sums",
                                       "weights", "ivs"])
 

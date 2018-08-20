@@ -33,8 +33,8 @@ def _broadcast_to_2D(test_inputs, subset_indices=None, n_stack=2):
 class TestMath(TestCase):
 
     def test_logmatmul(self):
-        a = tf.random_uniform(shape=(8, 15))
-        b = tf.random_uniform(shape=(15, 9))
+        a = tf.random_uniform(shape=(8, 150))
+        b = tf.random_uniform(shape=(150, 9))
 
         ab_linear = tf.matmul(a, b)
         ab_log = tf.exp(spn.utils.logmatmul(tf.log(a), tf.log(b)))
@@ -43,7 +43,6 @@ class TestMath(TestCase):
             ab_linear_out, ab_log_out = sess.run([ab_linear, ab_log])
 
         self.assertAllClose(ab_linear_out, ab_log_out)
-        
 
     def test_gather_cols_errors(self):
         # Should work
