@@ -69,8 +69,8 @@ class ConvSPN:
 
         # Optionally pad output to make it a multiple of the dilation rate
         dilation_rate = int((2 ** stack_size) // np.prod(strides))
-        pad_bottom = dilation_rate - (out_shape[0] % dilation_rate)
-        pad_right = dilation_rate - (out_shape[1] % dilation_rate)
+        pad_bottom = (dilation_rate - (out_shape[0] % dilation_rate)) % dilation_rate
+        pad_right = (dilation_rate - (out_shape[1] % dilation_rate)) % dilation_rate
 
         final_conv = ConvProd2D(
             wicker_head, strides=1, pad_right=pad_right,
