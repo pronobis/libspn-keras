@@ -923,6 +923,7 @@ class TestNodesParSums(unittest.TestCase):
         self.assertTrue(s10.is_valid())
 
     def test_compute_mpe_path_noivs_single_sum(self):
+        spn.conf.argmax_zero = True
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
@@ -998,6 +999,7 @@ class TestNodesParSums(unittest.TestCase):
                              dtype=np.float32))
 
     def test_compute_mpe_path_noivs_multi_sums(self):
+        spn.conf.argmax_zero = True
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
@@ -1077,6 +1079,7 @@ class TestNodesParSums(unittest.TestCase):
                              dtype=np.float32))
 
     def test_compute_mpe_path_ivs_single_sum(self):
+        spn.conf.argmax_zero = True
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
@@ -1202,6 +1205,7 @@ class TestNodesParSums(unittest.TestCase):
                              dtype=np.float32))
 
     def test_compute_mpe_path_ivs_multi_sums(self):
+        spn.conf.argmax_zero = True
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
