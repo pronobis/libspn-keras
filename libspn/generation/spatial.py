@@ -58,6 +58,7 @@ class ConvSPN:
         if spatial_dims[0] != spatial_dims[1]:
             raise ValueError("Spatial dimensions must be square.")
         stack_size = int(np.ceil(np.log2(spatial_dims[0])))
+        print("Stack size", stack_size)
         if isinstance(strides, int):
             strides = [strides] * stack_size
         wicker_head = self.wicker_stack(
@@ -65,10 +66,11 @@ class ConvSPN:
             kernel_size=kernel_size, stack_only=True, spatial_dims=spatial_dims,
             sum_num_channels=sum_num_channels, prod_num_channels=prod_num_channels)
         out_shape = wicker_head.output_shape_spatial[:2]
-        if 2 ** stack_size > spatial_dims[0]:
-            pad_bottom = pad_right = 1
-        else:
-            pad_bottom = pad_right = None
+
+        # Optionally pad output to make it a multiple of the dilation rate
+        dilation_rate = int((2 ** stack_size) // np.prod(strides))
+        pad_bottom = dilation_rate - (out_shape[0] % dilation_rate)
+        pad_right = dilation_rate - (out_shape[1] % dilation_rate)
 
         final_conv = ConvProd2D(
             wicker_head, strides=1, pad_right=pad_right,
@@ -156,6 +158,12 @@ class ConvSPN:
         if all(p is None for p in [pad_left, pad_right, pad_top, pad_bottom]):
             pad_bottom = pad_top = pad_left = pad_right = pad_all
 
+
+        # print(list(self._ensure_tuples_and_zip(
+        #             strides, dilation_rate, kernel_size, prod_num_channels, padding_algorithm,
+        #             pad_left, pad_right, pad_top, pad_bottom, sum_num_channels, name_prefixes,
+        #             name_suffixes, sum_node_type, size=stack_size)))
+        # print("Adding stack of size", stack_size)
         for stride, dilation_r, kernel_s, prod_nc, pad_algo, pad_l, pad_r, pad_t, pad_b, sum_nc,\
                 name_pref, name_suff, s_node_type in \
                 self._ensure_tuples_and_zip(
@@ -249,6 +257,7 @@ class ConvSPN:
         return next_level
     
     def _ensure_tuple(self, x, size=2):
+        x = x[0] if isinstance(x, (tuple, list)) and len(x) == 1 else x
         if isinstance(x, list):
             return tuple(x)
         return tuple([x] * size) if not isinstance(x, tuple) else x
