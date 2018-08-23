@@ -13,7 +13,7 @@ from libspn.exceptions import StructureError
 from libspn.utils.serialization import register_serializable
 from libspn.graph.convsum import ConvSum
 from libspn.graph.localsum import LocalSum
-from libspn.graph.convprod2d import ConvProd2D, ConvProd2DV2
+from libspn.graph.convprod2d import ConvProd2D, _ConvProdNaive
 import tensorflow as tf
 import numpy as np
 
@@ -130,7 +130,7 @@ class Concat(OpNode):
     def _gather_input_shapes(self):
         shapes = []
         for inp in self.inputs:
-            if isinstance(inp.node, (ConvProd2D, ConvProd2DV2, ConvSum, LocalSum)):
+            if isinstance(inp.node, (ConvProd2D, _ConvProdNaive, ConvSum, LocalSum)):
                 shapes.append(inp.node.output_shape_spatial)
             else:
                 shapes.append((inp.node.get_out_size(),))

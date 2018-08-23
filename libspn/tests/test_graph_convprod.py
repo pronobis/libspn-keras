@@ -166,7 +166,7 @@ class TestConvProd(tf.test.TestCase):
 
         ivs_concat = spn.Concat(localsum0, localsum1, axis=3)
 
-        convprod_v1 = spn.ConvProd2DV2(
+        convprod_v1 = spn._ConvProdNaive(
             ivs_concat, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=256,
             strides=stride, dilation_rate=dilate)
         convprod_v2 = spn.ConvProd2D(
@@ -211,7 +211,7 @@ class TestConvProd(tf.test.TestCase):
 
         ivs_concat = spn.Concat(localsum0, localsum1, axis=3)
 
-        convprod_v1 = spn.ConvProd2DV2(
+        convprod_v1 = spn._ConvProdNaive(
             ivs_concat, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=256,
             strides=stride, dilation_rate=dilate, pad_left=pad_size, pad_right=pad_size,
             pad_top=pad_size, pad_bottom=pad_size)

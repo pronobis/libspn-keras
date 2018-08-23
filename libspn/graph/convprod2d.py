@@ -19,316 +19,6 @@ from libspn.log import get_logger
 
 
 @utils.register_serializable
-class ConvProd2DV2(ProductsLayer):
-    """A container representing convolutional products in an SPN.
-
-    Args:
-        *values (input_like): Inputs providing input values to this container.
-            See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (int): Number of Sum ops modelled by this container.
-        weights (input_like): Input providing weights container to this sum container.
-            See :meth:`~libspn.Input.as_input` for possible values. If set
-            to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
-            associated with this sum container. See :meth:`~libspn.Input.as_input`
-            for possible values. If set to ``None``, the input is disconnected.
-        name (str): Name of the container.
-
-    Attributes:
-        inference_type(InferenceType): Flag indicating the preferred inference
-                                       type for this container that will be used
-                                       during value calculation and learning.
-                                       Can be changed at any time and will be
-                                       used during the next inference/learning
-                                       op generation.
-    """
-
-    logger = get_logger()
-
-    def __init__(self, *values, num_channels=None, padding_algorithm='valid', dilation_rate=1,
-                 strides=2, kernel_size=2, inference_type=InferenceType.MARGINAL, name="ConvProd2D",
-                 sparse_connections=None, dense_connections=None, grid_dim_sizes=None,
-                 num_channels_max=512, pad_top=None, pad_bottom=None,
-                 pad_left=None, pad_right=None):
-        self._batch_axis = 0
-        self._channel_axis = 3
-
-        self._pad_top, self._pad_bottom = pad_top, pad_bottom
-        self._pad_left, self._pad_right = pad_left, pad_right
-
-        super().__init__(name=name)
-        self.set_values(*values)
-
-
-        num_channels = min(num_channels or num_channels_max, num_channels_max)
-        if grid_dim_sizes is None:
-            raise NotImplementedError(
-                "{}: Must also provide grid_dim_sizes at this point.".format(self))
-
-        self._grid_dim_sizes = grid_dim_sizes or [-1] * 2
-        if isinstance(self._grid_dim_sizes, tuple):
-            self._grid_dim_sizes = list(self._grid_dim_sizes)
-        self._padding = padding_algorithm
-        self._dilation_rate = [dilation_rate] * 2 \
-            if isinstance(dilation_rate, int) else list(dilation_rate)
-        self._strides = [strides] * 2 \
-            if isinstance(strides, int) else list(strides)
-        self._num_channels = num_channels
-        self._kernel_size = [kernel_size] * 2 if isinstance(kernel_size, int) \
-            else list(kernel_size)
-
-        if sparse_connections is not None:
-            if dense_connections is not None:
-                raise ValueError("{}: Must provide either spare connections or dense connections, "
-                                 "not both.".format(self))
-            self._sparse_connections = sparse_connections
-            self._dense_connections = self.sparse_connections_to_dense(sparse_connections)
-        elif dense_connections is not None:
-            self._dense_connections = dense_connections
-            self._sparse_connections = self.dense_connections_to_sparse(dense_connections)
-        else:
-            self._sparse_connections = self.generate_sparse_connections(num_channels)
-            self._dense_connections = self.sparse_connections_to_dense(self._sparse_connections)
-
-        self._set_prod_sizes()
-
-    def set_values(self, *values):
-        """Set the inputs providing input values to this node. If no arguments
-        are given, all existing value inputs get disconnected.
-
-        Args:
-            *values (input_like): Inputs providing input values to this node.
-                See :meth:`~libspn.Input.as_input` for possible values.
-        """
-        if len(values) > 1:
-            raise NotImplementedError("Currently only supports single input")
-        self._values = self._parse_inputs(*values)
-
-    def _set_prod_sizes(self):
-        indices, prod_sizes = self._forward_gather_indices_from_kernel()
-        self.set_values((self.values[0].node, indices))
-        self.set_prod_sizes(prod_sizes)
-
-    def _forward_gather_indices_from_kernel(self):
-        pad_top, pad_bottom, pad_left, pad_right = self.pad_sizes()
-        out_rows, out_cols = self.output_shape_spatial[:2]
-        
-        kstart_row = -pad_top
-        
-        num_inp_channels = self._num_input_channels()
-        
-        def sub2ind(row, col, channel):
-            return int(row * self._grid_dim_sizes[1] * num_inp_channels + \
-                       col * num_inp_channels + \
-                       channel)
-        
-        indices = []
-        prod_sizes = []
-        for out_r in range(out_rows):
-            kstart_col = -pad_left
-            for out_c in range(out_cols):
-                for out_channel in range(self._num_channels):
-                    ind_current_prod = []
-                    for kernel_row in range(self._kernel_size[0]):
-                        input_row = kstart_row + kernel_row * self._dilation_rate[0]
-                        for kernel_col in range(self._kernel_size[1]):
-                            input_col = kstart_col + kernel_col * self._dilation_rate[0]
-                            if 0 <= input_row < self._grid_dim_sizes[0] and \
-                                    0 <= input_col < self._grid_dim_sizes[1]:
-                                channel = self._sparse_connections\
-                                    [kernel_row, kernel_col, out_channel]
-                                ind_current_prod.append(sub2ind(input_row, input_col, channel))
-                    
-                    # End of output channel
-                    indices.extend(ind_current_prod)
-                    prod_sizes.append(len(ind_current_prod))
-                    
-                # End of output column
-                kstart_col += self._strides[1]
-            # End of output row
-            kstart_row += self._strides[0]
-        
-        return indices, prod_sizes
-            
-    def _preconv_grid_sizes(self):
-        pad_top, pad_bottom, pad_left, pad_right = self.pad_sizes()
-        return pad_top + pad_bottom + self._grid_dim_sizes[0], \
-               pad_left + pad_right + self._grid_dim_sizes[1]
-
-    def sparse_connections_to_dense(self, sparse):
-        # Sparse has shape [rows, cols, out_channels]
-        # Dense will have shape [rows, cols, in_channels, out_channels]
-        num_input_channels = self._num_input_channels()
-        batch_grid_prod = int(np.prod(self._kernel_size + [self._num_channels]))
-        dense = np.zeros([batch_grid_prod, num_input_channels])
-
-        dense[np.arange(batch_grid_prod), sparse.ravel()] = 1.0
-        dense = dense.reshape(self._kernel_size + [self._num_channels, num_input_channels])
-        # [rows, cols, out_channels, in_channels] to [rows, cols, in_channels, out_channels]
-        return np.transpose(dense, (0, 1, 3, 2)).astype(conf.dtype.as_numpy_dtype())
-
-    def dense_connections_to_sparse(self, dense):
-        return np.argmax(dense, axis=2)
-
-    def generate_sparse_connections(self, num_channels):
-        num_input_channels = self._num_input_channels()
-        kernel_surface = int(np.prod(self._kernel_size))
-        total_possibilities = num_input_channels ** kernel_surface
-        if num_channels >= total_possibilities:
-            if num_channels > total_possibilities:
-                self.logger.warn("Number of channels exceeds total number of combinations.")
-                self._num_channels = total_possibilities
-            p = np.arange(total_possibilities)
-            kernel_cells = []
-            for _ in range(kernel_surface):
-                kernel_cells.append(p % num_input_channels)
-                p //= num_input_channels
-            return np.stack(kernel_cells, axis=0).reshape(self._kernel_size + [total_possibilities])
-
-        sparse_shape = self._kernel_size + [num_channels]
-        size = int(np.prod(sparse_shape))
-        return np.random.randint(num_input_channels, size=size).reshape(sparse_shape)
-
-    @utils.lru_cache
-    def _spatial_concat(self, *input_tensors):
-        input_tensors = [self._spatial_reshape(t) for t in input_tensors]
-        reducible_inputs = utils.concat_maybe(input_tensors, axis=self._channel_axis)
-        return reducible_inputs
-
-    def _spatial_reshape(self, t, forward=True):
-        """Reshapes a Tensor ``t``` to one that represents the spatial dimensions.
-
-        Args:
-            t (Tensor): The ``Tensor`` to reshape.
-            forward (bool): Whether to reshape for forward inference. If True, reshapes to
-                ``[batch, rows, cols, 1, input_channels]``. Otherwise, reshapes to
-                ``[batch, rows, cols, output_channels, input_channels]``.
-        Returns:
-             A reshaped ``Tensor``.
-        """
-        non_batch_dim_size = self._non_batch_dim_prod(t)
-        if forward:
-            input_channels = non_batch_dim_size // np.prod(self._grid_dim_sizes)
-            return tf.reshape(t, [-1] + self._grid_dim_sizes + [input_channels])
-        return tf.reshape(t, [-1] + self._grid_dim_sizes + [self._num_channels])
-
-    def _non_batch_dim_prod(self, t):
-        """Computes the product of the non-batch dimensions to be used for reshaping purposes.
-
-        Args:
-            t (Tensor): A ``Tensor`` for which to compute the product.
-
-        Returns:
-            An ``int``: product of non-batch dimensions.
-        """
-        non_batch_dim_size = np.prod([ds for i, ds in enumerate(t.shape.as_list())
-                                      if i != self._batch_axis])
-        return int(non_batch_dim_size)
-
-    def _num_channels_per_input(self):
-        """Returns a list of number of input channels for each value Input.
-
-        Returns:
-            A list of ints containing the number of channels.
-        """
-        input_sizes = self.get_input_sizes()
-        return [int(s // np.prod(self._grid_dim_sizes)) for s in input_sizes]
-
-    def _num_input_channels(self):
-        return sum(self._num_channels_per_input())
-
-    def _compute_out_size_spatial(self, *input_out_sizes):
-        # See https://www.tensorflow.org/api_guides/python/nn#Convolution
-        kernel_size0, kernel_size1 = self._effective_kernel_size()
-
-        pad_left, pad_right, pad_top, pad_bottom = self.pad_sizes()
-
-        # TODO determine the grid dimensions from the input nodes
-        rows_post_pad = pad_top + pad_bottom + self._grid_dim_sizes[0]
-        cols_post_pad = pad_left + pad_right + self._grid_dim_sizes[1]
-        rows_post_pad -= kernel_size0 - 1
-        cols_post_pad -= kernel_size1 - 1
-        out_rows = int(np.ceil(rows_post_pad / self._strides[0]))
-        out_cols = int(np.ceil(cols_post_pad / self._strides[1]))
-        return int(out_rows), int(out_cols), self._num_channels
-
-    def _compute_out_size(self, *input_out_sizes):
-        return int(np.prod(self._compute_out_size_spatial(*input_out_sizes)))
-
-    @property
-    def output_shape_spatial(self):
-        return self._compute_out_size_spatial()
-    
-    @property
-    def same_padding(self):
-        return self._padding.lower() == "same"
-
-    @property
-    def valid_padding(self):
-        return self._padding.lower() == "valid"
-
-    def _effective_kernel_size(self):
-        # See https://www.tensorflow.org/api_docs/python/tf/nn/convolution
-        return [
-            (self._kernel_size[0] - 1) * self._dilation_rate[0] + 1,
-            (self._kernel_size[1] - 1) * self._dilation_rate[1] + 1
-        ]
-
-    def pad_sizes(self):
-        pad_top_explicit, pad_bottom_explicit, pad_left_explicit, pad_right_explicit = \
-            self._explicit_pad_sizes()
-        if self.valid_padding:
-            # No padding
-            if pad_top_explicit == pad_bottom_explicit \
-                    == pad_left_explicit == pad_right_explicit == 0:
-                return 0, 0, 0, 0
-            return pad_left_explicit, pad_right_explicit, pad_top_explicit, pad_bottom_explicit
-
-        # See https://www.tensorflow.org/api_guides/python/nn#Convolution
-        filter_height, filter_width = self._effective_kernel_size()
-        if self._grid_dim_sizes[0] % self._strides[0] == 0:
-            pad_along_height = max(filter_height - self._strides[0], 0)
-        else:
-            pad_along_height = max(filter_height - (self._grid_dim_sizes[0] % self._strides[0]), 0)
-        if self._grid_dim_sizes[1] % self._strides[1] == 0:
-            pad_along_width = max(filter_width - self._strides[1], 0)
-        else:
-            pad_along_width = max(filter_width - (self._grid_dim_sizes[1] % self._strides[1]), 0)
-
-        pad_top = pad_along_height // 2
-        pad_bottom = pad_along_height - pad_top
-        pad_left = pad_along_width // 2
-        pad_right = pad_along_width - pad_left
-        return (
-            pad_left + pad_left_explicit,
-            pad_right + pad_right_explicit,
-            pad_top + pad_top_explicit,
-            pad_bottom + pad_bottom_explicit
-        )
-
-    # @utils.docinherit(OpNode)
-    # def _compute_valid(self, *value_scopes):
-    #     return self._compute_scope(*value_scopes, check_valid=True)
-
-    def deserialize_inputs(self, data, nodes_by_name):
-        pass
-
-    @property
-    def inputs(self):
-        return self._values
-
-    def serialize(self):
-        pass
-
-    def deserialize(self, data):
-        pass
-
-    @property
-    def _const_out_size(self):
-        return True
-
-
-@utils.register_serializable
 class ConvProd2D(OpNode):
     """A container representing convolutional products in an SPN.
 
@@ -598,18 +288,26 @@ class ConvProd2D(OpNode):
             # Convolve
             # TODO, this the quickest workaround for TensorFlow's apparent optimization whenever
             # part of the kernel computation involves a -inf:
-            # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
-            # to be a TF debug. Now we transpose before and after
             concat_inp = tf.where(
                 tf.is_inf(concat_inp), tf.fill(tf.shape(concat_inp), value=-1e20), concat_inp)
+            # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
+            # to be a TF debug. Now we transpose before and after
+
             conv_out = tf.nn.conv2d(
                 input=self._transpose_channel_last_to_first(concat_inp),
                 filter=self._dense_connections, padding=self._padding.upper(),
-                strides=[1, 1] + self._strides,
-                dilations=[1, 1] + self._dilation_rate,
-                data_format='NCHW'
+                strides=[1] + self._strides + [1],
+                dilations=[1] + self._dilation_rate + [1],
+                data_format='NHWC'
             )
-            conv_out = self._transpose_channel_first_to_last(conv_out)
+            # conv_out = tf.nn.conv2d(
+            #     input=self._transpose_channel_last_to_first(concat_inp),
+            #     filter=self._dense_connections, padding=self._padding.upper(),
+            #     strides=[1, 1] + self._strides,
+            #     dilations=[1, 1] + self._dilation_rate,
+            #     data_format='NCHW'
+            # )
+            # conv_out = self._transpose_channel_first_to_last(conv_out)
 
         return self._flatten(conv_out)
 
@@ -643,26 +341,35 @@ class ConvProd2D(OpNode):
             # We can use the backprop Op, as the counts should be passed on to the input tensor.
             # Note that our 'kernels' are either 0 or 1, so either passing on the counts through
             # multiplying with 1, or not passing them on through multiplying with 0
-            input_shape = tf.shape(inp_concat)
-            input_shape_py = inp_concat.shape.as_list()
-            transposed_shape = [input_shape[0], input_shape_py[3]] + input_shape_py[1:3]
+            # input_shape = tf.shape(inp_concat)
+            # input_shape_py = inp_concat.shape.as_list()
+            # transposed_shape = [input_shape[0], input_shape_py[3]] + input_shape_py[1:3]
+            #
+            # # Transpose from NHWC to NCHW
+            # transposed_spatial_counts = self._transpose_channel_last_to_first(spatial_counts)
+            #
+            # # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
+            # # to be a TF debug. Now we transpose before and after
+            # input_counts = tf.nn.conv2d_backprop_input(
+            #     input_sizes=transposed_shape,
+            #     filter=self._dense_connections,
+            #     out_backprop=transposed_spatial_counts,
+            #     strides=[1, 1] + self._strides,  # [1] + self._strides + [1],
+            #     padding=self._padding.upper(),
+            #     dilations=[1, 1] + self._dilation_rate,
+            #     data_format="NCHW")  # [1] + self._dilation_rate + [1])
+            #
+            # # Transpose from NCHW to NHWC
+            # input_counts = self._transpose_channel_first_to_last(input_counts)
 
-            # Transpose from NHWC to NCHW
-            transposed_spatial_counts = self._transpose_channel_last_to_first(spatial_counts)
-
-            # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
-            # to be a TF debug. Now we transpose before and after
             input_counts = tf.nn.conv2d_backprop_input(
-                input_sizes=transposed_shape,
+                input_sizes=tf.shape(inp_concat),
                 filter=self._dense_connections,
-                out_backprop=transposed_spatial_counts,
-                strides=[1, 1] + self._strides,  # [1] + self._strides + [1],
+                out_backprop=spatial_counts,
+                strides=[1] + self._strides + [1],  # [1] + self._strides + [1],
                 padding=self._padding.upper(),
-                dilations=[1, 1] + self._dilation_rate,
-                data_format="NCHW")  # [1] + self._dilation_rate + [1])
-
-            # Transpose from NCHW to NHWC
-            input_counts = self._transpose_channel_first_to_last(input_counts)
+                dilations=[1] + self._dilation_rate + [1],
+                data_format="NHWC")  # [1] + self._dilation_rate + [1])
 
         if self._no_explicit_padding:
             return self._split_to_children(input_counts)
@@ -860,4 +567,326 @@ class ConvProd2D(OpNode):
     def _const_out_size(self):
         return True
 
+
+@utils.register_serializable
+class _ConvProdNaive(ProductsLayer):
+    """A container representing convolutional products in an SPN.
+
+    Args:
+        *values (input_like): Inputs providing input values to this container.
+            See :meth:`~libspn.Input.as_input` for possible values.
+        num_sums (int): Number of Sum ops modelled by this container.
+        weights (input_like): Input providing weights container to this sum container.
+            See :meth:`~libspn.Input.as_input` for possible values. If set
+            to ``None``, the input is disconnected.
+        ivs (input_like): Input providing IVs of an explicit latent variable
+            associated with this sum container. See :meth:`~libspn.Input.as_input`
+            for possible values. If set to ``None``, the input is disconnected.
+        name (str): Name of the container.
+
+    Attributes:
+        inference_type(InferenceType): Flag indicating the preferred inference
+                                       type for this container that will be used
+                                       during value calculation and learning.
+                                       Can be changed at any time and will be
+                                       used during the next inference/learning
+                                       op generation.
+    """
+
+    logger = get_logger()
+
+    def __init__(self, *values, num_channels=None, padding_algorithm='valid', dilation_rate=1,
+                 strides=2, kernel_size=2, inference_type=InferenceType.MARGINAL, name="ConvProd2D",
+                 sparse_connections=None, dense_connections=None, grid_dim_sizes=None,
+                 num_channels_max=512, pad_top=None, pad_bottom=None,
+                 pad_left=None, pad_right=None):
+        self._batch_axis = 0
+        self._channel_axis = 3
+
+        self._pad_top, self._pad_bottom = pad_top, pad_bottom
+        self._pad_left, self._pad_right = pad_left, pad_right
+
+        super().__init__(name=name)
+        self.set_values(*values)
+
+        num_channels = min(num_channels or num_channels_max, num_channels_max)
+        if grid_dim_sizes is None:
+            raise NotImplementedError(
+                "{}: Must also provide grid_dim_sizes at this point.".format(self))
+
+        self._grid_dim_sizes = grid_dim_sizes or [-1] * 2
+        if isinstance(self._grid_dim_sizes, tuple):
+            self._grid_dim_sizes = list(self._grid_dim_sizes)
+        self._padding = padding_algorithm
+        self._dilation_rate = [dilation_rate] * 2 \
+            if isinstance(dilation_rate, int) else list(dilation_rate)
+        self._strides = [strides] * 2 \
+            if isinstance(strides, int) else list(strides)
+        self._num_channels = num_channels
+        self._kernel_size = [kernel_size] * 2 if isinstance(kernel_size, int) \
+            else list(kernel_size)
+
+        if sparse_connections is not None:
+            if dense_connections is not None:
+                raise ValueError("{}: Must provide either spare connections or dense connections, "
+                                 "not both.".format(self))
+            self._sparse_connections = sparse_connections
+            self._dense_connections = self.sparse_connections_to_dense(sparse_connections)
+        elif dense_connections is not None:
+            self._dense_connections = dense_connections
+            self._sparse_connections = self.dense_connections_to_sparse(dense_connections)
+        else:
+            self._sparse_connections = self.generate_sparse_connections(num_channels)
+            self._dense_connections = self.sparse_connections_to_dense(self._sparse_connections)
+
+        self._set_prod_sizes()
+
+
+    @staticmethod
+    def _pad_or_zero(pad):
+        return 0 if pad is None else pad
+
+    def _explicit_pad_sizes(self):
+        # Replace any 'None' with 0
+        pad_top = self._pad_or_zero(self._pad_top)
+        pad_bottom = self._pad_or_zero(self._pad_bottom)
+        pad_left = self._pad_or_zero(self._pad_left)
+        pad_right = self._pad_or_zero(self._pad_right)
+        return pad_bottom, pad_left, pad_right, pad_top
+
+
+    def set_values(self, *values):
+        """Set the inputs providing input values to this node. If no arguments
+        are given, all existing value inputs get disconnected.
+
+        Args:
+            *values (input_like): Inputs providing input values to this node.
+                See :meth:`~libspn.Input.as_input` for possible values.
+        """
+        if len(values) > 1:
+            raise NotImplementedError("Currently only supports single input")
+        self._values = self._parse_inputs(*values)
+
+    def _set_prod_sizes(self):
+        indices, prod_sizes = self._forward_gather_indices_from_kernel()
+        self.set_values((self.values[0].node, indices))
+        self.set_prod_sizes(prod_sizes)
+
+    def _forward_gather_indices_from_kernel(self):
+        pad_top, pad_bottom, pad_left, pad_right = self.pad_sizes()
+        out_rows, out_cols = self.output_shape_spatial[:2]
+
+        kstart_row = -pad_top
+
+        num_inp_channels = self._num_input_channels()
+
+        def sub2ind(row, col, channel):
+            return int(row * self._grid_dim_sizes[1] * num_inp_channels + \
+                       col * num_inp_channels + \
+                       channel)
+
+        indices = []
+        prod_sizes = []
+        for out_r in range(out_rows):
+            kstart_col = -pad_left
+            for out_c in range(out_cols):
+                for out_channel in range(self._num_channels):
+                    ind_current_prod = []
+                    for kernel_row in range(self._kernel_size[0]):
+                        input_row = kstart_row + kernel_row * self._dilation_rate[0]
+                        for kernel_col in range(self._kernel_size[1]):
+                            input_col = kstart_col + kernel_col * self._dilation_rate[0]
+                            if 0 <= input_row < self._grid_dim_sizes[0] and \
+                                    0 <= input_col < self._grid_dim_sizes[1]:
+                                channel = self._sparse_connections \
+                                    [kernel_row, kernel_col, out_channel]
+                                ind_current_prod.append(sub2ind(input_row, input_col, channel))
+
+                    # End of output channel
+                    indices.extend(ind_current_prod)
+                    prod_sizes.append(len(ind_current_prod))
+
+                # End of output column
+                kstart_col += self._strides[1]
+            # End of output row
+            kstart_row += self._strides[0]
+
+        return indices, prod_sizes
+
+    def _preconv_grid_sizes(self):
+        pad_top, pad_bottom, pad_left, pad_right = self.pad_sizes()
+        return pad_top + pad_bottom + self._grid_dim_sizes[0], \
+               pad_left + pad_right + self._grid_dim_sizes[1]
+
+    def sparse_connections_to_dense(self, sparse):
+        # Sparse has shape [rows, cols, out_channels]
+        # Dense will have shape [rows, cols, in_channels, out_channels]
+        num_input_channels = self._num_input_channels()
+        batch_grid_prod = int(np.prod(self._kernel_size + [self._num_channels]))
+        dense = np.zeros([batch_grid_prod, num_input_channels])
+
+        dense[np.arange(batch_grid_prod), sparse.ravel()] = 1.0
+        dense = dense.reshape(self._kernel_size + [self._num_channels, num_input_channels])
+        # [rows, cols, out_channels, in_channels] to [rows, cols, in_channels, out_channels]
+        return np.transpose(dense, (0, 1, 3, 2)).astype(conf.dtype.as_numpy_dtype())
+
+    def dense_connections_to_sparse(self, dense):
+        return np.argmax(dense, axis=2)
+
+    def generate_sparse_connections(self, num_channels):
+        num_input_channels = self._num_input_channels()
+        kernel_surface = int(np.prod(self._kernel_size))
+        total_possibilities = num_input_channels ** kernel_surface
+        if num_channels >= total_possibilities:
+            if num_channels > total_possibilities:
+                self.logger.warn("Number of channels exceeds total number of combinations.")
+                self._num_channels = total_possibilities
+            p = np.arange(total_possibilities)
+            kernel_cells = []
+            for _ in range(kernel_surface):
+                kernel_cells.append(p % num_input_channels)
+                p //= num_input_channels
+            return np.stack(kernel_cells, axis=0).reshape(self._kernel_size + [total_possibilities])
+
+        sparse_shape = self._kernel_size + [num_channels]
+        size = int(np.prod(sparse_shape))
+        return np.random.randint(num_input_channels, size=size).reshape(sparse_shape)
+
+    @utils.lru_cache
+    def _spatial_concat(self, *input_tensors):
+        input_tensors = [self._spatial_reshape(t) for t in input_tensors]
+        reducible_inputs = utils.concat_maybe(input_tensors, axis=self._channel_axis)
+        return reducible_inputs
+
+    def _spatial_reshape(self, t, forward=True):
+        """Reshapes a Tensor ``t``` to one that represents the spatial dimensions.
+
+        Args:
+            t (Tensor): The ``Tensor`` to reshape.
+            forward (bool): Whether to reshape for forward inference. If True, reshapes to
+                ``[batch, rows, cols, 1, input_channels]``. Otherwise, reshapes to
+                ``[batch, rows, cols, output_channels, input_channels]``.
+        Returns:
+             A reshaped ``Tensor``.
+        """
+        non_batch_dim_size = self._non_batch_dim_prod(t)
+        if forward:
+            input_channels = non_batch_dim_size // np.prod(self._grid_dim_sizes)
+            return tf.reshape(t, [-1] + self._grid_dim_sizes + [input_channels])
+        return tf.reshape(t, [-1] + self._grid_dim_sizes + [self._num_channels])
+
+    def _non_batch_dim_prod(self, t):
+        """Computes the product of the non-batch dimensions to be used for reshaping purposes.
+
+        Args:
+            t (Tensor): A ``Tensor`` for which to compute the product.
+
+        Returns:
+            An ``int``: product of non-batch dimensions.
+        """
+        non_batch_dim_size = np.prod([ds for i, ds in enumerate(t.shape.as_list())
+                                      if i != self._batch_axis])
+        return int(non_batch_dim_size)
+
+    def _num_channels_per_input(self):
+        """Returns a list of number of input channels for each value Input.
+
+        Returns:
+            A list of ints containing the number of channels.
+        """
+        input_sizes = self.get_input_sizes()
+        return [int(s // np.prod(self._grid_dim_sizes)) for s in input_sizes]
+
+    def _num_input_channels(self):
+        return sum(self._num_channels_per_input())
+
+    def _compute_out_size_spatial(self, *input_out_sizes):
+        # See https://www.tensorflow.org/api_guides/python/nn#Convolution
+        kernel_size0, kernel_size1 = self._effective_kernel_size()
+
+        pad_left, pad_right, pad_top, pad_bottom = self.pad_sizes()
+
+        # TODO determine the grid dimensions from the input nodes
+        rows_post_pad = pad_top + pad_bottom + self._grid_dim_sizes[0]
+        cols_post_pad = pad_left + pad_right + self._grid_dim_sizes[1]
+        rows_post_pad -= kernel_size0 - 1
+        cols_post_pad -= kernel_size1 - 1
+        out_rows = int(np.ceil(rows_post_pad / self._strides[0]))
+        out_cols = int(np.ceil(cols_post_pad / self._strides[1]))
+        return int(out_rows), int(out_cols), self._num_channels
+
+    def _compute_out_size(self, *input_out_sizes):
+        return int(np.prod(self._compute_out_size_spatial(*input_out_sizes)))
+
+    @property
+    def output_shape_spatial(self):
+        return self._compute_out_size_spatial()
+
+    @property
+    def same_padding(self):
+        return self._padding.lower() == "same"
+
+    @property
+    def valid_padding(self):
+        return self._padding.lower() == "valid"
+
+    def _effective_kernel_size(self):
+        # See https://www.tensorflow.org/api_docs/python/tf/nn/convolution
+        return [
+            (self._kernel_size[0] - 1) * self._dilation_rate[0] + 1,
+            (self._kernel_size[1] - 1) * self._dilation_rate[1] + 1
+        ]
+
+    def pad_sizes(self):
+        pad_top_explicit, pad_bottom_explicit, pad_left_explicit, pad_right_explicit = \
+            self._explicit_pad_sizes()
+        if self.valid_padding:
+            # No padding
+            if pad_top_explicit == pad_bottom_explicit \
+                    == pad_left_explicit == pad_right_explicit == 0:
+                return 0, 0, 0, 0
+            return pad_left_explicit, pad_right_explicit, pad_top_explicit, pad_bottom_explicit
+
+        # See https://www.tensorflow.org/api_guides/python/nn#Convolution
+        filter_height, filter_width = self._effective_kernel_size()
+        if self._grid_dim_sizes[0] % self._strides[0] == 0:
+            pad_along_height = max(filter_height - self._strides[0], 0)
+        else:
+            pad_along_height = max(filter_height - (self._grid_dim_sizes[0] % self._strides[0]), 0)
+        if self._grid_dim_sizes[1] % self._strides[1] == 0:
+            pad_along_width = max(filter_width - self._strides[1], 0)
+        else:
+            pad_along_width = max(filter_width - (self._grid_dim_sizes[1] % self._strides[1]), 0)
+
+        pad_top = pad_along_height // 2
+        pad_bottom = pad_along_height - pad_top
+        pad_left = pad_along_width // 2
+        pad_right = pad_along_width - pad_left
+        return (
+            pad_left + pad_left_explicit,
+            pad_right + pad_right_explicit,
+            pad_top + pad_top_explicit,
+            pad_bottom + pad_bottom_explicit
+        )
+
+    # @utils.docinherit(OpNode)
+    # def _compute_valid(self, *value_scopes):
+    #     return self._compute_scope(*value_scopes, check_valid=True)
+
+    def deserialize_inputs(self, data, nodes_by_name):
+        pass
+
+    @property
+    def inputs(self):
+        return self._values
+
+    def serialize(self):
+        pass
+
+    def deserialize(self, data):
+        pass
+
+    @property
+    def _const_out_size(self):
+        return True
 

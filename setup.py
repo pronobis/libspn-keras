@@ -148,7 +148,8 @@ class BuildCommand(distutils.command.build.build):
         except subprocess.CalledProcessError:
             os.sys.exit('ERROR: gcc not found!')
         print("- Found gcc %s" % self._gcc_version)
-        self._downgrade_abi = (self._gcc_version_major > self._tf_gcc_version_major)
+        self._downgrade_abi = (self._gcc_version_major > self._tf_gcc_version_major) or \
+                              tensorflow.__cxx11_abi_flag__ == 0
         if self._downgrade_abi:
             print("  TF gcc version < system gcc version: "
                   "using -D_GLIBCXX_USE_CXX11_ABI=0")

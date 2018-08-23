@@ -1,5 +1,5 @@
 from collections import defaultdict, OrderedDict
-from libspn.graph.convprod2d import ConvProd2D, ConvProd2DV2
+from libspn.graph.convprod2d import ConvProd2D, _ConvProdNaive
 from libspn.graph.convsum import ConvSum
 from libspn.graph.stridedslice import StridedSlice2D
 from libspn.graph.localsum import LocalSum
@@ -173,7 +173,7 @@ class ConvSPN:
             if self._convprod_version == 'v2':
                 if len(input_nodes) > 1:
                     input_nodes = [Concat(*input_nodes, axis=3)]
-                next_node = ConvProd2DV2(
+                next_node = _ConvProdNaive(
                     *input_nodes, grid_dim_sizes=spatial_dims, pad_bottom=pad_b, pad_top=pad_t,
                     pad_left=pad_l, pad_right=pad_r, num_channels=prod_nc,
                     name="{}Prod{}".format(name_pref, name_suff), dilation_rate=dilation_r,
@@ -264,7 +264,7 @@ class ConvSPN:
     
     @property
     def prod_nodes(self):
-        return [n for n in self.node_level.keys() if isinstance(n, (ConvProd2DV2, ConvProd2D))]
+        return [n for n in self.node_level.keys() if isinstance(n, (_ConvProdNaive, ConvProd2D))]
     
     @property
     def sum_nodes(self):
