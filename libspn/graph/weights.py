@@ -9,7 +9,7 @@ import tensorflow as tf
 from libspn.graph.node import ParamNode
 from libspn.graph.algorithms import traverse_graph
 from libspn import conf
-from libspn.graph.distribution import GaussianLeaf
+from libspn.graph.distribution import GaussianLeaf, MultivariateGaussianDiagLeaf
 from libspn.utils.serialization import register_serializable
 from libspn import utils
 from libspn.exceptions import StructureError
@@ -287,6 +287,8 @@ def initialize_weights(root, name="InitializeWeights"):
         if isinstance(node, Weights):
             initialize_ops.append(node.initialize())
         if isinstance(node, GaussianLeaf):
+            initialize_ops.extend(node.initialize())
+        if isinstance(node, MultivariateGaussianDiagLeaf):
             initialize_ops.extend(node.initialize())
 
     with tf.name_scope(name):

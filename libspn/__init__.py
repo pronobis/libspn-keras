@@ -36,6 +36,7 @@ from libspn.graph.algorithms import compute_graph_up
 from libspn.graph.algorithms import compute_graph_up_down
 from libspn.graph.algorithms import traverse_graph
 from libspn.graph.distribution import GaussianLeaf
+from libspn.graph.distribution import MultivariateGaussianDiagLeaf
 
 # Generators
 from libspn.generation.dense import DenseSPNGenerator
@@ -114,7 +115,7 @@ __all__ = [
     'Concat', 'IVs', 'ContVars',
     'Sum', 'ParSums', 'Sums', 'SumsLayer',
     'Product', 'PermProducts', 'Products', 'ProductsLayer',
-    'GaussianLeaf',
+    'GaussianLeaf', 'MultivariateGaussianDiagLeaf',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
