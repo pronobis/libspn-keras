@@ -294,7 +294,7 @@ class ConvProd2D(OpNode):
             # to be a TF debug. Now we transpose before and after
 
             conv_out = tf.nn.conv2d(
-                input=self._transpose_channel_last_to_first(concat_inp),
+                input=concat_inp,
                 filter=self._dense_connections, padding=self._padding.upper(),
                 strides=[1] + self._strides + [1],
                 dilations=[1] + self._dilation_rate + [1],

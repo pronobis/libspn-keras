@@ -227,23 +227,27 @@ class Weights(ParamNode):
     def _compute_out_size(self):
         return self._num_weights * self._num_sums
 
+    @utils.lru_cache
     def _compute_value(self):
         if self._log:
             return tf.exp(self._variable)
         else:
             return self._variable
 
+    @utils.lru_cache
     def _compute_log_value(self):
         if self._log:
             return self._variable
         else:
             return tf.log(self._variable)
 
+    @utils.lru_cache
     def _compute_hard_gd_update(self, grads):
         if len(grads.shape) == 3:
             return tf.reduce_sum(grads, axis=0)
         return grads
-    
+
+    @utils.lru_cache
     def _compute_hard_em_update(self, counts):
         if len(counts.shape) == 3:
             return tf.reduce_sum(counts, axis=0)

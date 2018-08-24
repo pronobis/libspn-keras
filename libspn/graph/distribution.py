@@ -67,7 +67,7 @@ class GaussianLeaf(VarNode):
         else:
             self._loc_init = loc_init
 
-        # Initial values for variances.
+        # Initial values for variances
         self._scale_init = tfd.softplus_inverse(
             tf.ones((num_vars, num_components), dtype=conf.dtype) * scale_init)
         self._learn_dist_params = learn_dist_params
@@ -152,16 +152,17 @@ class GaussianLeaf(VarNode):
     @utils.docinherit(Node)
     def _create(self):
         super()._create()
-        self._loc_variable = tf.Variable(
-            self._loc_init, dtype=conf.dtype, collections=['spn_distribution_parameters',
-                                                           'spn_distribution_parameters_loc'])
-        self._scale_variable = tf.Variable(
-            tf.maximum(self._scale_init, self._min_stddev), dtype=conf.dtype,
-            collections=['spn_distribution_parameters', 'spn_distribution_parameters_scale'])
-        if self._softplus_scale:
-            self._dist = tfd.NormalWithSoftplusScale(self._loc_variable, self._scale_variable)
-        else:
-            self._dist = tfd.Normal(self._loc_variable, self._scale_variable)
+        with tf.name_scope("Setup{}".format(self.name)):
+            self._loc_variable = tf.Variable(
+                self._loc_init, dtype=conf.dtype, collections=['spn_distribution_parameters',
+                                                               'spn_distribution_parameters_loc'])
+            self._scale_variable = tf.Variable(
+                tf.maximum(self._scale_init, self._min_stddev), dtype=conf.dtype,
+                collections=['spn_distribution_parameters', 'spn_distribution_parameters_scale'])
+            if self._softplus_scale:
+                self._dist = tfd.NormalWithSoftplusScale(self._loc_variable, self._scale_variable)
+            else:
+                self._dist = tfd.Normal(self._loc_variable, self._scale_variable)
 
     def initialize_from_quantiles(self, data, estimate_variance=True, use_prior=False,
                                   prior_alpha=2.0, prior_beta=3.0):
