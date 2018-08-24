@@ -16,6 +16,8 @@ from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode
 import abc
 
+from libspn.utils.math import logconv_1x1, logmatmul
+
 
 @utils.register_serializable
 class SpatialSum(BaseSum, abc.ABC):
@@ -176,7 +178,28 @@ class SpatialSum(BaseSum, abc.ABC):
     @utils.lru_cache
     @utils.docinherit(BaseSum)
     def _compute_value(self, w_tensor, ivs_tensor, *input_tensors,
-                           dropconnect_keep_prob=None, dropout_keep_prob=None):
+                       dropconnect_keep_prob=None, dropout_keep_prob=None,
+                       matmul_or_conv=False):
+        if matmul_or_conv and ivs_tensor is not None:
+            self.logger.warn("Cannot use matmul when using IVs, setting matmul=False")
+            matmul_or_conv = False
+
+        if matmul_or_conv:
+            w_tensor, _, inp_concat = self._prepare_component_wise_processing(
+                w_tensor, ivs_tensor, *input_tensors)
+            if all(w_tensor.shape[i] == 1 for i in self._op_axis):
+                w_tensor = tf.transpose(
+                    tf.squeeze(w_tensor, axis=0), (0, 1, 3, 2))
+                inp_concat = tf.reshape(
+                    inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size])
+                out = tf.nn.convolution(input=inp_concat, filter=w_tensor, padding="SAME")
+            else:
+                w_tensor = tf.tile(w_tensor, [tf.shape(inp_concat)[0]] + 4 * [1])
+                out = tf.matmul(
+                    w_tensor, tf.reshape(
+                        inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size, 1]))
+            return tf.reshape(out, (-1, self._compute_out_size()))
+
         val = super(SpatialSum, self)._compute_value(
             w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob,
             dropout_keep_prob=dropout_keep_prob)
@@ -185,7 +208,29 @@ class SpatialSum(BaseSum, abc.ABC):
     @utils.lru_cache
     @utils.docinherit(BaseSum)
     def _compute_log_value(self, w_tensor, ivs_tensor, *input_tensors,
-                           dropconnect_keep_prob=None, dropout_keep_prob=None):
+                           dropconnect_keep_prob=None, dropout_keep_prob=None,
+                           matmul_or_conv=False):
+        if matmul_or_conv and ivs_tensor is not None:
+            self.logger.warn("Cannot use matmul when using IVs, setting matmul=False")
+            matmul_or_conv = False
+
+        if matmul_or_conv:
+            w_tensor, _, inp_concat = self._prepare_component_wise_processing(
+                w_tensor, ivs_tensor, *input_tensors)
+            if all(w_tensor.shape[i] == 1 for i in self._op_axis):
+                w_tensor = tf.transpose(
+                    tf.squeeze(w_tensor, axis=0), (0, 1, 3, 2))
+                inp_concat = tf.reshape(
+                    inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size])
+                out = logconv_1x1(input=inp_concat, filter=w_tensor)
+            else:
+                w_tensor = tf.tile(w_tensor, [tf.shape(inp_concat)[0]] + 4 * [1])
+                print(w_tensor)
+                out = logmatmul(
+                    w_tensor, tf.reshape(
+                        inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size, 1]))
+            return tf.reshape(out, (-1, self._compute_out_size()))
+
         val = super(SpatialSum, self)._compute_log_value(
             w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob,
             dropout_keep_prob=dropout_keep_prob)

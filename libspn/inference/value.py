@@ -8,6 +8,7 @@
 import tensorflow as tf
 from types import MappingProxyType
 from libspn.graph.algorithms import compute_graph_up
+from libspn.graph.spatialsum import SpatialSum
 from libspn.inference.type import InferenceType
 from libspn.graph.basesum import BaseSum
 
@@ -26,12 +27,13 @@ class Value:
     """
 
     def __init__(self, inference_type=None, dropconnect_keep_prob=None, dropout_keep_prob=None,
-                 name="Value"):
+                 name="Value", matmul_or_conv=True):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
         self._dropout_keep_prob = dropout_keep_prob
         self._name = name
+        self._matmul_or_conv = matmul_or_conv
 
     @property
     def values(self):
@@ -67,6 +69,8 @@ class Value:
                 if (self._inference_type == InferenceType.MARGINAL
                     or (self._inference_type is None and
                         node.inference_type == InferenceType.MARGINAL)):
+                    if isinstance(node, SpatialSum):
+                        kwargs['matmul_or_conv'] = self._matmul_or_conv
                     return node._compute_value(*args, **kwargs)
                 else:
                     return node._compute_mpe_value(*args, **kwargs)
@@ -91,12 +95,13 @@ class LogValue:
     """
 
     def __init__(self, inference_type=None, dropout_keep_prob=None, dropconnect_keep_prob=None,
-                 name="LogValue"):
+                 name="LogValue", matmul_or_conv=True):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
         self._dropout_keep_prob = dropout_keep_prob
         self._name = name
+        self._matmul_or_conv = matmul_or_conv
 
     @property
     def values(self):
@@ -133,6 +138,8 @@ class LogValue:
                 if (self._inference_type == InferenceType.MARGINAL
                     or (self._inference_type is None and
                         node.inference_type == InferenceType.MARGINAL)):
+                    if isinstance(node, SpatialSum):
+                        kwargs['matmul_or_conv'] = self._matmul_or_conv
                     return node._compute_log_value(*args, **kwargs)
                 else:
                     return node._compute_log_mpe_value(*args, **kwargs)

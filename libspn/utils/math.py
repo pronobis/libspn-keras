@@ -148,6 +148,23 @@ def logmatmul(a, b, transpose_a=False, transpose_b=False, name=None):
             max_b = tf.transpose(max_b)
         out += max_a + max_b
     return out
+
+
+def logconv_1x1(input, filter, name=None):
+    with tf.name_scope(name, "logconv_1x1", [input, filter]):
+        filter_max = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(filter, axis=-2, keepdims=True)))
+        input_max = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(input, axis=-1, keepdims=True)))
+        
+        filter -= filter_max
+        input -= input_max
+
+        out = tf.log(tf.nn.convolution(
+            input=tf.exp(input), filter=tf.exp(filter), padding="SAME"))
+        out += filter_max + input_max
+    
+    return out
         
         
 def replace_infs_with_zeros(x):
