@@ -340,6 +340,7 @@ setup(
         'numpy',
         'scipy',
         'matplotlib',
+        'parameterized',
         'pillow',
         'pyyaml',
         'colorama'  # For color output in tests
