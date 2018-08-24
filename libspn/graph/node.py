@@ -99,9 +99,9 @@ class Input():
             # Check for duplicates - duplicated indices cannot be handled
             # properly during the downward pass since integrating multiple
             # parents happens only on the level of inputs, not indices.
-            # if len(set(indices)) != len(indices):
-            #     raise ValueError("Indices %s for node %s contain duplicates"
-            #                      % (indices, node))
+            if len(set(indices)) != len(indices):
+                raise ValueError("Indices %s for node %s contain duplicates"
+                                 % (indices, node))
         elif indices is not None:
             raise TypeError("Invalid indices %s for node %s" % (indices, node))
         self.indices = indices

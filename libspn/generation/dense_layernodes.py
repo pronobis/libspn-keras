@@ -103,7 +103,7 @@ class DenseSPNGeneratorLayerNodes:
 
     def __init__(self, num_decomps, num_subsets, num_mixtures,
                  input_dist=InputDist.MIXTURE, num_input_mixtures=None,
-                 balanced=True, node_type=NodeType.BLOCK):
+                 balanced=True, node_type=NodeType.LAYER):
         # Args
         if not isinstance(num_decomps, int) or num_decomps < 1:
             raise ValueError("num_decomps must be a positive integer")
@@ -250,7 +250,7 @@ class DenseSPNGeneratorLayerNodes:
             # For each unique input, collect all associated indices
             # into a single list, then create a list of tuples,
             # where each tuple contains an unique input and it's
-            # list of incices
+            # list of indices
             inputs_list = []
             for unique_inp in unique_inputs:
                 indices_list = []
@@ -334,6 +334,8 @@ class DenseSPNGeneratorLayerNodes:
                         if self.input_dist == DenseSPNGeneratorLayerNodes.InputDist.RAW:
                             # Create an inputs list
                             inputs_list = subsubset_to_inputs_list(subsubset)
+                            if len(inputs_list) > 1:
+                                inputs_list = [Concat(*inputs_list)]
                             # Register the content of subset as inputs to PermProds
                             [prod_inputs.append(inp) for inp in inputs_list]
                         elif self.input_dist == DenseSPNGeneratorLayerNodes.InputDist.MIXTURE:
@@ -352,8 +354,8 @@ class DenseSPNGeneratorLayerNodes:
             if self.node_type == DenseSPNGeneratorLayerNodes.NodeType.SINGLE:
                 products = self.__add_products(prod_inputs)
             else:
-                products = [PermProducts(*prod_inputs,
-                            name="PermProducts%s" % self.__decomp_id)]
+                products = ([PermProducts(*prod_inputs, name="PermProducts%s" % self.__decomp_id)]
+                            if len(prod_inputs) > 1 else prod_inputs)
             # Connect products to each parent Sum
             for p in subset_info.parents:
                 p.add_values(*products)
@@ -379,10 +381,14 @@ class DenseSPNGeneratorLayerNodes:
         product_num = 1
         with tf.name_scope("Products%s" % self.__decomp_id):
             while cont:
-                # Add a product node
-                products.append(Product(*[pi[s] for (pi, s) in
-                                          zip(prod_inputs, selected)],
-                                        name="Product%s" % product_num))
+                if len(prod_inputs) > 1:
+                    # Add a product node
+                    products.append(Product(*[pi[s] for (pi, s) in
+                                              zip(prod_inputs, selected)],
+                                            name="Product%s" % product_num))
+                else:
+                    products.append(*[pi[s] for (pi, s) in
+                                      zip(prod_inputs, selected)])
                 product_num += 1
                 # Increment selected
                 cont = False
@@ -480,7 +486,12 @@ class DenseSPNGeneratorLayerNodes:
                     num_or_size_sums += [sum(node.get_input_sizes()[2:])] * node_num_sums
                     # Visit each parent of the current node
                     for parent in parents[node]:
-                        values = list(parent.values)
+                        try:
+                            # 'Values' in case parent is an Op node
+                            values = list(parent.values)
+                        except AttributeError:
+                            # 'Inputs' in case parent is a Concat node
+                            values = list(parent.inputs)
                         # Iterate through each input value of the current parent node
                         for i, value in enumerate(values):
                             # If the value is the current node
@@ -502,7 +513,12 @@ class DenseSPNGeneratorLayerNodes:
                                 break  # Once child-node found, don't have to search further
                         # Reset values of the current parent node, by including
                         # the new child (Layer-node)
-                        parent.set_values(*values)
+                        try:
+                            # set 'values' in case parent is an Op node
+                            parent.set_values(*values)
+                        except AttributeError:
+                            # set 'inputs' in case parent is a Concat node
+                            parent.set_inputs(*values)
                     # Increment num-sums-counter of the layer-node
                     layer_num_sums += node_num_sums
                 # After all nodes at a certain depth are modelled into a Layer-node,
@@ -564,6 +580,8 @@ class DenseSPNGeneratorLayerNodes:
                 # After all nodes at a certain depth are modelled into a Layer-node,
                 # set num-prods parameter accordingly
                 prods_layer.set_prod_sizes(num_or_size_prods)
+            elif isinstance(depths[depth][0], (SumsLayer, ProductsLayer, Concat)):  # A Concat node
+                pass
             else:
                 raise StructureError("Unknown node-type: {}".format(depths[depth][0]))
 

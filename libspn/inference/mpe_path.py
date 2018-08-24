@@ -27,7 +27,7 @@ class MPEPath:
     """
 
     def __init__(self, value=None, value_inference_type=None, log=True, add_random=None,
-                 use_unweighted=False, sample=False, sample_prob=None, sample_rank_based=None,
+                 use_unweighted=False, sample=False, sample_prob=None,
                  dropconnect_keep_prob=None, dropout_keep_prob=None):
         self._true_counts = {}
         self._actual_counts = {}
@@ -36,7 +36,6 @@ class MPEPath:
         self._use_unweighted = use_unweighted
         self._sample = sample
         self._sample_prob = sample_prob
-        self._sample_rank_based = sample_rank_based
         # Create internal value generator
         if value is None:
             if log:
@@ -91,8 +90,7 @@ class MPEPath:
             self._true_counts[node] = summed
             basesum_kwargs = dict(
                 add_random=self._add_random, use_unweighted=self._use_unweighted,
-                with_ivs=True, sample=self._sample, sample_prob=self._sample_prob,
-                sample_rank_based=self._sample_rank_based)
+                with_ivs=True, sample=self._sample, sample_prob=self._sample_prob)
             if node.is_op:
                 kwargs = basesum_kwargs if isinstance(node, BaseSum) else dict()
                 # Compute for inputs
@@ -135,8 +133,7 @@ class MPEPath:
             self._actual_counts[node] = summed
             basesum_kwargs = dict(
                 add_random=self._add_random, use_unweighted=self._use_unweighted,
-                with_ivs=False, sample=self._sample, sample_prob=self._sample_prob,
-                sample_rank_based=self._sample_rank_based)
+                with_ivs=False, sample=self._sample, sample_prob=self._sample_prob)
             if node.is_op:
                 # Compute for inputs
                 kwargs = basesum_kwargs if isinstance(node, BaseSum) else dict()

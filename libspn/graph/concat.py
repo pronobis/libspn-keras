@@ -166,7 +166,8 @@ class Concat(OpNode):
     def is_spatial(self):
         return self._axis == 3
 
-    def _compute_mpe_path(self, counts, *input_values, add_random=False, use_unweighted=False):
+    def _compute_mpe_path(self, counts, *input_values, add_random=False,
+                          use_unweighted=False, with_ivs=False):
         # Check inputs
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
@@ -183,5 +184,6 @@ class Concat(OpNode):
         return self._scatter_to_input_tensors(*[(t, v) for t, v in
                                                 zip(split, input_values)])
 
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False, use_unweighted=False):
+    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
+                              use_unweighted=False, with_ivs=False):
         return self._compute_mpe_path(counts, *value_values)

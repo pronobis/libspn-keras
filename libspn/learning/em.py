@@ -8,7 +8,7 @@
 from collections import namedtuple
 import tensorflow as tf
 
-from libspn.graph.distribution import GaussianLeaf
+from libspn.graph.distribution import GaussianLeaf, MultivariateGaussianDiagLeaf
 from libspn.inference.mpe_path import MPEPath
 from libspn.graph.algorithms import traverse_graph
 from libspn import conf
@@ -31,7 +31,7 @@ class EMLearning():
 
     def __init__(self, root, mpe_path=None, log=True, value_inference_type=None,
                  additive_smoothing=None, add_random=None, initial_accum_value=None,
-                 use_unweighted=False, sample=False, sample_prob=None, sample_rank_based=None,
+                 use_unweighted=False, sample=False, sample_prob=None,
                  dropout_keep_prob=None, dropconnect_keep_prob=None):
         self._root = root
         self._log = log
@@ -43,8 +43,7 @@ class EMLearning():
             self._mpe_path = MPEPath(
                 log=log, value_inference_type=value_inference_type, add_random=add_random,
                 use_unweighted=use_unweighted, sample=sample, sample_prob=sample_prob,
-                sample_rank_based=sample_rank_based, dropout_keep_prob=dropout_keep_prob,
-                dropconnect_keep_prob=dropconnect_keep_prob)
+                dropout_keep_prob=dropout_keep_prob, dropconnect_keep_prob=dropconnect_keep_prob)
         else:
             self._mpe_path = mpe_path
         # Create a name scope
@@ -161,7 +160,8 @@ class EMLearning():
                     param_node = EMLearning.ParamNode(node=node, accum=accum,
                                                       name_scope=scope)
                     self._param_nodes.append(param_node)
-            if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
+            if isinstance(node, (GaussianLeaf, MultivariateGaussianDiagLeaf)) \
+                    and node.learn_distribution_parameters:
                 with tf.name_scope(node.name) as scope:
                     if self._initial_accum_value is not None:
                         accum = tf.Variable(tf.ones_like(node.loc_variable, dtype=conf.dtype) *
