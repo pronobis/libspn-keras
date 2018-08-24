@@ -100,9 +100,11 @@ class BuildCommand(distutils.command.build.build):
         if not self._cuda_home:
             os.sys.exit("ERROR: CUDA not found!")
         self._cuda_libs = os.path.join(self._cuda_home, 'lib64')
+        self._cuda_includes = os.path.join(self._cuda_home, 'include')
 
         print("- Found CUDA in %s" % self._cuda_home)
         print("  nvcc: %s" % self._cuda_nvcc)
+        print("  includes: %s" % self._cuda_includes)
         print("  libraries: %s" % self._cuda_libs)
 
         # TensorFlow
@@ -110,8 +112,8 @@ class BuildCommand(distutils.command.build.build):
         self._tf_includes = tensorflow.sysconfig.get_include()
         self._tf_libs = tensorflow.sysconfig.get_lib()
         self._tf_version = tensorflow.__version__
-        self._tf_version_major = int(self._tf_version[0])
-        self._tf_version_minor = int(self._tf_version[2])
+        self._tf_version_major = int(self._tf_version.split('.')[0])
+        self._tf_version_minor = int(self._tf_version.split('.')[1])
         self._tf_gcc_version = tensorflow.__compiler_version__
         self._tf_gcc_version_major = int(self._tf_gcc_version[0])
         print("- Found TensorFlow %s" % self._tf_version)
@@ -142,7 +144,9 @@ class BuildCommand(distutils.command.build.build):
                     '--expt-relaxed-constexpr',  # To silence harmless warnings
                     '-I', self._tf_includes,
                     # The below fixes a missing include in TF 1.4rc0
-                    '-I', os.path.join(self._tf_includes, 'external', 'nsync', 'public')
+                    '-I', os.path.join(self._tf_includes, 'external', 'nsync', 'public'),
+                    # BUILDDIR contains a symlink to cuda includes
+                    '-I', BUILD_DIR
                     ] +
                    # Downgrade the ABI if system gcc > TF gcc
                    (['-D_GLIBCXX_USE_CXX11_ABI=0']
@@ -195,6 +199,16 @@ class BuildCommand(distutils.command.build.build):
         print(self._col_head + "Building:" + self._col_clear)
         # Make dirs
         os.makedirs(BUILD_DIR, exist_ok=True)
+        # Add folders so that we can include cuda/include/cuda.h
+        os.makedirs(os.path.join(BUILD_DIR, 'cuda'), exist_ok=True)
+        cuda_symlink = os.path.join(BUILD_DIR, 'cuda', 'include')
+        if os.path.exists(cuda_symlink):
+            if os.path.islink(cuda_symlink):
+                os.unlink(cuda_symlink)
+            else:
+                os.sys.exit('ERROR: %s exists and is not a symlink!' %
+                            cuda_symlink)
+        os.symlink(self._cuda_includes, cuda_symlink)
         # Should rebuild?
         if self._is_dirty(TARGET, SOURCES + HEADERS +
                           SOURCES_CUDA + HEADERS_CUDA):
