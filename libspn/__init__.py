@@ -19,11 +19,9 @@ from libspn.graph.contvars import ContVars
 from libspn.graph.concat import Concat
 from libspn.graph.sum import Sum
 from libspn.graph.parsums import ParSums
-from libspn.graph.sums import Sums
 from libspn.graph.sumslayer import SumsLayer
 from libspn.graph.product import Product
 from libspn.graph.permproducts import PermProducts
-from libspn.graph.products import Products
 from libspn.graph.productslayer import ProductsLayer
 from libspn.graph.weights import Weights
 from libspn.graph.weights import assign_weights
@@ -113,8 +111,8 @@ __all__ = [
     # Graph
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IVs', 'ContVars',
-    'Sum', 'ParSums', 'Sums', 'SumsLayer',
-    'Product', 'PermProducts', 'Products', 'ProductsLayer',
+    'Sum', 'ParSums', 'SumsLayer',
+    'Product', 'PermProducts', 'ProductsLayer',
     'GaussianLeaf',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
