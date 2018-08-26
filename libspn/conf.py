@@ -41,3 +41,10 @@ graph size."""
 custom_gradient = True
 """Whether or not to use custom gradient implementations,
 implemented within the respective Op nodes."""
+
+argmax_zero = False
+"""Whether to always return zero when 
+argmax in BaseSum is faced with multiple maxes. 
+If False, selects random a 'winner' among 
+the maxes.
+"""

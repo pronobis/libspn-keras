@@ -576,6 +576,6 @@ class DenseSPNGeneratorLayerNodes:
             elif isinstance(depths[depth][0], (SumsLayer, ProductsLayer, Concat)):  # A Concat node
                 pass
             else:
-                raise StructureError("Unknown node-type: %s", depths[depth][0])
+                raise StructureError("Unknown node-type: {}".format(depths[depth][0]))
 
         return root

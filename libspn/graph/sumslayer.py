@@ -49,20 +49,25 @@ class SumsLayer(BaseSum):
     """
 
     def __init__(self, *values, num_or_size_sums=None, weights=None, ivs=None,
-                 inference_type=InferenceType.MARGINAL, name="SumsLayer"):
+                 inference_type=InferenceType.MARGINAL, sample_prob=None,
+                 dropconnect_keep_prob=None, dropout_keep_prob=None, name="SumsLayer"):
 
         if isinstance(num_or_size_sums, int) or num_or_size_sums is None:
             # In case it is an int, pass it to num_sums. In case it is None, pass None to num_sums.
             # The latter will trigger the default behavior where each sum corresponds to an Input.
             super().__init__(
                 *values, num_sums=num_or_size_sums, weights=weights, ivs=ivs,
-                inference_type=inference_type, name=name)
+                inference_type=inference_type, sample_prob=sample_prob,
+                dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob,
+                name=name, masked=True)
         else:
             # In this case we have a list of sum sizes, so it is straightforward to determine the
             # number of sums.
             super().__init__(
                 *values, num_sums=len(num_or_size_sums), sum_sizes=num_or_size_sums,
-                weights=weights, ivs=ivs, inference_type=inference_type, name=name)
+                weights=weights, ivs=ivs, inference_type=inference_type, sample_prob=sample_prob,
+                dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob,
+                name=name, masked=True)
 
     @utils.docinherit(BaseSum)
     def _reset_sum_sizes(self, num_sums=None, sum_sizes=None):
@@ -221,7 +226,8 @@ class SumsLayer(BaseSum):
             init_value = init_padded_flat.reshape((self._num_sums, max_size))
         elif not isinstance(init_value, utils.ValueType.RANDOM_UNIFORM):
             raise ValueError("Initialization value {} of type {} not usable, use an int or an "
-                             "iterable of size {} or an instance of spn.ValueType.RANDOM_UNIFORM."
+                             "iterable of size {} or an instance of "
+                             "libspn.ValueType.RANDOM_UNIFORM."
                              .format(init_value, type(init_value), sum_size))
         # Generate weights
         weights = Weights(init_value=init_value, num_weights=max_size,
@@ -314,9 +320,15 @@ class SumsLayer(BaseSum):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
-            sum_weight_grads=False):
-        max_indices = tf.argmax(reducible_tensor, axis=self._reduce_axis)
+            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
+            sum_weight_grads=False, sample=False, sample_prob=None, dropout_prob=None):
+        if sample:
+            if log:
+                max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
+            else:
+                max_indices = self._reduce_sample(reducible_tensor, sample_prob=sample_prob)
+        else:
+            max_indices = self._reduce_argmax(reducible_tensor)
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_split = self._accumulate_and_split_to_children(max_counts, *input_tensors)
@@ -333,10 +345,23 @@ class SumsLayer(BaseSum):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_log_gradient(self, gradients, w_tensor, ivs_tensor, *value_tensors,
-                              with_ivs=True, sum_weight_grads=False):
+                              with_ivs=True, sum_weight_grads=False, dropout_keep_prob=None,
+                              dropconnect_keep_prob=None):
         reducible = self._compute_reducible(
-            w_tensor, ivs_tensor, *value_tensors, log=True, use_ivs=with_ivs)
-        log_sum = tf.reduce_logsumexp(reducible, axis=self._reduce_axis, keepdims=True)
+            w_tensor, ivs_tensor, *value_tensors, log=True, use_ivs=with_ivs,
+            dropconnect_keep_prob=dropconnect_keep_prob)
+        log_sum = tf.expand_dims(
+            self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
+
+        dropout_keep_prob = utils.maybe_first(dropout_keep_prob, self._dropout_keep_prob)
+        if dropout_keep_prob is not None and not \
+                (isinstance(dropout_keep_prob, (float, int)) and float(dropout_keep_prob) == 1.0):
+            mask = self._get_or_create_dropout_mask(
+                batch_size=tf.shape(gradients)[self._batch_axis], keep_prob=dropout_keep_prob,
+                log=True)
+            gradients = self.cwise_mul(gradients, tf.exp(mask))
+
+        # A number - (-inf) is undefined. In fact, the gradient in those cases should be zero
         log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
         w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(
             reducible - log_sum)

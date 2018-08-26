@@ -153,7 +153,7 @@ class Product(OpNode):
 
     @utils.lru_cache
     def _compute_mpe_path(self, counts, *value_values, add_random=False,
-                          use_unweighted=False, with_ivs=False):
+                          use_unweighted=False, with_ivs=False, sample=False, sample_prob=None):
         # Check inputs
         if not self._values:
             raise StructureError("%s is missing input values." % self)
@@ -173,7 +173,7 @@ class Product(OpNode):
         return self._scatter_to_input_tensors(*value_counts)
 
     def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False, with_ivs=False):
+                              use_unweighted=False, with_ivs=False, sample=False, sample_prob=None):
         return self._compute_mpe_path(counts, *value_values)
 
     @utils.lru_cache

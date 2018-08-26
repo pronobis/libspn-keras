@@ -9,6 +9,7 @@ from types import MappingProxyType
 import tensorflow as tf
 from libspn.inference.value import Value, LogValue
 from libspn.graph.algorithms import compute_graph_up_down
+from libspn.graph.basesum import BaseSum
 
 
 class MPEPath:
@@ -26,18 +27,25 @@ class MPEPath:
     """
 
     def __init__(self, value=None, value_inference_type=None, log=True, add_random=None,
-                 use_unweighted=False):
+                 use_unweighted=False, sample=False, sample_prob=None,
+                 dropconnect_keep_prob=None, dropout_keep_prob=None):
         self._true_counts = {}
         self._actual_counts = {}
         self._log = log
         self._add_random = add_random
         self._use_unweighted = use_unweighted
+        self._sample = sample
+        self._sample_prob = sample_prob
         # Create internal value generator
         if value is None:
             if log:
-                self._value = LogValue(value_inference_type)
+                self._value = LogValue(
+                    value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob,
+                    dropout_keep_prob=dropout_keep_prob)
             else:
-                self._value = Value(value_inference_type)
+                self._value = Value(
+                    value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob,
+                    dropout_keep_prob=dropout_keep_prob)
         else:
             self._value = value
             self._log = value.log()
@@ -80,25 +88,21 @@ class MPEPath:
             else:
                 summed = parent_vals[0]
             self._true_counts[node] = summed
+            basesum_kwargs = dict(
+                add_random=self._add_random, use_unweighted=self._use_unweighted,
+                with_ivs=True, sample=self._sample, sample_prob=self._sample_prob)
             if node.is_op:
+                kwargs = basesum_kwargs if isinstance(node, BaseSum) else dict()
                 # Compute for inputs
                 with tf.name_scope(node.name):
                     if self._log:
                         return node._compute_log_mpe_path(
-                            summed, *[self._value.values[i.node]
-                                      if i else None
-                                      for i in node.inputs],
-                            add_random=self._add_random,
-                            use_unweighted=self._use_unweighted,
-                            with_ivs=True)
+                            summed, *[self._value.values[i.node] if i else None
+                                      for i in node.inputs], **kwargs)
                     else:
                         return node._compute_mpe_path(
-                            summed, *[self._value.values[i.node]
-                                      if i else None
-                                      for i in node.inputs],
-                            add_random=self._add_random,
-                            use_unweighted=self._use_unweighted,
-                            with_ivs=True)
+                            summed, *[self._value.values[i.node] if i else None
+                                      for i in node.inputs], **kwargs)
 
         # Generate values if not yet generated
         if not self._value.values:
@@ -127,25 +131,21 @@ class MPEPath:
             else:
                 summed = parent_vals[0]
             self._actual_counts[node] = summed
+            basesum_kwargs = dict(
+                add_random=self._add_random, use_unweighted=self._use_unweighted,
+                with_ivs=False, sample=self._sample, sample_prob=self._sample_prob)
             if node.is_op:
                 # Compute for inputs
+                kwargs = basesum_kwargs if isinstance(node, BaseSum) else dict()
                 with tf.name_scope(node.name):
                     if self._log:
                         return node._compute_log_mpe_path(
-                            summed, *[self._value.values[i.node]
-                                      if i else None
-                                      for i in node.inputs],
-                            add_random=self._add_random,
-                            use_unweighted=self._use_unweighted,
-                            with_ivs=False)
+                            summed, *[self._value.values[i.node] if i else None
+                                      for i in node.inputs], **kwargs)
                     else:
                         return node._compute_mpe_path(
-                            summed, *[self._value.values[i.node]
-                                      if i else None
-                                      for i in node.inputs],
-                            add_random=self._add_random,
-                            use_unweighted=self._use_unweighted,
-                            with_ivs=False)
+                            summed, *[self._value.values[i.node] if i else None
+                                      for i in node.inputs], **kwargs)
 
         # Generate values if not yet generated
         if not self._value.values:

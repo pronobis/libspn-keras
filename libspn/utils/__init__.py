@@ -35,6 +35,7 @@ from .serialization import register_serializable
 from .serialization import json_dumps, json_loads
 from .serialization import json_dump, json_load
 from .serialization import str2type, type2str
+from .utils import maybe_first
 from .enum import Enum
 
 # All
@@ -50,4 +51,5 @@ __all__ = ['decode_bytes_array', 'scatter_cols', 'scatter_values',
            'register_serializable',
            'json_dumps', 'json_loads', 'json_dump', 'json_load',
            'str2type', 'type2str',
+           'maybe_first',
            'Enum']

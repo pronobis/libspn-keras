@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from collections import namedtuple, OrderedDict
 
 import tensorflow as tf
+import tensorflow.contrib.distributions as tfd
 from libspn import utils, conf
 from libspn.inference.type import InferenceType
 from libspn.learning.type import GradientType
@@ -568,9 +569,9 @@ class OpNode(Node):
                                      during the next learning op generation.
     """
 
-    def __init__(self, inference_type=InferenceType.MARGINAL,
-                 name=None,
-                 gradient_type=GradientType.SOFT):
+    def __init__(self, inference_type=InferenceType.MARGINAL, dropout_keep_prob=None,
+                 gradient_type=GradientType.SOFT, name=None):
+        self._dropout_keep_prob = dropout_keep_prob
         super().__init__(inference_type, name, gradient_type)
 
     @abstractmethod
@@ -774,6 +775,29 @@ class OpNode(Node):
             where the first dimension corresponds to the batch size and the
             second dimension is the size of the output of the input node.
         """
+
+    @utils.lru_cache
+    def _create_dropout_mask(self, keep_prob, shape, log=True, name="DropoutMask"):
+        """Creates a dropout mask with values drawn from a Bernoulli distribution with parameter
+        ``keep_prob``.
+
+        Args:
+            keep_prob (Tensor): A float ``Tensor`` indicating the probability of keeping an element
+                active.
+            shape (Tensor): A 1D ``Tensor`` specifying the shape of the
+
+        """
+        with tf.name_scope(name):
+            mask = tfd.Bernoulli(probs=keep_prob, dtype=conf.dtype, name="DropoutMaskBernoulli")\
+                .sample(sample_shape=shape)
+            return tf.log(mask) if log else mask
+
+    @property
+    def dropout_keep_prob(self):
+        return self._dropout_keep_prob
+
+    def set_dropout_keep_prob(self, p):
+        self._dropout_keep_prob = p
 
     # @abstractmethod
     # def _compute_gradient(self, gradients, *input_values):

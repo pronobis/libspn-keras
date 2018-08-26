@@ -28,10 +28,6 @@ class GDLearning:
         learning_inference_type (LearningInferenceType): Learning inference type
             used while learning.
     """
-    # ParamNode = namedtuple("ParamNode", ["node", "name_scope", "accum"])
-    # GaussianLeafNode = namedtuple(
-    #     "GaussianLeafNode", ["node", "name_scope", "mean_grad", "var_grad"])
-
     def __init__(self, root, value=None, value_inference_type=None,
                  log=True, learning_type=LearningType.SUPERVISED,
                  learning_method=LearningMethod.DISCRIMINATIVE,
