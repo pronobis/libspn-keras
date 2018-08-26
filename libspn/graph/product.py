@@ -127,7 +127,7 @@ class Product(OpNode):
         return tf.reduce_prod(values, 1, keepdims=True)
 
     @utils.lru_cache
-    def _compute_log_value(self, *value_tensors):
+    def _compute_log_value(self, *value_tensors, with_ivs=False):
         values = self._compute_value_common(*value_tensors)
 
         # Wrap the log value with its custom gradient
@@ -148,7 +148,7 @@ class Product(OpNode):
     def _compute_mpe_value(self, *value_tensors):
         return self._compute_value(*value_tensors)
 
-    def _compute_log_mpe_value(self, *value_tensors):
+    def _compute_log_mpe_value(self, *value_tensors, with_ivs=True):
         return self._compute_log_value(*value_tensors)
 
     @utils.lru_cache

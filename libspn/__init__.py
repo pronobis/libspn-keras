@@ -53,7 +53,8 @@ from libspn.inference.gradient import Gradient
 from libspn.learning.em import EMLearning
 from libspn.learning.gd import GDLearning
 from libspn.learning.type import LearningType
-from libspn.learning.type import LearningInferenceType
+from libspn.learning.type import LearningMethod
+from libspn.learning.type import GradientType
 
 # Data
 from libspn.data.dataset import Dataset
@@ -124,8 +125,9 @@ __all__ = [
     'DenseSPNGenerator', 'DenseSPNGeneratorLayerNodes',
     'WeightsGenerator', 'generate_weights',
     # Inference and learning
-    'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient', 'MPEState',
-    'EMLearning', 'GDLearning', 'LearningType', 'LearningInferenceType',
+    'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient',
+    'MPEState', 'EMLearning', 'GDLearning', 'LearningType',
+    'LearningMethod', 'GradientType',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
     'IntGridDataset', 'ImageFormat', 'ImageShape', 'ImageDatasetBase',

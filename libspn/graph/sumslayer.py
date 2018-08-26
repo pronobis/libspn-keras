@@ -314,13 +314,19 @@ class SumsLayer(BaseSum):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors):
+            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
+            sum_weight_grads=False):
         max_indices = tf.argmax(reducible_tensor, axis=self._reduce_axis)
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_split = self._accumulate_and_split_to_children(max_counts, *input_tensors)
+        if sum_weight_grads:
+            w_counts = tf.reduce_sum(max_counts, axis=self._batch_axis)
+        else:
+            w_counts = max_counts
+
         return self._scatter_to_input_tensors(
-            (max_counts, w_tensor),  # Weights
+            (w_counts, w_tensor),  # Weights
             (max_counts, ivs_tensor)
         ) + tuple(max_counts_split)
 
@@ -338,6 +344,7 @@ class SumsLayer(BaseSum):
         ivs_grads = w_grad
         if sum_weight_grads:
             w_grad = tf.reduce_sum(w_grad, axis=self._batch_axis)
+
         return self._scatter_to_input_tensors(
             (w_grad, w_tensor),
             (ivs_grads, ivs_tensor)

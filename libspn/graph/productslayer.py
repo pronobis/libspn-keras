@@ -67,12 +67,16 @@ class ProductsLayer(OpNode):
     def serialize(self):
         data = super().serialize()
         data['values'] = [(i.node.name, i.indices) for i in self._values]
+        data['num_prods'] = self._num_prods
+        data['prod_input_sizes'] = self._prod_input_sizes
         data['num_or_size_prods'] = self._num_or_size_prods
         return data
 
     def deserialize(self, data):
         super().deserialize(data)
         self.set_values()
+        self._num_prods = data['num_prods']
+        self._prod_input_sizes = data['prod_input_sizes']
         self._num_or_size_prods = data['num_or_size_prods']
 
     def deserialize_inputs(self, data, nodes_by_name):
@@ -252,11 +256,11 @@ class ProductsLayer(OpNode):
     @utils.lru_cache
     def _compute_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors, padding_value=1.0)
-        return tf.reduce_prod(values, axis=-1, keepdims=(False if
-                              self._num_prods > 1 else True))
+        return tf.reduce_prod(values, axis=-1, keepdims=
+            (False if self._num_prods > 1 else True))
 
     @utils.lru_cache
-    def _compute_log_value(self, *value_tensors):
+    def _compute_log_value(self, *value_tensors, with_ivs=False):
         values = self._compute_value_common(*value_tensors, padding_value=0.0)
 
         # Wrap the log value with its custom gradient
@@ -273,8 +277,8 @@ class ProductsLayer(OpNode):
         if conf.custom_gradient:
             return log_value(*unique_tensors)
         else:
-            return tf.reduce_sum(values, axis=-1,
-                                 keep_dims=(False if self._num_prods > 1 else True))
+            return tf.reduce_sum(
+                values, axis=-1, keep_dims=(False if self._num_prods > 1 else True))
 
     @utils.lru_cache
     def _get_differentiable_inputs(self, *value_tensors):
@@ -286,7 +290,7 @@ class ProductsLayer(OpNode):
         return self._compute_value(*value_tensors)
 
     @utils.lru_cache
-    def _compute_log_mpe_value(self, *value_tensors):
+    def _compute_log_mpe_value(self, *value_tensors, with_ivs=True):
         return self._compute_log_value(*value_tensors)
 
     def _collect_count_indices_per_input(self):

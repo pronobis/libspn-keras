@@ -44,6 +44,8 @@ class PermProducts(OpNode):
 
     def serialize(self):
         data = super().serialize()
+        data['input_sizes'] = self._input_sizes
+        data['num_inputs'] = self._num_inputs
         data['values'] = [(i.node.name, i.indices) for i in self._values]
         return data
 
@@ -55,7 +57,8 @@ class PermProducts(OpNode):
         super().deserialize_inputs(data, nodes_by_name)
         self._values = tuple(Input(nodes_by_name[nn], i)
                              for nn, i in data['values'])
-        self.create_products()
+        self.create_products(input_sizes=data['input_sizes'],
+                             num_inputs=data['num_inputs'])
 
     @property
     @utils.docinherit(OpNode)
@@ -82,15 +85,17 @@ class PermProducts(OpNode):
         """
         self._values = self._parse_inputs(*values)
 
-    def create_products(self):
+    def create_products(self, input_sizes=None, num_inputs=None):
         """Based on the number and size of inputs connected to this node, model
         products by permuting over the inputs.
         """
         if not self._values:
             raise StructureError("%s is missing input values." % self)
 
-        self._input_sizes = list(self.get_input_sizes())
-        self._num_inputs = len(self._input_sizes)
+        self._input_sizes = input_sizes if input_sizes is not None \
+            else list(self.get_input_sizes())
+        self._num_inputs = num_inputs if num_inputs is not None \
+            else len(self._input_sizes)
 
         # Calculate number of products this node would model.
         if self._num_inputs == 1:
@@ -209,7 +214,7 @@ class PermProducts(OpNode):
                               keepdims=(False if self._num_prods > 1 else True))
 
     @utils.lru_cache
-    def _compute_log_value(self, *value_tensors):
+    def _compute_log_value(self, *value_tensors, with_ivs=False):
         values = self._compute_value_common(*value_tensors)
 
         # Wrap the log value with its custom gradient
@@ -231,7 +236,7 @@ class PermProducts(OpNode):
     def _compute_mpe_value(self, *value_tensors):
         return self._compute_value(*value_tensors)
 
-    def _compute_log_mpe_value(self, *value_tensors):
+    def _compute_log_mpe_value(self, *value_tensors, with_ivs=True):
         return self._compute_log_value(*value_tensors)
 
     @utils.lru_cache
