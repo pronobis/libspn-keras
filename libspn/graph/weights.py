@@ -130,6 +130,7 @@ class Weights(ParamNode):
         else:
             shape = self._num_weights
         value = utils.broadcast_value(value, (shape,), dtype=conf.dtype)
+        value = tf.where(tf.is_nan(value), tf.ones_like(value) * 0.01, value)
         if self._mask and not all(self._mask):
             # Only perform masking if mask is given and mask contains any 'False'
             value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
@@ -155,6 +156,7 @@ class Weights(ParamNode):
         else:
             shape = self._num_weights
         value = utils.broadcast_value(value, (shape,), dtype=conf.dtype)
+        value = tf.where(tf.is_nan(value), tf.log(tf.ones_like(value) * 0.01), value)
         if self._mask and not all(self._mask):
             # Only perform masking if mask is given and mask contains any 'False'
             value += tf.log(tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype))
