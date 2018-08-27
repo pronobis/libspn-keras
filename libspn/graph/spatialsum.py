@@ -222,14 +222,29 @@ class SpatialSum(BaseSum, abc.ABC):
                     tf.squeeze(w_tensor, axis=0), (0, 1, 3, 2))
                 inp_concat = tf.reshape(
                     inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size])
+                dropconnect_keep_prob = utils.maybe_first(
+                    self._dropconnect_keep_prob, dropconnect_keep_prob)
+                if dropconnect_keep_prob is not None and (not isinstance(
+                        dropconnect_keep_prob, float) or dropconnect_keep_prob != 1.0):
+                    dropout_mask = self._create_dropout_mask(
+                        keep_prob=dropconnect_keep_prob, shape=tf.shape(inp_concat), log=True)
+                    inp_concat += dropout_mask
                 out = logconv_1x1(input=inp_concat, filter=w_tensor)
+                return tf.reshape(out, (-1, self._compute_out_size()))
             else:
+                # pass
                 w_tensor = tf.tile(w_tensor, [tf.shape(inp_concat)[0]] + 4 * [1])
-                print(w_tensor)
+                dropconnect_keep_prob = utils.maybe_first(
+                    self._dropconnect_keep_prob, dropconnect_keep_prob)
+                if dropconnect_keep_prob is not None and (not isinstance(
+                        dropconnect_keep_prob, float) or dropconnect_keep_prob != 1.0):
+                    dropout_mask = self._create_dropout_mask(
+                        keep_prob=dropconnect_keep_prob, shape=tf.shape(inp_concat), log=True)
+                    inp_concat += dropout_mask
                 out = logmatmul(
                     w_tensor, tf.reshape(
                         inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size, 1]))
-            return tf.reshape(out, (-1, self._compute_out_size()))
+                return tf.reshape(out, (-1, self._compute_out_size()))
 
         val = super(SpatialSum, self)._compute_log_value(
             w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob,

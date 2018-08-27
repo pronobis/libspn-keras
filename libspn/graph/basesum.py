@@ -320,7 +320,7 @@ class BaseSum(OpNode, abc.ABC):
             reducible = cwise_op(reducible, w_tensor)
 
         dropconnect_keep_prob = utils.maybe_first(
-            dropconnect_keep_prob, self._dropconnect_keep_prob)
+            self._dropconnect_keep_prob, dropconnect_keep_prob)
         if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
                 if use_ivs and self._ivs:
                     self.logger.warn(
