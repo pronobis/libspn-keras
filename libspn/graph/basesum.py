@@ -322,15 +322,15 @@ class BaseSum(OpNode, abc.ABC):
         dropconnect_keep_prob = utils.maybe_first(
             self._dropconnect_keep_prob, dropconnect_keep_prob)
         if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
-                if use_ivs and self._ivs:
-                    self.logger.warn(
-                        "Using dropconnect and latent IVs simultaneously. "
-                        "This might result in zero probabilities throughout and unpredictable "
-                        "behavior of learning.")
-                else:
-                    mask = self._create_dropout_mask(
-                        dropconnect_keep_prob, tf.shape(reducible), log=log)
-                    reducible = cwise_op(reducible, mask)
+            if use_ivs and self._ivs:
+                self.logger.warn(
+                    "Using dropconnect and latent IVs simultaneously. "
+                    "This might result in zero probabilities throughout and unpredictable "
+                    "behavior of learning.")
+            else:
+                mask = self._create_dropout_mask(
+                    dropconnect_keep_prob, tf.shape(reducible), log=log)
+                reducible = cwise_op(reducible, mask)
 
         return reducible
 
@@ -352,7 +352,6 @@ class BaseSum(OpNode, abc.ABC):
     @utils.lru_cache
     def _compute_log_value(self, w_tensor, ivs_tensor, *value_tensors, dropconnect_keep_prob=None,
                            dropout_keep_prob=None):
-
         # Defines gradient for the log value
         def soft_gradient(grad):
             scattered_grads = self._compute_log_gradient(

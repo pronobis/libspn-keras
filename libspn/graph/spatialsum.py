@@ -175,19 +175,8 @@ class SpatialSum(BaseSum, abc.ABC):
     def _compute_out_size(self, *input_out_sizes):
         return int(np.prod(self._grid_dim_sizes) * self._num_channels)
 
-    @utils.lru_cache
     @utils.docinherit(BaseSum)
-    def _compute_value(self, w_tensor, ivs_tensor, *input_tensors,
-                       dropconnect_keep_prob=None, dropout_keep_prob=None,
-                       matmul_or_conv=False):
-        ivs_log = None if ivs_tensor is None else tf.log(ivs_tensor)
-        return self._compute_log_value(
-            tf.log(w_tensor), ivs_log, *[tf.log(t) for t in input_tensors],
-            dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob,
-            matmul_or_conv=matmul_or_conv)
-
     @utils.lru_cache
-    @utils.docinherit(BaseSum)
     def _compute_log_value(self, w_tensor, ivs_tensor, *input_tensors,
                            dropconnect_keep_prob=None, dropout_keep_prob=None,
                            matmul_or_conv=False):
@@ -226,6 +215,17 @@ class SpatialSum(BaseSum, abc.ABC):
             w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob,
             dropout_keep_prob=dropout_keep_prob)
         return tf.reshape(val, (-1, self._compute_out_size()))
+
+    @utils.docinherit(BaseSum)
+    @utils.lru_cache
+    def _compute_value(self, w_tensor, ivs_tensor, *input_tensors,
+                       dropconnect_keep_prob=None, dropout_keep_prob=None,
+                       matmul_or_conv=False):
+        ivs_log = None if ivs_tensor is None else tf.log(ivs_tensor)
+        return self._compute_log_value(
+            tf.log(w_tensor), ivs_log, *[tf.log(t) for t in input_tensors],
+            dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob,
+            matmul_or_conv=matmul_or_conv)
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
