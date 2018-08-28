@@ -12,6 +12,7 @@ import tensorflow as tf
 import tensorflow.contrib.distributions as tfd
 from libspn import utils, conf
 from libspn.inference.type import InferenceType
+from libspn.learning.type import GradientType
 from libspn.exceptions import StructureError
 from libspn.graph.algorithms import compute_graph_up, traverse_graph
 
@@ -202,14 +203,20 @@ class Node(ABC):
                                        Can be changed at any time and will be
                                        used during the next inference/learning
                                        op generation.
+        gradient_type(GradientType): Flag indicating the preferred gradient
+                                     type for this node that will be used
+                                     during gradient computation. Can be
+                                     changed at any time and will be used
+                                     during the next learning op generation.
     """
 
-    def __init__(self, inference_type, name):
+    def __init__(self, inference_type, name, gradient_type=GradientType.SOFT):
         self._graph_data = GraphData.get()
         if name is None:
             name = "Node"
         self._name = self.tf_graph.unique_name(name)
         self.inference_type = inference_type
+        self.gradient_type = gradient_type
         with tf.name_scope(self._name + "/"):
             self._create()
 
@@ -221,7 +228,8 @@ class Node(ABC):
             dict: Dictionary with all the data to be serialized.
         """
         return {'name': self._name,
-                'inference_type': self.inference_type.name}
+                'inference_type': self.inference_type.name,
+                'gradient_type': self.gradient_type.name}
 
     @abstractmethod
     def deserialize(self, data):
@@ -231,7 +239,8 @@ class Node(ABC):
             data (dict): Dictionary with all the data to be deserialized.
         """
         Node.__init__(self, name=data['name'],
-                      inference_type=InferenceType[data['inference_type']])
+                      inference_type=InferenceType[data['inference_type']],
+                      gradient_type=GradientType[data['gradient_type']])
 
     @property
     def name(self):
@@ -354,7 +363,7 @@ class Node(ABC):
         from libspn.inference.value import Value
         return Value(inference_type).get_value(self)
 
-    def get_log_value(self, inference_type=None):
+    def get_log_value(self, inference_type=None, with_ivs=True):
         """Assemble TF operations computing the log value of the SPN rooted in
         this node.
 
@@ -370,7 +379,7 @@ class Node(ABC):
             dimension corresponds to the batch size.
         """
         from libspn.inference.value import LogValue
-        return LogValue(inference_type).get_value(self)
+        return LogValue(inference_type).get_value(self, with_ivs=with_ivs)
 
     def set_inference_types(self, inference_type):
         """Set inference type for each node in the SPN rooted in this node.
@@ -380,6 +389,17 @@ class Node(ABC):
         """
         def fun(node):
             node.inference_type = inference_type
+
+        traverse_graph(self, fun=fun, skip_params=False)
+
+    def set_gradient_types(self, gradient_type):
+        """Set gradient type for each node in the SPN rooted in this node.
+
+        Args:
+           gradient_type (GradientType): Gradient type to set for the nodes.
+        """
+        def fun(node):
+            node.gradient_type = gradient_type
 
         traverse_graph(self, fun=fun, skip_params=False)
 
@@ -465,7 +485,7 @@ class Node(ABC):
         """
 
     @abstractmethod
-    def _compute_log_value(self, *input_tensors):
+    def _compute_log_value(self, *input_tensors, with_ivs=True):
         """Assemble TF operations computing the marginal log value of this node.
 
         To be re-implemented in sub-classes.
@@ -495,7 +515,7 @@ class Node(ABC):
         """
 
     @abstractmethod
-    def _compute_log_mpe_value(self, *input_tensors):
+    def _compute_log_mpe_value(self, *input_tensors, with_ivs=True):
         """Assemble TF operations computing the log MPE value of this node.
 
         To be re-implemented in sub-classes.
@@ -542,10 +562,16 @@ class OpNode(Node):
                                        Can be changed at any time and will be
                                        used during the next inference/learning
                                        op generation.
+        gradient_type(GradientType): Flag indicating the preferred gradient
+                                     type for this node that will be used
+                                     during gradient computation. Can be
+                                     changed at any time and will be used
+                                     during the next learning op generation.
     """
 
-    def __init__(self, inference_type=InferenceType.MARGINAL, name=None):
-        super().__init__(inference_type, name)
+    def __init__(self, inference_type=InferenceType.MARGINAL, gradient_type=GradientType.SOFT,
+                 name=None):
+        super().__init__(inference_type, name, gradient_type)
 
     @abstractmethod
     def deserialize_inputs(self, data, nodes_by_name):
@@ -764,26 +790,6 @@ class OpNode(Node):
             mask = tfd.Bernoulli(probs=keep_prob, dtype=conf.dtype, name="DropoutMaskBernoulli")\
                 .sample(sample_shape=shape)
             return tf.log(mask) if log else mask
-
-    # @abstractmethod
-    # def _compute_gradient(self, gradients, *input_values):
-    #     """Assemble TF operations computing gradients for each input of the node.
-    #
-    #     To be re-implemented in sub-classes.
-    #
-    #     Args:
-    #         counts (Tensor): Branch counts for each output value of this node.
-    #         *input_values (Tensor): For each input, a tensor containing the value
-    #                                 or log value produced by the input node. Can
-    #                                 be ``None`` if the input is not connected.
-    #
-    #     Returns:
-    #         list of Tensor: For each input, branch counts to pass to the node
-    #         connected to the input. Each tensor is of shape ``[None, out_size]``,
-    #         where the first dimension corresponds to the batch size and the
-    #         second dimension is the size of the output of the input node.
-    #     """
-
 
 class VarNode(Node):
     """An abstract class defining a variable node of the SPN graph.
@@ -1146,26 +1152,3 @@ class ParameterizedDistributionNode(DistributionNode, abc.ABC):
             init_val = utils.broadcast_value(init, shape, dtype=conf.dtype)
             self._variables[name] = tf.Variable(
                 init_val, dtype=conf.dtype, collections=['spn_distribution_accumulates'])
-
-    # @abc.abstractmethod
-    # def assign(self, accum, ):
-    #     """Assign new values to variables based on accum """
-        # assignment_ops = []
-        # if values and named_values:
-        #     raise ValueError(
-        #         "Cannot specify both keyword arguments for values and names for values.")
-        # if values:
-        #     if len(values) != len(self._variables):
-        #         raise StructureError(
-        #             "{}: number of assignment values does not match the number of parameters. Got "
-        #             "{}, expected {}.".format(self.name, len(values), len(self._variables)))
-        #     for var, val in zip(self._variables.values(), values):
-        #         assignment_ops.append(tf.assign(var, val))
-        # if named_values:
-        #     if len(named_values) != len(self._variables):
-        #         raise StructureError(
-        #             "{}: number of assignment values does not match the number of parameters. Got "
-        #             "{}, expected {}.".format(self.name, len(values), len(self._variables)))
-        #     for name, val in named_values.items():
-        #         assignment_ops.append(tf.assign(self._variables[name], val))
-

@@ -10,17 +10,24 @@ from enum import Enum
 
 class LearningType(Enum):
     """Types of learning."""
+    UNSUPERVISED = 0
+    """Use Unsupervised Learning."""
+
+    SUPERVISED = 1
+    """Use Supervised Learning."""
+
+class LearningMethod(Enum):
+    """Learning methods."""
     DISCRIMINATIVE = 0
     """Use Discriminative Learning."""
 
     GENERATIVE = 1
     """Use Generative Learning."""
 
-
-class LearningInferenceType(Enum):
-    """Types of learning inference."""
+class GradientType(Enum):
+    """Types of gradient."""
     SOFT = 0
-    """Use Soft inference."""
+    """Compute Soft gradient."""
 
     HARD = 1
-    """Use Hard inference."""
+    """Compute Hard gradient."""

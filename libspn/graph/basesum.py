@@ -4,6 +4,7 @@ from libspn.graph.ivs import IVs
 from libspn.graph.weights import Weights
 from libspn.graph.scope import Scope
 from libspn.inference.type import InferenceType
+from libspn.learning.type import GradientType
 from libspn import conf
 from libspn.exceptions import StructureError
 import libspn.utils as utils
@@ -48,8 +49,9 @@ class BaseSum(OpNode, abc.ABC):
     """
 
     def __init__(self, *values, num_sums, weights=None, ivs=None, sum_sizes=None,
-                 inference_type=InferenceType.MARGINAL, batch_axis=0, op_axis=1, reduce_axis=2,
-                 masked=False, sample_prob=None, dropconnect_keep_prob=None, name="Sum"):
+                 inference_type=InferenceType.MARGINAL, batch_axis=0, op_axis=1,
+                 reduce_axis=2, masked=False, sample_prob=None,
+                 dropconnect_keep_prob=None, name="Sum"):
         super().__init__(
             inference_type=inference_type, name=name)
         self.set_values(*values)
@@ -139,6 +141,7 @@ class BaseSum(OpNode, abc.ABC):
             self._ivs = Input(nodes_by_name[ivs[0]], ivs[1])
         self._num_sums = data['num_sums']
         self._sum_sizes = data['sum_sizes']
+        self._max_sum_size = max(self._sum_sizes) if self._sum_sizes else 0
         self._batch_axis = data['batch_axis']
         self._op_axis = data['op_axis']
         self._reduce_axis = data['reduce_axis']
@@ -381,35 +384,59 @@ class BaseSum(OpNode, abc.ABC):
     @utils.lru_cache
     def _compute_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):
         # Reduce over last axis
-        val = self._reduce_marginal_inference(self._compute_reducible(
+        return self._reduce_marginal_inference(self._compute_reducible(
             w_tensor, ivs_tensor, *input_tensors, log=False, weighted=True, use_ivs=True,
             dropconnect_keep_prob=dropconnect_keep_prob))
-        return val
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_value(self, w_tensor, ivs_tensor, *value_tensors, dropconnect_keep_prob=None):
+    def _compute_log_value(self, w_tensor, ivs_tensor, *value_tensors, dropconnect_keep_prob=None,
+                           with_ivs=True):
 
-        # Defines gradient for the log value
+        # Defines soft-gradient for the log value
         def soft_gradient(grad):
             # Use the _compute_log_gradient method to compute the gradient w.r.t. to the
             # inputs of this node.
             scattered_grads = self._compute_log_gradient(
-                grad, w_tensor, ivs_tensor, *value_tensors, sum_weight_grads=True,
-                dropconnect_keep_prob=dropconnect_keep_prob)
+                grad, w_tensor, ivs_tensor, *value_tensors,
+                with_ivs=(False if self._ivs and not with_ivs else True),
+                sum_weight_grads=True, dropconnect_keep_prob=dropconnect_keep_prob)
+
+            return [sg for sg in scattered_grads if sg is not None]
+
+        # Defines hard-gradient for the log value
+        def hard_gradient(grad):
+            scattered_grads = self._compute_log_mpe_path(
+                grad, w_tensor, ivs_tensor, *value_tensors,
+                with_ivs=(False if self._ivs and not with_ivs else True),
+                sum_weight_grads=True)
+
             return [sg for sg in scattered_grads if sg is not None]
 
         # Wrap the log value with its custom gradient
         @tf.custom_gradient
         def _log_value(*input_tensors):
             # First reduce over last axis
-            ret = self._reduce_marginal_inference_log(self._compute_reducible(
-                w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True, use_ivs=True,
+            val = self._reduce_marginal_inference_log(self._compute_reducible(
+                w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True,
+                use_ivs=(False if self._ivs and not with_ivs else True),
                 dropconnect_keep_prob=dropconnect_keep_prob))
-            return ret, soft_gradient
 
-        # Calls the _log_value function above
-        return _log_value(*self._get_differentiable_inputs(w_tensor, ivs_tensor, *value_tensors))
+            # Choose gradient computation based on gradient-type set for the node
+            if self.gradient_type == GradientType.SOFT:
+                gradient = soft_gradient
+            else:
+                gradient = hard_gradient
+
+            return val, gradient
+
+        if conf.custom_gradient:
+            return _log_value(*self._get_differentiable_inputs(
+                w_tensor, ivs_tensor, *value_tensors))
+        else:
+            return self._reduce_marginal_inference_log(self._compute_reducible(
+                w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True,
+                use_ivs=(False if self._ivs and not with_ivs else True)))
 
     def _get_differentiable_inputs(self, w_tensor, ivs_tensor, *value_tensors):
         """Selects the tensors to include for a tf.custom_gradient when computing the log-value.
@@ -431,16 +458,55 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_value(
-            self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):
-        return self._reduce_mpe_inference_log(self._compute_reducible(
-            w_tensor, ivs_tensor, *input_tensors, log=True, weighted=True, use_ivs=True,
-            dropconnect_keep_prob=dropconnect_keep_prob))
+    def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
+                               dropconnect_keep_prob=None):
+
+        # Defines soft-gradient for the log value
+        def soft_gradient(grad):
+            scattered_grads = self._compute_log_gradient(
+                grad, w_tensor, ivs_tensor, *value_tensors,
+                with_ivs=(False if self._ivs and not with_ivs
+                          else True), sum_weight_grads=True)
+
+            return [sg for sg in scattered_grads if sg is not None]
+
+        # Defines hard-gradient for the log-mpe
+        def hard_gradient(grad):
+            scattered_grads = self._compute_log_mpe_path(
+                grad, w_tensor, ivs_tensor, *value_tensors,
+                with_ivs=(False if self._ivs and not with_ivs
+                          else True), sum_weight_grads=True)
+
+            return [sg for sg in scattered_grads if sg is not None]
+
+        # Wrap the log value with its custom gradient
+        @tf.custom_gradient
+        def _log_mpe_value(*input_tensors):
+            val = self._reduce_mpe_inference_log(self._compute_reducible(
+                w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True,
+                use_ivs=(False if self._ivs and not with_ivs else True),
+                dropconnect_keep_prob=dropconnect_keep_prob))
+            # Choose gradient computation based on gradient-type set for the node
+            if self.gradient_type == GradientType.SOFT:
+                gradient = soft_gradient
+            else:
+                gradient = hard_gradient
+
+            return val, gradient
+
+        if conf.custom_gradient:
+            return _log_mpe_value(*self._get_differentiable_inputs(
+                w_tensor, ivs_tensor, *value_tensors))
+        else:
+            return self._reduce_mpe_inference_log(self._compute_reducible(
+                w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True,
+                use_ivs=(False if self._ivs and not with_ivs else True),
+                dropconnect_keep_prob=dropconnect_keep_prob))
 
     @utils.lru_cache
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
-            log=True, sample=False, sample_prob=None):
+            log=True, sample=False, sample_prob=None, sum_weight_grads=False):
         """Common operations for computing the MPE path.
 
         Args:
@@ -472,6 +538,8 @@ class BaseSum(OpNode, abc.ABC):
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_acc, max_counts_split = self._accumulate_and_split_to_children(
             max_counts, *input_tensors)
+        if sum_weight_grads:
+            max_counts = tf.reduce_sum(max_counts, axis=0, keepdims=False)
         return self._scatter_to_input_tensors(
             (max_counts, w_tensor),  # Weights
             (max_counts_acc, ivs_tensor),  # IVs
@@ -519,11 +587,12 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_path(self, counts, w_tensor, ivs_tensor, *value_tensors,
+    def _compute_log_mpe_path(self, counts, w_tensor, ivs_tensor, *input_tensors,
                               use_unweighted=False, with_ivs=True, add_random=None,
-                              sample=False, sample_prob=None, dropconnect_keep_prob=None):
+                              sum_weight_grads=False, sample=False, sample_prob=None,
+                              dropconnect_keep_prob=None):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
-        reducible = self._compute_reducible(w_tensor, ivs_tensor, *value_tensors, log=True,
+        reducible = self._compute_reducible(w_tensor, ivs_tensor, *input_tensors, log=True,
                                             weighted=weighted, use_ivs=with_ivs,
                                             dropconnect_keep_prob=dropconnect_keep_prob)
         if not weighted and self._num_sums > 1 and reducible.shape[self._op_axis].value == 1:
@@ -532,9 +601,10 @@ class BaseSum(OpNode, abc.ABC):
         if add_random is not None:
             reducible += tf.random_uniform(
                 tf.shape(reducible), minval=0.0, maxval=add_random, dtype=conf.dtype)
+
         return self._compute_mpe_path_common(
-            reducible, counts, w_tensor, ivs_tensor, *value_tensors, log=True, sample=sample,
-            sample_prob=sample_prob)
+            reducible, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
+            sum_weight_grads=sum_weight_grads, sample=sample, sample_prob=sample_prob)
 
     @utils.lru_cache
     def _compute_log_gradient(
