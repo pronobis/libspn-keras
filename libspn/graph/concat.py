@@ -110,7 +110,7 @@ class Concat(OpNode):
         return value_gradient(*input_tensors)
 
     @utils.docinherit(OpNode)
-    def _compute_log_value(self, *input_tensors):
+    def _compute_log_value(self, *input_tensors, with_ivs=False):
         return self._compute_value(*input_tensors)
 
     @utils.docinherit(OpNode)
@@ -118,7 +118,7 @@ class Concat(OpNode):
         return self._compute_value(*input_tensors)
 
     @utils.docinherit(OpNode)
-    def _compute_log_mpe_value(self, *input_tensors):
+    def _compute_log_mpe_value(self, *input_tensors, with_ivs=True):
         return self._compute_value(*input_tensors)
 
     def _compute_mpe_path(self, counts, *input_values, add_random=False,

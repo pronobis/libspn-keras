@@ -107,7 +107,7 @@ class LogValue:
     def log(self):
         return True
 
-    def get_value(self, root):
+    def get_value(self, root, with_ivs=True):
         """Assemble TF operations computing the log values of nodes of the SPN
         rooted in ``root``.
 
@@ -133,9 +133,15 @@ class LogValue:
                 if (self._inference_type == InferenceType.MARGINAL
                     or (self._inference_type is None and
                         node.inference_type == InferenceType.MARGINAL)):
-                    return node._compute_log_value(*args, **kwargs)
+                    if node.is_op:
+                        return node._compute_log_value(*args, with_ivs=with_ivs)
+                    else:
+                        return node._compute_log_value(*args)
                 else:
-                    return node._compute_log_mpe_value(*args, **kwargs)
+                    if node.is_op:
+                        return node._compute_log_mpe_value(*args, with_ivs=with_ivs)
+                    else:
+                        return node._compute_log_mpe_value(*args)
 
         self._values = {}
         with tf.name_scope(self._name):

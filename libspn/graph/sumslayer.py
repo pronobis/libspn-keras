@@ -320,8 +320,8 @@ class SumsLayer(BaseSum):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
-            log=True, sample=False, sample_prob=None, dropout_prob=None):
+            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
+            sum_weight_grads=False, sample=False, sample_prob=None, dropout_prob=None):
         if sample:
             if log:
                 max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
@@ -332,8 +332,13 @@ class SumsLayer(BaseSum):
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_split = self._accumulate_and_split_to_children(max_counts, *input_tensors)
+        if sum_weight_grads:
+            w_counts = tf.reduce_sum(max_counts, axis=self._batch_axis)
+        else:
+            w_counts = max_counts
+
         return self._scatter_to_input_tensors(
-            (max_counts, w_tensor),  # Weights
+            (w_counts, w_tensor),  # Weights
             (max_counts, ivs_tensor)
         ) + tuple(max_counts_split)
 
@@ -358,15 +363,15 @@ class SumsLayer(BaseSum):
 
         # A number - (-inf) is undefined. In fact, the gradient in those cases should be zero
         log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
-
-        weight_gradients = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(
+        w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(
             reducible - log_sum)
-        inp_grad_split = self._accumulate_and_split_to_children(weight_gradients, *value_tensors)
-        ivs_grads = weight_gradients
+        inp_grad_split = self._accumulate_and_split_to_children(w_grad, *value_tensors)
+        ivs_grads = w_grad
         if sum_weight_grads:
-            weight_gradients = tf.reduce_sum(weight_gradients, axis=self._batch_axis)
+            w_grad = tf.reduce_sum(w_grad, axis=self._batch_axis)
+
         return self._scatter_to_input_tensors(
-            (weight_gradients, w_tensor),
+            (w_grad, w_tensor),
             (ivs_grads, ivs_tensor)
         ) + tuple(inp_grad_split)
 
