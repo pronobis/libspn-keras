@@ -115,38 +115,46 @@ def logtensordot(a, b, axes, name=None):
         a -= max_a
         b -= max_b
 
-        print(a)
-        print(b)
         out = tf.log(tf.tensordot(tf.exp(a), tf.exp(b), axes=axes))
-        out += max_a + max_b
+        out += max_a
+        out += max_b
     return out
 
 
 def logmatmul(a, b, transpose_a=False, transpose_b=False, name=None):
     
     with tf.name_scope(name, "logmatmul", [a, b]):
-        reduce_axis_a = 0 if transpose_a else 1
-        reduce_axis_b = 1 if transpose_b else 0
+        # Number of outer dimensions
+        num_outer_a = len(a.shape) - 2
+        num_outer_b = len(b.shape) - 2
 
-        reduce_axis_a += max(0, len(a.shape) - 2)
-        reduce_axis_b += max(0, len(b.shape) - 2)
-    
+        # Reduction axis
+        reduce_axis_a = num_outer_a if transpose_a else num_outer_a + 1
+        reduce_axis_b = num_outer_b + 1 if transpose_b else num_outer_b
+
+        # Compute max for each tensor for numerical stability
         max_a = replace_infs_with_zeros(
             tf.stop_gradient(tf.reduce_max(a, axis=reduce_axis_a, keepdims=True)))
-    
         max_b = replace_infs_with_zeros(
             tf.stop_gradient(tf.reduce_max(b, axis=reduce_axis_b, keepdims=True)))
-        
+
+        # Subtract
         a -= max_a
         b -= max_b
-        
+
+        # Compute logsumexp using matrix mutiplication
         out = tf.log(tf.matmul(
             tf.exp(a), tf.exp(b), transpose_a=transpose_a, transpose_b=transpose_b))
+
+        # If necessary, transpose max_a or max_b
         if transpose_a:
-            max_a = tf.transpose(max_a)
+            max_a = tf.transpose(
+                max_a, list(range(num_outer_a)) + [num_outer_a + 1, num_outer_a])
         if transpose_b:
-            max_b = tf.transpose(max_b)
-        out += max_a + max_b
+            max_b = tf.transpose(
+                max_b, list(range(num_outer_b)) + [num_outer_b + 1, num_outer_b])
+        out += max_a
+        out += max_b
     return out
 
 

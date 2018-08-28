@@ -105,6 +105,7 @@ class Concat(OpNode):
             return self._compute_scope(*input_scopes)
 
     @utils.docinherit(OpNode)
+    @utils.lru_cache
     def _compute_value(self, *input_tensors):
         # Check inputs
         if not self._inputs:
