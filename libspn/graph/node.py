@@ -544,9 +544,7 @@ class OpNode(Node):
                                        op generation.
     """
 
-    def __init__(self, inference_type=InferenceType.MARGINAL, dropout_keep_prob=None,
-                 name=None):
-        self._dropout_keep_prob = dropout_keep_prob
+    def __init__(self, inference_type=InferenceType.MARGINAL, name=None):
         super().__init__(inference_type, name)
 
     @abstractmethod
@@ -767,13 +765,6 @@ class OpNode(Node):
                 .sample(sample_shape=shape)
             return tf.log(mask) if log else mask
 
-    @property
-    def dropout_keep_prob(self):
-        return self._dropout_keep_prob
-
-    def set_dropout_keep_prob(self, p):
-        self._dropout_keep_prob = p
-
     # @abstractmethod
     # def _compute_gradient(self, gradients, *input_values):
     #     """Assemble TF operations computing gradients for each input of the node.
@@ -903,6 +894,7 @@ class VarNode(Node):
             dimension corresponds to the batch size.
         """
 
+    @utils.lru_cache
     def _compute_log_value(self):
         """Assemble TF operations computing the marginal log value of this node.
 

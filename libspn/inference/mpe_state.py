@@ -26,7 +26,7 @@ class MPEState():
             self._mpe_path = MPEPath(log=log,
                                      value_inference_type=value_inference_type,
                                      add_random=None, use_unweighted=False,
-                                     dropconnect_keep_prob=1.0, dropout_keep_prob=1.0)
+                                     dropconnect_keep_prob=1.0)
         else:
             self._mpe_path = mpe_path
 

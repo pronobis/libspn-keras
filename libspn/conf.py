@@ -44,3 +44,8 @@ argmax in BaseSum is faced with multiple maxes.
 If False, selects random a 'winner' among 
 the maxes.
 """
+
+renormalize_dropconnect = False
+"""Whether to normalize the weights after
+dropping out weights.
+"""
