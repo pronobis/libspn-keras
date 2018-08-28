@@ -104,8 +104,8 @@ class TestBaseSum(tf.test.TestCase):
         weight_parsum_concat = tf.concat(
             [w.variable for w in parsum_weight_nodes], axis=0)
 
-        root_val_parsum = path_parsum.value.values[parsum_root]
-        root_val_conv = path_conv.value.values[conv_root]
+        root_val_parsum = parsum_root.get_log_value() #path_parsum.value.values[parsum_root]
+        root_val_conv = conv_root.get_log_value() #path_conv.value.values[conv_root]
 
         parsum_counts = path_parsum.counts[parsum_concat]
         conv_counts = path_conv.counts[convsum]

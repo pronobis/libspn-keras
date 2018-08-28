@@ -180,30 +180,11 @@ class SpatialSum(BaseSum, abc.ABC):
     def _compute_value(self, w_tensor, ivs_tensor, *input_tensors,
                        dropconnect_keep_prob=None, dropout_keep_prob=None,
                        matmul_or_conv=False):
-        if matmul_or_conv and ivs_tensor is not None:
-            self.logger.warn("Cannot use matmul when using IVs, setting matmul=False")
-            matmul_or_conv = False
-
-        if matmul_or_conv:
-            w_tensor, _, inp_concat = self._prepare_component_wise_processing(
-                w_tensor, ivs_tensor, *input_tensors)
-            if all(w_tensor.shape[i] == 1 for i in self._op_axis):
-                w_tensor = tf.transpose(
-                    tf.squeeze(w_tensor, axis=0), (0, 1, 3, 2))
-                inp_concat = tf.reshape(
-                    inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size])
-                out = tf.nn.convolution(input=inp_concat, filter=w_tensor, padding="SAME")
-            else:
-                w_tensor = tf.tile(w_tensor, [tf.shape(inp_concat)[0]] + 4 * [1])
-                out = tf.matmul(
-                    w_tensor, tf.reshape(
-                        inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size, 1]))
-            return tf.reshape(out, (-1, self._compute_out_size()))
-
-        val = super(SpatialSum, self)._compute_value(
-            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob,
-            dropout_keep_prob=dropout_keep_prob)
-        return tf.reshape(val, (-1, self._compute_out_size()))
+        ivs_log = None if ivs_tensor is None else tf.log(ivs_tensor)
+        return self._compute_log_value(
+            tf.log(w_tensor), ivs_log, *[tf.log(t) for t in input_tensors],
+            dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob,
+            matmul_or_conv=matmul_or_conv)
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
@@ -217,33 +198,28 @@ class SpatialSum(BaseSum, abc.ABC):
         if matmul_or_conv:
             w_tensor, _, inp_concat = self._prepare_component_wise_processing(
                 w_tensor, ivs_tensor, *input_tensors)
+            # Apply dropconnect
+            dropconnect_keep_prob = utils.maybe_first(
+                self._dropconnect_keep_prob, dropconnect_keep_prob)
+            if dropconnect_keep_prob is not None and (not isinstance(
+                    dropconnect_keep_prob, float) or dropconnect_keep_prob != 1.0):
+                dropout_mask = self._create_dropout_mask(
+                    keep_prob=dropconnect_keep_prob, shape=tf.shape(inp_concat), log=True)
+                inp_concat += dropout_mask
             if all(w_tensor.shape[i] == 1 for i in self._op_axis):
                 w_tensor = tf.transpose(
                     tf.squeeze(w_tensor, axis=0), (0, 1, 3, 2))
                 inp_concat = tf.reshape(
                     inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size])
-                dropconnect_keep_prob = utils.maybe_first(
-                    self._dropconnect_keep_prob, dropconnect_keep_prob)
-                if dropconnect_keep_prob is not None and (not isinstance(
-                        dropconnect_keep_prob, float) or dropconnect_keep_prob != 1.0):
-                    dropout_mask = self._create_dropout_mask(
-                        keep_prob=dropconnect_keep_prob, shape=tf.shape(inp_concat), log=True)
-                    inp_concat += dropout_mask
                 out = logconv_1x1(input=inp_concat, filter=w_tensor)
                 return tf.reshape(out, (-1, self._compute_out_size()))
             else:
-                # pass
-                w_tensor = tf.tile(w_tensor, [tf.shape(inp_concat)[0]] + 4 * [1])
-                dropconnect_keep_prob = utils.maybe_first(
-                    self._dropconnect_keep_prob, dropconnect_keep_prob)
-                if dropconnect_keep_prob is not None and (not isinstance(
-                        dropconnect_keep_prob, float) or dropconnect_keep_prob != 1.0):
-                    dropout_mask = self._create_dropout_mask(
-                        keep_prob=dropconnect_keep_prob, shape=tf.shape(inp_concat), log=True)
-                    inp_concat += dropout_mask
-                out = logmatmul(
-                    w_tensor, tf.reshape(
-                        inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size, 1]))
+                w_tensor = tf.squeeze(w_tensor, axis=0)
+                inp_concat = tf.squeeze(inp_concat, axis=3)
+                inp_concat = tf.reshape(
+                    tf.transpose(inp_concat, (1, 2, 0, 3)),
+                    self._grid_dim_sizes + [-1, self._max_sum_size])
+                out = tf.transpose(logmatmul(inp_concat, w_tensor, transpose_b=True), (2, 0, 1, 3))
                 return tf.reshape(out, (-1, self._compute_out_size()))
 
         val = super(SpatialSum, self)._compute_log_value(
