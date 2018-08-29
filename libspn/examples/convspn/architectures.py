@@ -57,14 +57,14 @@ def dilate_stride_double_stride(
         *inp_nodes, sum_num_channels=sum_num_channels,
         prod_num_channels=prod_num_channels, spatial_dims=spatial_dims,
         name_prefixes="DoubleD3SBottomDilateStride",
-        sum_node_type=(sum_node_types, 'skip'))
+        sum_node_type=(sum_node_types[0], 'skip'))
     double_stride0 = conv_spn_gen.add_double_stride(
         *inp_nodes, sum_num_channels=sum_num_channels,
         prod_num_channels=prod_num_channels, spatial_dims=spatial_dims,
         name_prefixes="DoubleD3SBottomDoubleStride",
-        sum_node_type=(sum_node_types, 'skip'))
+        sum_node_type=(sum_node_types[0], 'skip'))
     spatial_dims = double_stride0.output_shape_spatial[:2]
-    if sum_node_types == 'local':
+    if sum_node_types[1] == 'local':
         dsds_mixtures_top = spn.LocalSum(
             dilate_stride0, double_stride0, num_channels=sum_num_channels[1],
             grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
@@ -89,14 +89,14 @@ def dilate_stride_double_stride_full_wicker(
         *inp_nodes, sum_num_channels=sum_num_channels[:2],
         prod_num_channels=prod_num_channels[:2], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3SBottomDilateStride",
-        sum_node_type=(sum_node_types, 'skip'))
+        sum_node_type=(sum_node_types[0], 'skip'))
     double_stride0 = conv_spn_gen.add_double_stride(
         *inp_nodes, sum_num_channels=sum_num_channels[:2],
         prod_num_channels=prod_num_channels[:2], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3SBottomDoubleStride",
-        sum_node_type=(sum_node_types, 'skip'))
+        sum_node_type=(sum_node_types[0], 'skip'))
     spatial_dims = double_stride0.output_shape_spatial[:2]
-    if sum_node_types == 'local':
+    if sum_node_types[1] == 'local':
         dsds_mixtures_top = spn.LocalSum(
             dilate_stride0, double_stride0, num_channels=sum_num_channels[1],
             grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
@@ -110,7 +110,7 @@ def dilate_stride_double_stride_full_wicker(
         dsds_mixtures_top, sum_num_channels=sum_num_channels[2:],
         prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
         strides=1, kernel_size=kernel_size, num_channels_top=num_channels_top,
-        sum_node_type=sum_node_types)
+        sum_node_type=sum_node_types[2:])
     return root
 
 
@@ -127,15 +127,15 @@ def double_dilate_stride_double_stride(
         *inp_nodes, sum_num_channels=sum_num_channels[:2],
         prod_num_channels=prod_num_channels[:2], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3SBottomDilateStride",
-        sum_node_type=(sum_node_types, 'skip'))
+        sum_node_type=(sum_node_types[0], 'skip'))
     double_stride0 = conv_spn_gen.add_double_stride(
         *inp_nodes, sum_num_channels=sum_num_channels[:2],
         prod_num_channels=prod_num_channels[:2], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3SBottomDoubleStride",
-        sum_node_type=(sum_node_types, 'skip'))
+        sum_node_type=(sum_node_types[0], 'skip'))
     spatial_dims = double_stride0.output_shape_spatial[:2]
 
-    if sum_node_types == 'local':
+    if sum_node_types[1] == 'local':
         dsds_mixtures = spn.LocalSum(
             dilate_stride0, double_stride0, num_channels=sum_num_channels[1],
             grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
@@ -152,16 +152,16 @@ def double_dilate_stride_double_stride(
         prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3STopDilateStride", pad_right=pad_right,
         pad_bottom=pad_bottom,
-        sum_node_type=(sum_node_types, 'skip'))
+        sum_node_type=(sum_node_types[2], 'skip'))
     double_stride1 = conv_spn_gen.add_double_stride(
         dsds_mixtures, double_stride0, sum_num_channels=sum_num_channels[2:],
         prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3STopDoubleStride", pad_right=pad_right,
         pad_bottom=pad_bottom,
-        sum_node_type=(sum_node_types, 'skip'))
+        sum_node_type=(sum_node_types[2], 'skip'))
     spatial_dims = double_stride1.output_shape_spatial[:2]
 
-    if sum_node_types == 'local':
+    if sum_node_types[3] == 'local':
         dsds_mixtures_top = spn.LocalSum(
             dilate_stride1, double_stride1, num_channels=sum_num_channels[1],
             grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
