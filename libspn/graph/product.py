@@ -32,7 +32,7 @@ class Product(OpNode):
 
     def __init__(self, *values, name="Product"):
         self._values = []
-        super().__init__(InferenceType.MARGINAL, name)
+        super().__init__(inference_type=InferenceType.MARGINAL, name=name)
         self.set_values(*values)
 
     def serialize(self):

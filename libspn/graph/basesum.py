@@ -52,8 +52,7 @@ class BaseSum(OpNode, abc.ABC):
                  inference_type=InferenceType.MARGINAL, batch_axis=0, op_axis=1,
                  reduce_axis=2, masked=False, sample_prob=None,
                  dropconnect_keep_prob=None, name="Sum"):
-        super().__init__(
-            inference_type=inference_type, name=name)
+        super().__init__(inference_type=inference_type, name=name)
         self.set_values(*values)
         self.set_weights(weights)
         self.set_ivs(ivs)
