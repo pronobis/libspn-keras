@@ -5,7 +5,6 @@
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
 
-from collections import namedtuple
 import tensorflow as tf
 from libspn.inference.value import Value, LogValue
 from libspn.graph.algorithms import traverse_graph
