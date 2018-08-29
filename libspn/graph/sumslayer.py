@@ -50,7 +50,7 @@ class SumsLayer(BaseSum):
 
     def __init__(self, *values, num_or_size_sums=None, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, sample_prob=None,
-                 dropconnect_keep_prob=None, dropout_keep_prob=None, name="SumsLayer"):
+                 dropconnect_keep_prob=None, name="SumsLayer"):
 
         if isinstance(num_or_size_sums, int) or num_or_size_sums is None:
             # In case it is an int, pass it to num_sums. In case it is None, pass None to num_sums.
@@ -58,16 +58,14 @@ class SumsLayer(BaseSum):
             super().__init__(
                 *values, num_sums=num_or_size_sums, weights=weights, ivs=ivs,
                 inference_type=inference_type, sample_prob=sample_prob,
-                dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob,
-                name=name, masked=True)
+                dropconnect_keep_prob=dropconnect_keep_prob, name=name, masked=True)
         else:
             # In this case we have a list of sum sizes, so it is straightforward to determine the
             # number of sums.
             super().__init__(
                 *values, num_sums=len(num_or_size_sums), sum_sizes=num_or_size_sums,
                 weights=weights, ivs=ivs, inference_type=inference_type, sample_prob=sample_prob,
-                dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob,
-                name=name, masked=True)
+                dropconnect_keep_prob=dropconnect_keep_prob, name=name, masked=True)
 
     @utils.docinherit(BaseSum)
     def _reset_sum_sizes(self, num_sums=None, sum_sizes=None):
@@ -352,14 +350,6 @@ class SumsLayer(BaseSum):
             dropconnect_keep_prob=dropconnect_keep_prob)
         log_sum = tf.expand_dims(
             self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
-
-        dropout_keep_prob = utils.maybe_first(dropout_keep_prob, self._dropout_keep_prob)
-        if dropout_keep_prob is not None and not \
-                (isinstance(dropout_keep_prob, (float, int)) and float(dropout_keep_prob) == 1.0):
-            mask = self._get_or_create_dropout_mask(
-                batch_size=tf.shape(gradients)[self._batch_axis], keep_prob=dropout_keep_prob,
-                log=True)
-            gradients = self.cwise_mul(gradients, tf.exp(mask))
 
         # A number - (-inf) is undefined. In fact, the gradient in those cases should be zero
         log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)

@@ -31,14 +31,16 @@ class GDLearning:
     def __init__(self, root, value=None, value_inference_type=None,
                  log=True, learning_type=LearningType.SUPERVISED,
                  learning_method=LearningMethod.DISCRIMINATIVE,
-                 gradient_type=GradientType.SOFT, learning_rate=0.0001):
+                 gradient_type=GradientType.SOFT, learning_rate=0.0001,
+                 dropconnect_keep_prob=None):
         self._root = root
         self._log = log
         if value is None:
+            val_kwargs = dict(dropconnect_keep_prob=dropconnect_keep_prob)
             if log:
-                self._value = LogValue(value_inference_type)
+                self._value = LogValue(value_inference_type, **val_kwargs)
             else:
-                self._value = Value(value_inference_type)
+                self._value = Value(value_inference_type, **val_kwargs)
         else:
             self._value = value
             self._log = value.log()

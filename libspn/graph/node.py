@@ -569,9 +569,8 @@ class OpNode(Node):
                                      during the next learning op generation.
     """
 
-    def __init__(self, inference_type=InferenceType.MARGINAL, dropout_keep_prob=None,
-                 gradient_type=GradientType.SOFT, name=None):
-        self._dropout_keep_prob = dropout_keep_prob
+    def __init__(self, inference_type=InferenceType.MARGINAL, gradient_type=GradientType.SOFT,
+                 name=None):
         super().__init__(inference_type, name, gradient_type)
 
     @abstractmethod
@@ -792,33 +791,6 @@ class OpNode(Node):
                 .sample(sample_shape=shape)
             return tf.log(mask) if log else mask
 
-    @property
-    def dropout_keep_prob(self):
-        return self._dropout_keep_prob
-
-    def set_dropout_keep_prob(self, p):
-        self._dropout_keep_prob = p
-
-    # @abstractmethod
-    # def _compute_gradient(self, gradients, *input_values):
-    #     """Assemble TF operations computing gradients for each input of the node.
-    #
-    #     To be re-implemented in sub-classes.
-    #
-    #     Args:
-    #         counts (Tensor): Branch counts for each output value of this node.
-    #         *input_values (Tensor): For each input, a tensor containing the value
-    #                                 or log value produced by the input node. Can
-    #                                 be ``None`` if the input is not connected.
-    #
-    #     Returns:
-    #         list of Tensor: For each input, branch counts to pass to the node
-    #         connected to the input. Each tensor is of shape ``[None, out_size]``,
-    #         where the first dimension corresponds to the batch size and the
-    #         second dimension is the size of the output of the input node.
-    #     """
-
-
 class VarNode(Node):
     """An abstract class defining a variable node of the SPN graph.
 
@@ -928,6 +900,7 @@ class VarNode(Node):
             dimension corresponds to the batch size.
         """
 
+    @utils.lru_cache
     def _compute_log_value(self):
         """Assemble TF operations computing the marginal log value of this node.
 
@@ -1179,26 +1152,3 @@ class ParameterizedDistributionNode(DistributionNode, abc.ABC):
             init_val = utils.broadcast_value(init, shape, dtype=conf.dtype)
             self._variables[name] = tf.Variable(
                 init_val, dtype=conf.dtype, collections=['spn_distribution_accumulates'])
-
-    # @abc.abstractmethod
-    # def assign(self, accum, ):
-    #     """Assign new values to variables based on accum """
-        # assignment_ops = []
-        # if values and named_values:
-        #     raise ValueError(
-        #         "Cannot specify both keyword arguments for values and names for values.")
-        # if values:
-        #     if len(values) != len(self._variables):
-        #         raise StructureError(
-        #             "{}: number of assignment values does not match the number of parameters. Got "
-        #             "{}, expected {}.".format(self.name, len(values), len(self._variables)))
-        #     for var, val in zip(self._variables.values(), values):
-        #         assignment_ops.append(tf.assign(var, val))
-        # if named_values:
-        #     if len(named_values) != len(self._variables):
-        #         raise StructureError(
-        #             "{}: number of assignment values does not match the number of parameters. Got "
-        #             "{}, expected {}.".format(self.name, len(values), len(self._variables)))
-        #     for name, val in named_values.items():
-        #         assignment_ops.append(tf.assign(self._variables[name], val))
-
