@@ -78,17 +78,76 @@ class GDLearning:
         self._gradient_type = gradient_type
         self._name = name
 
-    @staticmethod
-    def _turn_off_dropconnect(dropconnect_keep_prob, learning_task_type):
-        """Determines whether to turn off dropconnect for the root node. """
-        return dropconnect_keep_prob is not None and \
-            (not isinstance(dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob == 1.0) \
-            and learning_task_type == LearningTaskType.SUPERVISED
+    def learn(self, loss=None, gradient_type=None, optimizer=tf.train.GradientDescentOptimizer):
+        """Assemble TF operations performing GD learning of the SPN. This includes setting up
+        the loss function including regularization, setting up the optimizer and setting up
+        post gradient-update ops.
 
-    @property
-    def value(self):
-        """Value or LogValue: Computed SPN values."""
-        return self._log_value
+        loss (Tensor): The operation corresponding to the loss to optimize.
+        optimizer (tf.train.Optimizer): A TensorFlow optimizer to use for minimizing the loss.
+        gradient_type (GradientType): The type of gradients to use for backpropagation, can be
+            either soft (effectively viewing sum nodes as weighted sums) or hard (effectively
+            viewing sum nodes as weighted maxes). Soft and hard correspond to GradientType.SOFT
+            and GradientType.HARD, respectively.
+
+        Returns:
+            A grouped operation that (i) updates the parameters using gradient descent, (ii)
+            projects new weights onto the probability simplex and (iii) clips new variances of
+            GaussianLeaf nodes.
+        """
+        if self._learning_task_type == LearningTaskType.SUPERVISED and self._root.ivs is None:
+            raise StructureError(
+                "{}: the SPN rooted at {} does not have a latent IVs node, so cannot setup "
+                "conditional class probabilities.".format(self._name, self._root))
+
+        # Traverse the graph and set gradient-type for all OpNodes
+        self._root.set_gradient_types(gradient_type or self._gradient_type)
+
+        # If a loss function is not provided, define the loss function based
+        # on learning-type and learning-method
+        with tf.name_scope("Loss"):
+            loss = loss or (self.mle_loss() if
+                            self._learning_method == LearningMethodType.GENERATIVE else
+                            self.cross_entropy_loss())
+            if self._l1_regularize_coeff is not None or self._l2_regularize_coeff is not None:
+                loss += self.regularization_loss()
+
+        # Assemble TF ops for optimizing and weights normalization
+        with tf.name_scope("ParameterUpdate"):
+            minimize = optimizer(self._learning_rate).minimize(loss=loss)
+            return self.post_gradient_update(minimize), loss
+
+    def post_gradient_update(self, update_op):
+        """Constructs post-parameter update ops such as normalization of weights and clipping of
+        scale parameters of GaussianLeaf nodes.
+
+        Args:
+            update_op (Tensor): A Tensor corresponding to the parameter update.
+
+        Returns:
+            An updated operation where the post-processing has been ensured by TensorFlow's control
+            flow mechanisms.
+        """
+        with tf.name_scope("PostGradientUpdate"):
+
+            # After applying gradients to weights, normalize weights
+            with tf.control_dependencies([update_op]):
+                weight_norm_ops = []
+
+                def fun(node):
+                    if node.is_param:
+                        if node.log:
+                            weight_norm_ops.append(node.assign_log(node.variable))
+                        else:
+                            weight_norm_ops.append(node.assign(node.variable))
+
+                    if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
+                        weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
+                            node.scale_variable, node._min_stddev)))
+
+                with tf.name_scope("Weight_Normalization"):
+                    traverse_graph(self._root, fun=fun)
+            return tf.group(*weight_norm_ops, name="weight_norm")
 
     def cross_entropy_loss(self, name="CrossEntropyLoss", reduce_fn=tf.reduce_mean,
                            dropconnect_keep_prob=None):
@@ -135,7 +194,8 @@ class GDLearning:
             return -reduce_fn(likelihood)
 
     def _log_likelihood(self, learning_task_type=None, dropconnect_keep_prob=None):
-        """Computes the log likelihood by creating a copy of the root node without IVs.
+        """Computes log(p(X)) by creating a copy of the root node without IVs. Also turns off
+        dropconnect at the root if necessary.
 
         Returns:
             A Tensor of shape [batch, 1] corresponding to the log likelihood of the data.
@@ -148,43 +208,6 @@ class GDLearning:
             marginalizing_root.set_dropconnect_keep_prob(1.0)
         return self._log_value.get_value(Sum(
             *self._root.values, weights=self._root.weights, dropconnect_keep_prob=1.0))
-
-    def learn(self, loss=None, gradient_type=None, optimizer=tf.train.GradientDescentOptimizer):
-        """Assemble TF operations performing GD learning of the SPN.
-
-        loss (Tensor): The operation corresponding to the loss to optimize.
-        optimizer (tf.train.Optimizer): A TensorFlow optimizer to use for minimizing the loss.
-        gradient_type (GradientType): The type of gradients to use for backpropagation, can be
-            either soft (effectively viewing sum nodes as weighted sums) or hard (effectively
-            viewing sum nodes as weighted maxes). Soft and hard correspond to GradientType.SOFT
-            and GradientType.HARD, respectively.
-
-        Returns:
-            A grouped operation that (i) updates the parameters using gradient descent, (ii)
-            projects new weights onto the probability simplex and (iii) clips new variances of
-            GaussianLeaf nodes.
-        """
-        if self._learning_task_type == LearningTaskType.SUPERVISED and self._root.ivs is None:
-            raise StructureError(
-                "{}: the SPN rooted at {} does not have a latent IVs node, so cannot setup "
-                "conditional class probabilities.".format(self._name, self._root))
-
-        # Traverse the graph and set gradient-type for all OpNodes
-        self._root.set_gradient_types(gradient_type or self._gradient_type)
-
-        # If a loss function is not provided, define the loss function based
-        # on learning-type and learning-method
-        with tf.name_scope("Loss"):
-            loss = loss or (self.mle_loss() if
-                            self._learning_method == LearningMethodType.GENERATIVE else
-                            self.cross_entropy_loss())
-            if self._l1_regularize_coeff is not None or self._l2_regularize_coeff is not None:
-                loss += self.regularization_loss()
-
-        # Assemble TF ops for optimizing and weights normalization
-        with tf.name_scope("ParameterUpdate"):
-            minimize = optimizer(self._learning_rate).minimize(loss=loss)
-            return self.post_gradient_update(minimize), loss
 
     def regularization_loss(self, name="Regularization"):
         """Adds regularization to the weight nodes. This can be either L1 or L2 or both, depending
@@ -209,34 +232,14 @@ class GDLearning:
             traverse_graph(self._root, fun=regularize_node)
             return tf.add_n(losses)
 
-    def post_gradient_update(self, update_op):
-        """Constructs post-parameter update ops such as normalization of weights and clipping of
-        scale parameters of GaussianLeaf nodes.
+    @staticmethod
+    def _turn_off_dropconnect(dropconnect_keep_prob, learning_task_type):
+        """Determines whether to turn off dropconnect for the root node. """
+        return dropconnect_keep_prob is not None and \
+            (not isinstance(dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob == 1.0) \
+            and learning_task_type == LearningTaskType.SUPERVISED
 
-        Args:
-            update_op (Tensor): A Tensor corresponding to the parameter update.
-
-        Returns:
-            An updated operation where the post-processing has been ensured by TensorFlow's control
-            flow mechanisms.
-        """
-        with tf.name_scope("PostGradientUpdate"):
-
-            # After applying gradients to weights, normalize weights
-            with tf.control_dependencies([update_op]):
-                weight_norm_ops = []
-
-                def fun(node):
-                    if node.is_param:
-                        if node.log:
-                            weight_norm_ops.append(node.assign_log(node.variable))
-                        else:
-                            weight_norm_ops.append(node.assign(node.variable))
-
-                    if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
-                        weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
-                            node.scale_variable, node._min_stddev)))
-
-                with tf.name_scope("Weight_Normalization"):
-                    traverse_graph(self._root, fun=fun)
-            return tf.group(*weight_norm_ops, name="weight_norm")
+    @property
+    def value(self):
+        """Value or LogValue: Computed SPN values."""
+        return self._log_value
