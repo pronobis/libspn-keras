@@ -50,8 +50,8 @@ from libspn.inference.mpe_state import MPEState
 from libspn.inference.gradient import Gradient
 from libspn.learning.em import EMLearning
 from libspn.learning.gd import GDLearning
-from libspn.learning.type import LearningType
-from libspn.learning.type import LearningMethod
+from libspn.learning.type import LearningTaskType
+from libspn.learning.type import LearningMethodType
 from libspn.learning.type import GradientType
 
 # Data
@@ -124,8 +124,8 @@ __all__ = [
     'WeightsGenerator', 'generate_weights',
     # Inference and learning
     'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient',
-    'MPEState', 'EMLearning', 'GDLearning', 'LearningType',
-    'LearningMethod', 'GradientType',
+    'MPEState', 'EMLearning', 'GDLearning', 'LearningTaskType',
+    'LearningMethodType', 'GradientType',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
     'IntGridDataset', 'ImageFormat', 'ImageShape', 'ImageDatasetBase',

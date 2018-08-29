@@ -32,7 +32,7 @@ class Product(OpNode):
 
     def __init__(self, *values, name="Product"):
         self._values = []
-        super().__init__(InferenceType.MARGINAL, name)
+        super().__init__(inference_type=InferenceType.MARGINAL, name=name)
         self.set_values(*values)
 
     def serialize(self):
@@ -127,7 +127,7 @@ class Product(OpNode):
         return tf.reduce_prod(values, 1, keepdims=True)
 
     @utils.lru_cache
-    def _compute_log_value(self, *value_tensors, with_ivs=False):
+    def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
 
         # Wrap the log value with its custom gradient
@@ -148,12 +148,12 @@ class Product(OpNode):
     def _compute_mpe_value(self, *value_tensors):
         return self._compute_value(*value_tensors)
 
-    def _compute_log_mpe_value(self, *value_tensors, with_ivs=True):
+    def _compute_log_mpe_value(self, *value_tensors):
         return self._compute_log_value(*value_tensors)
 
     @utils.lru_cache
     def _compute_mpe_path(self, counts, *value_values, add_random=False,
-                          use_unweighted=False, with_ivs=False, sample=False, sample_prob=None):
+                          use_unweighted=False, sample=False, sample_prob=None):
         # Check inputs
         if not self._values:
             raise StructureError("%s is missing input values." % self)
@@ -173,11 +173,11 @@ class Product(OpNode):
         return self._scatter_to_input_tensors(*value_counts)
 
     def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False, with_ivs=False, sample=False, sample_prob=None):
+                              use_unweighted=False, sample=False, sample_prob=None):
         return self._compute_mpe_path(counts, *value_values)
 
     @utils.lru_cache
-    def _compute_gradient(self, gradients, *value_values, with_ivs=False):
+    def _compute_gradient(self, gradients, *value_values):
         values = self._compute_value_common(*value_values)
         output_gradients = (tf.reduce_prod(values, 1, keepdims=True) *
                             gradients) / values
@@ -189,20 +189,8 @@ class Product(OpNode):
         return self._scatter_to_input_tensors(
             *[(g, v) for g, v in zip(output_gradients_split, value_values)])
 
-    # def _compute_log_gradient(self, gradients, *value_values):
-    #     values = self._compute_value_common(*value_values)
-    #     output_gradients = tf.exp(tf.reduce_sum(values, 1, keepdims=True) -
-    #                               values) * gradients
-    #
-    #     # Split the output_gradients to value inputs
-    #     value_sizes = self.get_input_sizes(*value_values)
-    #     output_gradients_split = utils.split_maybe(output_gradients, value_sizes, 1)
-    #
-    #     return self._scatter_to_input_tensors(
-    #         *[(g, v) for g, v in zip(output_gradients_split, value_values)])
-
-    def _compute_log_gradient(self, gradients, *value_values, with_ivs=False):
+    def _compute_log_gradient(self, gradients, *value_values):
         return self._compute_mpe_path(gradients, *value_values)
 
-    def _compute_log_gradient_log(self, gradients, *value_values, with_ivs=False):
+    def _compute_log_gradient_log(self, gradients, *value_values):
         return self._compute_mpe_path(gradients, *value_values)

@@ -39,7 +39,7 @@ class ProductsLayer(OpNode):
 
     def __init__(self, *values, num_or_size_prods=1, name="ProductsLayer"):
         self._values = []
-        super().__init__(InferenceType.MARGINAL, name)
+        super().__init__(inference_type=InferenceType.MARGINAL, name=name)
         self.set_values(*values)
         self.set_prod_sizes(num_or_size_prods)
 
@@ -260,7 +260,7 @@ class ProductsLayer(OpNode):
             (False if self._num_prods > 1 else True))
 
     @utils.lru_cache
-    def _compute_log_value(self, *value_tensors, with_ivs=False):
+    def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors, padding_value=0.0)
 
         # Wrap the log value with its custom gradient
@@ -290,7 +290,7 @@ class ProductsLayer(OpNode):
         return self._compute_value(*value_tensors)
 
     @utils.lru_cache
-    def _compute_log_mpe_value(self, *value_tensors, with_ivs=True):
+    def _compute_log_mpe_value(self, *value_tensors):
         return self._compute_log_value(*value_tensors)
 
     def _collect_count_indices_per_input(self):
@@ -373,7 +373,7 @@ class ProductsLayer(OpNode):
 
     @utils.lru_cache
     def _compute_mpe_path(self, counts, *value_values, add_random=False,
-                          use_unweighted=False, with_ivs=False, sample=False, sample_prob=None):
+                          use_unweighted=False, sample=False, sample_prob=None):
         # Check inputs
         if not self._values:
             raise StructureError("%s is missing input values." % self)
@@ -419,8 +419,8 @@ class ProductsLayer(OpNode):
         return scattered_counts
 
     def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False, with_ivs=False, sample=False, sample_prob=None):
+                              use_unweighted=False, sample=False, sample_prob=None):
         return self._compute_mpe_path(counts, *value_values)
 
-    def _compute_log_gradient(self, gradients, *value_values, with_ivs=False):
+    def _compute_log_gradient(self, gradients, *value_values):
         return self._compute_mpe_path(gradients, *value_values)

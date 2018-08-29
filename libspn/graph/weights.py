@@ -229,12 +229,14 @@ class Weights(ParamNode):
     def _compute_out_size(self):
         return self._num_weights * self._num_sums
 
+    @utils.lru_cache
     def _compute_value(self):
         if self._log:
             return tf.exp(self._variable)
         else:
             return self._variable
 
+    @utils.lru_cache
     def _compute_log_value(self):
         if self._log:
             return self._variable
