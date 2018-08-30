@@ -44,7 +44,6 @@ class ConvProdDepthWise(ConvProd2D):
                          dilation_rate=dilation_rate)
         self._num_channels = self._num_input_channels()
 
-
     @utils.lru_cache
     def _compute_log_value(self, *input_tensors):
         # Concatenate along channel axis
@@ -85,7 +84,7 @@ class ConvProdDepthWise(ConvProd2D):
         inp_concat = self._prepare_convolutional_processing(*input_values)
         spatial_counts = tf.reshape(counts, (-1,) + self.output_shape_spatial)
 
-        inp_concat = self._channels_to_batch(inp_concat, self._grid_dim_sizes)
+        inp_concat = self._channels_to_batch(inp_concat)
         spatial_counts = self._channels_to_batch(spatial_counts)
         
         input_counts = tf.nn.conv2d_backprop_input(
@@ -96,6 +95,8 @@ class ConvProdDepthWise(ConvProd2D):
             padding=self._padding.upper(),
             dilations=[1, 1] + self._dilation_rate,
             data_format="NCHW")  # [1] + self._dilation_rate + [1])
+
+        input_counts = self._batch_to_channels(input_counts)
 
         if self._no_explicit_padding:
             return self._split_to_children(input_counts)
