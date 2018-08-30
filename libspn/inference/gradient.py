@@ -81,6 +81,8 @@ class Gradient:
                 # Compute for inputs
                 if isinstance(node, BaseSum):
                     kwargs = dict(dropconnect_keep_prob=self._dropconnect_keep_prob)
+                else:
+                    kwargs = dict()
                 with tf.name_scope(node.name):
                     if self._log:
                         return node._compute_log_gradient(
@@ -123,6 +125,8 @@ class Gradient:
             if node.is_op:
                 if isinstance(node, BaseSum):
                     kwargs = dict(dropconnect_keep_prob=self._dropconnect_keep_prob)
+                else:
+                    kwargs = dict()
                 # Compute for inputs
                 with tf.name_scope(node.name):
                     if self._log:
