@@ -79,10 +79,10 @@ class GDLearning:
 
     def learn(self, loss=None, gradient_type=None, optimizer=tf.train.GradientDescentOptimizer):
         """Assemble TF operations performing GD learning of the SPN. This includes setting up
-        the loss function including regularization, setting up the optimizer and setting up
+        the loss function (with regularization), setting up the optimizer and setting up
         post gradient-update ops.
 
-        loss (Tensor): The operation corresponding to the loss to optimize.
+        loss (Tensor): The operation corresponding to the loss to minimize.
         optimizer (tf.train.Optimizer): A TensorFlow optimizer to use for minimizing the loss.
         gradient_type (GradientType): The type of gradients to use for backpropagation, can be
             either soft (effectively viewing sum nodes as weighted sums) or hard (effectively
