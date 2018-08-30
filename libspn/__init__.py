@@ -28,6 +28,7 @@ from libspn.graph.permproducts import PermProducts
 from libspn.graph.products import Products
 from libspn.graph.productslayer import ProductsLayer
 from libspn.graph.convprod2d import ConvProd2D, _ConvProdNaive
+from libspn.graph.convproddepthwise import ConvProdDepthWise
 from libspn.graph.spatialpermproducts import SpatialPermProducts
 from libspn.graph.stridedslice import StridedSlice2D
 from libspn.graph.weights import Weights
@@ -120,7 +121,7 @@ __all__ = [
     'Concat', 'IVs', 'ContVars',
     'Sum', 'ParSums', 'Sums', 'SumsLayer', 'ConvSum',
     'Product', 'PermProducts', 'Products', 'ProductsLayer', 
-    'ConvProd2D', '_ConvProdNaive', 'GaussianLeaf',
+    'ConvProd2D', '_ConvProdNaive', 'ConvProdDepthWise', 'GaussianLeaf',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
