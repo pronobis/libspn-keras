@@ -73,12 +73,8 @@ class BaseSum(OpNode, abc.ABC):
         # Set the sampling probability and sampling type
         self._sample_prob = sample_prob
 
-        # Set dropconnect and dropout probabilities
+        # Set dropconnect keep probability
         self._dropconnect_keep_prob = dropconnect_keep_prob
-
-        # The dropout mask will be made with potentially different batch size Tensors.
-        # TODO figure out some way of doing the same through lru_cache
-        self._dropout_mask = None
 
     def _get_sum_sizes(self, num_sums):
         """Computes a list of sum sizes given the number of sums and the currently attached input
@@ -317,7 +313,6 @@ class BaseSum(OpNode, abc.ABC):
             input_tensors (tuple): A ``tuple`` of ``Tensors``s with the values of the children of
                 this node.
             log (bool): A ``bool`` marking whether the computation is performed in log space or not.
-            use_ivs (bool): Whether to apply the IVs to the reducible values if possible.
             weighted (bool): Whether to apply the weights to the reducible values if possible.
             dropconnect_keep_prob (Tensor or float): A scalar ``Tensor`` or float that holds the
                 dropconnect keep probability. By default it is None, in which case no dropconnect
@@ -399,7 +394,7 @@ class BaseSum(OpNode, abc.ABC):
             # inputs of this node.
             scattered_grads = self._compute_log_gradient(
                 grad, w_tensor, ivs_tensor, *value_tensors,
-                sum_weight_grads=True, dropconnect_keep_prob=dropconnect_keep_prob)
+                accumulate_weights_batch=True, dropconnect_keep_prob=dropconnect_keep_prob)
 
             return [sg for sg in scattered_grads if sg is not None]
 
@@ -460,7 +455,7 @@ class BaseSum(OpNode, abc.ABC):
         def soft_gradient(grad):
             scattered_grads = self._compute_log_gradient(
                 grad, w_tensor, ivs_tensor, *value_tensors,
-                sum_weight_grads=True)
+                accumulate_weights_batch=True)
 
             return [sg for sg in scattered_grads if sg is not None]
 
@@ -599,7 +594,7 @@ class BaseSum(OpNode, abc.ABC):
     @utils.lru_cache
     def _compute_log_gradient(
             self, gradients, w_tensor, ivs_tensor, *value_tensors,
-            sum_weight_grads=False, dropconnect_keep_prob=None):
+            accumulate_weights_batch=False, dropconnect_keep_prob=None):
         """Computes gradient for log probabilities.
 
         Args:
@@ -611,7 +606,7 @@ class BaseSum(OpNode, abc.ABC):
                                  corresponds to the IVs of this node.
             value_tensors (tuple): A ``tuple`` of ``Tensor``s that correspond to the values of the
                                    children of this node.
-            sum_weight_grads (bool): A ``bool`` that marks whether the weight gradients should be
+            accumulate_weights_batch (bool): A ``bool`` that marks whether the weight gradients should be
                                      summed over the batch axis.
         Returns:
             A ``tuple`` of gradients. Starts with weights, then IVs  and the remainder corresponds
@@ -634,7 +629,7 @@ class BaseSum(OpNode, abc.ABC):
 
         value_grad_acc, value_grad_split = self._accumulate_and_split_to_children(w_grad)
 
-        if sum_weight_grads:
+        if accumulate_weights_batch:
             w_grad = tf.reduce_sum(w_grad, axis=0, keepdims=False)
 
         return self._scatter_to_input_tensors(

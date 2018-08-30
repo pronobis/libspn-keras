@@ -317,7 +317,7 @@ class SumsLayer(BaseSum):
     @utils.lru_cache
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
-            sum_weight_grads=False, sample=False, sample_prob=None, dropout_prob=None):
+            sum_weight_grads=False, sample=False, sample_prob=None):
         if sample:
             if log:
                 max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
@@ -341,8 +341,7 @@ class SumsLayer(BaseSum):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_log_gradient(self, gradients, w_tensor, ivs_tensor, *value_tensors,
-                              sum_weight_grads=False, dropout_keep_prob=None,
-                              dropconnect_keep_prob=None):
+                              accumulate_weights_batch=False, dropconnect_keep_prob=None):
         reducible = self._compute_reducible(
             w_tensor, ivs_tensor, *value_tensors, log=True,
             dropconnect_keep_prob=dropconnect_keep_prob)
@@ -355,7 +354,7 @@ class SumsLayer(BaseSum):
             reducible - log_sum)
         inp_grad_split = self._accumulate_and_split_to_children(w_grad, *value_tensors)
         ivs_grads = w_grad
-        if sum_weight_grads:
+        if accumulate_weights_batch:
             w_grad = tf.reduce_sum(w_grad, axis=self._batch_axis)
 
         return self._scatter_to_input_tensors(
