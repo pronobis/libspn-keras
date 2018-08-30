@@ -26,12 +26,11 @@ class Value:
             MPE inference will be used for all nodes.
     """
 
-    def __init__(self, inference_type=None, dropconnect_keep_prob=None, dropout_keep_prob=None,
+    def __init__(self, inference_type=None, dropconnect_keep_prob=None,
                  name="Value", matmul_or_conv=True):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
-        self._dropout_keep_prob = dropout_keep_prob
         self._name = name
         self._matmul_or_conv = matmul_or_conv
 
@@ -60,9 +59,7 @@ class Value:
         """
         def fun(node, *args):
             if self._dropconnect_keep_prob and isinstance(node, BaseSum):
-                kwargs = dict(
-                    dropconnect_keep_prob=self._dropconnect_keep_prob,
-                    dropout_keep_prob=self._dropout_keep_prob)
+                kwargs = dict(dropconnect_keep_prob=self._dropconnect_keep_prob)
             else:
                 kwargs = dict()
             with tf.name_scope(node.name):
@@ -94,12 +91,11 @@ class LogValue:
             MPE inference will be used for all nodes.
     """
 
-    def __init__(self, inference_type=None, dropout_keep_prob=None, dropconnect_keep_prob=None,
+    def __init__(self, inference_type=None, dropconnect_keep_prob=None,
                  name="LogValue", matmul_or_conv=True):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
-        self._dropout_keep_prob = dropout_keep_prob
         self._name = name
         self._matmul_or_conv = matmul_or_conv
 
@@ -130,8 +126,7 @@ class LogValue:
         def fun(node, *args):
             if self._dropconnect_keep_prob and isinstance(node, BaseSum):
                 kwargs = dict(
-                    dropconnect_keep_prob=self._dropconnect_keep_prob,
-                    dropout_keep_prob=self._dropout_keep_prob)
+                    dropconnect_keep_prob=self._dropconnect_keep_prob)
             else:
                 kwargs = dict()
             with tf.name_scope(node.name):

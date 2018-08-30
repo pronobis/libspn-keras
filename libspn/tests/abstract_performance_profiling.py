@@ -105,7 +105,7 @@ def time_fn(fn):
     return ret, time.time() - start_time
 
 
-class TestConfig:
+class PerformanceTestConfig:
 
     def __init__(self, inf_type, log, gpu, **kwargs):
         self.inf_type = inf_type
@@ -143,7 +143,7 @@ class ConfigGenerator:
         fields_not_in_order = tuple(sorted([f for f in self._fields.keys() if f not in order]))
         for values in itertools.product(
                 *[self._fields[field] for field in order + fields_not_in_order]):
-            yield TestConfig(**{name: val for name, val in zip(order, values)})
+            yield PerformanceTestConfig(**{name: val for name, val in zip(order, values)})
 
 
 class SumConfigGenerator(ConfigGenerator):

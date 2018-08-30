@@ -111,6 +111,7 @@ class TestGaussianQuantile(TestCase):
 
     @argsprod([False, True])
     def test_param_learning(self, softplus_scale):
+        spn.conf.argmax_zero = True
         num_vars = 2
         num_components = 2
         batch_size = 32
@@ -128,7 +129,6 @@ class TestGaussianQuantile(TestCase):
         data1 = [stats.norm(loc=m, scale=np.sqrt(v)).rvs(batch_size//2).astype(np.float32)
                  for m, v in zip(means[1], vars[1])]
         data = np.stack([np.concatenate(data0), np.concatenate(data1)], axis=-1)
-
 
         with tf.Graph().as_default() as graph:
             # Set up SPN

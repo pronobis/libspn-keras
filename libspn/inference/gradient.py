@@ -24,24 +24,19 @@ class Gradient:
                     if ``value`` is given.
     """
 
-    def __init__(self, value=None, value_inference_type=None, log=True, dropout_keep_prob=None,
-                 dropconnect_keep_prob=None):
+    def __init__(self, value=None, value_inference_type=None, log=True, dropconnect_keep_prob=None):
         self._true_gradients = {}
         self._actual_gradients = {}
         self._log = log
         self._dropconnect_keep_prob = dropconnect_keep_prob
-        self._dropout_keep_prob = dropout_keep_prob
         # Create internal value generator
         if value is None:
             if log:
                 self._value = LogValue(
-                    value_inference_type,
-                    dropout_keep_prob=dropout_keep_prob,
-                    dropconnect_keep_prob=dropconnect_keep_prob)
+                    value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob)
             else:
                 self._value = Value(
-                    value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob,
-                    dropout_keep_prob=dropout_keep_prob)
+                    value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob)
         else:
             self._value = value
             self._log = value.log()
@@ -85,11 +80,9 @@ class Gradient:
             if node.is_op:
                 # Compute for inputs
                 if isinstance(node, BaseSum):
-                    kwargs = dict(
-                        with_ivs=True, dropconnect_keep_prob=self._dropconnect_keep_prob,
-                        dropout_keep_prob=self._dropout_keep_prob)
+                    kwargs = dict(dropconnect_keep_prob=self._dropconnect_keep_prob)
                 else:
-                    kwargs = dict(with_ivs=True)
+                    kwargs = dict()
                 with tf.name_scope(node.name):
                     if self._log:
                         return node._compute_log_gradient(
@@ -131,11 +124,9 @@ class Gradient:
             self._actual_gradients[node] = summed
             if node.is_op:
                 if isinstance(node, BaseSum):
-                    kwargs = dict(
-                        with_ivs=False, dropconnect_keep_prob=self._dropconnect_keep_prob,
-                        dropout_keep_prob=self._dropout_keep_prob)
+                    kwargs = dict(dropconnect_keep_prob=self._dropconnect_keep_prob)
                 else:
-                    kwargs = dict(with_ivs=False)
+                    kwargs = dict()
                 # Compute for inputs
                 with tf.name_scope(node.name):
                     if self._log:
