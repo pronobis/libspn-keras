@@ -41,6 +41,8 @@ def full_wicker(
         prod_num_channels=prod_num_channels, spatial_dims=spatial_dims,
         num_channels_top=num_channels_top, strides=strides, kernel_size=kernel_size,
         sum_node_type=sum_node_types)
+    for node in conv_spn_gen.nodes_per_level[2]:
+        node.set_dropconnect_keep_prob(1.0)
     return root
 
 
@@ -74,6 +76,8 @@ def dilate_stride_double_stride(
             grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
     if dense_gen is not None:
         return dense_gen.generate(dsds_mixtures_top)
+    for node in conv_spn_gen.nodes_per_level[2]:
+        node.set_dropconnect_keep_prob(1.0)
     return dsds_mixtures_top
 
 
@@ -111,6 +115,8 @@ def dilate_stride_double_stride_full_wicker(
         prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
         strides=1, kernel_size=kernel_size, num_channels_top=num_channels_top,
         sum_node_type=sum_node_types[2:])
+    for node in conv_spn_gen.nodes_per_level[2]:
+        node.set_dropconnect_keep_prob(1.0)
     return root
 
 
@@ -171,6 +177,8 @@ def double_dilate_stride_double_stride(
             grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
     if dense_gen is not None:
         return dense_gen.generate(dsds_mixtures_top)
+    for node in conv_spn_gen.nodes_per_level[2]:
+        node.set_dropconnect_keep_prob(1.0)
     return dsds_mixtures_top
 
 

@@ -211,6 +211,7 @@ class ConvSPN:
             input_nodes = [next_node]
             print("Built node {}: {} x {} x {}".format(next_node, *next_node.output_shape_spatial))
             self._register_node(next_node, level + 1)
+            level += 2
         
         self.last_nodes = input_nodes
         return input_nodes if len(input_nodes) > 1 else input_nodes[0]
