@@ -135,16 +135,13 @@ class GDLearning:
 
                 def fun(node):
                     if node.is_param:
-                        if node.log:
-                            weight_norm_ops.append(node.assign_log(node.variable))
-                        else:
-                            weight_norm_ops.append(node.assign(node.variable))
+                        weight_norm_ops.append(node.normalize())
 
                     if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
                         weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
                             node.scale_variable, node._min_stddev)))
 
-                with tf.name_scope("Weight_Normalization"):
+                with tf.name_scope("WeightNormalization"):
                     traverse_graph(self._root, fun=fun)
             return tf.group(*weight_norm_ops, name="weight_norm")
 
@@ -205,8 +202,7 @@ class GDLearning:
         dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
         if self._turn_off_dropconnect(dropconnect_keep_prob, learning_task_type):
             marginalizing_root.set_dropconnect_keep_prob(1.0)
-        return self._log_value.get_value(Sum(
-            *self._root.values, weights=self._root.weights, dropconnect_keep_prob=1.0))
+        return self._log_value.get_value(marginalizing_root)
 
     def regularization_loss(self, name="Regularization"):
         """Adds regularization to the weight nodes. This can be either L1 or L2 or both, depending
