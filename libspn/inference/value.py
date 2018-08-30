@@ -126,15 +126,9 @@ class LogValue:
                 if (self._inference_type == InferenceType.MARGINAL
                     or (self._inference_type is None and
                         node.inference_type == InferenceType.MARGINAL)):
-                    if node.is_op:
-                        return node._compute_log_value(*args)
-                    else:
-                        return node._compute_log_value(*args)
+                    return node._compute_log_value(*args, **kwargs)
                 else:
-                    if node.is_op:
-                        return node._compute_log_mpe_value(*args)
-                    else:
-                        return node._compute_log_mpe_value(*args)
+                    return node._compute_log_mpe_value(*args, **kwargs)
 
         self._values = {}
         with tf.name_scope(self._name):
