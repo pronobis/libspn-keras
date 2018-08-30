@@ -164,22 +164,31 @@ class Weights(ParamNode):
             utils.normalize_log_tensor_2D(value, self._num_weights, self._num_sums)
         return tf.assign(self._variable, normalized_value)
 
-    def renormalize(self, value=None):
-        value = value or self._variable
-        if self._log:
-            if self._mask and not all(self._mask):
-                # Only perform masking if mask is given and mask contains any 'False'
-                value += tf.log(tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype))
-            return tf.assign(self._variable, value - tf.reduce_logsumexp(
-                value, axis=-1, keepdims=True))
-        else:
-            value = tf.maximum(value, 1e-6)
-            if self._mask and not all(self._mask):
-                # Only perform masking if mask is given and mask contains any 'False'
-                value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
-            return tf.assign(self._variable, value / tf.reduce_sum(
-                value, axis=-1, keepdims=True))
+    def normalize(self, value=None, name="Normalize"):
+        """Renormalizes the weights. If no value is given, the method will use the current
+        weight values.
 
+        Args:
+            value (Tensor): A tensor to normalize and assign to this weight node.
+
+        Returns:
+            An Op that assigns a normalized value to this node.
+        """
+        with tf.name_scope(name):
+            value = value or self._variable
+            if self._log:
+                if self._mask and not all(self._mask):
+                    # Only perform masking if mask is given and mask contains any 'False'
+                    value += tf.log(tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype))
+                return tf.assign(self._variable, value - tf.reduce_logsumexp(
+                    value, axis=-1, keepdims=True))
+            else:
+                value = tf.maximum(value, 1e-6)
+                if self._mask and not all(self._mask):
+                    # Only perform masking if mask is given and mask contains any 'False'
+                    value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
+                return tf.assign(self._variable, value / tf.reduce_sum(
+                    value, axis=-1, keepdims=True))
 
     def update(self, value):
         """Return a TF operation adding the log-values to the log-weights.

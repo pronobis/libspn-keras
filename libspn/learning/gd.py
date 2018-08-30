@@ -135,7 +135,7 @@ class GDLearning:
 
                 def fun(node):
                     if node.is_param:
-                        weight_norm_ops.append(node.renormalize())
+                        weight_norm_ops.append(node.normalize())
 
                     if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
                         weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
