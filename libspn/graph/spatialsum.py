@@ -178,8 +178,7 @@ class SpatialSum(BaseSum, abc.ABC):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_log_value(self, w_tensor, ivs_tensor, *input_tensors,
-                           dropconnect_keep_prob=None, dropout_keep_prob=None,
-                           matmul_or_conv=False):
+                           dropconnect_keep_prob=None, matmul_or_conv=False):
         if matmul_or_conv and ivs_tensor is not None:
             self.logger.warn("Cannot use matmul when using IVs, setting matmul=False")
             matmul_or_conv = False
@@ -212,44 +211,39 @@ class SpatialSum(BaseSum, abc.ABC):
                 return tf.reshape(out, (-1, self._compute_out_size()))
 
         val = super(SpatialSum, self)._compute_log_value(
-            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob,
-            dropout_keep_prob=dropout_keep_prob)
+            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob)
         return tf.reshape(val, (-1, self._compute_out_size()))
 
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_value(self, w_tensor, ivs_tensor, *input_tensors,
-                       dropconnect_keep_prob=None, dropout_keep_prob=None,
-                       matmul_or_conv=False):
+                       dropconnect_keep_prob=None, matmul_or_conv=False):
         ivs_log = None if ivs_tensor is None else tf.log(ivs_tensor)
         return self._compute_log_value(
             tf.log(w_tensor), ivs_log, *[tf.log(t) for t in input_tensors],
-            dropconnect_keep_prob=dropconnect_keep_prob, dropout_keep_prob=dropout_keep_prob,
-            matmul_or_conv=matmul_or_conv)
+            dropconnect_keep_prob=dropconnect_keep_prob, matmul_or_conv=matmul_or_conv)
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
     def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors,
-                           dropconnect_keep_prob=None, dropout_keep_prob=None):
+                           dropconnect_keep_prob=None):
         val = super(SpatialSum, self)._compute_mpe_value(
-            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob,
-            dropout_keep_prob=dropout_keep_prob)
+            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob)
         return tf.reshape(val, (-1, self._compute_out_size()))
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
     def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *input_tensors,
-                           dropconnect_keep_prob=None, dropout_keep_prob=None):
+                           dropconnect_keep_prob=None):
         val = super(SpatialSum, self)._compute_log_mpe_value(
-            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob,
-            dropout_keep_prob=dropout_keep_prob)
+            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob)
         return tf.reshape(val, (-1, self._compute_out_size()))
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
-            sample=False, sample_prob=None, sample_rank_based=None):
+            sample=False, sample_prob=None, accumulate_weights_batch=False):
         """Common operations for computing the MPE path.
 
         Args:
@@ -268,11 +262,9 @@ class SpatialSum(BaseSum, abc.ABC):
         sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
         if sample:
             if log:
-                max_indices = self._reduce_sample_log(
-                    reducible_tensor, sample_prob=sample_prob, rank_based=sample_rank_based)
+                max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
             else:
-                max_indices = self._reduce_sample(
-                    reducible_tensor, sample_prob=sample_prob, rank_based=sample_rank_based)
+                max_indices = self._reduce_sample(reducible_tensor, sample_prob=sample_prob)
         else:
             max_indices = self._reduce_argmax(reducible_tensor)
 
@@ -280,6 +272,9 @@ class SpatialSum(BaseSum, abc.ABC):
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         weight_counts, input_counts = self._accumulate_and_split_to_children(max_counts)
+
+        if accumulate_weights_batch:
+            weight_counts = tf.reduce_sum(weight_counts, axis=0, keepdims=False)
         return self._scatter_to_input_tensors(
             (weight_counts, w_tensor),  # Weights
             (max_counts, ivs_tensor),  # IVs

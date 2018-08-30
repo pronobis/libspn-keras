@@ -591,7 +591,8 @@ class BaseSum(OpNode, abc.ABC):
 
         return self._compute_mpe_path_common(
             reducible, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
-            accumulate_weights_batch=accumulate_weights_batch, sample=sample, sample_prob=sample_prob)
+            accumulate_weights_batch=accumulate_weights_batch, sample=sample,
+            sample_prob=sample_prob)
 
     @property
     def _tile_unweighted_size(self):
