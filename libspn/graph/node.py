@@ -363,7 +363,7 @@ class Node(ABC):
         from libspn.inference.value import Value
         return Value(inference_type).get_value(self)
 
-    def get_log_value(self, inference_type=None, with_ivs=True):
+    def get_log_value(self, inference_type=None):
         """Assemble TF operations computing the log value of the SPN rooted in
         this node.
 
@@ -379,7 +379,7 @@ class Node(ABC):
             dimension corresponds to the batch size.
         """
         from libspn.inference.value import LogValue
-        return LogValue(inference_type).get_value(self, with_ivs=with_ivs)
+        return LogValue(inference_type).get_value(self)
 
     def set_inference_types(self, inference_type):
         """Set inference type for each node in the SPN rooted in this node.
@@ -485,7 +485,7 @@ class Node(ABC):
         """
 
     @abstractmethod
-    def _compute_log_value(self, *input_tensors, with_ivs=True):
+    def _compute_log_value(self, *input_tensors):
         """Assemble TF operations computing the marginal log value of this node.
 
         To be re-implemented in sub-classes.
@@ -515,7 +515,7 @@ class Node(ABC):
         """
 
     @abstractmethod
-    def _compute_log_mpe_value(self, *input_tensors, with_ivs=True):
+    def _compute_log_mpe_value(self, *input_tensors):
         """Assemble TF operations computing the log MPE value of this node.
 
         To be re-implemented in sub-classes.

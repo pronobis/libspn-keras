@@ -110,7 +110,7 @@ class Concat(OpNode):
         return value_gradient(*input_tensors)
 
     @utils.docinherit(OpNode)
-    def _compute_log_value(self, *input_tensors, with_ivs=False):
+    def _compute_log_value(self, *input_tensors):
         return self._compute_value(*input_tensors)
 
     @utils.docinherit(OpNode)
@@ -118,11 +118,11 @@ class Concat(OpNode):
         return self._compute_value(*input_tensors)
 
     @utils.docinherit(OpNode)
-    def _compute_log_mpe_value(self, *input_tensors, with_ivs=True):
+    def _compute_log_mpe_value(self, *input_tensors):
         return self._compute_value(*input_tensors)
 
     def _compute_mpe_path(self, counts, *input_values, add_random=False,
-                          use_unweighted=False, with_ivs=False):
+                          use_unweighted=False):
         # Check inputs
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
@@ -133,5 +133,5 @@ class Concat(OpNode):
                                                 zip(split, input_values)])
 
     def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False, with_ivs=False):
+                              use_unweighted=False):
         return self._compute_mpe_path(counts, *value_values)

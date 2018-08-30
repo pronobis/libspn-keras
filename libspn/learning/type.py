@@ -8,7 +8,7 @@
 from enum import Enum
 
 
-class LearningType(Enum):
+class LearningTaskType(Enum):
     """Types of learning."""
     UNSUPERVISED = 0
     """Use Unsupervised Learning."""
@@ -16,7 +16,7 @@ class LearningType(Enum):
     SUPERVISED = 1
     """Use Supervised Learning."""
 
-class LearningMethod(Enum):
+class LearningMethodType(Enum):
     """Learning methods."""
     DISCRIMINATIVE = 0
     """Use Discriminative Learning."""
