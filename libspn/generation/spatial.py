@@ -69,7 +69,8 @@ class ConvSPN:
         wicker_head = self.wicker_stack(
             *input_nodes, strides=strides, stack_size=stack_size, sum_node_type=sum_node_type,
             kernel_size=kernel_size, stack_only=True, spatial_dims=spatial_dims,
-            sum_num_channels=sum_num_channels, prod_num_channels=prod_num_channels)
+            sum_num_channels=sum_num_channels, prod_num_channels=prod_num_channels,
+            prod_node_type=prod_node_type)
         out_shape = wicker_head.output_shape_spatial[:2]
 
         # Optionally pad output to make it a multiple of the dilation rate

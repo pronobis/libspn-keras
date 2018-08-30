@@ -91,26 +91,26 @@ def dilate_stride_double_stride(
 def dilate_stride_double_stride_full_wicker(
         *inp_nodes, spatial_dims=(28, 28), sum_node_types='local', kernel_size=2,
         sum_num_channels=(32, 32), prod_num_channels=(16, 32), num_channels_top=32,
-        prod_node_type='default'):
+        prod_node_types='default'):
     conv_spn_gen = ConvSPN()
 
     prod_num_channels = _preprocess_prod_num_channels(
         *inp_nodes, prod_num_channels=prod_num_channels, kernel_size=kernel_size)
 
-    if not isinstance(prod_node_type, list) and prod_node_type == 'depthwise':
+    if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise':
         stack_size = int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
-        prod_node_type = ['default'] + (stack_size - 1) * ['depthwise']
+        prod_node_types = ['default'] + (stack_size - 1) * ['depthwise']
 
     dilate_stride0 = conv_spn_gen.add_dilate_stride(
         *inp_nodes, sum_num_channels=sum_num_channels[:2],
         prod_num_channels=prod_num_channels[:2], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3SBottomDilateStride",
-        sum_node_type=(sum_node_types[0], 'skip'), prod_node_type=prod_node_type[:2])
+        sum_node_type=(sum_node_types[0], 'skip'), prod_node_type=prod_node_types[:2])
     double_stride0 = conv_spn_gen.add_double_stride(
         *inp_nodes, sum_num_channels=sum_num_channels[:2],
         prod_num_channels=prod_num_channels[:2], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3SBottomDoubleStride",
-        sum_node_type=(sum_node_types[0], 'skip'), prod_node_type=prod_node_type[:2])
+        sum_node_type=(sum_node_types[0], 'skip'), prod_node_type=prod_node_types[:2])
     spatial_dims = double_stride0.output_shape_spatial[:2]
     if sum_node_types[1] == 'local':
         dsds_mixtures_top = spn.LocalSum(
@@ -126,7 +126,7 @@ def dilate_stride_double_stride_full_wicker(
         dsds_mixtures_top, sum_num_channels=sum_num_channels[2:],
         prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
         strides=1, kernel_size=kernel_size, num_channels_top=num_channels_top,
-        sum_node_type=sum_node_types[2:], prod_node_type=prod_node_type[2:])
+        sum_node_type=sum_node_types[2:], prod_node_type=prod_node_types[2:])
     for node in conv_spn_gen.nodes_per_level[2]:
         node.set_dropconnect_keep_prob(1.0)
     return root
@@ -134,12 +134,12 @@ def dilate_stride_double_stride_full_wicker(
 
 def double_dilate_stride_double_stride(
         *inp_nodes, spatial_dims=(28, 28), sum_node_types='local', kernel_size=2,
-        sum_num_channels=(32, 32), prod_num_channels=(16, 32), prod_node_type='default',
+        sum_num_channels=(32, 32), prod_num_channels=(16, 32), prod_node_types='default',
         dense_gen=None):
     conv_spn_gen = ConvSPN()
 
-    if not isinstance(prod_node_type, list) and prod_node_type == 'depthwise':
-        prod_node_type = ['default'] + 3 * ['depthwise']
+    if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise':
+        prod_node_types = ['default'] + 3 * ['depthwise']
 
     prod_num_channels = _preprocess_prod_num_channels(
         *inp_nodes, prod_num_channels=prod_num_channels, kernel_size=kernel_size)
@@ -148,12 +148,12 @@ def double_dilate_stride_double_stride(
         *inp_nodes, sum_num_channels=sum_num_channels[:2],
         prod_num_channels=prod_num_channels[:2], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3SBottomDilateStride",
-        sum_node_type=(sum_node_types[0], 'skip'), prod_node_type=prod_node_type[:2])
+        sum_node_type=(sum_node_types[0], 'skip'), prod_node_type=prod_node_types[:2])
     double_stride0 = conv_spn_gen.add_double_stride(
         *inp_nodes, sum_num_channels=sum_num_channels[:2],
         prod_num_channels=prod_num_channels[:2], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3SBottomDoubleStride",
-        sum_node_type=(sum_node_types[0], 'skip'), prod_node_type=prod_node_type[:2])
+        sum_node_type=(sum_node_types[0], 'skip'), prod_node_type=prod_node_types[:2])
     spatial_dims = double_stride0.output_shape_spatial[:2]
 
     if sum_node_types[1] == 'local':
@@ -173,13 +173,13 @@ def double_dilate_stride_double_stride(
         prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3STopDilateStride", pad_right=pad_right,
         pad_bottom=pad_bottom,
-        sum_node_type=(sum_node_types[2], 'skip'), prod_node_type=prod_node_type[2:])
+        sum_node_type=(sum_node_types[2], 'skip'), prod_node_type=prod_node_types[2:])
     double_stride1 = conv_spn_gen.add_double_stride(
         dsds_mixtures, double_stride0, sum_num_channels=sum_num_channels[2:],
         prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3STopDoubleStride", pad_right=pad_right,
         pad_bottom=pad_bottom,
-        sum_node_type=(sum_node_types[2], 'skip'), prod_node_type=prod_node_type[2:])
+        sum_node_type=(sum_node_types[2], 'skip'), prod_node_type=prod_node_types[2:])
     spatial_dims = double_stride1.output_shape_spatial[:2]
 
     if sum_node_types[3] == 'local':
@@ -201,11 +201,11 @@ def wicker_dense(
         *inp_nodes, spatial_dims=(28, 28), strides=(1, 2, 2),
         sum_node_types='local', kernel_size=2,
         sum_num_channels=(32, 32, 32), prod_num_channels=(16, 32, 32),
-        wicker_stack_size=3, dense_gen=None, prod_node_type='default'):
+        wicker_stack_size=3, dense_gen=None, prod_node_types='default'):
     conv_spn_gen = ConvSPN()
 
-    if not isinstance(prod_node_type, list) and prod_node_type == 'depthwise':
-        prod_node_type = ['default'] + wicker_stack_size * ['depthwise']
+    if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise':
+        prod_node_types = ['default'] + wicker_stack_size * ['depthwise']
 
     prod_num_channels = _preprocess_prod_num_channels(
         *inp_nodes, prod_num_channels=prod_num_channels, kernel_size=kernel_size)
@@ -213,6 +213,6 @@ def wicker_dense(
         *inp_nodes, stack_size=wicker_stack_size, strides=strides,
         sum_num_channels=sum_num_channels, prod_num_channels=prod_num_channels,
         name_prefix="WickerDense", dense_generator=dense_gen, spatial_dims=spatial_dims,
-        sum_node_type=sum_node_types, prod_node_type=prod_node_type)
+        sum_node_type=sum_node_types, prod_node_type=prod_node_types)
     return root
 
