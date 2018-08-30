@@ -401,7 +401,7 @@ class BaseSum(OpNode, abc.ABC):
         # Defines hard-gradient for the log value
         def hard_gradient(grad):
             scattered_grads = self._compute_log_mpe_path(
-                grad, w_tensor, ivs_tensor, *value_tensors, sum_weight_grads=True)
+                grad, w_tensor, ivs_tensor, *value_tensors, accumulate_weights_batch=True)
 
             return [sg for sg in scattered_grads if sg is not None]
 
@@ -491,7 +491,7 @@ class BaseSum(OpNode, abc.ABC):
     @utils.lru_cache
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
-            log=True, sample=False, sample_prob=None, sum_weight_grads=False):
+            log=True, sample=False, sample_prob=None, accumulate_weights_batch=False):
         """Common operations for computing the MPE path.
 
         Args:
@@ -523,7 +523,7 @@ class BaseSum(OpNode, abc.ABC):
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_acc, max_counts_split = self._accumulate_and_split_to_children(
             max_counts, *input_tensors)
-        if sum_weight_grads:
+        if accumulate_weights_batch:
             max_counts = tf.reduce_sum(max_counts, axis=0, keepdims=False)
         return self._scatter_to_input_tensors(
             (max_counts, w_tensor),  # Weights
@@ -574,7 +574,7 @@ class BaseSum(OpNode, abc.ABC):
     @utils.lru_cache
     def _compute_log_mpe_path(self, counts, w_tensor, ivs_tensor, *input_tensors,
                               use_unweighted=False, add_random=None,
-                              sum_weight_grads=False, sample=False, sample_prob=None,
+                              accumulate_weights_batch=False, sample=False, sample_prob=None,
                               dropconnect_keep_prob=None):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
         reducible = self._compute_reducible(
@@ -589,7 +589,7 @@ class BaseSum(OpNode, abc.ABC):
 
         return self._compute_mpe_path_common(
             reducible, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
-            sum_weight_grads=sum_weight_grads, sample=sample, sample_prob=sample_prob)
+            accumulate_weights_batch=accumulate_weights_batch, sample=sample, sample_prob=sample_prob)
 
     @utils.lru_cache
     def _compute_log_gradient(

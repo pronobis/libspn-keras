@@ -317,7 +317,7 @@ class SumsLayer(BaseSum):
     @utils.lru_cache
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
-            sum_weight_grads=False, sample=False, sample_prob=None):
+            accumulate_weights_batch=False, sample=False, sample_prob=None):
         if sample:
             if log:
                 max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
@@ -328,7 +328,7 @@ class SumsLayer(BaseSum):
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_split = self._accumulate_and_split_to_children(max_counts, *input_tensors)
-        if sum_weight_grads:
+        if accumulate_weights_batch:
             w_counts = tf.reduce_sum(max_counts, axis=self._batch_axis)
         else:
             w_counts = max_counts
