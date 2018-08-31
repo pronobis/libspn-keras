@@ -108,7 +108,8 @@ class GDLearning:
             loss = loss or (self.mle_loss() if
                             self._learning_method == LearningMethodType.GENERATIVE else
                             self.cross_entropy_loss())
-            if self._l1_regularize_coeff is not None or self._l2_regularize_coeff is not None:
+            if (self._l1_regularize_coeff is not None or self._l2_regularize_coeff is not None) \
+                    and (self._l1_regularize_coeff != 0.0 or self._l2_regularize_coeff != 0.0):
                 loss += self.regularization_loss()
 
         # Assemble TF ops for optimizing and weights normalization
