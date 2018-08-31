@@ -13,6 +13,7 @@ from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
 from libspn.learning.type import GradientType
 from libspn.graph.distribution import GaussianLeaf
+from libspn.graph.weights import Weights
 from libspn.graph.sum import Sum
 from libspn.log import get_logger
 
@@ -45,7 +46,8 @@ class GDLearning:
                  learning_task_type=LearningTaskType.SUPERVISED,
                  learning_method=LearningMethodType.DISCRIMINATIVE,
                  gradient_type=GradientType.SOFT, learning_rate=1e-4, marginalizing_root=None,
-                 name="GDLearning", l1_regularize_coeff=None, l2_regularize_coeff=None):
+                 name="GDLearning", l1_regularize_coeff=None, l2_regularize_coeff=None,
+                 entropy_regularize_coeff=None):
 
         if learning_task_type == LearningTaskType.UNSUPERVISED and \
                 learning_method == LearningMethodType.DISCRIMINATIVE:
@@ -73,14 +75,16 @@ class GDLearning:
         self._learning_method = learning_method
         self._l1_regularize_coeff = l1_regularize_coeff
         self._l2_regularize_coeff = l2_regularize_coeff
+        self._entropy_regularize_coeff = entropy_regularize_coeff
         self._dropconnect_keep_prob = dropconnect_keep_prob
         self._gradient_type = gradient_type
         self._name = name
 
-    def loss(self, learning_method=None):
+    def loss(self, learning_method=None, dropconnect_keep_prob=None):
         learning_method = learning_method or self._learning_method
-        return self.mle_loss() if learning_method == LearningMethodType.GENERATIVE else \
-            self.cross_entropy_loss()
+        if learning_method == LearningMethodType.GENERATIVE:
+            return self.mle_loss(dropconnect_keep_prob=dropconnect_keep_prob)
+        return self.cross_entropy_loss(dropconnect_keep_prob=dropconnect_keep_prob)
 
     def learn(self, loss=None, gradient_type=None, optimizer=tf.train.GradientDescentOptimizer):
         """Assemble TF operations performing GD learning of the SPN. This includes setting up
@@ -111,8 +115,9 @@ class GDLearning:
         # on learning-type and learning-method
         with tf.name_scope("Loss"):
             loss = loss or self.loss()
-            if (self._l1_regularize_coeff is not None or self._l2_regularize_coeff is not None) \
-                    and (self._l1_regularize_coeff != 0.0 or self._l2_regularize_coeff != 0.0):
+            reg_coeffs = [self._l1_regularize_coeff, self._l2_regularize_coeff,
+                          self._entropy_regularize_coeff]
+            if any(c is not None for c in reg_coeffs) and any(c != 0.0 for c in reg_coeffs):
                 loss += self.regularization_loss()
 
         # Assemble TF ops for optimizing and weights normalization
@@ -216,20 +221,32 @@ class GDLearning:
             A Tensor with the total regularization loss.
         """
 
+        def _enable(c):
+            return c is not None and c != 0.0
+
         with tf.name_scope(name):
             losses = []
 
             def regularize_node(node):
-                if node.is_param:
-                    if self._l1_regularize_coeff is not None:
+                if isinstance(node, Weights):
+                    if _enable(self._l1_regularize_coeff):
                         losses.append(
                             self._l1_regularize_coeff * tf.reduce_sum(tf.abs(node.variable)))
-                    if self._l2_regularize_coeff is not None:
+                    if _enable(self._l2_regularize_coeff):
                         losses.append(
                             self._l2_regularize_coeff * tf.reduce_sum(tf.square(node.variable)))
+                    if _enable(self._entropy_regularize_coeff):
+                        if node.log:
+                            losses.append(
+                                self._entropy_regularize_coeff *
+                                -tf.reduce_sum(node.variable * tf.exp(node.variable)))
+                        else:
+                            losses.append(self._entropy_regularize_coeff *
+                                          -tf.reduce_sum(node.variable * tf.log(
+                                              node.variable + 1e-8)))
 
             traverse_graph(self._root, fun=regularize_node)
-            return tf.add_n(losses)
+            return tf.add_n(losses) if losses else tf.constant(0.0)
 
     @staticmethod
     def _turn_off_dropconnect(dropconnect_keep_prob, learning_task_type):
