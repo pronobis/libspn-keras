@@ -77,6 +77,11 @@ class GDLearning:
         self._gradient_type = gradient_type
         self._name = name
 
+    def loss(self, learning_method=None):
+        learning_method = learning_method or self._learning_method
+        return self.mle_loss() if learning_method == LearningMethodType.GENERATIVE else \
+            self.cross_entropy_loss()
+
     def learn(self, loss=None, gradient_type=None, optimizer=tf.train.GradientDescentOptimizer):
         """Assemble TF operations performing GD learning of the SPN. This includes setting up
         the loss function (with regularization), setting up the optimizer and setting up
@@ -105,9 +110,7 @@ class GDLearning:
         # If a loss function is not provided, define the loss function based
         # on learning-type and learning-method
         with tf.name_scope("Loss"):
-            loss = loss or (self.mle_loss() if
-                            self._learning_method == LearningMethodType.GENERATIVE else
-                            self.cross_entropy_loss())
+            loss = loss or self.loss()
             if (self._l1_regularize_coeff is not None or self._l2_regularize_coeff is not None) \
                     and (self._l1_regularize_coeff != 0.0 or self._l2_regularize_coeff != 0.0):
                 loss += self.regularization_loss()

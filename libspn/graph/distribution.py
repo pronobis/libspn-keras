@@ -60,6 +60,8 @@ class GaussianLeaf(VarNode):
         self._num_vars = num_vars
         self._num_components = num_components
         self._softplus_scale = softplus_scale
+        self._train_var = train_var
+        self._train_mean = train_mean
 
         # Initial value for means
         if isinstance(loc_init, float):
@@ -80,8 +82,6 @@ class GaussianLeaf(VarNode):
 
         var_shape = (num_vars, num_components)
         self._total_count_variable = self._total_accumulates(total_counts_init, var_shape)
-        self._train_var = train_var
-        self._train_mean = train_mean
 
     def initialize(self):
         """Provide initializers for mean, variance and total counts """
