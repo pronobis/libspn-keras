@@ -194,12 +194,12 @@ class ConvSPN:
             spatial_dims = next_node.output_shape_spatial[:2]
             input_nodes = [next_node]
             self.__logger.debug1("Built node {}. ".format(next_node))
-            self.__logger.debug1("\n\tOut shape: {} x {} x {}".format(
+            self.__logger.debug1("\tOut shape: {} x {} x {}".format(
                 *next_node.output_shape_spatial))
-            self.__logger.debug1("\n\tStrides: {}".format(stride))
-            self.__logger.debug1("\n\tDilations: {}".format(dilation_r))
-            self.__logger.debug1("\n\tKernel size: {}".format(kernel_s))
-            self.__logger.debug1("\n\tPadding: [{},{}] x [{},{}]".format(pad_t, pad_b, pad_l, pad_r))
+            self.__logger.debug1("\tStrides: {}".format(stride))
+            self.__logger.debug1("\tDilations: {}".format(dilation_r))
+            self.__logger.debug1("\tKernel size: {}".format(kernel_s))
+            self.__logger.debug1("\tPadding: [{},{}] x [{},{}]".format(pad_t, pad_b, pad_l, pad_r))
             self._register_node(next_node, level)
             
             if s_node_type == "conv":
