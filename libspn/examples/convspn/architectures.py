@@ -32,10 +32,12 @@ def full_wicker(
         sum_num_channels=(32, 32, 32, 64, 64), prod_num_channels=(16, 32, 32, 64, 64),
         num_channels_top=32, prod_node_types='default'):
     conv_spn_gen = ConvSPN()
+    stack_size = int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
     if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise' and \
             any(isinstance(n, spn.VarNode) for n in inp_nodes):
-        stack_size = int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
         prod_node_types = ['default'] + (stack_size - 1) * ['depthwise']
+    elif not isinstance(prod_node_types, (tuple, list)):
+        prod_node_types = [prod_node_types] * stack_size
 
     prod_num_channels = _preprocess_prod_num_channels(
         *inp_nodes, prod_num_channels=prod_num_channels, kernel_size=kernel_size)
@@ -59,6 +61,8 @@ def dilate_stride_double_stride(
     if not isinstance(prod_node_type, list) and prod_node_type == 'depthwise' and \
             any(isinstance(n, spn.VarNode) for n in inp_nodes):
         prod_node_type = ['default', 'depthwise']
+    elif not isinstance(prod_node_type, (tuple, list)):
+        prod_node_type = [prod_node_type] * 2
 
     prod_num_channels = _preprocess_prod_num_channels(
         *inp_nodes, prod_num_channels=prod_num_channels, kernel_size=kernel_size)
@@ -98,10 +102,12 @@ def dilate_stride_double_stride_full_wicker(
     prod_num_channels = _preprocess_prod_num_channels(
         *inp_nodes, prod_num_channels=prod_num_channels, kernel_size=kernel_size)
 
+    stack_size = int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
     if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise' and \
             any(isinstance(n, spn.VarNode) for n in inp_nodes):
-        stack_size = int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
         prod_node_types = ['default'] + (stack_size - 1) * ['depthwise']
+    elif not isinstance(prod_node_types, (tuple, list)):
+        prod_node_types = [prod_node_types] * stack_size
 
     dilate_stride0 = conv_spn_gen.add_dilate_stride(
         *inp_nodes, sum_num_channels=sum_num_channels[:2],
@@ -143,6 +149,8 @@ def double_dilate_stride_double_stride(
     if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise' and \
             any(isinstance(n, spn.VarNode) for n in inp_nodes):
         prod_node_types = ['default'] + 3 * ['depthwise']
+    elif not isinstance(prod_node_types, (tuple, list)):
+        prod_node_types = [prod_node_types] * 4
 
     prod_num_channels = _preprocess_prod_num_channels(
         *inp_nodes, prod_num_channels=prod_num_channels, kernel_size=kernel_size)
@@ -209,7 +217,9 @@ def wicker_dense(
 
     if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise' and \
             any(isinstance(n, spn.VarNode) for n in inp_nodes):
-        prod_node_types = ['default'] + wicker_stack_size * ['depthwise']
+        prod_node_types = ['default'] + (wicker_stack_size - 1) * ['depthwise']
+    elif not isinstance(prod_node_types, (tuple, list)):
+        prod_node_types = [prod_node_types] * wicker_stack_size
 
     prod_num_channels = _preprocess_prod_num_channels(
         *inp_nodes, prod_num_channels=prod_num_channels, kernel_size=kernel_size)
