@@ -183,7 +183,7 @@ class Weights(ParamNode):
                 return tf.assign(self._variable, value - tf.reduce_logsumexp(
                     value, axis=-1, keepdims=True))
             else:
-                value = tf.maximum(value, 1e-6)
+                value = tf.maximum(value, 1e-2)
                 if self._mask and not all(self._mask):
                     # Only perform masking if mask is given and mask contains any 'False'
                     value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
