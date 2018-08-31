@@ -134,7 +134,7 @@ class GaussianLeaf(VarNode):
             Evidence indicator placeholder: a placeholder ``Tensor`` set to True for each variable.
         """
         return tf.placeholder_with_default(
-            tf.cast(tf.ones_like(self._placeholder), tf.bool), shape=[None, self._num_vars])
+            tf.cast(tf.ones_like(self.feed), tf.bool), shape=[None, self._num_vars])
 
     def attach_evidence_indicator(self, indicator):
         """Set a tensor that feeds the evidence indicators.
@@ -152,10 +152,11 @@ class GaussianLeaf(VarNode):
     def _create(self):
         super()._create()
         self._loc_variable = tf.Variable(
-            self._loc_init, dtype=conf.dtype, collections=['spn_distribution_parameters'])
+            self._loc_init, dtype=conf.dtype, collections=['spn_distribution_parameters'],
+            trainable=self._train_mean)
         self._scale_variable = tf.Variable(
             tf.maximum(self._scale_init, self._min_stddev), dtype=conf.dtype,
-            collections=['spn_distribution_parameters'])
+            collections=['spn_distribution_parameters'], trainable=self._train_var)
         if self._softplus_scale:
             self._dist = tfd.NormalWithSoftplusScale(self._loc_variable, self._scale_variable)
         else:
