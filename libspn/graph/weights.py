@@ -249,8 +249,8 @@ class Weights(ParamNode):
         init_val = utils.normalize_tensor_2D(init_val, self._num_weights, self._num_sums)
         if self._log:
             init_val = tf.log(init_val)
-        self._variable = tf.Variable(init_val, dtype=conf.dtype,
-                                     collections=['spn_weights'])
+        self._variable = tf.Variable(
+            init_val, dtype=conf.dtype, collections=['spn_weights'], trainable=self._trainable)
 
     def _compute_out_size(self):
         return self._num_weights * self._num_sums

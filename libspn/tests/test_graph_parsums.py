@@ -406,6 +406,7 @@ class TestNodesParSums(unittest.TestCase):
 
     def test_compute_mpe_value(self):
         """Calculating MPE value of ParSums."""
+        spn.conf.argmax_zero = True
         def test(values, num_sums, ivs, weights, feed, output):
             with self.subTest(values=values, num_sums=num_sums, ivs=ivs,
                               weights=weights, feed=feed):
