@@ -103,20 +103,14 @@ def gather_cols(params, indices, name=None):
                 # It is as fast as slice for int64, and generates smaller graph
                 return tf.gather(params, indices)
             else:
-                if conf.custom_gather_cols:
-                    return ops.gather_cols(params, indices)
-                else:
-                    return tf.slice(params, [0, indices[0]], [-1, 1])
+                return tf.slice(params, [0, indices[0]], [-1, 1])
         else:
             # Gathering multiple columns from multi-column tensor
             if param_dims == 1:
                 # Gather is faster than custom for 1D.
                 return tf.gather(params, indices)
             else:
-                if conf.custom_gather_cols:
-                    return ops.gather_cols(params, indices)
-                else:
-                    return tf.gather(params, indices, axis=1)
+                return tf.gather(params, indices, axis=1)
 
 
 def gather_cols_3d(params, indices, pad_elem=0, name=None):
