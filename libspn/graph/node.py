@@ -776,7 +776,18 @@ class OpNode(Node):
         """
 
     @utils.lru_cache
-    def _create_dropout_mask(self, keep_prob, shape, log=True, name="DropoutMask"):
+    def _create_dropconnect_mask(self, keep_prob, shape, name="DropconnectMask"):
+        with tf.name_scope(name):
+            mask = tf.random_uniform(shape=shape, minval=0.0, maxval=1.0)
+            # To ensure numerical stability and the opportunity to always learn something,
+            # we enforce at least a single 'True' value along the last axis (sum axis) by comparing
+            # the randomly drawn floats with their minimum and setting True in case of equality.
+            mask_min = tf.reduce_min(mask, axis=-1, keepdims=True)
+            return tf.logical_or(tf.equal(mask, mask_min), tf.less(mask, keep_prob))
+
+    @utils.lru_cache
+    def _create_dropout_mask(self, keep_prob, shape, log=True, name="DropoutMask",
+                             dtype=conf.dtype, axis=-1):
         """Creates a dropout mask with values drawn from a Bernoulli distribution with parameter
         ``keep_prob``.
 
@@ -787,9 +798,10 @@ class OpNode(Node):
 
         """
         with tf.name_scope(name):
-            mask = tfd.Bernoulli(probs=keep_prob, dtype=conf.dtype, name="DropoutMaskBernoulli")\
+            mask = tfd.Bernoulli(probs=keep_prob, dtype=dtype, name="DropoutMaskBernoulli")\
                 .sample(sample_shape=shape)
             return tf.log(mask) if log else mask
+
 
 class VarNode(Node):
     """An abstract class defining a variable node of the SPN graph.

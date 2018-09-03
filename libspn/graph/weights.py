@@ -164,7 +164,7 @@ class Weights(ParamNode):
             utils.normalize_log_tensor_2D(value, self._num_weights, self._num_sums)
         return tf.assign(self._variable, normalized_value)
 
-    def normalize(self, value=None, name="Normalize"):
+    def normalize(self, value=None, name="Normalize", linear_w_minimum=1e-2, log_w_minimum=-1e10):
         """Renormalizes the weights. If no value is given, the method will use the current
         weight values.
 
@@ -177,13 +177,13 @@ class Weights(ParamNode):
         with tf.name_scope(name):
             value = value or self._variable
             if self._log:
+                value = tf.maximum(value, log_w_minimum)
                 if self._mask and not all(self._mask):
                     # Only perform masking if mask is given and mask contains any 'False'
                     value += tf.log(tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype))
-                return tf.assign(self._variable, value - tf.reduce_logsumexp(
-                    value, axis=-1, keepdims=True))
+                return tf.assign(self._variable, tf.nn.log_softmax(value, axis=-1))
             else:
-                value = tf.maximum(value, 1e-2)
+                value = tf.maximum(value, linear_w_minimum)
                 if self._mask and not all(self._mask):
                     # Only perform masking if mask is given and mask contains any 'False'
                     value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
@@ -257,17 +257,11 @@ class Weights(ParamNode):
 
     @utils.lru_cache
     def _compute_value(self):
-        if self._log:
-            return tf.exp(self._variable)
-        else:
-            return self._variable
+        return tf.exp(self._variable) if self._log else self._variable
 
     @utils.lru_cache
     def _compute_log_value(self):
-        if self._log:
-            return self._variable
-        else:
-            return tf.log(self._variable)
+        return self._variable if self._log else tf.log(self._variable)
 
     def _compute_hard_gd_update(self, grads):
         if len(grads.shape) == 3:

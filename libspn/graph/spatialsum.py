@@ -14,6 +14,7 @@ from libspn.graph.weights import Weights
 import numpy as np
 from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode
+from libspn import conf
 import abc
 
 from libspn.utils.math import logconv_1x1, logmatmul
@@ -184,16 +185,23 @@ class SpatialSum(BaseSum, abc.ABC):
             matmul_or_conv = False
 
         if matmul_or_conv:
-            w_tensor, _, inp_concat = self._prepare_component_wise_processing(
-                w_tensor, ivs_tensor, *input_tensors)
-            # Apply dropconnect
             dropconnect_keep_prob = utils.maybe_first(
                 self._dropconnect_keep_prob, dropconnect_keep_prob)
             if dropconnect_keep_prob is not None and (not isinstance(
-                    dropconnect_keep_prob, float) or dropconnect_keep_prob != 1.0):
-                dropout_mask = self._create_dropout_mask(
-                    keep_prob=dropconnect_keep_prob, shape=tf.shape(inp_concat), log=True)
-                inp_concat += dropout_mask
+                    dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob != 1.0):
+                # dropout_mask = self._create_dropout_mask(
+                #     keep_prob=dropconnect_keep_prob, shape=tf.shape(w_tensor), log=False,
+                #     dtype=tf.bool)
+                dropout_mask = self._create_dropconnect_mask(
+                    keep_prob=dropconnect_keep_prob, shape=tf.shape(w_tensor))
+                min_inf = tf.cast(
+                    tf.fill(tf.shape(w_tensor), value=float('-inf')), dtype=conf.dtype)
+                w_tensor = tf.where(dropout_mask, w_tensor, min_inf)
+                if conf.renormalize_dropconnect:
+                    w_tensor = tf.nn.log_softmax(w_tensor, axis=-1)
+            w_tensor, _, inp_concat = self._prepare_component_wise_processing(
+                w_tensor, ivs_tensor, *input_tensors)
+            # Apply dropconnect
             if all(w_tensor.shape[i] == 1 for i in self._op_axis):
                 w_tensor = tf.transpose(
                     tf.squeeze(w_tensor, axis=0), (0, 1, 3, 2))
