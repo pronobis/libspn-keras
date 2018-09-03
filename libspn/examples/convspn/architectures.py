@@ -96,7 +96,7 @@ def dilate_stride_double_stride(
 def dilate_stride_double_stride_full_wicker(
         *inp_nodes, spatial_dims=(28, 28), sum_node_types='local', kernel_size=2,
         sum_num_channels=(32, 32), prod_num_channels=(16, 32), num_channels_top=32,
-        prod_node_types='default'):
+        prod_node_types='default', strides=None):
     conv_spn_gen = ConvSPN()
 
     prod_num_channels = _preprocess_prod_num_channels(
@@ -133,7 +133,7 @@ def dilate_stride_double_stride_full_wicker(
     root = conv_spn_gen.full_wicker(
         dsds_mixtures_top, sum_num_channels=sum_num_channels[2:],
         prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
-        strides=1, kernel_size=kernel_size, num_channels_top=num_channels_top,
+        strides=strides or 1, kernel_size=kernel_size, num_channels_top=num_channels_top,
         sum_node_type=sum_node_types[2:], prod_node_type=prod_node_types[2:])
     for node in conv_spn_gen.nodes_per_level[2]:
         node.set_dropconnect_keep_prob(1.0)
