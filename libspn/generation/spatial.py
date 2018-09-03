@@ -253,9 +253,13 @@ class ConvSPN:
         return input_nodes
     
     def _register_level(self, *input_nodes):
-        node_level = self.level_at
         if any(node in self.node_level for node in input_nodes):
             node_level = max([self.node_level[n] for n in input_nodes])
+        else:
+            try:
+                node_level = list(self.node_level.values())[-1]
+            except:
+                node_level = 0
 
         for n in input_nodes:
             if n not in self.node_level:
