@@ -55,7 +55,7 @@ class GDLearning:
 
         self._root = root
         self._marginalizing_root = marginalizing_root
-        if self._turn_off_dropconnect(dropconnect_keep_prob, learning_task_type):
+        if self._turn_off_dropconnect_root(dropconnect_keep_prob, learning_task_type):
             self._root.set_dropconnect_keep_prob(1.0)
             if self._marginalizing_root is not None:
                 self._marginalizing_root.set_dropconnect_keep_prob(1.0)
@@ -74,6 +74,18 @@ class GDLearning:
         self._linear_w_minimum = linear_w_minimum
 
     def loss(self, learning_method=None, dropconnect_keep_prob=None):
+        """Assembles main objective operations. In case of generative learning it will select 
+        the MLE objective, whereas in discriminative learning it selects the cross entropy.
+        
+        Args:
+            learning_method (LearningMethodType): The learning method (can be either generative 
+                or discriminative).
+            dropconnect_keep_prob (float or Tensor): The dropconnect keep probability to use. 
+                Overrides the value of GDLearning._dropconnect_keep_prob
+            
+        Returns:
+            An operation to compute the main loss function.
+        """
         learning_method = learning_method or self._learning_method
         if learning_method == LearningMethodType.GENERATIVE:
             return self.mle_loss(dropconnect_keep_prob=dropconnect_keep_prob)
@@ -84,12 +96,13 @@ class GDLearning:
         the loss function (with regularization), setting up the optimizer and setting up
         post gradient-update ops.
 
-        loss (Tensor): The operation corresponding to the loss to minimize.
-        optimizer (tf.train.Optimizer): A TensorFlow optimizer to use for minimizing the loss.
-        gradient_type (GradientType): The type of gradients to use for backpropagation, can be
-            either soft (effectively viewing sum nodes as weighted sums) or hard (effectively
-            viewing sum nodes as weighted maxes). Soft and hard correspond to GradientType.SOFT
-            and GradientType.HARD, respectively.
+        Args:
+            loss (Tensor): The operation corresponding to the loss to minimize.
+            optimizer (tf.train.Optimizer): A TensorFlow optimizer to use for minimizing the loss.
+            gradient_type (GradientType): The type of gradients to use for backpropagation, can be
+                either soft (effectively viewing sum nodes as weighted sums) or hard (effectively
+                viewing sum nodes as weighted maxes). Soft and hard correspond to GradientType.SOFT
+                and GradientType.HARD, respectively.
 
         Returns:
             A grouped operation that (i) updates the parameters using gradient descent, (ii)
@@ -172,13 +185,14 @@ class GDLearning:
 
     def mle_loss(self, name="MaximumLikelihoodLoss", reduce_fn=tf.reduce_mean,
                  dropconnect_keep_prob=None):
-        """Returns the maximum (log) likelihood estimate loss function which corresponds to
-        -log(p(X)) in the case of unsupervised learning or -log(p(X,Y)) in the case of supservised
+        """Returns the maximum (log) likelihood estimator loss function which corresponds to
+        -log(p(X)) in the case of unsupervised learning or -log(p(X,Y)) in the case of supervised
         learning.
 
         Args:
             name (str): The name for the name scope to use
-            reduce_fn (Op): An operation that reduces the losses for all samples to a scalar.
+            reduce_fn (function): An function that returns an operation that reduces the losses for 
+                all samples to a scalar.
             dropconnect_keep_prob (float or Tensor): Keep probability for dropconnect, will
                 override the value of GDLearning._dropconnect_keep_prob.
         Returns:
@@ -211,7 +225,7 @@ class GDLearning:
             *self._root.values, weights=self._root.weights)
         learning_task_type = learning_task_type or self._learning_task_type
         dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
-        if self._turn_off_dropconnect(dropconnect_keep_prob, learning_task_type):
+        if self._turn_off_dropconnect_root(dropconnect_keep_prob, learning_task_type):
             marginalizing_root.set_dropconnect_keep_prob(1.0)
         return LogValue(
             dropconnect_keep_prob=dropconnect_keep_prob,
@@ -222,7 +236,7 @@ class GDLearning:
         on what is specified at instantiation of GDLearning.
 
         Returns:
-            A Tensor with the total regularization loss.
+            A Tensor computing the total regularization loss.
         """
 
         def _enable(c):
@@ -233,27 +247,28 @@ class GDLearning:
 
             def regularize_node(node):
                 if isinstance(node, Weights):
+                    linear_w = tf.exp(node.variable) if node.log else node.variable
                     if _enable(self._l1_regularize_coeff):
                         losses.append(
-                            self._l1_regularize_coeff * tf.reduce_sum(tf.abs(node.variable)))
+                            self._l1_regularize_coeff * tf.reduce_sum(tf.abs(linear_w)))
                     if _enable(self._l2_regularize_coeff):
                         losses.append(
-                            self._l2_regularize_coeff * tf.reduce_sum(tf.square(node.variable)))
+                            self._l2_regularize_coeff * tf.reduce_sum(tf.square(linear_w)))
                     if _enable(self._entropy_regularize_coeff):
                         if node.log:
                             losses.append(
                                 self._entropy_regularize_coeff *
-                                -tf.reduce_sum(node.variable * tf.exp(node.variable)))
+                                -tf.reduce_sum(node.variable * linear_w))
                         else:
                             losses.append(self._entropy_regularize_coeff *
-                                          -tf.reduce_sum(node.variable * tf.log(
+                                          -tf.reduce_sum(linear_w * tf.log(
                                               node.variable + 1e-8)))
 
             traverse_graph(self._root, fun=regularize_node)
             return tf.add_n(losses) if losses else tf.constant(0.0)
 
     @staticmethod
-    def _turn_off_dropconnect(dropconnect_keep_prob, learning_task_type):
+    def _turn_off_dropconnect_root(dropconnect_keep_prob, learning_task_type):
         """Determines whether to turn off dropconnect for the root node. """
         return dropconnect_keep_prob is not None and \
             (not isinstance(dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob == 1.0) \
