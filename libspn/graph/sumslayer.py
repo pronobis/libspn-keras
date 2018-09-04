@@ -124,13 +124,13 @@ class SumsLayer(BaseSum):
 
     @utils.docinherit(BaseSum)
     def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
-        flat_value_scopes, ivs_scopes_, *value_scopes_ = self._get_flat_value_scopes(
-            weight_scopes, ivs_scopes, *value_scopes)
         # If already invalid, return None
-        if (any(s is None for s in value_scopes_)
-                or (self._ivs and ivs_scopes_ is None)):
+        if (any(s is None for s in value_scopes)
+                or (self._ivs and ivs_scopes is None)):
             return None
 
+        flat_value_scopes, ivs_scopes_, *value_scopes_ = self._get_flat_value_scopes(
+            weight_scopes, ivs_scopes, *value_scopes)
         # Split the flat value scopes based on value input sizes
         split_indices = np.cumsum(self._sum_sizes)[:-1]
 
@@ -317,14 +317,22 @@ class SumsLayer(BaseSum):
     @utils.lru_cache
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
-            accumulate_weights_batch=False, sample=False, sample_prob=None):
+            accumulate_weights_batch=False, sample=False, sample_prob=None, use_unweighted=False):
+        sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
+        sample_shape = (self._tile_unweighted_size,) if use_unweighted else ()
         if sample:
             if log:
-                max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
+                max_indices = self._reduce_sample_log(
+                    reducible_tensor, sample_prob=sample_prob, sample_shape=sample_shape)
             else:
-                max_indices = self._reduce_sample(reducible_tensor, sample_prob=sample_prob)
+                max_indices = self._reduce_sample(
+                    reducible_tensor, sample_prob=sample_prob, sample_shape=sample_shape)
         else:
-            max_indices = self._reduce_argmax(reducible_tensor)
+            max_indices = self._reduce_argmax(
+                reducible_tensor, sample_shape=sample_shape)
+        if use_unweighted:
+            max_indices = tf.squeeze(max_indices, axis=self._reduce_axis - 1)
+
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_split = self._accumulate_and_split_to_children(max_counts, *input_tensors)

@@ -341,13 +341,9 @@ class BaseSum(OpNode, abc.ABC):
         if self._ivs:
             reducible = cwise_op(reducible, ivs_tensor)
 
-        # Apply weights
-        if weighted:
-            reducible = cwise_op(reducible, w_tensor)
-
         # Maybe apply dropconnect
         dropconnect_keep_prob = utils.maybe_first(
-            dropconnect_keep_prob, self._dropconnect_keep_prob)
+            self._dropconnect_keep_prob, dropconnect_keep_prob)
 
         if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
             if self._ivs:
@@ -355,19 +351,20 @@ class BaseSum(OpNode, abc.ABC):
                     "Using dropconnect and latent IVs simultaneously. "
                     "This might result in zero probabilities throughout and unpredictable "
                     "behavior of learning. Therefore, dropconnect is turned off for node {}."
-                        .format(self))
+                    .format(self))
             else:
-                mask = self._create_dropout_mask(
-                    dropconnect_keep_prob, tf.shape(reducible), log=log)
-
+                mask = self._create_dropconnect_mask(
+                    dropconnect_keep_prob, tf.shape(reducible))
+                w_tensor = tf.where(mask, w_tensor, tf.fill(tf.shape(w_tensor), zero_prob_val))
                 if conf.renormalize_dropconnect:
-                    w_tensor = cwise_op(w_tensor, mask)
                     if log:
                         w_tensor -= tf.reduce_logsumexp(w_tensor, axis=1, keepdims=True)
                     else:
                         w_tensor /= tf.reduce_sum(w_tensor, axis=1, keepdims=True)
-                else:
-                    reducible = cwise_op(reducible, mask)
+
+        # Apply weights
+        if weighted:
+            reducible = cwise_op(reducible, w_tensor)
 
         return reducible
 
@@ -491,7 +488,8 @@ class BaseSum(OpNode, abc.ABC):
     @utils.lru_cache
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
-            log=True, sample=False, sample_prob=None, accumulate_weights_batch=False):
+            log=True, sample=False, sample_prob=None, accumulate_weights_batch=False,
+            use_unweighted=False):
         """Common operations for computing the MPE path.
 
         Args:
@@ -512,13 +510,19 @@ class BaseSum(OpNode, abc.ABC):
             tuples correspond to the nodes in ``self._values``.
         """
         sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
+        sample_shape = (self._tile_unweighted_size,) if use_unweighted else ()
         if sample:
             if log:
-                max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
+                max_indices = self._reduce_sample_log(
+                    reducible_tensor, sample_prob=sample_prob, sample_shape=sample_shape)
             else:
-                max_indices = self._reduce_sample(reducible_tensor, sample_prob=sample_prob)
+                max_indices = self._reduce_sample(
+                    reducible_tensor, sample_prob=sample_prob, sample_shape=sample_shape)
         else:
-            max_indices = self._reduce_argmax(reducible_tensor)
+            max_indices = self._reduce_argmax(
+                reducible_tensor, sample_shape=sample_shape)
+        if use_unweighted:
+            max_indices = tf.squeeze(max_indices, axis=self._reduce_axis - 1)
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_acc, max_counts_split = self._accumulate_and_split_to_children(
@@ -552,7 +556,7 @@ class BaseSum(OpNode, abc.ABC):
             x_acc = tf.squeeze(x, axis=self._op_axis)
 
         _, _, *value_sizes = self.get_input_sizes()
-        return x_acc, tf.split(x_acc, value_sizes, axis=self._op_axis)
+        return x_acc, tf.split(x_acc, value_sizes, axis=self._batch_axis + 1)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
@@ -568,7 +572,7 @@ class BaseSum(OpNode, abc.ABC):
                 "%s: no support for add_random in non-log MPE path computation." % self)
         return self._compute_mpe_path_common(
             reducible, counts, w_tensor, ivs_tensor, *value_tensors, log=False, sample=sample,
-            sample_prob=sample_prob)
+            sample_prob=sample_prob, use_unweighted=not weighted)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
@@ -580,8 +584,6 @@ class BaseSum(OpNode, abc.ABC):
         reducible = self._compute_reducible(
             w_tensor, ivs_tensor, *input_tensors, log=True, weighted=weighted,
             dropconnect_keep_prob=dropconnect_keep_prob)
-        if not weighted and self._num_sums > 1 and reducible.shape[self._op_axis].value == 1:
-            reducible = tf.tile(reducible, (1, self._num_sums, 1))
         # Add random
         if add_random is not None:
             reducible += tf.random_uniform(
@@ -589,7 +591,12 @@ class BaseSum(OpNode, abc.ABC):
 
         return self._compute_mpe_path_common(
             reducible, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
-            accumulate_weights_batch=accumulate_weights_batch, sample=sample, sample_prob=sample_prob)
+            accumulate_weights_batch=accumulate_weights_batch, sample=sample,
+            sample_prob=sample_prob, use_unweighted=not weighted)
+
+    @property
+    def _tile_unweighted_size(self):
+        return self._num_sums
 
     @utils.lru_cache
     def _compute_log_gradient(
@@ -599,15 +606,15 @@ class BaseSum(OpNode, abc.ABC):
 
         Args:
             gradients (Tensor): A ``Tensor`` of shape [batch, num_sums] that contains the
-                                accumulated backpropagated gradient coming from this node's parents.
+                accumulated backpropagated gradient coming from this node's parents.
             w_tensor (Tensor): A ``Tensor`` of shape [num_sums, max_sum_size] that contains the
-                               weights corresponding to this node.
+                weights corresponding to this node.
             ivs_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] that
-                                 corresponds to the IVs of this node.
+                corresponds to the IVs of this node.
             value_tensors (tuple): A ``tuple`` of ``Tensor``s that correspond to the values of the
-                                   children of this node.
-            accumulate_weights_batch (bool): A ``bool`` that marks whether the weight gradients should be
-                                     summed over the batch axis.
+                children of this node.
+            accumulate_weights_batch (bool): A ``bool`` that marks whether the weight gradients
+                should be summed over the batch axis.
         Returns:
             A ``tuple`` of gradients. Starts with weights, then IVs  and the remainder corresponds
             to ``value_tensors``.
@@ -743,10 +750,13 @@ class BaseSum(OpNode, abc.ABC):
         """
         w_tensor, ivs_tensor, *input_tensors = self._gather_input_tensors(
             w_tensor, ivs_tensor, *input_tensors)
-        input_tensors = [tf.expand_dims(t, axis=self._op_axis) if len(t.shape) == 2 else t for
-                         t in input_tensors]
+        reducible_inputs = tf.expand_dims(
+            utils.concat_maybe(input_tensors, axis=self._reduce_axis - 1), axis=self._op_axis)
+
+        # input_tensors = [tf.expand_dims(t, axis=self._op_axis) if len(t.shape) == 2 else t for
+        #                  t in input_tensors]
         w_tensor = tf.expand_dims(w_tensor, axis=self._batch_axis)
-        reducible_inputs = utils.concat_maybe(input_tensors, axis=self._reduce_axis)
+        # reducible_inputs = utils.concat_maybe(input_tensors, axis=self._reduce_axis)
         if ivs_tensor is not None:
             ivs_tensor = tf.reshape(ivs_tensor, shape=(-1, self._num_sums, self._max_sum_size))
         return w_tensor, ivs_tensor, reducible_inputs
@@ -804,7 +814,7 @@ class BaseSum(OpNode, abc.ABC):
         return self._reduce_mpe_inference(x)
 
     @utils.lru_cache
-    def _reduce_argmax(self, x):
+    def _reduce_argmax(self, x, sample_shape=()):
         """Reduces a tensor by argmax(x, axis=reduce_axis)).
 
         Args:
@@ -816,7 +826,10 @@ class BaseSum(OpNode, abc.ABC):
         """
         if conf.argmax_zero:
             # If true, uses TensorFlow's argmax directly, yielding a bias towards the zeroth index
-            return tf.argmax(x, axis=self._reduce_axis)
+            argmax = tf.argmax(x, axis=self._reduce_axis)
+            if sample_shape == ():
+                return argmax
+            return tf.tile(argmax, [1] * (len(argmax.shape) - 1) + [self._tile_unweighted_size])
 
         # Return random index in case multiple values equal max
         x_max = tf.expand_dims(self._reduce_mpe_inference(x), self._reduce_axis)
@@ -825,10 +838,20 @@ class BaseSum(OpNode, abc.ABC):
             x_eq_max *= tf.expand_dims(tf.to_float(self._build_mask()), axis=self._batch_axis)
         x_eq_max /= tf.reduce_sum(x_eq_max, axis=self._reduce_axis, keepdims=True)
 
-        return tfd.Categorical(probs=x_eq_max, name="StochasticArgMax", dtype=tf.int64).sample()
+        return self.sample_and_transpose(
+            tfd.Categorical(probs=x_eq_max, name="StochasticArgMax", dtype=tf.int64),
+            sample_shape=sample_shape)
+
+    @staticmethod
+    def sample_and_transpose(d, sample_shape):
+        sample = d.sample(sample_shape=sample_shape)
+        if sample_shape == ():
+            return sample
+        else:
+            return tf.transpose(sample, list(range(1, len(sample.shape))) + [0])
 
     @utils.lru_cache
-    def _reduce_sample_log(self, logits, sample_prob=None):
+    def _reduce_sample_log(self, logits, sample_prob=None, sample_shape=()):
         """Samples a tensor with log likelihoods, i.e. sample(x, axis=reduce_axis)).
 
         Args:
@@ -845,11 +868,12 @@ class BaseSum(OpNode, abc.ABC):
         def _sample():
             logits_sum = self._reduce_marginal_inference_log(logits)
             log_prob = tf.exp(logits - tf.expand_dims(logits_sum, axis=self._reduce_axis))
-            return tfd.Categorical(probs=tf.exp(log_prob), dtype=tf.int64).sample()
+            return self.sample_and_transpose(
+                tfd.Categorical(probs=tf.exp(log_prob), dtype=tf.int64), sample_shape=sample_shape)
 
         def _select_sample_or_argmax(x):
             mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.bool).sample(sample_shape=tf.shape(x))
-            return tf.where(mask, x, self._reduce_argmax(logits))
+            return tf.where(mask, x, self._reduce_argmax(logits, sample_shape=sample_shape))
 
         if sample_prob is not None:
             if isinstance(sample_prob, (float, int)):
@@ -867,7 +891,7 @@ class BaseSum(OpNode, abc.ABC):
             return _sample()
 
     @utils.lru_cache
-    def _reduce_sample(self, x, epsilon=1e-8, sample_prob=None):
+    def _reduce_sample(self, x, epsilon=1e-8, sample_prob=None, sample_shape=()):
         """Samples a tensor with likelihoods, i.e. sample(x, axis=reduce_axis)).
 
         Args:
@@ -879,7 +903,8 @@ class BaseSum(OpNode, abc.ABC):
         """
         x_sum = self._reduce_marginal_inference(x)
         x_normalized = x / tf.expand_dims(x_sum + epsilon, axis=self._reduce_axis)
-        sample = tfd.Categorical(probs=x_normalized, dtype=tf.int64).sample()
+        sample = self.sample_and_transpose(tfd.Categorical(probs=x_normalized, dtype=tf.int64),
+                                           sample_shape=sample_shape)
 
         if sample_prob is not None:
             sample_mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.bool).sample(

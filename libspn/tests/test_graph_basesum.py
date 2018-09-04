@@ -15,26 +15,25 @@ class TestBaseSum(tf.test.TestCase):
         init = spn.initialize_weights(s)
 
         mask = [
-            [0., 1., 0., 1., 1., 1., 0., 1.],
-            [1., 0., 0., 0., 0., 0., 1., 0.]
+            [0., 1., 0., 1., 1., 1., 0., 1.]
         ]
-        s._create_dropout_mask = MagicMock(
-            return_value=tf.expand_dims(tf.log(mask) if log else mask, 1))
+        s._create_dropconnect_mask = MagicMock(
+            return_value=tf.cast(tf.expand_dims(mask, 1), tf.bool))
 
         if log:
             val_op = tf.exp(s.get_log_value())
         else:
             val_op = s.get_value()
 
-        mask = tf.constant(mask, dtype=tf.float32)
-        truth = tf.reduce_mean(mask, axis=-1, keepdims=True)
+        feed = [[-1, -1, -1, -1],
+                [0, 1, -1, 0]]
 
         with self.test_session() as sess:
             sess.run(init)
-            dropconnect_out, truth_out = sess.run(
-                [val_op, truth], feed_dict={ivs: -np.ones((2, 4), dtype=np.int32)})
+            dropconnect_out = sess.run(val_op, feed_dict={ivs: feed})
 
-        self.assertAllClose(dropconnect_out, truth_out)
+        truth = [[np.mean(mask)], [3/8]]
+        self.assertAllClose(dropconnect_out, truth)
 
     @argsprod([False, True])
     def test_stochastic_argmax(self, argmax_zero):
