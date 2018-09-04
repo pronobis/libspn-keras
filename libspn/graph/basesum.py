@@ -341,10 +341,6 @@ class BaseSum(OpNode, abc.ABC):
         if self._ivs:
             reducible = cwise_op(reducible, ivs_tensor)
 
-        # Apply weights
-        if weighted:
-            reducible = cwise_op(reducible, w_tensor)
-
         # Maybe apply dropconnect
         dropconnect_keep_prob = utils.maybe_first(
             self._dropconnect_keep_prob, dropconnect_keep_prob)
@@ -355,7 +351,7 @@ class BaseSum(OpNode, abc.ABC):
                     "Using dropconnect and latent IVs simultaneously. "
                     "This might result in zero probabilities throughout and unpredictable "
                     "behavior of learning. Therefore, dropconnect is turned off for node {}."
-                        .format(self))
+                    .format(self))
             else:
                 mask = self._create_dropconnect_mask(
                     dropconnect_keep_prob, tf.shape(reducible))
@@ -365,6 +361,10 @@ class BaseSum(OpNode, abc.ABC):
                         w_tensor -= tf.reduce_logsumexp(w_tensor, axis=1, keepdims=True)
                     else:
                         w_tensor /= tf.reduce_sum(w_tensor, axis=1, keepdims=True)
+
+        # Apply weights
+        if weighted:
+            reducible = cwise_op(reducible, w_tensor)
 
         return reducible
 
@@ -584,10 +584,6 @@ class BaseSum(OpNode, abc.ABC):
         reducible = self._compute_reducible(
             w_tensor, ivs_tensor, *input_tensors, log=True, weighted=weighted,
             dropconnect_keep_prob=dropconnect_keep_prob)
-        # if not weighted and self._tile_unweighted_size > 1 \
-        #         and reducible.shape[self._reduce_axis - 1].value == 1:
-        #     reducible = tf.tile(
-        #         reducible, [1] * (len(reducible.shape) - 2) + [self._tile_unweighted_size, 1])
         # Add random
         if add_random is not None:
             reducible += tf.random_uniform(
@@ -610,15 +606,15 @@ class BaseSum(OpNode, abc.ABC):
 
         Args:
             gradients (Tensor): A ``Tensor`` of shape [batch, num_sums] that contains the
-                                accumulated backpropagated gradient coming from this node's parents.
+                accumulated backpropagated gradient coming from this node's parents.
             w_tensor (Tensor): A ``Tensor`` of shape [num_sums, max_sum_size] that contains the
-                               weights corresponding to this node.
+                weights corresponding to this node.
             ivs_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] that
-                                 corresponds to the IVs of this node.
+                corresponds to the IVs of this node.
             value_tensors (tuple): A ``tuple`` of ``Tensor``s that correspond to the values of the
-                                   children of this node.
-            accumulate_weights_batch (bool): A ``bool`` that marks whether the weight gradients should be
-                                     summed over the batch axis.
+                children of this node.
+            accumulate_weights_batch (bool): A ``bool`` that marks whether the weight gradients
+                should be summed over the batch axis.
         Returns:
             A ``tuple`` of gradients. Starts with weights, then IVs  and the remainder corresponds
             to ``value_tensors``.

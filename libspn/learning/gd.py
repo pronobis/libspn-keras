@@ -163,7 +163,6 @@ class GDLearning:
         """
         with tf.name_scope(name):
             dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
-            self.__logger.debug1("Using dropconnect {}".format(dropconnect_keep_prob))
             value_gen = LogValue(
                 dropconnect_keep_prob=dropconnect_keep_prob,
                 inference_type=self._value_inference_type)
