@@ -42,12 +42,12 @@ class GDLearning:
 
     __logger = get_logger()
 
-    def __init__(self, root, value=None, value_inference_type=None, dropconnect_keep_prob=None,
+    def __init__(self, root, value_inference_type=None, dropconnect_keep_prob=None,
                  learning_task_type=LearningTaskType.SUPERVISED,
                  learning_method=LearningMethodType.DISCRIMINATIVE,
                  gradient_type=GradientType.SOFT, learning_rate=1e-4, marginalizing_root=None,
                  name="GDLearning", l1_regularize_coeff=None, l2_regularize_coeff=None,
-                 entropy_regularize_coeff=None):
+                 entropy_regularize_coeff=None, linear_w_minimum=1e-2):
 
         if learning_task_type == LearningTaskType.UNSUPERVISED and \
                 learning_method == LearningMethodType.DISCRIMINATIVE:
@@ -60,16 +60,7 @@ class GDLearning:
             if self._marginalizing_root is not None:
                 self._marginalizing_root.set_dropconnect_keep_prob(1.0)
 
-        if value is not None and isinstance(value, LogValue):
-            self._log_value = value
-        else:
-            if value is not None:
-                GDLearning.__logger.warn(
-                    "{}: Value instance is ignored since the current implementation does "
-                    "not support gradients with non-log inference. Using a LogValue instance "
-                    "instead.".format(name))
-            self._log_value = LogValue(
-                value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob)
+        self.__logger.debug1("Dropconnect malfunctioning {}".format(dropconnect_keep_prob))
         self._learning_rate = learning_rate
         self._learning_task_type = learning_task_type
         self._learning_method = learning_method
@@ -78,7 +69,9 @@ class GDLearning:
         self._entropy_regularize_coeff = entropy_regularize_coeff
         self._dropconnect_keep_prob = dropconnect_keep_prob
         self._gradient_type = gradient_type
+        self._value_inference_type = value_inference_type
         self._name = name
+        self._linear_w_minimum = linear_w_minimum
 
     def loss(self, learning_method=None, dropconnect_keep_prob=None):
         learning_method = learning_method or self._learning_method
@@ -144,7 +137,8 @@ class GDLearning:
 
                 def fun(node):
                     if node.is_param:
-                        weight_norm_ops.append(node.normalize())
+                        weight_norm_ops.append(
+                            node.normalize(linear_w_minimum=self._linear_w_minimum))
 
                     if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
                         weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
@@ -168,7 +162,11 @@ class GDLearning:
             A Tensor corresponding to the cross-entropy loss.
         """
         with tf.name_scope(name):
-            log_prob_data_and_labels = self._log_value.get_value(self._root)
+            dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
+            value_gen = LogValue(
+                dropconnect_keep_prob=dropconnect_keep_prob,
+                inference_type=self._value_inference_type)
+            log_prob_data_and_labels = value_gen.get_value(self._root)
             log_prob_data = self._log_likelihood(dropconnect_keep_prob=dropconnect_keep_prob)
             return -reduce_fn(log_prob_data_and_labels - log_prob_data)
 
@@ -187,15 +185,19 @@ class GDLearning:
             A Tensor corresponding to the MLE loss
         """
         with tf.name_scope(name):
+            dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
+            value_gen = LogValue(
+                dropconnect_keep_prob=dropconnect_keep_prob,
+                inference_type=self._value_inference_type)
             if self._learning_task_type == LearningTaskType.UNSUPERVISED:
                 if self._root.ivs is not None:
                     likelihood = self._log_likelihood(dropconnect_keep_prob=dropconnect_keep_prob)
                 else:
-                    likelihood = self._log_value.get_value(self._root)
+                    likelihood = value_gen.get_value(self._root)
             elif self._root.ivs is None:
                 raise StructureError("Root should have IVs node when doing supervised learning.")
             else:
-                likelihood = self._log_value.get_value(self._root)
+                likelihood = value_gen.get_value(self._root)
             return -reduce_fn(likelihood)
 
     def _log_likelihood(self, learning_task_type=None, dropconnect_keep_prob=None):
@@ -211,7 +213,9 @@ class GDLearning:
         dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
         if self._turn_off_dropconnect(dropconnect_keep_prob, learning_task_type):
             marginalizing_root.set_dropconnect_keep_prob(1.0)
-        return self._log_value.get_value(marginalizing_root)
+        return LogValue(
+            dropconnect_keep_prob=dropconnect_keep_prob,
+            inference_type=self._value_inference_type).get_value(marginalizing_root)
 
     def regularization_loss(self, name="Regularization"):
         """Adds regularization to the weight nodes. This can be either L1 or L2 or both, depending
@@ -254,8 +258,3 @@ class GDLearning:
         return dropconnect_keep_prob is not None and \
             (not isinstance(dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob == 1.0) \
             and learning_task_type == LearningTaskType.SUPERVISED
-
-    @property
-    def value(self):
-        """Value or LogValue: Computed SPN values."""
-        return self._log_value
