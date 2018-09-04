@@ -232,7 +232,7 @@ class ConvSPN:
     def _prepare_inputs(self, *input_nodes):
         input_nodes = self._assure_inputs(*input_nodes)
         spatial_dims = self._compute_spatial_dims(input_nodes)
-        return self._register_level(), spatial_dims, input_nodes
+        return self._register_level(*input_nodes), spatial_dims, input_nodes
 
     def _compute_spatial_dims(self, input_nodes):
         if any(not isinstance(n, (ConvProd2D, ConvSum)) for n in input_nodes):
