@@ -8,7 +8,7 @@
 from collections import namedtuple
 import tensorflow as tf
 
-from libspn.graph.distribution import GaussianLeaf, MultivariateGaussianDiagLeaf
+from libspn.graph.distribution import NormalLeaf, MultivariateNormalDiagLeaf
 from libspn.inference.mpe_path import MPEPath
 from libspn.graph.algorithms import traverse_graph
 from libspn import conf
@@ -160,8 +160,8 @@ class EMLearning():
                     param_node = EMLearning.ParamNode(node=node, accum=accum,
                                                       name_scope=scope)
                     self._param_nodes.append(param_node)
-            if isinstance(node, (GaussianLeaf, MultivariateGaussianDiagLeaf)) \
-                    and node.learn_distribution_parameters:
+            if isinstance(node, (NormalLeaf, MultivariateNormalDiagLeaf)) \
+                    and node.trainable:
                 with tf.name_scope(node.name) as scope:
                     if self._initial_accum_value is not None:
                         accum = tf.Variable(tf.ones_like(node.loc_variable, dtype=conf.dtype) *

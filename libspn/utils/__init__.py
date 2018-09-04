@@ -37,6 +37,7 @@ from .serialization import json_dump, json_load
 from .serialization import str2type, type2str
 from .utils import maybe_first
 from .enum import Enum
+from .spngraphkeys import SPNGraphKeys
 
 # All
 __all__ = ['decode_bytes_array', 'scatter_cols', 'scatter_values',
@@ -52,4 +53,5 @@ __all__ = ['decode_bytes_array', 'scatter_cols', 'scatter_values',
            'json_dumps', 'json_loads', 'json_dump', 'json_load',
            'str2type', 'type2str',
            'maybe_first',
-           'Enum']
+           'Enum',
+           'SPNGraphKeys']
