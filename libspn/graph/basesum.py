@@ -353,8 +353,7 @@ class BaseSum(OpNode, abc.ABC):
                     "behavior of learning. Therefore, dropconnect is turned off for node {}."
                     .format(self))
             else:
-                mask = self._create_dropconnect_mask(
-                    dropconnect_keep_prob, tf.shape(reducible))
+                mask = self._create_dropconnect_mask(dropconnect_keep_prob, tf.shape(w_tensor))
                 w_tensor = tf.where(mask, w_tensor, tf.fill(tf.shape(w_tensor), zero_prob_val))
                 if conf.renormalize_dropconnect:
                     if log:
