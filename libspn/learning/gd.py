@@ -185,10 +185,12 @@ class GDLearning:
                 dropconnect_keep_prob=dropconnect_keep_prob,
                 dropprod_keep_prob=dropprod_keep_prob,
                 inference_type=self._value_inference_type,
-                matmul_or_conv=self._turn_off_dropconnect_root(
+                matmul_or_conv=not self._turn_off_dropconnect_root(
                     dropconnect_keep_prob, self._learning_task_type))
             log_prob_data_and_labels = value_gen.get_value(self._root)
-            log_prob_data = self._log_likelihood(dropconnect_keep_prob=dropconnect_keep_prob)
+            log_prob_data = self._log_likelihood(
+                dropconnect_keep_prob=dropconnect_keep_prob,
+                dropprod_keep_prob=dropprod_keep_prob)
             return -reduce_fn(log_prob_data_and_labels - log_prob_data)
 
     def mle_loss(self, name="MaximumLikelihoodLoss", reduce_fn=tf.reduce_mean,
@@ -212,7 +214,7 @@ class GDLearning:
                 dropconnect_keep_prob=dropconnect_keep_prob,
                 dropprod_keep_prob=dropprod_keep_prob,
                 inference_type=self._value_inference_type,
-                matmul_or_conv=self._turn_off_dropconnect_root(
+                matmul_or_conv=not self._turn_off_dropconnect_root(
                     dropconnect_keep_prob, learning_task_type=self._learning_task_type))
             if self._learning_task_type == LearningTaskType.UNSUPERVISED:
                 if self._root.ivs is not None:
@@ -244,7 +246,7 @@ class GDLearning:
             dropconnect_keep_prob=dropconnect_keep_prob,
             dropprod_keep_prob=dropprod_keep_prob,
             inference_type=self._value_inference_type,
-            matmul_or_conv=self._turn_off_dropconnect_root(
+            matmul_or_conv=not self._turn_off_dropconnect_root(
                 dropconnect_keep_prob, learning_task_type)).get_value(marginalizing_root)
 
     def regularization_loss(self, name="Regularization"):
