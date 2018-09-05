@@ -11,6 +11,7 @@ from libspn.graph.algorithms import compute_graph_up
 from libspn.graph.spatialsum import SpatialSum
 from libspn.inference.type import InferenceType
 from libspn.graph.basesum import BaseSum
+from libspn.graph.convprod2d import ConvProd2D
 
 
 class Value:
@@ -26,11 +27,12 @@ class Value:
             MPE inference will be used for all nodes.
     """
 
-    def __init__(self, inference_type=None, dropconnect_keep_prob=None,
+    def __init__(self, inference_type=None, dropconnect_keep_prob=None, dropprod_keep_prob=None,
                  name="Value", matmul_or_conv=True):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
+        self._dropprod_keep_prob = dropprod_keep_prob
         self._name = name
         self._matmul_or_conv = matmul_or_conv
 
@@ -62,6 +64,8 @@ class Value:
                 kwargs = dict(dropconnect_keep_prob=self._dropconnect_keep_prob)
             else:
                 kwargs = dict()
+            if self._dropprod_keep_prob and isinstance(node, ConvProd2D):
+                kwargs['dropout_keep_prob'] = self._dropprod_keep_prob
             with tf.name_scope(node.name):
                 if (self._inference_type == InferenceType.MARGINAL
                     or (self._inference_type is None and
@@ -92,12 +96,13 @@ class LogValue:
     """
 
     def __init__(self, inference_type=None, dropconnect_keep_prob=None,
-                 name="LogValue", matmul_or_conv=True):
+                 name="LogValue", matmul_or_conv=True, dropprod_keep_prob=None):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
         self._name = name
         self._matmul_or_conv = matmul_or_conv
+        self._dropprod_keep_prob = dropprod_keep_prob
 
     @property
     def values(self):
@@ -129,6 +134,8 @@ class LogValue:
                     dropconnect_keep_prob=self._dropconnect_keep_prob)
             else:
                 kwargs = dict()
+            if self._dropprod_keep_prob and isinstance(node, ConvProd2D):
+                kwargs['dropout_keep_prob'] = self._dropprod_keep_prob
             with tf.name_scope(node.name):
                 if (self._inference_type == InferenceType.MARGINAL
                     or (self._inference_type is None and

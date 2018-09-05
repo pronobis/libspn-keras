@@ -57,3 +57,8 @@ renormalize_dropconnect = False
 """Whether to normalize the weights after
 dropping out weights.
 """
+
+rescale_dropconnect = False
+"""Whether to rescale dropconnect with
+1/p.
+"""

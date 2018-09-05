@@ -41,13 +41,28 @@ class ConvProdDepthWise(ConvProd2D):
                          grid_dim_sizes=grid_dim_sizes, pad_left=pad_left, pad_right=pad_right,
                          pad_top=pad_top, pad_bottom=pad_bottom, strides=strides,
                          kernel_size=kernel_size, padding_algorithm=padding_algorithm,
-                         dilation_rate=dilation_rate)
+                         dilation_rate=dilation_rate, dropout_keep_prob=None,
+                         dropout_scope_wise=True)
         self._num_channels = self._num_input_channels()
 
     @utils.lru_cache
-    def _compute_log_value(self, *input_tensors):
+    def _compute_log_value(self, *input_tensors, dropout_keep_prob=None):
         # Concatenate along channel axis
         concat_inp = self._prepare_convolutional_processing(*input_tensors)
+
+        dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
+        if dropout_keep_prob is not None and (not isinstance(
+                dropout_keep_prob, (int, float)) or dropout_keep_prob != 1.0):
+            if self._dropout_scope_wise:
+                shape = tf.stack(
+                    [tf.shape(concat_inp)[0]] + concat_inp.shape.as_list()[1:-1] + [1])
+            else:
+                shape = tf.shape(concat_inp)
+            dropout_mask = self._create_dropconnect_mask(
+                dropout_keep_prob, shape, enforce_one_axis=None, name="DropoutMask")
+            if self._dropout_scope_wise:
+                dropout_mask = tf.tile(dropout_mask, [1, 1, 1, self._num_input_channels()])
+            concat_inp = tf.where(dropout_mask, concat_inp, tf.zeros_like(concat_inp))
 
         # Convolve
         # TODO, this the quickest workaround for TensorFlow's apparent optimization whenever

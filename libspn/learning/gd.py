@@ -43,6 +43,7 @@ class GDLearning:
     __logger = get_logger()
 
     def __init__(self, root, value_inference_type=None, dropconnect_keep_prob=None,
+                 dropprod_keep_prob=None,
                  learning_task_type=LearningTaskType.SUPERVISED,
                  learning_method=LearningMethodType.DISCRIMINATIVE,
                  gradient_type=GradientType.SOFT, learning_rate=1e-4, marginalizing_root=None,
@@ -68,12 +69,13 @@ class GDLearning:
         self._l2_regularize_coeff = l2_regularize_coeff
         self._entropy_regularize_coeff = entropy_regularize_coeff
         self._dropconnect_keep_prob = dropconnect_keep_prob
+        self._dropprod_keep_prob = dropprod_keep_prob
         self._gradient_type = gradient_type
         self._value_inference_type = value_inference_type
         self._name = name
         self._linear_w_minimum = linear_w_minimum
 
-    def loss(self, learning_method=None, dropconnect_keep_prob=None):
+    def loss(self, learning_method=None, dropconnect_keep_prob=None, dropprod_keep_prob=None):
         """Assembles main objective operations. In case of generative learning it will select 
         the MLE objective, whereas in discriminative learning it selects the cross entropy.
         
@@ -88,8 +90,10 @@ class GDLearning:
         """
         learning_method = learning_method or self._learning_method
         if learning_method == LearningMethodType.GENERATIVE:
-            return self.mle_loss(dropconnect_keep_prob=dropconnect_keep_prob)
-        return self.cross_entropy_loss(dropconnect_keep_prob=dropconnect_keep_prob)
+            return self.mle_loss(
+                dropconnect_keep_prob=dropconnect_keep_prob, dropprod_keep_prob=dropprod_keep_prob)
+        return self.cross_entropy_loss(
+            dropconnect_keep_prob=dropconnect_keep_prob, dropprod_keep_prob=dropprod_keep_prob)
 
     def learn(self, loss=None, gradient_type=None, optimizer=tf.train.GradientDescentOptimizer):
         """Assemble TF operations performing GD learning of the SPN. This includes setting up
@@ -162,7 +166,7 @@ class GDLearning:
             return tf.group(*weight_norm_ops, name="weight_norm")
 
     def cross_entropy_loss(self, name="CrossEntropyLoss", reduce_fn=tf.reduce_mean,
-                           dropconnect_keep_prob=None):
+                           dropconnect_keep_prob=None, dropprod_keep_prob=None):
         """Sets up the cross entropy loss, which is equivalent to -log(p(Y|X)).
 
         Args:
@@ -176,15 +180,19 @@ class GDLearning:
         """
         with tf.name_scope(name):
             dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
+            dropprod_keep_prob = dropprod_keep_prob or self._dropprod_keep_prob
             value_gen = LogValue(
                 dropconnect_keep_prob=dropconnect_keep_prob,
-                inference_type=self._value_inference_type)
+                dropprod_keep_prob=dropprod_keep_prob,
+                inference_type=self._value_inference_type,
+                matmul_or_conv=self._turn_off_dropconnect_root(
+                    dropconnect_keep_prob, self._learning_task_type))
             log_prob_data_and_labels = value_gen.get_value(self._root)
             log_prob_data = self._log_likelihood(dropconnect_keep_prob=dropconnect_keep_prob)
             return -reduce_fn(log_prob_data_and_labels - log_prob_data)
 
     def mle_loss(self, name="MaximumLikelihoodLoss", reduce_fn=tf.reduce_mean,
-                 dropconnect_keep_prob=None):
+                 dropconnect_keep_prob=None, dropprod_keep_prob=None):
         """Returns the maximum (log) likelihood estimator loss function which corresponds to
         -log(p(X)) in the case of unsupervised learning or -log(p(X,Y)) in the case of supervised
         learning.
@@ -202,7 +210,10 @@ class GDLearning:
             dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
             value_gen = LogValue(
                 dropconnect_keep_prob=dropconnect_keep_prob,
-                inference_type=self._value_inference_type)
+                dropprod_keep_prob=dropprod_keep_prob,
+                inference_type=self._value_inference_type,
+                matmul_or_conv=self._turn_off_dropconnect_root(
+                    dropconnect_keep_prob, learning_task_type=self._learning_task_type))
             if self._learning_task_type == LearningTaskType.UNSUPERVISED:
                 if self._root.ivs is not None:
                     likelihood = self._log_likelihood(dropconnect_keep_prob=dropconnect_keep_prob)
@@ -214,7 +225,8 @@ class GDLearning:
                 likelihood = value_gen.get_value(self._root)
             return -reduce_fn(likelihood)
 
-    def _log_likelihood(self, learning_task_type=None, dropconnect_keep_prob=None):
+    def _log_likelihood(self, learning_task_type=None, dropconnect_keep_prob=None,
+                        dropprod_keep_prob=None):
         """Computes log(p(X)) by creating a copy of the root node without IVs. Also turns off
         dropconnect at the root if necessary.
 
@@ -225,11 +237,15 @@ class GDLearning:
             *self._root.values, weights=self._root.weights)
         learning_task_type = learning_task_type or self._learning_task_type
         dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
+        dropprod_keep_prob = dropprod_keep_prob or self._dropprod_keep_prob
         if self._turn_off_dropconnect_root(dropconnect_keep_prob, learning_task_type):
             marginalizing_root.set_dropconnect_keep_prob(1.0)
         return LogValue(
             dropconnect_keep_prob=dropconnect_keep_prob,
-            inference_type=self._value_inference_type).get_value(marginalizing_root)
+            dropprod_keep_prob=dropprod_keep_prob,
+            inference_type=self._value_inference_type,
+            matmul_or_conv=self._turn_off_dropconnect_root(
+                dropconnect_keep_prob, learning_task_type)).get_value(marginalizing_root)
 
     def regularization_loss(self, name="Regularization"):
         """Adds regularization to the weight nodes. This can be either L1 or L2 or both, depending

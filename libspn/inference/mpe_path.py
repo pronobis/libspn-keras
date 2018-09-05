@@ -28,7 +28,7 @@ class MPEPath:
 
     def __init__(self, value=None, value_inference_type=None, log=True, add_random=None,
                  use_unweighted=False, sample=False, sample_prob=None,
-                 dropconnect_keep_prob=None, matmul_or_conv=False):
+                 dropconnect_keep_prob=None, matmul_or_conv=False, dropprod_keep_prob=None):
         self._true_counts = {}
         self._actual_counts = {}
         self._log = log
@@ -40,11 +40,13 @@ class MPEPath:
         if value is None:
             if log:
                 self._value = LogValue(
-                    value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob, 
+                    value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob,
+                    dropprod_keep_prob=dropprod_keep_prob,
                     matmul_or_conv=matmul_or_conv)
             else:
                 self._value = Value(
                     value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob,
+                    dropprod_keep_prob=dropprod_keep_prob,
                     matmul_or_conv=matmul_or_conv)
         else:
             self._value = value
