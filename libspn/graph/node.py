@@ -776,14 +776,19 @@ class OpNode(Node):
         """
 
     @utils.lru_cache
-    def _create_dropconnect_mask(self, keep_prob, shape, name="DropconnectMask"):
+    def _create_dropconnect_mask(
+            self, keep_prob, shape, enforce_one_axis=-1, name="DropconnectMask"):
         with tf.name_scope(name):
             mask = tf.random_uniform(shape=shape, minval=0.0, maxval=1.0)
             # To ensure numerical stability and the opportunity to always learn something,
             # we enforce at least a single 'True' value along the last axis (sum axis) by comparing
             # the randomly drawn floats with their minimum and setting True in case of equality.
-            mask_min = tf.reduce_min(mask, axis=-1, keepdims=True)
-            return tf.logical_or(tf.equal(mask, mask_min), tf.less(mask, keep_prob))
+            # return tf.less(mask, keep_prob)
+            if enforce_one_axis is None:
+                return tf.less(mask, keep_prob)
+            mask_min = tf.reduce_min(mask, axis=enforce_one_axis, keepdims=True)
+            enforce_one = tf.logical_and(tf.greater(mask_min, keep_prob), tf.equal(mask, mask_min))
+            return tf.logical_or(enforce_one, tf.less(mask, keep_prob))
 
     @utils.lru_cache
     def _create_dropout_mask(self, keep_prob, shape, log=True, name="DropoutMask",

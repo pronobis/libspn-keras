@@ -180,13 +180,21 @@ class SpatialSum(BaseSum, abc.ABC):
     @utils.lru_cache
     def _compute_log_value(self, w_tensor, ivs_tensor, *input_tensors,
                            dropconnect_keep_prob=None, matmul_or_conv=False):
+
+        dropconnect_keep_prob = utils.maybe_first(
+            self._dropconnect_keep_prob, dropconnect_keep_prob)
         if matmul_or_conv and ivs_tensor is not None:
             self.logger.warn("Cannot use matmul when using IVs, setting matmul=False")
             matmul_or_conv = False
-
+        else:
+            if dropconnect_keep_prob is not None and (not isinstance(
+                    dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob != 1.0):
+                matmul_or_conv = False
+            else:
+                matmul_or_conv = True
         if matmul_or_conv:
-            dropconnect_keep_prob = utils.maybe_first(
-                self._dropconnect_keep_prob, dropconnect_keep_prob)
+            # dropconnect_keep_prob = utils.maybe_first(
+            #     self._dropconnect_keep_prob, dropconnect_keep_prob)
             if dropconnect_keep_prob is not None and (not isinstance(
                     dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob != 1.0):
                 # dropout_mask = self._create_dropout_mask(
@@ -199,6 +207,12 @@ class SpatialSum(BaseSum, abc.ABC):
                 w_tensor = tf.where(dropout_mask, w_tensor, min_inf)
                 if conf.renormalize_dropconnect:
                     w_tensor = tf.nn.log_softmax(w_tensor, axis=-1)
+                # w_tensor, _, inp_concat = self._prepare_component_wise_processing(
+                #     w_tensor, ivs_tensor, *input_tensors)
+                if conf.rescale_dropconnect:
+                    w_tensor -= tf.log(
+                        dropconnect_keep_prob + dropconnect_keep_prob ** w_tensor.shape[-1].value)
+            # else:
             w_tensor, _, inp_concat = self._prepare_component_wise_processing(
                 w_tensor, ivs_tensor, *input_tensors)
             # Apply dropconnect
@@ -208,6 +222,7 @@ class SpatialSum(BaseSum, abc.ABC):
                 inp_concat = tf.reshape(
                     inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size])
                 out = logconv_1x1(input=inp_concat, filter=w_tensor)
+                tf.add_to_collection('spn_sum_values_DC=False', (self, out))
                 return tf.reshape(out, (-1, self._compute_out_size()))
             else:
                 w_tensor = tf.squeeze(w_tensor, axis=0)
@@ -216,10 +231,13 @@ class SpatialSum(BaseSum, abc.ABC):
                     tf.transpose(inp_concat, (1, 2, 0, 3)),
                     self._grid_dim_sizes + [-1, self._max_sum_size])
                 out = tf.transpose(logmatmul(inp_concat, w_tensor, transpose_b=True), (2, 0, 1, 3))
+                tf.add_to_collection('spn_sum_values_DC=False', (self, out))
                 return tf.reshape(out, (-1, self._compute_out_size()))
 
-        val = super(SpatialSum, self)._compute_log_value(
-            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob)
+        val = self._reduce_marginal_inference_log(self._compute_reducible(
+            w_tensor, ivs_tensor, *input_tensors, log=True, weighted=True,
+            dropconnect_keep_prob=dropconnect_keep_prob))
+        tf.add_to_collection('spn_sum_values_DC=True', (self, val))
         return tf.reshape(val, (-1, self._compute_out_size()))
 
     @utils.docinherit(BaseSum)
@@ -331,8 +349,32 @@ class SpatialSum(BaseSum, abc.ABC):
     @utils.docinherit(BaseSum)
     def _compute_log_gradient(
             self, gradients, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
-            sum_weight_grads=False):
+            accumulate_weights_batch=False, dropconnect_keep_prob=None):
         raise NotImplementedError("{}: No log-gradient implementation available.".format(self))
+        # reducible = self._compute_reducible(
+        #     w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True,
+        #     dropconnect_keep_prob=dropconnect_keep_prob)
+        #
+        # # Below exploits the memoization since _reduce_marginal_inference_log will
+        # # always use keepdims=False, thus yielding the same tensor. One might otherwise
+        # # be tempted to use keepdims=True and omit expand_dims here...
+        # log_sum = tf.expand_dims(
+        #     self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
+        #
+        # # A number - (-inf) is undefined. In fact, the gradient in those cases should be zero
+        # log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
+        # w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(reducible - log_sum)
+        #
+        # if accumulate_weights_batch:
+        #     w_grad = tf.reduce_sum(w_grad, axis=0, keepdims=False)
+        #
+        # if accumulate_weights_batch:
+        #     weight_counts = tf.reduce_sum(weight_counts, axis=0, keepdims=False)
+        # return self._scatter_to_input_tensors(
+        #     (weight_counts, w_tensor),  # Weights
+        #     (max_counts, ivs_tensor),  # IVs
+        #     *[(t, v) for t, v in zip(input_counts, input_tensors)])  # Values
+
 
     @utils.docinherit(OpNode)
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes, check_valid=False):

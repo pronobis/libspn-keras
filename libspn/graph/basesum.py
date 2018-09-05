@@ -345,6 +345,10 @@ class BaseSum(OpNode, abc.ABC):
         dropconnect_keep_prob = utils.maybe_first(
             self._dropconnect_keep_prob, dropconnect_keep_prob)
 
+        # Apply weights
+        if weighted:
+            reducible = cwise_op(reducible, w_tensor)
+
         if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
             if self._ivs:
                 self.logger.warn(
@@ -353,17 +357,16 @@ class BaseSum(OpNode, abc.ABC):
                     "behavior of learning. Therefore, dropconnect is turned off for node {}."
                     .format(self))
             else:
-                mask = self._create_dropconnect_mask(dropconnect_keep_prob, tf.shape(w_tensor))
-                w_tensor = tf.where(mask, w_tensor, tf.fill(tf.shape(w_tensor), zero_prob_val))
+                mask = self._create_dropconnect_mask(dropconnect_keep_prob, tf.shape(reducible))
+                reducible = tf.where(mask, reducible, tf.fill(tf.shape(reducible), zero_prob_val))
                 if conf.renormalize_dropconnect:
                     if log:
-                        w_tensor -= tf.reduce_logsumexp(w_tensor, axis=1, keepdims=True)
+                        reducible -= tf.reduce_logsumexp(w_tensor, axis=-1, keepdims=True)
                     else:
-                        w_tensor /= tf.reduce_sum(w_tensor, axis=1, keepdims=True)
-
-        # Apply weights
-        if weighted:
-            reducible = cwise_op(reducible, w_tensor)
+                        reducible /= tf.reduce_sum(w_tensor, axis=-1, keepdims=True)
+                if conf.rescale_dropconnect:
+                    reducible -= tf.log(
+                        dropconnect_keep_prob + dropconnect_keep_prob ** reducible.shape[-1].value)
 
         return reducible
 
