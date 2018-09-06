@@ -18,6 +18,7 @@ from libspn import conf
 import abc
 
 from libspn.utils.math import logconv_1x1, logmatmul
+from libspn.log import get_logger
 
 
 @utils.register_serializable
@@ -44,6 +45,8 @@ class SpatialSum(BaseSum, abc.ABC):
                                        used during the next inference/learning
                                        op generation.
     """
+
+    __logger = get_logger()
 
     def __init__(self, *values, num_channels=1, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, name="LocalSum",
@@ -184,7 +187,8 @@ class SpatialSum(BaseSum, abc.ABC):
 
         def maybe_add_noise(val):
             with tf.name_scope("Noise"):
-                if noise and noise != 0.0:
+                if noise is not None and noise != 0.0:
+                    self.__logger.debug1("{}: added noise {}".format(self, noise))
                     return val + tf.log(tf.random_normal(
                         shape=tf.shape(val), stddev=noise, mean=1.0))
                 return val

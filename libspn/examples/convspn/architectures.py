@@ -152,6 +152,59 @@ def dilate_stride_double_stride_full_wicker(
     return root
 
 
+def double_stride_full_wicker(
+        *inp_nodes, spatial_dims=(28, 28), sum_node_types='local', kernel_size=2,
+        sum_num_channels=(32, 32), prod_num_channels=(16, 32), num_channels_top=32,
+        prod_node_types='default', strides=None, dropconnect_from=1, dropprod_to=3):
+    conv_spn_gen = ConvSPN()
+
+    prod_num_channels = _preprocess_prod_num_channels(
+        *inp_nodes, prod_num_channels=prod_num_channels, kernel_size=kernel_size)
+
+    stack_size = int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
+    if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise' and \
+            any(isinstance(n, spn.VarNode) for n in inp_nodes):
+        prod_node_types = ['default'] + (stack_size - 1) * ['depthwise']
+    elif not isinstance(prod_node_types, (tuple, list)):
+        prod_node_types = [prod_node_types] * stack_size
+
+    double_stride0 = conv_spn_gen.add_double_stride(
+        *inp_nodes, sum_num_channels=sum_num_channels[:2],
+        prod_num_channels=prod_num_channels[:2], spatial_dims=spatial_dims,
+        name_prefixes="DoubleD3SBottomDoubleStride",
+        sum_node_type=(sum_node_types[0], 'skip'), prod_node_type=prod_node_types[:2])
+
+    level, spatial_dims, input_nodes = conv_spn_gen._prepare_inputs(double_stride0)
+    spatial_dims = double_stride0.output_shape_spatial[:2]
+    if sum_node_types[1] == 'local':
+        dsds_mixtures_top = spn.LocalSum(
+            double_stride0, num_channels=sum_num_channels[1],
+            grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
+    else:
+        dsds_mixtures_top = spn.ConvSum(
+            double_stride0, num_channels=sum_num_channels[1],
+            grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
+    conv_spn_gen._register_node(dsds_mixtures_top, level)
+
+    spatial_dims = dsds_mixtures_top.output_shape_spatial[:2]
+    root = conv_spn_gen.full_wicker(
+        dsds_mixtures_top, sum_num_channels=sum_num_channels[2:],
+        prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
+        strides=strides or 1, kernel_size=kernel_size, num_channels_top=num_channels_top,
+        sum_node_type=sum_node_types[2:], prod_node_type=prod_node_types[2:])
+
+    for i, nodes in conv_spn_gen.nodes_per_level.items():
+        for n in nodes:
+            if isinstance(n, spn.ConvProd2D) and i > dropprod_to * 2:
+                print("Turning off dropout for {}".format(n))
+                n.set_dropout_keep_prob(1.0)
+
+    for i in range(2, 2 + 2 * dropconnect_from, 2):
+        for node in conv_spn_gen.nodes_per_level[i]:
+            node.set_dropconnect_keep_prob(1.0)
+    return root
+
+
 def double_dilate_stride_double_stride(
         *inp_nodes, spatial_dims=(28, 28), sum_node_types='local', kernel_size=2,
         sum_num_channels=(32, 32), prod_num_channels=(16, 32), prod_node_types='default',
