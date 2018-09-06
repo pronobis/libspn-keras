@@ -182,6 +182,12 @@ class SpatialSum(BaseSum, abc.ABC):
                            dropconnect_keep_prob=None, matmul_or_conv=False,
                            noise=None):
 
+        def maybe_add_noise(val):
+            with tf.name_scope("Noise"):
+                if noise and noise != 0.0:
+                    return val + tf.random_normal(shape=tf.shape(val), stddev=noise)
+                return val
+
         dropconnect_keep_prob = utils.maybe_first(
             self._dropconnect_keep_prob, dropconnect_keep_prob)
         if matmul_or_conv and ivs_tensor is not None:
@@ -223,8 +229,7 @@ class SpatialSum(BaseSum, abc.ABC):
                 inp_concat = tf.reshape(
                     inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size])
                 out = logconv_1x1(input=inp_concat, filter=w_tensor)
-                tf.add_to_collection('spn_sum_values_DC=False', (self, out))
-                return tf.reshape(out, (-1, self._compute_out_size()))
+                return maybe_add_noise(tf.reshape(out, (-1, self._compute_out_size())))
             else:
                 w_tensor = tf.squeeze(w_tensor, axis=0)
                 inp_concat = tf.squeeze(inp_concat, axis=3)
@@ -232,16 +237,13 @@ class SpatialSum(BaseSum, abc.ABC):
                     tf.transpose(inp_concat, (1, 2, 0, 3)),
                     self._grid_dim_sizes + [-1, self._max_sum_size])
                 out = tf.transpose(logmatmul(inp_concat, w_tensor, transpose_b=True), (2, 0, 1, 3))
-                tf.add_to_collection('spn_sum_values_DC=False', (self, out))
-                return tf.reshape(out, (-1, self._compute_out_size()))
+                return maybe_add_noise(tf.reshape(out, (-1, self._compute_out_size())))
 
         val = self._reduce_marginal_inference_log(self._compute_reducible(
             w_tensor, ivs_tensor, *input_tensors, log=True, weighted=True,
             dropconnect_keep_prob=dropconnect_keep_prob))
         tf.add_to_collection('spn_sum_values_DC=True', (self, val))
-        if noise and noise != 0.0:
-            val += tf.random_normal(shape=tf.shape(val), stddev=noise)
-        return tf.reshape(val, (-1, self._compute_out_size()))
+        return maybe_add_noise(tf.reshape(val, (-1, self._compute_out_size())))
 
     @utils.docinherit(BaseSum)
     @utils.lru_cache
