@@ -15,8 +15,9 @@ from libspn.learning.type import GradientType
 from libspn.graph.distribution import GaussianLeaf
 from libspn.graph.weights import Weights
 from libspn.graph.sum import Sum
+from libspn.graph.concat import Concat
 from libspn.log import get_logger
-from libspn import utils
+from libspn.utils import maybe_first
 
 
 class GDLearning:
@@ -49,6 +50,7 @@ class GDLearning:
                  learning_method=LearningMethodType.DISCRIMINATIVE,
                  gradient_type=GradientType.SOFT, learning_rate=1e-4, marginalizing_root=None,
                  name="GDLearning", l1_regularize_coeff=None, l2_regularize_coeff=None,
+                 confidence_penalty_coeff=None,
                  entropy_regularize_coeff=None, linear_w_minimum=1e-2):
 
         if learning_task_type == LearningTaskType.UNSUPERVISED and \
@@ -69,6 +71,7 @@ class GDLearning:
         self._l1_regularize_coeff = l1_regularize_coeff
         self._l2_regularize_coeff = l2_regularize_coeff
         self._entropy_regularize_coeff = entropy_regularize_coeff
+        self._confidence_penalty_coeff = confidence_penalty_coeff
         self._dropconnect_keep_prob = dropconnect_keep_prob
         self._dropprod_keep_prob = dropprod_keep_prob
         self._gradient_type = gradient_type
@@ -134,6 +137,8 @@ class GDLearning:
                           self._entropy_regularize_coeff]
             if any(c is not None for c in reg_coeffs) and any(c != 0.0 for c in reg_coeffs):
                 loss += self.regularization_loss()
+            if self._confidence_penalty_coeff is not None and self._confidence_penalty_coeff != 0.0:
+                loss += self.confidence_penalty_loss()
 
         # Assemble TF ops for optimizing and weights normalization
         with tf.name_scope("ParameterUpdate"):
@@ -184,14 +189,12 @@ class GDLearning:
             A Tensor corresponding to the cross-entropy loss.
         """
         with tf.name_scope(name):
-            dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
-            dropprod_keep_prob = dropprod_keep_prob or self._dropprod_keep_prob
-            noise = utils.maybe_first(noise, self._noise)
+            dropconnect_keep_prob = maybe_first(dropconnect_keep_prob, self._dropconnect_keep_prob)
+            dropprod_keep_prob = maybe_first(dropprod_keep_prob, self._dropprod_keep_prob)
+            noise = maybe_first(noise, self._noise)
             value_gen = LogValue(
-                dropconnect_keep_prob=dropconnect_keep_prob,
-                dropprod_keep_prob=dropprod_keep_prob,
-                noise=noise,
-                inference_type=self._value_inference_type,
+                dropconnect_keep_prob=dropconnect_keep_prob, dropprod_keep_prob=dropprod_keep_prob,
+                noise=noise, inference_type=self._value_inference_type,
                 matmul_or_conv=not self._turn_off_dropconnect_root(
                     dropconnect_keep_prob, self._learning_task_type))
             log_prob_data_and_labels = value_gen.get_value(self._root)
@@ -217,9 +220,9 @@ class GDLearning:
             A Tensor corresponding to the MLE loss
         """
         with tf.name_scope(name):
-            dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
-            noise = utils.maybe_first(noise, self._noise)
-            dropprod_keep_prob = dropprod_keep_prob or self._dropprod_keep_prob
+            dropconnect_keep_prob = maybe_first(dropconnect_keep_prob, self._dropconnect_keep_prob)
+            dropprod_keep_prob = maybe_first(dropprod_keep_prob, self._dropprod_keep_prob)
+            noise = maybe_first(noise, self._noise)
             value_gen = LogValue(
                 dropconnect_keep_prob=dropconnect_keep_prob,
                 dropprod_keep_prob=dropprod_keep_prob,
@@ -241,6 +244,39 @@ class GDLearning:
                 likelihood = value_gen.get_value(self._root)
             return -reduce_fn(likelihood)
 
+    def confidence_penalty_loss(
+            self, confidence_penalty_coeff=None, dropconnect_keep_prob=None, 
+            dropprod_keep_prob=None, noise=None, name="ConfidencePenalty"):
+        self.__logger.debug1("Assembling confidence penalty loss")
+        with tf.name_scope(name):
+            confidence_penalty_coeff = maybe_first(
+                confidence_penalty_coeff, self._confidence_penalty_coeff)
+            dropconnect_keep_prob = maybe_first(dropconnect_keep_prob, self._dropconnect_keep_prob)
+            dropprod_keep_prob = maybe_first(dropprod_keep_prob, self._dropprod_keep_prob)
+            noise = maybe_first(noise, self._noise)
+
+            matmul_or_conv = not self._turn_off_dropconnect_root(
+                dropconnect_keep_prob, learning_task_type=self._learning_task_type)
+
+            value_gen = LogValue(
+                dropprod_keep_prob=dropprod_keep_prob, dropconnect_keep_prob=dropconnect_keep_prob,
+                noise=noise, matmul_or_conv=matmul_or_conv, inference_type=self._value_inference_type)
+            if len(self._root.values) > 1:
+                sub_spns = Concat(*self._root.values)
+            else:
+                sub_spns = self._root.values[0].node
+            weight_value = value_gen.get_value(self._root.weights.node)
+            sub_spn_value = value_gen.get_value(sub_spns)
+            log_p_joint_xy = sub_spn_value + weight_value
+            log_p_x = self._log_likelihood(
+                dropconnect_keep_prob=dropconnect_keep_prob, dropprod_keep_prob=dropprod_keep_prob,
+                noise=noise)
+            # Confidences
+            log_p_y_given_x = log_p_joint_xy - log_p_x
+            negative_entropy = tf.reduce_mean(tf.reduce_sum(
+                log_p_y_given_x * tf.exp(log_p_y_given_x), axis=-1))
+            return confidence_penalty_coeff * negative_entropy
+
     def _log_likelihood(self, learning_task_type=None, dropconnect_keep_prob=None,
                         dropprod_keep_prob=None, noise=None):
         """Computes log(p(X)) by creating a copy of the root node without IVs. Also turns off
@@ -254,7 +290,7 @@ class GDLearning:
         learning_task_type = learning_task_type or self._learning_task_type
         dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
         dropprod_keep_prob = dropprod_keep_prob or self._dropprod_keep_prob
-        noise = utils.maybe_first(noise, self._noise)
+        noise = maybe_first(noise, self._noise)
         if self._turn_off_dropconnect_root(dropconnect_keep_prob, learning_task_type):
             marginalizing_root.set_dropconnect_keep_prob(1.0)
         return LogValue(
@@ -307,3 +343,5 @@ class GDLearning:
         return dropconnect_keep_prob is not None and \
             (not isinstance(dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob == 1.0) \
             and learning_task_type == LearningTaskType.SUPERVISED
+
+    
