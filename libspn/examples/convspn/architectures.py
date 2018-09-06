@@ -193,22 +193,25 @@ def double_stride_full_wicker(
         strides=strides or 1, kernel_size=kernel_size, num_channels_top=num_channels_top,
         sum_node_type=sum_node_types[2:], prod_node_type=prod_node_types[2:])
 
+    set_dropout_probs(conv_spn_gen, dropconnect_from, dropprod_to)
+    return root
+
+
+def set_dropout_probs(conv_spn_gen, dropconnect_from, dropprod_to):
     for i, nodes in conv_spn_gen.nodes_per_level.items():
         for n in nodes:
             if isinstance(n, spn.ConvProd2D) and i > dropprod_to * 2:
                 print("Turning off dropout for {}".format(n))
                 n.set_dropout_keep_prob(1.0)
-
     for i in range(2, 2 + 2 * dropconnect_from, 2):
         for node in conv_spn_gen.nodes_per_level[i]:
             node.set_dropconnect_keep_prob(1.0)
-    return root
 
 
 def double_dilate_stride_double_stride(
         *inp_nodes, spatial_dims=(28, 28), sum_node_types='local', kernel_size=2,
         sum_num_channels=(32, 32), prod_num_channels=(16, 32), prod_node_types='default',
-        dense_gen=None):
+        dense_gen=None, dropconnect_from=2, dropprod_to=1):
     conv_spn_gen = ConvSPN()
 
     if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise' and \
@@ -230,6 +233,8 @@ def double_dilate_stride_double_stride(
         prod_num_channels=prod_num_channels[:2], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3SBottomDoubleStride",
         sum_node_type=(sum_node_types[0], 'skip'), prod_node_type=prod_node_types[:2])
+    level, spatial_dims, input_nodes = conv_spn_gen._prepare_inputs(
+        double_stride0, dilate_stride0)
     spatial_dims = double_stride0.output_shape_spatial[:2]
 
     if sum_node_types[1] == 'local':
@@ -240,6 +245,7 @@ def double_dilate_stride_double_stride(
         dsds_mixtures = spn.ConvSum(
             dilate_stride0, double_stride0, num_channels=sum_num_channels[1],
             grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
+    conv_spn_gen._register_node(dsds_mixtures, level)
 
     pad_bottom = (4 - (spatial_dims[0] % 4), None)
     pad_right = (4 - (spatial_dims[1] % 4), None)
@@ -251,11 +257,13 @@ def double_dilate_stride_double_stride(
         pad_bottom=pad_bottom,
         sum_node_type=(sum_node_types[2], 'skip'), prod_node_type=prod_node_types[2:])
     double_stride1 = conv_spn_gen.add_double_stride(
-        dsds_mixtures, double_stride0, sum_num_channels=sum_num_channels[2:],
+        dsds_mixtures, sum_num_channels=sum_num_channels[2:],
         prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
         name_prefixes="DoubleD3STopDoubleStride", pad_right=pad_right,
         pad_bottom=pad_bottom,
         sum_node_type=(sum_node_types[2], 'skip'), prod_node_type=prod_node_types[2:])
+    level, spatial_dims, input_nodes = conv_spn_gen._prepare_inputs(
+        double_stride1, dilate_stride1)
     spatial_dims = double_stride1.output_shape_spatial[:2]
 
     if sum_node_types[3] == 'local':
@@ -266,11 +274,74 @@ def double_dilate_stride_double_stride(
         dsds_mixtures_top = spn.ConvSum(
             dilate_stride1, double_stride1, num_channels=sum_num_channels[1],
             grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
+    conv_spn_gen._register_node(dsds_mixtures_top, level)
+    set_dropout_probs(conv_spn_gen, dropconnect_from, dropprod_to)
     if dense_gen is not None:
         return dense_gen.generate(dsds_mixtures_top)
-    for node in conv_spn_gen.nodes_per_level[2]:
-        node.set_dropconnect_keep_prob(1.0)
+
     return dsds_mixtures_top
+
+
+def quadruple_stride(
+        *inp_nodes, spatial_dims=(28, 28), sum_node_types='local', kernel_size=2,
+        sum_num_channels=(32, 32), prod_num_channels=(16, 32), prod_node_types='default',
+        dense_gen=None, dropconnect_from=1, dropprod_to=1):
+    conv_spn_gen = ConvSPN()
+
+    if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise' and \
+            any(isinstance(n, spn.VarNode) for n in inp_nodes):
+        prod_node_types = ['default'] + 3 * ['depthwise']
+    elif not isinstance(prod_node_types, (tuple, list)):
+        prod_node_types = [prod_node_types] * 4
+
+    prod_num_channels = _preprocess_prod_num_channels(
+        *inp_nodes, prod_num_channels=prod_num_channels, kernel_size=kernel_size)
+
+    double_stride0 = conv_spn_gen.add_double_stride(
+        *inp_nodes, sum_num_channels=sum_num_channels[:2],
+        prod_num_channels=prod_num_channels[:2], spatial_dims=spatial_dims,
+        name_prefixes="QuadrupleStrideBottomDoubleStride",
+        sum_node_type=(sum_node_types[0], 'skip'), prod_node_type=prod_node_types[:2])
+
+    level, spatial_dims, input_nodes = conv_spn_gen._prepare_inputs(double_stride0)
+    spatial_dims = double_stride0.output_shape_spatial[:2]
+    if sum_node_types[1] == 'local':
+        dsds_mixtures = spn.LocalSum(
+            double_stride0, num_channels=sum_num_channels[1],
+            grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
+    else:
+        dsds_mixtures = spn.ConvSum(
+            double_stride0, num_channels=sum_num_channels[1],
+            grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
+    conv_spn_gen._register_node(dsds_mixtures, level)
+    pad_bottom = (4 - (spatial_dims[0] % 4), None)
+    pad_right = (4 - (spatial_dims[1] % 4), None)
+
+    double_stride1 = conv_spn_gen.add_double_stride(
+        dsds_mixtures, sum_num_channels=sum_num_channels[2:],
+        prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
+        name_prefixes="QuadrupleStrideTopDoubleStride", pad_right=pad_right,
+        pad_bottom=pad_bottom,
+        sum_node_type=(sum_node_types[2], 'skip'), prod_node_type=prod_node_types[2:])
+
+    level, spatial_dims, input_nodes = conv_spn_gen._prepare_inputs(double_stride1)
+    spatial_dims = double_stride1.output_shape_spatial[:2]
+
+    if sum_node_types[3] == 'local':
+        dsds_mixtures_top = spn.LocalSum(
+            double_stride1, num_channels=sum_num_channels[1],
+            grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
+    else:
+        dsds_mixtures_top = spn.ConvSum(
+            double_stride1, num_channels=sum_num_channels[1],
+            grid_dim_sizes=spatial_dims, name="D3SBottomMixture")
+    conv_spn_gen._register_node(dsds_mixtures_top, level)
+    set_dropout_probs(conv_spn_gen, dropconnect_from, dropprod_to)
+    if dense_gen is not None:
+        return dense_gen.generate(dsds_mixtures_top)
+
+    return dsds_mixtures_top
+
 
 
 def wicker_dense(

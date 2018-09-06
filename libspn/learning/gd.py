@@ -16,6 +16,7 @@ from libspn.graph.distribution import GaussianLeaf
 from libspn.graph.weights import Weights
 from libspn.graph.sum import Sum
 from libspn.log import get_logger
+from libspn import utils
 
 
 class GDLearning:
@@ -185,7 +186,7 @@ class GDLearning:
         with tf.name_scope(name):
             dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
             dropprod_keep_prob = dropprod_keep_prob or self._dropprod_keep_prob
-            noise = noise or self._noise
+            noise = utils.maybe_first(noise, self._noise)
             value_gen = LogValue(
                 dropconnect_keep_prob=dropconnect_keep_prob,
                 dropprod_keep_prob=dropprod_keep_prob,
@@ -196,7 +197,8 @@ class GDLearning:
             log_prob_data_and_labels = value_gen.get_value(self._root)
             log_prob_data = self._log_likelihood(
                 dropconnect_keep_prob=dropconnect_keep_prob,
-                dropprod_keep_prob=dropprod_keep_prob)
+                dropprod_keep_prob=dropprod_keep_prob,
+                noise=noise)
             return -reduce_fn(log_prob_data_and_labels - log_prob_data)
 
     def mle_loss(self, name="MaximumLikelihoodLoss", reduce_fn=tf.reduce_mean,
@@ -216,7 +218,7 @@ class GDLearning:
         """
         with tf.name_scope(name):
             dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
-            noise = noise or self._noise
+            noise = utils.maybe_first(noise, self._noise)
             dropprod_keep_prob = dropprod_keep_prob or self._dropprod_keep_prob
             value_gen = LogValue(
                 dropconnect_keep_prob=dropconnect_keep_prob,
@@ -227,7 +229,10 @@ class GDLearning:
                     dropconnect_keep_prob, learning_task_type=self._learning_task_type))
             if self._learning_task_type == LearningTaskType.UNSUPERVISED:
                 if self._root.ivs is not None:
-                    likelihood = self._log_likelihood(dropconnect_keep_prob=dropconnect_keep_prob)
+                    likelihood = self._log_likelihood(
+                        dropconnect_keep_prob=dropconnect_keep_prob,
+                        dropprod_keep_prob=dropprod_keep_prob,
+                        noise=noise)
                 else:
                     likelihood = value_gen.get_value(self._root)
             elif self._root.ivs is None:
@@ -249,7 +254,7 @@ class GDLearning:
         learning_task_type = learning_task_type or self._learning_task_type
         dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
         dropprod_keep_prob = dropprod_keep_prob or self._dropprod_keep_prob
-        noise = noise or self._noise
+        noise = utils.maybe_first(noise, self._noise)
         if self._turn_off_dropconnect_root(dropconnect_keep_prob, learning_task_type):
             marginalizing_root.set_dropconnect_keep_prob(1.0)
         return LogValue(
