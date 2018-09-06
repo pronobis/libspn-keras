@@ -169,6 +169,9 @@ class ConvProd2D(OpNode):
         size = int(np.prod(sparse_shape))
         return np.random.randint(num_input_channels, size=size).reshape(sparse_shape)
 
+    def set_dropout_keep_prob(self, p):
+        self._dropout_keep_prob = p
+
     @utils.lru_cache
     def _spatial_concat(self, *input_tensors):
         """Concatenates input tensors spatially. Makes sure to reshape them before.

@@ -1,5 +1,6 @@
 from libspn.generation.spatial import ConvSPN
 import libspn as spn
+from libspn.graph.spatialsum import SpatialSum
 from libspn.log import get_logger
 import numpy as np
 
@@ -96,7 +97,7 @@ def dilate_stride_double_stride(
 def dilate_stride_double_stride_full_wicker(
         *inp_nodes, spatial_dims=(28, 28), sum_node_types='local', kernel_size=2,
         sum_num_channels=(32, 32), prod_num_channels=(16, 32), num_channels_top=32,
-        prod_node_types='default', strides=None, dropconnect_from=1):
+        prod_node_types='default', strides=None, dropconnect_from=1, dropprod_to=3):
     conv_spn_gen = ConvSPN()
 
     prod_num_channels = _preprocess_prod_num_channels(
@@ -138,6 +139,13 @@ def dilate_stride_double_stride_full_wicker(
         prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
         strides=strides or 1, kernel_size=kernel_size, num_channels_top=num_channels_top,
         sum_node_type=sum_node_types[2:], prod_node_type=prod_node_types[2:])
+
+    for i, nodes in conv_spn_gen.nodes_per_level.items():
+        for n in nodes:
+            if isinstance(n, spn.ConvProd2D) and i > dropprod_to * 2:
+                print("Turning off dropout for {}".format(n))
+                n.set_dropout_keep_prob(1.0)
+
     for i in range(2, 2 + 2 * dropconnect_from, 2):
         for node in conv_spn_gen.nodes_per_level[i]:
             node.set_dropconnect_keep_prob(1.0)
