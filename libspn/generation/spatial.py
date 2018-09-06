@@ -78,12 +78,14 @@ class ConvSPN:
         pad_bottom = (dilation_rate - (out_shape[0] % dilation_rate)) % dilation_rate
         pad_right = (dilation_rate - (out_shape[1] % dilation_rate)) % dilation_rate
 
+        level, spatial_dims_parsed, input_nodes = self._prepare_inputs(wicker_head)
         final_conv = ConvProd2D(
             wicker_head, strides=1, pad_right=pad_right,
             pad_bottom=pad_bottom, grid_dim_sizes=out_shape,
             dilation_rate=int((2 ** stack_size) // np.prod(strides)),
             num_channels=num_channels_top
         )
+        self._register_node(final_conv, level)
         root = Sum(final_conv)
         return root
 

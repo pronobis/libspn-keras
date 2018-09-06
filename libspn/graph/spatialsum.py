@@ -179,7 +179,8 @@ class SpatialSum(BaseSum, abc.ABC):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_log_value(self, w_tensor, ivs_tensor, *input_tensors,
-                           dropconnect_keep_prob=None, matmul_or_conv=False):
+                           dropconnect_keep_prob=None, matmul_or_conv=False,
+                           noise=None):
 
         dropconnect_keep_prob = utils.maybe_first(
             self._dropconnect_keep_prob, dropconnect_keep_prob)
@@ -238,6 +239,8 @@ class SpatialSum(BaseSum, abc.ABC):
             w_tensor, ivs_tensor, *input_tensors, log=True, weighted=True,
             dropconnect_keep_prob=dropconnect_keep_prob))
         tf.add_to_collection('spn_sum_values_DC=True', (self, val))
+        if noise and noise != 0.0:
+            val += tf.random_normal(shape=tf.shape(val), stddev=noise)
         return tf.reshape(val, (-1, self._compute_out_size()))
 
     @utils.docinherit(BaseSum)

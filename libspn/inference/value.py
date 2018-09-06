@@ -28,11 +28,12 @@ class Value:
     """
 
     def __init__(self, inference_type=None, dropconnect_keep_prob=None, dropprod_keep_prob=None,
-                 name="Value", matmul_or_conv=True):
+                 name="Value", matmul_or_conv=True, noise=None):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
         self._dropprod_keep_prob = dropprod_keep_prob
+        self._noise = noise
         self._name = name
         self._matmul_or_conv = matmul_or_conv
 
@@ -72,6 +73,7 @@ class Value:
                         node.inference_type == InferenceType.MARGINAL)):
                     if isinstance(node, SpatialSum):
                         kwargs['matmul_or_conv'] = self._matmul_or_conv
+                        kwargs['noise'] = self._noise
                     return node._compute_value(*args, **kwargs)
                 else:
                     return node._compute_mpe_value(*args, **kwargs)
@@ -96,13 +98,14 @@ class LogValue:
     """
 
     def __init__(self, inference_type=None, dropconnect_keep_prob=None,
-                 name="LogValue", matmul_or_conv=True, dropprod_keep_prob=None):
+                 name="LogValue", matmul_or_conv=True, dropprod_keep_prob=None, noise=None):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
         self._name = name
         self._matmul_or_conv = matmul_or_conv
         self._dropprod_keep_prob = dropprod_keep_prob
+        self._noise = noise
 
     @property
     def values(self):
@@ -142,6 +145,7 @@ class LogValue:
                         node.inference_type == InferenceType.MARGINAL)):
                     if isinstance(node, SpatialSum):
                         kwargs['matmul_or_conv'] = self._matmul_or_conv
+                        kwargs['noise'] = self._noise
                     return node._compute_log_value(*args, **kwargs)
                 else:
                     return node._compute_log_mpe_value(*args, **kwargs)
