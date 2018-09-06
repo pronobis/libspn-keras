@@ -185,7 +185,8 @@ class SpatialSum(BaseSum, abc.ABC):
         def maybe_add_noise(val):
             with tf.name_scope("Noise"):
                 if noise and noise != 0.0:
-                    return val + tf.random_normal(shape=tf.shape(val), stddev=noise)
+                    return val + tf.log(tf.random_normal(
+                        shape=tf.shape(val), stddev=noise, mean=1.0))
                 return val
 
         dropconnect_keep_prob = utils.maybe_first(
