@@ -199,8 +199,9 @@ class SpatialSum(BaseSum, abc.ABC):
             matmul_or_conv = False
         else:
             matmul_or_conv = conf.dropout_mode != 'pairwise' \
-                             or dropconnect_keep_prob is None or dropconnect_keep_prob == 0.0
+                             or dropconnect_keep_prob is None or dropconnect_keep_prob == 1.0
         if matmul_or_conv:
+            self.logger.debug1("{}: using matrix multiplication or conv ops.".format(self))
             w_tensor, _, inp_concat = self._prepare_component_wise_processing(
                 w_tensor, ivs_tensor, *input_tensors)
             if dropconnect_keep_prob is not None and (not isinstance(
@@ -248,6 +249,7 @@ class SpatialSum(BaseSum, abc.ABC):
                 out = tf.transpose(logmatmul(inp_concat, w_tensor, transpose_b=True), (2, 0, 1, 3))
                 return maybe_add_noise(tf.reshape(out, (-1, self._compute_out_size())))
 
+        self.logger.debug1("{}: computing pairwise products.".format(self))
         val = self._reduce_marginal_inference_log(self._compute_reducible(
             w_tensor, ivs_tensor, *input_tensors, log=True, weighted=True,
             dropconnect_keep_prob=dropconnect_keep_prob))
