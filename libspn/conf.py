@@ -62,3 +62,8 @@ rescale_dropconnect = False
 """Whether to rescale dropconnect with
 1/p.
 """
+
+dropout_mode = "pairwise"
+"""What dropout mode to use. Can be either
+'pairwise', 'weights' or 'sum_inputs'.
+"""

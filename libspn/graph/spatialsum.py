@@ -46,8 +46,6 @@ class SpatialSum(BaseSum, abc.ABC):
                                        op generation.
     """
 
-    __logger = get_logger()
-
     def __init__(self, *values, num_channels=1, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, name="LocalSum",
                  grid_dim_sizes=None):
@@ -188,9 +186,10 @@ class SpatialSum(BaseSum, abc.ABC):
         def maybe_add_noise(val):
             with tf.name_scope("Noise"):
                 if noise is not None and noise != 0.0:
-                    self.__logger.debug1("{}: added noise {}".format(self, noise))
-                    return val + tf.log(tf.truncated_normal(
-                        shape=tf.shape(val), stddev=tf.minimum(noise, 0.5), mean=1.0))
+                    self.logger.debug1("{}: added noise {}".format(self, noise))
+                    noise_tensor = tf.truncated_normal(
+                        shape=tf.shape(val), stddev=noise, mean=0.0)
+                    return val + noise_tensor
                 return val
 
         dropconnect_keep_prob = utils.maybe_first(
@@ -199,38 +198,43 @@ class SpatialSum(BaseSum, abc.ABC):
             self.logger.warn("Cannot use matmul when using IVs, setting matmul=False")
             matmul_or_conv = False
         else:
-            if dropconnect_keep_prob is not None and (not isinstance(
-                    dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob != 1.0):
-                matmul_or_conv = False
-            else:
-                matmul_or_conv = True
+            matmul_or_conv = conf.dropout_mode != 'pairwise' \
+                             or dropconnect_keep_prob is None or dropconnect_keep_prob == 0.0
         if matmul_or_conv:
-            # dropconnect_keep_prob = utils.maybe_first(
-            #     self._dropconnect_keep_prob, dropconnect_keep_prob)
-            if dropconnect_keep_prob is not None and (not isinstance(
-                    dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob != 1.0):
-                # dropout_mask = self._create_dropout_mask(
-                #     keep_prob=dropconnect_keep_prob, shape=tf.shape(w_tensor), log=False,
-                #     dtype=tf.bool)
-                dropout_mask = self._create_dropconnect_mask(
-                    keep_prob=dropconnect_keep_prob, shape=tf.shape(w_tensor))
-                min_inf = tf.cast(
-                    tf.fill(tf.shape(w_tensor), value=float('-inf')), dtype=conf.dtype)
-                w_tensor = tf.where(dropout_mask, w_tensor, min_inf)
-                if conf.renormalize_dropconnect:
-                    w_tensor = tf.nn.log_softmax(w_tensor, axis=-1)
-                # w_tensor, _, inp_concat = self._prepare_component_wise_processing(
-                #     w_tensor, ivs_tensor, *input_tensors)
-                if conf.rescale_dropconnect:
-                    w_tensor -= tf.log(
-                        dropconnect_keep_prob + dropconnect_keep_prob ** w_tensor.shape[-1].value)
-            # else:
             w_tensor, _, inp_concat = self._prepare_component_wise_processing(
                 w_tensor, ivs_tensor, *input_tensors)
-            # Apply dropconnect
+            if dropconnect_keep_prob is not None and (not isinstance(
+                    dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob != 1.0):
+                if conf.dropout_mode == "weights":
+                    self.logger.debug1("{}: applying dropout with p={} to weights.".format(
+                        self, dropconnect_keep_prob))
+                    dropout_mask = self._create_dropconnect_mask(
+                        keep_prob=dropconnect_keep_prob, shape=tf.shape(w_tensor))
+                    min_inf = tf.cast(
+                        tf.fill(tf.shape(w_tensor), value=float('-inf')), dtype=conf.dtype)
+                    w_tensor = tf.where(dropout_mask, w_tensor, min_inf)
+                    if conf.renormalize_dropconnect:
+                        w_tensor = tf.nn.log_softmax(w_tensor, axis=-1)
+                    if conf.rescale_dropconnect:
+                        w_tensor -= tf.log(
+                            dropconnect_keep_prob +
+                            dropconnect_keep_prob ** w_tensor.shape[-1].value)
+                else:  # Dropout to inputs (products)
+                    self.logger.debug1("{}: applying dropout with p={} to sum inputs.".format(
+                        self, dropconnect_keep_prob))
+                    dropout_mask = self._create_dropconnect_mask(
+                        keep_prob=dropconnect_keep_prob, shape=tf.shape(inp_concat))
+                    min_inf = tf.cast(
+                        tf.fill(tf.shape(inp_concat), value=float('-inf')), dtype=conf.dtype)
+                    inp_concat = tf.where(dropout_mask, inp_concat, min_inf)
+                    if conf.rescale_dropconnect:
+                        inp_concat -= tf.log(
+                            dropconnect_keep_prob +
+                            dropconnect_keep_prob ** inp_concat.shape[-1].value)
+
+            # Determine whether to use matmul or conv op and return
             if all(w_tensor.shape[i] == 1 for i in self._op_axis):
-                w_tensor = tf.transpose(
-                    tf.squeeze(w_tensor, axis=0), (0, 1, 3, 2))
+                w_tensor = tf.transpose(tf.squeeze(w_tensor, axis=0), (0, 1, 3, 2))
                 inp_concat = tf.reshape(
                     inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size])
                 out = logconv_1x1(input=inp_concat, filter=w_tensor)
@@ -247,7 +251,6 @@ class SpatialSum(BaseSum, abc.ABC):
         val = self._reduce_marginal_inference_log(self._compute_reducible(
             w_tensor, ivs_tensor, *input_tensors, log=True, weighted=True,
             dropconnect_keep_prob=dropconnect_keep_prob))
-        tf.add_to_collection('spn_sum_values_DC=True', (self, val))
         return maybe_add_noise(tf.reshape(val, (-1, self._compute_out_size())))
 
     @utils.docinherit(BaseSum)

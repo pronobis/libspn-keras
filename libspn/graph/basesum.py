@@ -357,6 +357,8 @@ class BaseSum(OpNode, abc.ABC):
                     "behavior of learning. Therefore, dropconnect is turned off for node {}."
                     .format(self))
             else:
+                self.logger.debug1("{}: Applying dropout with p={} to pairwise "
+                                   "multiplications.".format(self, dropconnect_keep_prob))
                 mask = self._create_dropconnect_mask(dropconnect_keep_prob, tf.shape(reducible))
                 reducible = tf.where(mask, reducible, tf.fill(tf.shape(reducible), zero_prob_val))
                 if conf.renormalize_dropconnect:
