@@ -181,16 +181,23 @@ class SpatialSum(BaseSum, abc.ABC):
     @utils.lru_cache
     def _compute_log_value(self, w_tensor, ivs_tensor, *input_tensors,
                            dropconnect_keep_prob=None, matmul_or_conv=False,
-                           noise=None):
+                           noise=None, batch_noise=None):
 
         def maybe_add_noise(val):
-            with tf.name_scope("Noise"):
-                if noise is not None and noise != 0.0:
+            if noise is not None and noise != 0.0:
+                with tf.name_scope("Noise"):
                     self.logger.debug1("{}: added noise {}".format(self, noise))
                     noise_tensor = tf.truncated_normal(
                         shape=tf.shape(val), stddev=noise, mean=0.0)
-                    return val + noise_tensor
-                return val
+                    val += noise_tensor
+            if batch_noise is not None and batch_noise != 0.0:
+                with tf.name_scope("BatchNoise"):
+                    self.logger.debug1("{}: added batch noise {}".format(self, batch_noise))
+                    rolled = tf.manip.roll(val, shift=1, axis=0)
+                    val = tf.where(tf.less(
+                        tf.random_uniform(tf.shape(val)), batch_noise),
+                        tf.stop_gradient(rolled), val)
+            return val
 
         dropconnect_keep_prob = utils.maybe_first(
             self._dropconnect_keep_prob, dropconnect_keep_prob)

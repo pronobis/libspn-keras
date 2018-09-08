@@ -28,12 +28,13 @@ class Value:
     """
 
     def __init__(self, inference_type=None, dropconnect_keep_prob=None, dropprod_keep_prob=None,
-                 name="Value", matmul_or_conv=True, noise=None):
+                 name="Value", matmul_or_conv=True, noise=None, batch_noise=None):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
         self._dropprod_keep_prob = dropprod_keep_prob
         self._noise = noise
+        self._batch_noise = batch_noise
         self._name = name
         self._matmul_or_conv = matmul_or_conv
 
@@ -74,6 +75,7 @@ class Value:
                     if isinstance(node, SpatialSum):
                         kwargs['matmul_or_conv'] = self._matmul_or_conv
                         kwargs['noise'] = self._noise
+                        kwargs['batch_noise'] = self._batch_noise
                     return node._compute_value(*args, **kwargs)
                 else:
                     return node._compute_mpe_value(*args, **kwargs)
@@ -98,7 +100,8 @@ class LogValue:
     """
 
     def __init__(self, inference_type=None, dropconnect_keep_prob=None,
-                 name="LogValue", matmul_or_conv=True, dropprod_keep_prob=None, noise=None):
+                 name="LogValue", matmul_or_conv=True, dropprod_keep_prob=None, noise=None, 
+                 batch_noise=None):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
@@ -106,6 +109,7 @@ class LogValue:
         self._matmul_or_conv = matmul_or_conv
         self._dropprod_keep_prob = dropprod_keep_prob
         self._noise = noise
+        self._batch_noise = batch_noise
 
     @property
     def values(self):
@@ -146,6 +150,7 @@ class LogValue:
                     if isinstance(node, SpatialSum):
                         kwargs['matmul_or_conv'] = self._matmul_or_conv
                         kwargs['noise'] = self._noise
+                        kwargs['batch_noise'] = self._batch_noise
                     return node._compute_log_value(*args, **kwargs)
                 else:
                     return node._compute_log_mpe_value(*args, **kwargs)

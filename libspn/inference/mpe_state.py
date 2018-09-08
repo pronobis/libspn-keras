@@ -28,7 +28,8 @@ class MPEState():
                                      value_inference_type=value_inference_type,
                                      add_random=None, use_unweighted=False,
                                      dropconnect_keep_prob=1.0, dropprod_keep_prob=1.0,
-                                     matmul_or_conv=matmul_or_conv, noise=0.0)
+                                     matmul_or_conv=matmul_or_conv, noise=0.0,
+                                     batch_noise=0.0)
         else:
             self._mpe_path = mpe_path
 
