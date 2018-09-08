@@ -51,7 +51,8 @@ class GDLearning:
                  gradient_type=GradientType.SOFT, learning_rate=1e-4, marginalizing_root=None,
                  name="GDLearning", l1_regularize_coeff=None, l2_regularize_coeff=None,
                  confidence_penalty_coeff=None,
-                 entropy_regularize_coeff=None, 
+                 entropy_regularize_coeff=None,
+                 gauss_regularize_coeff=None,
                  batch_noise=None,
                  linear_w_minimum=1e-2):
 
@@ -73,6 +74,7 @@ class GDLearning:
         self._l1_regularize_coeff = l1_regularize_coeff
         self._l2_regularize_coeff = l2_regularize_coeff
         self._entropy_regularize_coeff = entropy_regularize_coeff
+        self._gauss_regularize_coeff = gauss_regularize_coeff
         self._confidence_penalty_coeff = confidence_penalty_coeff
         self._dropconnect_keep_prob = dropconnect_keep_prob
         self._dropprod_keep_prob = dropprod_keep_prob
@@ -325,6 +327,10 @@ class GDLearning:
             losses = []
 
             def regularize_node(node):
+                if isinstance(node, GaussianLeaf):
+                    if _enable(self._gauss_regularize_coeff):
+                        losses.append(self._gauss_regularize_coeff * tf.negative(node.entropy()))
+
                 if isinstance(node, Weights):
                     linear_w = tf.exp(node.variable) if node.log else node.variable
                     if _enable(self._l1_regularize_coeff):
@@ -353,4 +359,3 @@ class GDLearning:
             (not isinstance(dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob == 1.0) \
             and learning_task_type == LearningTaskType.SUPERVISED
 
-    

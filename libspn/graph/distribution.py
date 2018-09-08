@@ -54,7 +54,7 @@ class GaussianLeaf(VarNode):
                  initialization_data=None, estimate_variance_init=True, total_counts_init=1,
                  learn_dist_params=False, train_var=True, loc_init=0.0, scale_init=1.0,
                  train_mean=True, use_prior=False, prior_alpha=2.0, prior_beta=3.0, min_stddev=1e-2,
-                 evidence_indicator_feed=None, softplus_scale=False):
+                 evidence_indicator_feed=None, softplus_scale=False, share_scales=False):
         self._loc_variable = None
         self._scale_variable = None
         self._num_vars = num_vars
@@ -62,6 +62,7 @@ class GaussianLeaf(VarNode):
         self._softplus_scale = softplus_scale
         self._train_var = train_var
         self._train_mean = train_mean
+        self._share_scales = share_scales
 
         # Initial value for means
         if isinstance(loc_init, float):
@@ -70,7 +71,8 @@ class GaussianLeaf(VarNode):
             self._loc_init = loc_init
 
         # Initial values for variances.
-        self._scale_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * scale_init
+        self._scale_init = tf.ones([1, 1]) * scale_init if share_scales else \
+            tf.ones((num_vars, num_components), dtype=conf.dtype) * scale_init
         self._learn_dist_params = learn_dist_params
         self._min_stddev = min_stddev if not softplus_scale else np.log(np.exp(min_stddev) - 1)
         if initialization_data is not None:
@@ -414,3 +416,7 @@ class GaussianLeaf(VarNode):
         with tf.control_dependencies([new_var]):
             update_variance = tf.assign(self._scale_variable, new_var)
         return tf.assign_add(self._loc_variable, delta_loc), update_variance
+
+    @utils.lru_cache
+    def entropy(self):
+        return self._dist.entropy()
