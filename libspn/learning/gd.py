@@ -142,7 +142,8 @@ class GDLearning:
         with tf.name_scope("Loss"):
             loss = loss or self.loss()
             reg_coeffs = [self._l1_regularize_coeff, self._l2_regularize_coeff,
-                          self._entropy_regularize_coeff]
+                          self._entropy_regularize_coeff, self._gauss_ce_coeff,
+                          self._gauss_kl_coeff, self._gauss_regularize_coeff]
             if any(c is not None for c in reg_coeffs) and any(c != 0.0 for c in reg_coeffs):
                 loss += self.regularization_loss()
             if self._confidence_penalty_coeff is not None and self._confidence_penalty_coeff != 0.0:
@@ -332,13 +333,14 @@ class GDLearning:
             def regularize_node(node):
                 if isinstance(node, GaussianLeaf):
                     if _enable(self._gauss_regularize_coeff):
-                        losses.append(self._gauss_regularize_coeff * tf.negative(node.entropy()))
+                        losses.append(self._gauss_regularize_coeff * tf.negative(
+                            tf.reduce_sum(node.entropy())))
                     if _enable(self._gauss_kl_coeff):
-                        losses.append(self._gauss_kl_coeff * node.kl_divergence(
-                            tfd.Normal(loc=node.loc_variable, scale=1.0)))
+                        losses.append(self._gauss_kl_coeff * tf.reduce_sum(node.kl_divergence(
+                            tfd.Normal(loc=node.loc_variable, scale=1.0))))
                     if _enable(self._gauss_ce_coeff):
-                        losses.append(self._gauss_ce_coeff * node.cross_entropy(
-                            tfd.Normal(loc=node.loc_variable, scale=1.0)))
+                        losses.append(self._gauss_ce_coeff * tf.reduce_sum(node.cross_entropy(
+                            tfd.Normal(loc=node.loc_variable, scale=1.0))))
 
                 if isinstance(node, Weights):
                     linear_w = tf.exp(node.variable) if node.log else node.variable
