@@ -193,10 +193,9 @@ class SpatialSum(BaseSum, abc.ABC):
             if batch_noise is not None and batch_noise != 0.0:
                 with tf.name_scope("BatchNoise"):
                     self.logger.debug1("{}: added batch noise {}".format(self, batch_noise))
-                    rolled = tf.manip.roll(val, shift=1, axis=0)
+                    shuffled = tf.stop_gradient(tf.random_shuffle(val))
                     val = tf.where(tf.less(
-                        tf.random_uniform(tf.shape(val)), batch_noise),
-                        tf.stop_gradient(rolled), val)
+                        tf.random_uniform(tf.shape(val)), batch_noise), shuffled, val)
             return val
 
         dropconnect_keep_prob = utils.maybe_first(
