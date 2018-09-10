@@ -18,6 +18,7 @@ from libspn.graph.sum import Sum
 from libspn.graph.concat import Concat
 from libspn.log import get_logger
 from libspn.utils import maybe_first
+import tensorflow.distributions as tfd
 
 
 class GDLearning:
@@ -52,7 +53,7 @@ class GDLearning:
                  name="GDLearning", l1_regularize_coeff=None, l2_regularize_coeff=None,
                  confidence_penalty_coeff=None,
                  entropy_regularize_coeff=None,
-                 gauss_regularize_coeff=None,
+                 gauss_regularize_coeff=None, gauss_kl_coeff=None, gauss_ce_coeff=None,
                  batch_noise=None,
                  linear_w_minimum=1e-2):
 
@@ -73,6 +74,8 @@ class GDLearning:
         self._learning_method = learning_method
         self._l1_regularize_coeff = l1_regularize_coeff
         self._l2_regularize_coeff = l2_regularize_coeff
+        self._gauss_kl_coeff = gauss_kl_coeff
+        self._gauss_ce_coeff = gauss_ce_coeff
         self._entropy_regularize_coeff = entropy_regularize_coeff
         self._gauss_regularize_coeff = gauss_regularize_coeff
         self._confidence_penalty_coeff = confidence_penalty_coeff
@@ -330,6 +333,12 @@ class GDLearning:
                 if isinstance(node, GaussianLeaf):
                     if _enable(self._gauss_regularize_coeff):
                         losses.append(self._gauss_regularize_coeff * tf.negative(node.entropy()))
+                    if _enable(self._gauss_kl_coeff):
+                        losses.append(self._gauss_kl_coeff * node.kl_divergence(
+                            tfd.Normal(loc=node.loc_variable, scale=1.0)))
+                    if _enable(self._gauss_ce_coeff):
+                        losses.append(self._gauss_ce_coeff * node.cross_entropy(
+                            tfd.Normal(loc=node.loc_variable, scale=1.0)))
 
                 if isinstance(node, Weights):
                     linear_w = tf.exp(node.variable) if node.log else node.variable

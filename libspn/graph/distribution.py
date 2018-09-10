@@ -202,6 +202,10 @@ class GaussianLeaf(VarNode):
                 self._scale_init = np.maximum(
                     np.stack(np.sqrt(variance), axis=-1), self._min_stddev)
 
+    @property
+    def scale(self):
+        return tf.nn.softplus(self.scale_variable) if self._softplus_scale else self.scale_variable
+
     @utils.docinherit(Node)
     def serialize(self):
         data = super().serialize()
@@ -420,3 +424,11 @@ class GaussianLeaf(VarNode):
     @utils.lru_cache
     def entropy(self):
         return self._dist.entropy()
+
+    @utils.lru_cache
+    def cross_entropy(self, normal_dist):
+        return self._dist.cross_entropy(normal_dist)
+
+    @utils.lru_cache
+    def kl_divergence(self, normal_dist):
+        return self._dist.kl_divergence(normal_dist)

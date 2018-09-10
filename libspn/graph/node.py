@@ -787,7 +787,6 @@ class OpNode(Node):
             if enforce_one_axis is None:
                 return tf.less(mask, keep_prob)
             mask_min = tf.reduce_min(mask, axis=enforce_one_axis, keepdims=True)
-            # enforce_one = tf.logical_and(tf.greater(mask_min, keep_prob), tf.equal(mask, mask_min))
             return tf.logical_or(tf.equal(mask, mask_min), tf.less(mask, keep_prob))
 
     @utils.lru_cache
