@@ -360,7 +360,10 @@ class BaseSum(OpNode, abc.ABC):
                 self.logger.debug1("{}: Applying dropout with p={} to pairwise "
                                    "multiplications.".format(self, dropconnect_keep_prob))
                 mask = self._create_dropconnect_mask(dropconnect_keep_prob, tf.shape(reducible))
-                reducible = tf.where(mask, reducible, tf.fill(tf.shape(reducible), zero_prob_val))
+                print(mask)
+                reducible = tf.reshape(
+                    tf.where(mask, reducible, tf.fill(tf.shape(reducible), zero_prob_val)),
+                    tf.shape(reducible))
                 if conf.renormalize_dropconnect:
                     if log:
                         reducible -= tf.reduce_logsumexp(w_tensor, axis=-1, keepdims=True)
@@ -368,7 +371,7 @@ class BaseSum(OpNode, abc.ABC):
                         reducible /= tf.reduce_sum(w_tensor, axis=-1, keepdims=True)
                 if conf.rescale_dropconnect:
                     reducible -= tf.log(
-                        dropconnect_keep_prob + dropconnect_keep_prob ** reducible.shape[-1].value)
+                        dropconnect_keep_prob + dropconnect_keep_prob ** w_tensor.shape[-1].value)
 
         return reducible
 
@@ -440,6 +443,34 @@ class BaseSum(OpNode, abc.ABC):
 `
         """
         return [w_tensor] + ([ivs_tensor] if self._ivs else []) + list(value_tensors)
+
+    @utils.lru_cache
+    def _create_dropconnect_mask(
+            self, keep_prob, shape, enforce_one_axis=-1, name="DropconnectMask"):
+        with tf.name_scope(name):
+            drop_mask = tf.random_uniform(shape=shape, minval=0.0, maxval=1.0)
+            # To ensure numerical stability and the opportunity to always learn something,
+            # we enforce at least a single 'True' value along the last axis (sum axis) by comparing
+            # the randomly drawn floats with their minimum and setting True in case of equality.
+            # return tf.less(mask, keep_prob)
+            if self._masked:
+                rank = tf.size(shape)
+                size_mask = tf.reshape(
+                    self._build_mask(),
+                    tf.concat([tf.ones(rank - 2, dtype=tf.int32),
+                               [self._num_sums, self._max_sum_size]], axis=0))
+                size_mask = tf.tile(size_mask, tf.concat([shape[:rank - 2], [1, 1]], axis=0))
+                drop_mask = tf.where(
+                    size_mask, drop_mask, tf.ones_like(size_mask, dtype=tf.float32) * 1e20)
+
+            if enforce_one_axis is None:
+                return tf.less(drop_mask, keep_prob)
+            mask_min = tf.reduce_min(drop_mask, axis=enforce_one_axis, keepdims=True)
+            out = tf.logical_or(tf.equal(drop_mask, mask_min), tf.less(drop_mask, keep_prob))
+            return out
+            # return tf.Print(out, [tf.reduce_all(tf.reduce_any(out, axis=-1))],
+            #                 summarize=100,
+            #                 message="{}: ".format(self))
 
     @utils.docinherit(OpNode)
     def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):

@@ -7,14 +7,42 @@ from unittest.mock import MagicMock
 
 class TestBaseSum(tf.test.TestCase):
 
+    def test_dropconnect_sumslayer(self):
+        ivs0 = spn.IVs(num_vals=2, num_vars=2)
+        ivs1 = spn.IVs(num_vals=2, num_vars=1)
+
+        probs = np.log(np.random.rand(4096, 2, 4))
+
+        s = spn.SumsLayer(ivs0, ivs1, num_or_size_sums=[4, 2])
+
+        dropconnect_mask = s._create_dropconnect_mask(
+            keep_prob=0.1, shape=probs.shape)
+
+        self.assertAllEqual(s._build_mask(), [[1, 1, 1, 1],
+                                              [1, 1, 0, 0]])
+        with self.test_session() as sess:
+            mask_out = sess.run(dropconnect_mask)
+
+        masked_part = mask_out[:, 1, 2:]
+        self.assertAllEqual(
+            masked_part.astype(np.int32), np.zeros_like(masked_part, dtype=np.int32))
+        self.assertAllEqual(
+            masked_part.astype(np.int32), np.zeros_like(masked_part, dtype=np.int32))
+        self.assertAllGreater(np.sum(mask_out, axis=-1), 0)
+
+        non_masked_part = mask_out[:, 0, 2:]
+        self.assertGreater(np.sum(non_masked_part), 0)
+
     @argsprod([False, True])
     def test_dropconnect(self, log):
+        spn.conf.dropout_mode = "pairwise"
         ivs = spn.IVs(num_vals=2, num_vars=4)
         s = spn.Sum(ivs, dropconnect_keep_prob=0.5)
         spn.generate_weights(s)
         init = spn.initialize_weights(s)
 
         mask = [
+            [0., 1., 0., 1., 1., 1., 0., 1.],
             [0., 1., 0., 1., 1., 1., 0., 1.]
         ]
         s._create_dropconnect_mask = MagicMock(

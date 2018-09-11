@@ -194,8 +194,11 @@ class SpatialSum(BaseSum, abc.ABC):
                 with tf.name_scope("BatchNoise"):
                     self.logger.debug1("{}: added batch noise {}".format(self, batch_noise))
                     shuffled = tf.stop_gradient(tf.random_shuffle(val))
-                    val = tf.where(tf.less(
-                        tf.random_uniform(tf.shape(val)), batch_noise), shuffled, val)
+                    mask = tf.tile(tf.less(
+                        tf.random_uniform(
+                            tf.concat([tf.shape(val)[:-1], [1]], axis=0)), batch_noise),
+                        [1, 1, 1, self._num_channels])
+                    val = tf.where(mask, shuffled, val)
             return val
 
         dropconnect_keep_prob = utils.maybe_first(
@@ -253,22 +256,25 @@ class SpatialSum(BaseSum, abc.ABC):
                     tf.transpose(inp_concat, (1, 2, 0, 3)),
                     self._grid_dim_sizes + [-1, self._max_sum_size])
                 out = tf.transpose(logmatmul(inp_concat, w_tensor, transpose_b=True), (2, 0, 1, 3))
-                return maybe_add_noise(tf.reshape(out, (-1, self._compute_out_size())))
+                out = maybe_add_noise(out)
+                return tf.reshape(out, (-1, self._compute_out_size()))
 
         self.logger.debug1("{}: computing pairwise products.".format(self))
         val = self._reduce_marginal_inference_log(self._compute_reducible(
             w_tensor, ivs_tensor, *input_tensors, log=True, weighted=True,
             dropconnect_keep_prob=dropconnect_keep_prob))
-        return maybe_add_noise(tf.reshape(val, (-1, self._compute_out_size())))
+        out = maybe_add_noise(val)
+        return tf.reshape(out, (-1, self._compute_out_size()))
 
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_value(self, w_tensor, ivs_tensor, *input_tensors,
-                       dropconnect_keep_prob=None, matmul_or_conv=False):
+                       dropconnect_keep_prob=None, matmul_or_conv=False,
+                       noise=None, batch_noise=None):
         ivs_log = None if ivs_tensor is None else tf.log(ivs_tensor)
-        return self._compute_log_value(
+        return tf.exp(self._compute_log_value(
             tf.log(w_tensor), ivs_log, *[tf.log(t) for t in input_tensors],
-            dropconnect_keep_prob=dropconnect_keep_prob, matmul_or_conv=matmul_or_conv)
+            dropconnect_keep_prob=dropconnect_keep_prob, matmul_or_conv=matmul_or_conv))
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
