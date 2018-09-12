@@ -53,15 +53,11 @@ class ConvProdDepthWise(ConvProd2D):
         dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
         if dropout_keep_prob is not None and (not isinstance(
                 dropout_keep_prob, (int, float)) or dropout_keep_prob != 1.0):
-            if self._dropout_scope_wise:
-                shape = tf.stack(
-                    [tf.shape(concat_inp)[0]] + concat_inp.shape.as_list()[1:-1] + [1])
-            else:
-                shape = tf.shape(concat_inp)
-            dropout_mask = self._create_dropconnect_mask(
-                dropout_keep_prob, shape, enforce_one_axis=None, name="DropoutMask")
-            if self._dropout_scope_wise:
-                dropout_mask = tf.tile(dropout_mask, [1, 1, 1, self._num_input_channels()])
+            if self._scope_mask is None:
+                raise StructureError("{}: need to set scope mask for dropping abstract evidence."
+                                     .format(self))
+            dropout_mask = tf.expand_dims(tf.less(self._scope_mask, dropout_keep_prob), axis=-1)
+            dropout_mask = tf.tile(dropout_mask, [1, 1, 1, self._num_input_channels()])
             concat_inp = tf.where(dropout_mask, concat_inp, tf.zeros_like(concat_inp))
 
         # Convolve
