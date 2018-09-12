@@ -360,7 +360,6 @@ class BaseSum(OpNode, abc.ABC):
                 self.logger.debug1("{}: Applying dropout with p={} to pairwise "
                                    "multiplications.".format(self, dropconnect_keep_prob))
                 mask = self._create_dropconnect_mask(dropconnect_keep_prob, tf.shape(reducible))
-                print(mask)
                 reducible = tf.reshape(
                     tf.where(mask, reducible, tf.fill(tf.shape(reducible), zero_prob_val)),
                     tf.shape(reducible))
@@ -864,7 +863,8 @@ class BaseSum(OpNode, abc.ABC):
             argmax = tf.argmax(x, axis=self._reduce_axis)
             if sample_shape == ():
                 return argmax
-            return tf.tile(argmax, [1] * (len(argmax.shape) - 1) + [self._tile_unweighted_size])
+            return tf.tile(tf.expand_dims(
+                argmax, axis=-1), [1] * (len(argmax.shape) - 1) + [self._tile_unweighted_size])
 
         # Return random index in case multiple values equal max
         x_max = tf.expand_dims(self._reduce_mpe_inference(x), self._reduce_axis)
