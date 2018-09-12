@@ -54,7 +54,8 @@ class GaussianLeaf(VarNode):
                  initialization_data=None, estimate_variance_init=True, total_counts_init=1,
                  learn_dist_params=False, train_var=True, loc_init=0.0, scale_init=1.0,
                  train_mean=True, use_prior=False, prior_alpha=2.0, prior_beta=3.0, min_stddev=1e-2,
-                 evidence_indicator_feed=None, softplus_scale=False, share_scales=False):
+                 evidence_indicator_feed=None, softplus_scale=False, share_scales=False,
+                 normalized=True):
         self._loc_variable = None
         self._scale_variable = None
         self._num_vars = num_vars
@@ -63,6 +64,7 @@ class GaussianLeaf(VarNode):
         self._train_var = train_var
         self._train_mean = train_mean
         self._share_scales = share_scales
+        self._normalized = normalized
 
         # Initial value for means
         if isinstance(loc_init, float):
@@ -300,8 +302,13 @@ class GaussianLeaf(VarNode):
     @utils.docinherit(Node)
     @utils.lru_cache
     def _compute_log_value(self):
-        return self._evidence_mask(
-            self._dist.log_prob(self._tile_num_components(self._feed)), tf.zeros_like)
+        if self._normalized:
+            return self._evidence_mask(
+                self._dist.log_prob(self._tile_num_components(self._feed)), tf.zeros_like)
+        else:
+            return self._evidence_mask(
+                self._dist._log_unnormalized_prob(self._tile_num_components(self._feed)),
+                tf.zeros_like)
 
     @utils.docinherit(Node)
     def _compute_scope(self):
