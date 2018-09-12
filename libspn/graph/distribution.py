@@ -55,7 +55,7 @@ class GaussianLeaf(VarNode):
                  learn_dist_params=False, train_var=True, loc_init=0.0, scale_init=1.0,
                  train_mean=True, use_prior=False, prior_alpha=2.0, prior_beta=3.0, min_stddev=1e-2,
                  evidence_indicator_feed=None, softplus_scale=False, share_scales=False,
-                 normalized=True):
+                 normalized=True, student_t=False):
         self._loc_variable = None
         self._scale_variable = None
         self._num_vars = num_vars
@@ -65,6 +65,7 @@ class GaussianLeaf(VarNode):
         self._train_mean = train_mean
         self._share_scales = share_scales
         self._normalized = normalized
+        self._student_t = student_t
 
         # Initial value for means
         if isinstance(loc_init, float):
@@ -162,9 +163,16 @@ class GaussianLeaf(VarNode):
             tf.maximum(self._scale_init, self._min_stddev), dtype=conf.dtype,
             collections=['spn_distribution_parameters'], trainable=self._train_var)
         if self._softplus_scale:
-            self._dist = tfd.NormalWithSoftplusScale(self._loc_variable, self._scale_variable)
+            if not self._student_t:
+                self._dist = tfd.NormalWithSoftplusScale(self._loc_variable, self._scale_variable)
+            else:
+                self._dist = tfd.StudentTWithAbsDfSoftplusScale(
+                    1.0, self._loc_variable, self._scale_variable)
         else:
-            self._dist = tfd.Normal(self._loc_variable, self._scale_variable)
+            if not self._student_t:
+                self._dist = tfd.Normal(self._loc_variable, self._scale_variable)
+            else:
+                self._dist = tfd.StudentT(1.0, self._loc_variable, self._scale_variable)
 
     def initialize_from_quantiles(self, data, estimate_variance=True, use_prior=False,
                                   prior_alpha=2.0, prior_beta=3.0):
