@@ -59,6 +59,7 @@ class SpatialSum(BaseSum, abc.ABC):
             else grid_dim_sizes
         self._channel_axis = 3
         self._num_channels = num_channels
+        self._scope_mask = None
         super().__init__(
             *values, num_sums=self._num_inner_sums(), weights=weights, ivs=ivs,
             inference_type=inference_type, name=name, reduce_axis=4, op_axis=[1, 2])
@@ -177,6 +178,9 @@ class SpatialSum(BaseSum, abc.ABC):
     def _compute_out_size(self, *input_out_sizes):
         return int(np.prod(self._grid_dim_sizes) * self._num_channels)
 
+    def _set_scope_mask(self, t):
+        self._scope_mask = t
+
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_log_value(self, w_tensor, ivs_tensor, *input_tensors,
@@ -191,13 +195,13 @@ class SpatialSum(BaseSum, abc.ABC):
                         shape=tf.shape(val), stddev=noise, mean=0.0)
                     val += noise_tensor
             if batch_noise is not None and batch_noise != 0.0:
+                if self._scope_mask is None:
+                    raise StructureError("Should set scope mask externally")
                 with tf.name_scope("BatchNoise"):
                     self.logger.debug1("{}: added batch noise {}".format(self, batch_noise))
-                    shuffled = tf.stop_gradient(tf.random_shuffle(val))
-                    mask = tf.tile(tf.less(
-                        tf.random_uniform(
-                            tf.concat([tf.shape(val)[:-1], [1]], axis=0)), batch_noise),
-                        [1, 1, 1, self._num_channels])
+                    shuffled = tf.stop_gradient(tf.manip.roll(val, shift=1, axis=0))
+                    mask = tf.tile(tf.less(tf.expand_dims(self._scope_mask, axis=-1), batch_noise),
+                                   [1, 1, 1, self._num_channels])
                     val = tf.where(mask, shuffled, val)
             return val
 
