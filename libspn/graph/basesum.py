@@ -347,30 +347,34 @@ class BaseSum(OpNode, abc.ABC):
 
         # Apply weights
         if weighted:
-            reducible = cwise_op(reducible, w_tensor)
 
-        if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
-            if self._ivs:
-                self.logger.warn(
-                    "Using dropconnect and latent IVs simultaneously. "
-                    "This might result in zero probabilities throughout and unpredictable "
-                    "behavior of learning. Therefore, dropconnect is turned off for node {}."
-                    .format(self))
-            else:
-                self.logger.debug1("{}: Applying dropout with p={} to pairwise "
-                                   "multiplications.".format(self, dropconnect_keep_prob))
-                mask = self._create_dropconnect_mask(dropconnect_keep_prob, tf.shape(reducible))
-                reducible = tf.reshape(
-                    tf.where(mask, reducible, tf.fill(tf.shape(reducible), zero_prob_val)),
-                    tf.shape(reducible))
-                if conf.renormalize_dropconnect:
+            if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
+                if self._ivs:
+                    self.logger.warn(
+                        "Using dropconnect and latent IVs simultaneously. "
+                        "This might result in zero probabilities throughout and unpredictable "
+                        "behavior of learning. Therefore, dropconnect is turned off for node {}."
+                        .format(self))
+                else:
+                    self.logger.debug1("{}: Applying dropout with p={} to pairwise "
+                                       "multiplications.".format(self, dropconnect_keep_prob))
+                    mask = self._create_dropconnect_mask(dropconnect_keep_prob, tf.shape(reducible))
                     if log:
-                        reducible -= tf.reduce_logsumexp(reducible, axis=-1, keepdims=True)
+                        mask = tf.log(tf.to_float(mask))
                     else:
-                        reducible /= tf.reduce_sum(reducible, axis=-1, keepdims=True)
-                if conf.rescale_dropconnect:
-                    reducible -= tf.log(
-                        dropconnect_keep_prob + dropconnect_keep_prob ** w_tensor.shape[-1].value)
+                        mask = tf.to_float(mask)
+                    w_tensor = cwise_op(w_tensor, mask)
+                    if conf.renormalize_dropconnect:
+                        if log:
+                            w_tensor -= tf.reduce_logsumexp(w_tensor, axis=-1, keepdims=True)
+                        else:
+                            w_tensor /= tf.reduce_sum(w_tensor, axis=-1, keepdims=True)
+                    if conf.rescale_dropconnect:
+                        w_tensor -= tf.log(
+                            dropconnect_keep_prob +
+                            dropconnect_keep_prob ** w_tensor.shape[-1].value)
+
+                reducible = cwise_op(reducible, w_tensor)
 
         return reducible
 
