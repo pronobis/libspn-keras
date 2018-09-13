@@ -365,9 +365,9 @@ class BaseSum(OpNode, abc.ABC):
                     tf.shape(reducible))
                 if conf.renormalize_dropconnect:
                     if log:
-                        reducible -= tf.reduce_logsumexp(w_tensor, axis=-1, keepdims=True)
+                        reducible -= tf.reduce_logsumexp(reducible, axis=-1, keepdims=True)
                     else:
-                        reducible /= tf.reduce_sum(w_tensor, axis=-1, keepdims=True)
+                        reducible /= tf.reduce_sum(reducible, axis=-1, keepdims=True)
                 if conf.rescale_dropconnect:
                     reducible -= tf.log(
                         dropconnect_keep_prob + dropconnect_keep_prob ** w_tensor.shape[-1].value)
