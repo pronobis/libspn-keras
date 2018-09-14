@@ -89,7 +89,7 @@ class GDLearning:
         self._linear_w_minimum = linear_w_minimum
 
     def loss(self, learning_method=None, dropconnect_keep_prob=None, dropprod_keep_prob=None,
-             noise=None, batch_noise=None):
+             noise=None, batch_noise=None, reduce_fn=tf.reduce_mean):
         """Assembles main objective operations. In case of generative learning it will select 
         the MLE objective, whereas in discriminative learning it selects the cross entropy.
         
@@ -106,10 +106,10 @@ class GDLearning:
         if learning_method == LearningMethodType.GENERATIVE:
             return self.mle_loss(
                 dropconnect_keep_prob=dropconnect_keep_prob, dropprod_keep_prob=dropprod_keep_prob,
-                noise=noise, batch_noise=batch_noise)
+                noise=noise, batch_noise=batch_noise, reduce_fn=reduce_fn)
         return self.cross_entropy_loss(
             dropconnect_keep_prob=dropconnect_keep_prob, dropprod_keep_prob=dropprod_keep_prob,
-            noise=noise, batch_noise=batch_noise)
+            noise=noise, batch_noise=batch_noise, reduce_fn=reduce_fn)
 
     def learn(self, loss=None, gradient_type=None, optimizer=tf.train.GradientDescentOptimizer,
               name="LearnGD"):
