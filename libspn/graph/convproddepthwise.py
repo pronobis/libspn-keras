@@ -4,6 +4,7 @@ import tensorflow as tf
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
 from libspn.graph.convprod2d import ConvProd2D
+from libspn import conf
 
 
 @utils.register_serializable
@@ -63,19 +64,25 @@ class ConvProdDepthWise(ConvProd2D):
         # Convolve
         # TODO, this the quickest workaround for TensorFlow's apparent optimization whenever
         # part of the kernel computation involves a -inf:
-        concat_inp = tf.where(
-            tf.is_inf(concat_inp), tf.fill(tf.shape(concat_inp), value=-1e20), concat_inp)
-        # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
-        # to be a TF debug. Now we transpose before and after
-        conv_out = tf.nn.conv2d(
-            input=self._channels_to_batch(concat_inp),
-            filter=tf.ones(self._kernel_size + [1, 1]),
-            padding=self._padding.upper(),
-            strides=[1, 1] + self._strides,
-            dilations=[1, 1] + self._dilation_rate,
-            data_format='NCHW'
-        )
-        conv_out = self._batch_to_channels(conv_out)
+        if conf.custom_one_hot_conv2d:
+            sparse_connections = tf.tile(tf.reshape(
+                tf.range(self._num_input_channels()), (1, 1, -1)), self._kernel_size + [1])
+            conv_out = utils.one_hot_conv2d(
+                concat_inp, sparse_connections, self._strides, self._dilation_rate)
+        else:
+            # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
+            # to be a TF debug. Now we transpose before and after
+            concat_inp = tf.where(
+                tf.is_inf(concat_inp), tf.fill(tf.shape(concat_inp), value=-1e20), concat_inp)
+            conv_out = tf.nn.conv2d(
+                input=self._channels_to_batch(concat_inp),
+                filter=tf.ones(self._kernel_size + [1, 1]),
+                padding=self._padding.upper(),
+                strides=[1, 1] + self._strides,
+                dilations=[1, 1] + self._dilation_rate,
+                data_format='NCHW'
+            )
+            conv_out = self._batch_to_channels(conv_out)
         return self._flatten(conv_out)
 
     @utils.lru_cache
