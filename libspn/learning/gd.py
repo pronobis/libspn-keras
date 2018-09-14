@@ -111,7 +111,8 @@ class GDLearning:
             dropconnect_keep_prob=dropconnect_keep_prob, dropprod_keep_prob=dropprod_keep_prob,
             noise=noise, batch_noise=batch_noise)
 
-    def learn(self, loss=None, gradient_type=None, optimizer=tf.train.GradientDescentOptimizer):
+    def learn(self, loss=None, gradient_type=None, optimizer=tf.train.GradientDescentOptimizer,
+              name="LearnGD"):
         """Assemble TF operations performing GD learning of the SPN. This includes setting up
         the loss function (with regularization), setting up the optimizer and setting up
         post gradient-update ops.
@@ -139,20 +140,22 @@ class GDLearning:
 
         # If a loss function is not provided, define the loss function based
         # on learning-type and learning-method
-        with tf.name_scope("Loss"):
-            loss = loss or self.loss()
-            reg_coeffs = [self._l1_regularize_coeff, self._l2_regularize_coeff,
-                          self._entropy_regularize_coeff, self._gauss_ce_coeff,
-                          self._gauss_kl_coeff, self._gauss_regularize_coeff]
-            if any(c is not None for c in reg_coeffs) and any(c != 0.0 for c in reg_coeffs):
-                loss += self.regularization_loss()
-            if self._confidence_penalty_coeff is not None and self._confidence_penalty_coeff != 0.0:
-                loss += self.confidence_penalty_loss()
+        with tf.name_scope(name):
+            with tf.name_scope("Loss"):
+                loss = loss or self.loss()
+                reg_coeffs = [self._l1_regularize_coeff, self._l2_regularize_coeff,
+                              self._entropy_regularize_coeff, self._gauss_ce_coeff,
+                              self._gauss_kl_coeff, self._gauss_regularize_coeff]
+                if any(c is not None for c in reg_coeffs) and any(c != 0.0 for c in reg_coeffs):
+                    loss += self.regularization_loss()
+                if self._confidence_penalty_coeff is not None and \
+                        self._confidence_penalty_coeff != 0.0:
+                    loss += self.confidence_penalty_loss()
 
-        # Assemble TF ops for optimizing and weights normalization
-        with tf.name_scope("ParameterUpdate"):
-            minimize = optimizer(self._learning_rate).minimize(loss=loss)
-            return self.post_gradient_update(minimize), loss
+            # Assemble TF ops for optimizing and weights normalization
+            with tf.name_scope("ParameterUpdate"):
+                minimize = optimizer(self._learning_rate).minimize(loss=loss)
+                return self.post_gradient_update(minimize), loss
 
     def post_gradient_update(self, update_op):
         """Constructs post-parameter update ops such as normalization of weights and clipping of
@@ -205,9 +208,7 @@ class GDLearning:
             batch_noise = maybe_first(batch_noise, self._batch_noise)
             value_gen = LogValue(
                 dropconnect_keep_prob=dropconnect_keep_prob, dropprod_keep_prob=dropprod_keep_prob,
-                noise=noise, inference_type=self._value_inference_type, batch_noise=batch_noise,
-                matmul_or_conv=not self._turn_off_dropconnect_root(
-                    dropconnect_keep_prob, self._learning_task_type))
+                noise=noise, inference_type=self._value_inference_type, batch_noise=batch_noise)
             log_prob_data_and_labels = value_gen.get_value(self._root)
             log_prob_data = self._log_likelihood(
                 dropconnect_keep_prob=dropconnect_keep_prob,
@@ -239,9 +240,7 @@ class GDLearning:
                 dropconnect_keep_prob=dropconnect_keep_prob,
                 dropprod_keep_prob=dropprod_keep_prob,
                 noise=noise, batch_noise=batch_noise,
-                inference_type=self._value_inference_type,
-                matmul_or_conv=not self._turn_off_dropconnect_root(
-                    dropconnect_keep_prob, learning_task_type=self._learning_task_type))
+                inference_type=self._value_inference_type)
             if self._learning_task_type == LearningTaskType.UNSUPERVISED:
                 if self._root.ivs is not None:
                     likelihood = self._log_likelihood(
@@ -268,13 +267,9 @@ class GDLearning:
             noise = maybe_first(noise, self._noise)
             batch_noise = maybe_first(batch_noise, self._batch_noise)
 
-            matmul_or_conv = not self._turn_off_dropconnect_root(
-                dropconnect_keep_prob, learning_task_type=self._learning_task_type)
-
             value_gen = LogValue(
                 dropprod_keep_prob=dropprod_keep_prob, dropconnect_keep_prob=dropconnect_keep_prob,
-                noise=noise, matmul_or_conv=matmul_or_conv, 
-                inference_type=self._value_inference_type, batch_noise=batch_noise)
+                noise=noise, inference_type=self._value_inference_type, batch_noise=batch_noise)
             if len(self._root.values) > 1:
                 sub_spns = Concat(*self._root.values)
             else:
@@ -312,9 +307,7 @@ class GDLearning:
             dropconnect_keep_prob=dropconnect_keep_prob,
             dropprod_keep_prob=dropprod_keep_prob,
             noise=noise, batch_noise=batch_noise,
-            inference_type=self._value_inference_type,
-            matmul_or_conv=not self._turn_off_dropconnect_root(
-                dropconnect_keep_prob, learning_task_type)).get_value(marginalizing_root)
+            inference_type=self._value_inference_type).get_value(marginalizing_root)
 
     def regularization_loss(self, name="Regularization"):
         """Adds regularization to the weight nodes. This can be either L1 or L2 or both, depending
