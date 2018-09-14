@@ -62,7 +62,7 @@ class ConvSPN:
                     strides=1, num_channels_top=128, prod_node_type='default'):
         if spatial_dims[0] != spatial_dims[1]:
             raise ValueError("Spatial dimensions must be square.")
-        stack_size = int(np.ceil(np.log2(spatial_dims[0])))
+        stack_size = int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
         print("Stack size", stack_size)
         if isinstance(strides, int):
             strides = [strides] * stack_size
@@ -74,7 +74,7 @@ class ConvSPN:
         out_shape = wicker_head.output_shape_spatial[:2]
 
         # Optionally pad output to make it a multiple of the dilation rate
-        dilation_rate = int((2 ** stack_size) // np.prod(strides))
+        dilation_rate = int((kernel_size ** stack_size) // np.prod(strides))
         pad_bottom = (dilation_rate - (out_shape[0] % dilation_rate)) % dilation_rate
         pad_right = (dilation_rate - (out_shape[1] % dilation_rate)) % dilation_rate
 
@@ -82,7 +82,7 @@ class ConvSPN:
         final_conv = ConvProd2D(
             wicker_head, strides=1, pad_right=pad_right,
             pad_bottom=pad_bottom, grid_dim_sizes=out_shape,
-            dilation_rate=int((2 ** stack_size) // np.prod(strides)),
+            dilation_rate=int((kernel_size ** stack_size) // np.prod(strides)),
             num_channels=num_channels_top
         )
         self._register_node(final_conv, level)
@@ -105,13 +105,14 @@ class ConvSPN:
         for pad_l, pad_r, pad_t, pad_b, s_prod, level in self._ensure_tuples_and_zip(
                 pad_left, pad_right, pad_bottom, pad_top, strides_cum_prod.tolist(),
                 list(range(stack_size)), size=stack_size):
-            pad_at_level = int(2 ** level // s_prod)
+            pad_at_level = (kernel_size - 1) * int(kernel_size ** level // s_prod)
+            print(level, pad_at_level)
             pad_left_new.append(none_to_zero(pad_l) + pad_at_level)
             pad_right_new.append(none_to_zero(pad_r) + pad_at_level)
             pad_top_new.append(none_to_zero(pad_t) + pad_at_level)
             pad_bottom_new.append(none_to_zero(pad_b) + pad_at_level)
 
-        dilation_rates = np.power(2, np.arange(0, stack_size))
+        dilation_rates = np.power(kernel_size, np.arange(0, stack_size))
 
         if isinstance(strides, int):
             strides = np.ones(stack_size) * strides
@@ -123,7 +124,7 @@ class ConvSPN:
         dilation_rates_effective = (dilation_rates // strides_cum_prod).astype(int).tolist()
         strides = strides.astype(int).tolist()
 
-        num_slices = int(2 ** stack_size / np.prod(strides))
+        num_slices = int(kernel_size ** stack_size / np.prod(strides))
         
         stack_out = self.add_stack(
             *input_nodes, kernel_size=kernel_size, strides=strides, 
