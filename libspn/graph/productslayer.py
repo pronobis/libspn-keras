@@ -424,3 +424,7 @@ class ProductsLayer(OpNode):
 
     def _compute_log_gradient(self, gradients, *value_values):
         return self._compute_mpe_path(gradients, *value_values)
+
+    @property
+    def is_layer(self):
+        return True

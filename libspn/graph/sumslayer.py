@@ -65,6 +65,10 @@ class SumsLayer(BaseSum):
             dropconnect_keep_prob=dropconnect_keep_prob,
             name=name, masked=True, gradient_type=gradient_type)
 
+    @property
+    def is_layer(self):
+        return True
+
     @utils.docinherit(BaseSum)
     def _reset_sum_sizes(self, num_sums=None, sum_sizes=None):
         _sum_index_lengths = sum(

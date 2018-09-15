@@ -100,7 +100,7 @@ class Input():
             # Check for duplicates - duplicated indices cannot be handled
             # properly during the downward pass since integrating multiple
             # parents happens only on the level of inputs, not indices.
-            if len(set(indices)) != len(indices):
+            if not node.is_layer and len(set(indices)) != len(indices):
                 raise ValueError("Indices %s for node %s contain duplicates"
                                  % (indices, node))
         elif indices is not None:
@@ -219,6 +219,10 @@ class Node(ABC):
         self.gradient_type = gradient_type
         with tf.name_scope(self._name + "/"):
             self._create()
+
+    @property
+    def is_layer(self):
+        return False
 
     @abstractmethod
     def serialize(self):
