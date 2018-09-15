@@ -374,7 +374,7 @@ class BaseSum(OpNode, abc.ABC):
                             dropconnect_keep_prob +
                             dropconnect_keep_prob ** w_tensor.shape[-1].value)
 
-                reducible = cwise_op(reducible, w_tensor)
+            reducible = cwise_op(reducible, w_tensor)
 
         return reducible
 
