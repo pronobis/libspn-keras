@@ -179,7 +179,8 @@ class GDLearning:
                         weight_norm_ops.append(
                             node.normalize(linear_w_minimum=self._linear_w_minimum))
 
-                    if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
+                    if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters and \
+                            not node._kwamy:
                         weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
                             node.scale_variable, node._min_stddev)))
 

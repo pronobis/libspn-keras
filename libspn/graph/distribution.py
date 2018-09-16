@@ -55,7 +55,7 @@ class GaussianLeaf(VarNode):
                  learn_dist_params=False, train_var=True, loc_init=0.0, scale_init=1.0,
                  train_mean=True, use_prior=False, prior_alpha=2.0, prior_beta=3.0, min_stddev=1e-2,
                  evidence_indicator_feed=None, softplus_scale=False, share_scales=False,
-                 normalized=True, student_t=False):
+                 normalized=True, student_t=False, kwamy=False):
         self._loc_variable = None
         self._scale_variable = None
         self._num_vars = num_vars
@@ -66,6 +66,7 @@ class GaussianLeaf(VarNode):
         self._share_scales = share_scales
         self._normalized = normalized
         self._student_t = student_t
+        self._kwamy = kwamy
 
         # Initial value for means
         if isinstance(loc_init, float):
@@ -90,6 +91,8 @@ class GaussianLeaf(VarNode):
 
     def initialize(self):
         """Provide initializers for mean, variance and total counts """
+        if self._kwamy:
+            return self._alpha_var.initializer, self._beta_var.initializer
         return (self._loc_variable.initializer, self._scale_variable.initializer,
                 self._total_count_variable.initializer)
 
@@ -156,23 +159,37 @@ class GaussianLeaf(VarNode):
     @utils.docinherit(Node)
     def _create(self):
         super()._create()
-        self._loc_variable = tf.Variable(
-            self._loc_init, dtype=conf.dtype, collections=['spn_distribution_parameters'],
-            trainable=self._train_mean)
-        self._scale_variable = tf.Variable(
-            tf.maximum(self._scale_init, self._min_stddev), dtype=conf.dtype,
-            collections=['spn_distribution_parameters'], trainable=self._train_var)
-        if self._softplus_scale:
-            if not self._student_t:
-                self._dist = tfd.NormalWithSoftplusScale(self._loc_variable, self._scale_variable)
-            else:
-                self._dist = tfd.StudentTWithAbsDfSoftplusScale(
-                    1.0, self._loc_variable, self._scale_variable)
+
+        if self._kwamy:
+            self._alpha_var = tf.Variable(tfd.softplus_inverse(tf.concat(
+                [tf.ones([self._num_vars, 1]), 3 * tf.ones([self._num_vars, 1])], axis=1)),
+                trainable=self._train_var)
+            self._beta_var = tf.Variable(tfd.softplus_inverse(tf.concat(
+                [tf.ones([self._num_vars, 1]) * 3, tf.ones([self._num_vars, 1])], axis=1)),
+                trainable=self._train_var)
+            self._dist = tfd.Kumaraswamy(
+                concentration0=tf.nn.softplus(self._alpha_var), 
+                concentration1=tf.nn.softplus(self._beta_var))
         else:
-            if not self._student_t:
-                self._dist = tfd.Normal(self._loc_variable, self._scale_variable)
+            self._loc_variable = tf.Variable(
+                self._loc_init, dtype=conf.dtype, collections=['spn_distribution_parameters'],
+                trainable=self._train_mean)
+            self._scale_variable = tf.Variable(
+                tf.maximum(self._scale_init, self._min_stddev), dtype=conf.dtype,
+                collections=['spn_distribution_parameters'], trainable=self._train_var)
+
+
+            if self._softplus_scale:
+                if not self._student_t:
+                    self._dist = tfd.NormalWithSoftplusScale(self._loc_variable, self._scale_variable)
+                else:
+                    self._dist = tfd.StudentTWithAbsDfSoftplusScale(
+                        1.0, self._loc_variable, self._scale_variable)
             else:
-                self._dist = tfd.StudentT(1.0, self._loc_variable, self._scale_variable)
+                if not self._student_t:
+                    self._dist = tfd.Normal(self._loc_variable, self._scale_variable)
+                else:
+                    self._dist = tfd.StudentT(1.0, self._loc_variable, self._scale_variable)
 
     def initialize_from_quantiles(self, data, estimate_variance=True, use_prior=False,
                                   prior_alpha=2.0, prior_beta=3.0):
@@ -310,6 +327,10 @@ class GaussianLeaf(VarNode):
     @utils.docinherit(Node)
     @utils.lru_cache
     def _compute_log_value(self):
+        if self._kwamy:
+            log_prob = self._dist.log_prob(self._tile_num_components(
+                tf.clip_by_value(self._feed, 1e-4, 1 - 1e-4)))
+            return self._evidence_mask(log_prob, tf.zeros_like)
         if self._normalized:
             return self._evidence_mask(
                 self._dist.log_prob(self._tile_num_components(self._feed)), tf.zeros_like)
