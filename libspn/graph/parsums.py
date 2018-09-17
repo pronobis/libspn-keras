@@ -7,6 +7,7 @@
 
 from libspn.inference.type import InferenceType
 from libspn.graph.basesum import BaseSum
+from libspn.learning.type import GradientType
 import libspn.utils as utils
 
 
@@ -37,9 +38,9 @@ class ParSums(BaseSum):
 
     def __init__(self, *values, num_sums=1, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, sample_prob=None, 
-                 dropconnect_keep_prob=None, dropout_keep_prob=None, name="ParallelSums"):
+                 dropconnect_keep_prob=None, gradient_type=GradientType.SOFT, name="ParallelSums"):
         super().__init__( 
             *values, num_sums=num_sums, weights=weights, ivs=ivs,
             inference_type=inference_type, sample_prob=sample_prob, 
-            dropout_keep_prob=dropout_keep_prob, dropconnect_keep_prob=dropconnect_keep_prob, 
-            name=name)
+            dropconnect_keep_prob=dropconnect_keep_prob,
+            gradient_type=gradient_type, name=name)

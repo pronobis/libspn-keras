@@ -49,7 +49,7 @@ class ConvProd2D(OpNode):
                  strides=2, kernel_size=2, inference_type=InferenceType.MARGINAL, name="ConvProd2D",
                  sparse_connections=None, dense_connections=None, grid_dim_sizes=None,
                  num_channels_max=512, pad_top=None, pad_bottom=None,
-                 pad_left=None, pad_right=None):
+                 pad_left=None, pad_right=None, dropout_keep_prob=None, dropout_scope_wise=True):
         self._batch_axis = 0
         self._channel_axis = 3
         super().__init__(inference_type=inference_type, name=name)
@@ -71,6 +71,8 @@ class ConvProd2D(OpNode):
         self._num_channels = num_channels
         self._kernel_size = [kernel_size] * 2 if isinstance(kernel_size, int) \
             else list(kernel_size)
+        self._dropout_keep_prob = dropout_keep_prob
+        self._dropout_scope_wise = dropout_scope_wise
 
         # Generate connections if needed
         if sparse_connections is not None:
@@ -88,6 +90,8 @@ class ConvProd2D(OpNode):
 
         self._pad_top, self._pad_bottom = pad_top, pad_bottom
         self._pad_left, self._pad_right = pad_left, pad_right
+
+        self._scope_mask = None
 
     def set_values(self, *values):
         """Set the inputs providing input values to this node. If no arguments
@@ -167,6 +171,9 @@ class ConvProd2D(OpNode):
         size = int(np.prod(sparse_shape))
         return np.random.randint(num_input_channels, size=size).reshape(sparse_shape)
 
+    def set_dropout_keep_prob(self, p):
+        self._dropout_keep_prob = p
+
     @utils.lru_cache
     def _spatial_concat(self, *input_tensors):
         """Concatenates input tensors spatially. Makes sure to reshape them before.
@@ -209,6 +216,9 @@ class ConvProd2D(OpNode):
         non_batch_dim_size = np.prod([ds for i, ds in enumerate(t.shape.as_list())
                                       if i != self._batch_axis])
         return int(non_batch_dim_size)
+
+    def _set_scope_mask(self, t):
+        self._scope_mask = t
 
     def _num_channels_per_input(self):
         """Returns a list of number of input channels for each value Input.
@@ -277,10 +287,20 @@ class ConvProd2D(OpNode):
         raise NotImplementedError("{}: No linear value implementation for ConvProd".format(self))
 
     @utils.lru_cache
-    def _compute_log_value(self, *input_tensors):
+    def _compute_log_value(self, *input_tensors, dropout_keep_prob=None):
         # Concatenate along channel axis
         concat_inp = self._prepare_convolutional_processing(*input_tensors)
-        
+
+        dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
+        if dropout_keep_prob is not None and (not isinstance(
+                dropout_keep_prob, (int, float)) or dropout_keep_prob != 1.0):
+            if self._scope_mask is None:
+                raise StructureError("{}: need to set scope mask for dropping abstract evidence."
+                                     .format(self))
+            dropout_mask = tf.expand_dims(tf.less(self._scope_mask, dropout_keep_prob), axis=-1)
+            dropout_mask = tf.tile(dropout_mask, [1, 1, 1, self._num_input_channels()])
+            concat_inp = tf.where(dropout_mask, concat_inp, tf.zeros_like(concat_inp))
+
         if conf.custom_one_hot_conv2d:
             conv_out = utils.one_hot_conv2d(
                 concat_inp, self._sparse_connections, self._strides, self._dilation_rate)        
@@ -300,15 +320,6 @@ class ConvProd2D(OpNode):
                 dilations=[1] + self._dilation_rate + [1],
                 data_format='NHWC'
             )
-            # conv_out = tf.nn.conv2d(
-            #     input=self._transpose_channel_last_to_first(concat_inp),
-            #     filter=self._dense_connections, padding=self._padding.upper(),
-            #     strides=[1, 1] + self._strides,
-            #     dilations=[1, 1] + self._dilation_rate,
-            #     data_format='NCHW'
-            # )
-            # conv_out = self._transpose_channel_first_to_last(conv_out)
-
         return self._flatten(conv_out)
 
     @utils.lru_cache

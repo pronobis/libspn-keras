@@ -127,7 +127,7 @@ class Concat(OpNode):
         shapes = self._gather_input_shapes()
         concat_axis_sum = sum(s[self._axis - 1] for s in shapes)
         return shapes[0][:self._axis-1] + (concat_axis_sum,)
-    
+
     def _gather_input_shapes(self):
         shapes = []
         for inp in self.inputs:
@@ -135,7 +135,7 @@ class Concat(OpNode):
                 shapes.append(inp.node.output_shape_spatial)
             else:
                 shapes.append((inp.node.get_out_size(),))
-                
+
         if any(len(shapes[0]) != len(s) for s in shapes):
             raise StructureError("All shapes must be of same dimension, now have: {}".format(
                 [len(s) for s in shapes]
@@ -143,14 +143,14 @@ class Concat(OpNode):
         if any(shapes[0][:self._axis - 1] != s[:self._axis - 1] for s in shapes):
             raise StructureError("All non-concatenation axes must be identical.")
         return shapes
-    
+
     def _num_channels_per_input(self):
         if not self.is_spatial:
             raise AttributeError("Requested number of channels per input while this Concat node "
                                  "is not spatial.")
         shapes = self._gather_input_shapes()
         return [s[self._axis - 1] for s in shapes]
-    
+
     @utils.docinherit(OpNode)
     def _compute_log_value(self, *input_tensors):
         return self._compute_value(*input_tensors)
@@ -162,13 +162,13 @@ class Concat(OpNode):
     @utils.docinherit(OpNode)
     def _compute_log_mpe_value(self, *input_tensors):
         return self._compute_value(*input_tensors)
-    
+
     @property
     def is_spatial(self):
         return self._axis == 3
 
     def _compute_mpe_path(self, counts, *input_values, add_random=False,
-                          use_unweighted=False, with_ivs=False):
+                          use_unweighted=False):
         # Check inputs
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
@@ -186,5 +186,5 @@ class Concat(OpNode):
                                                 zip(split, input_values)])
 
     def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False, with_ivs=False):
+                              use_unweighted=False):
         return self._compute_mpe_path(counts, *value_values)

@@ -30,7 +30,7 @@ def generate_sparse_connections(num_in_channels, num_out_channels, kernel_size):
 def grid_spn(var_node, patch_size, num_mixtures, num_alterations, input_dist, num_rows, num_cols,
              max_patch_combs=128, asymmetric=False, conv=False, dilation_rate=1, strides=2):
 
-    if isinstance(var_node, spn.GaussianLeaf):
+    if isinstance(var_node, spn.NormalLeaf):
         # TODO num_components should be property
         last_dim_size = var_node._num_components
     else:

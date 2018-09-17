@@ -11,6 +11,7 @@ from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode, Input
 from libspn.inference.type import InferenceType
 from libspn import utils
+from libspn import conf
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
 from libspn.utils.serialization import register_serializable
@@ -43,6 +44,8 @@ class PermProducts(OpNode):
 
     def serialize(self):
         data = super().serialize()
+        data['input_sizes'] = self._input_sizes
+        data['num_inputs'] = self._num_inputs
         data['values'] = [(i.node.name, i.indices) for i in self._values]
         return data
 
@@ -54,7 +57,8 @@ class PermProducts(OpNode):
         super().deserialize_inputs(data, nodes_by_name)
         self._values = tuple(Input(nodes_by_name[nn], i)
                              for nn, i in data['values'])
-        self.create_products()
+        self.create_products(input_sizes=data['input_sizes'],
+                             num_inputs=data['num_inputs'])
 
     @property
     @utils.docinherit(OpNode)
@@ -81,15 +85,17 @@ class PermProducts(OpNode):
         """
         self._values = self._parse_inputs(*values)
 
-    def create_products(self):
+    def create_products(self, input_sizes=None, num_inputs=None):
         """Based on the number and size of inputs connected to this node, model
         products by permuting over the inputs.
         """
         if not self._values:
             raise StructureError("%s is missing input values." % self)
 
-        self._input_sizes = list(self.get_input_sizes())
-        self._num_inputs = len(self._input_sizes)
+        self._input_sizes = input_sizes if input_sizes is not None \
+            else list(self.get_input_sizes())
+        self._num_inputs = num_inputs if num_inputs is not None \
+            else len(self._input_sizes)
 
         # Calculate number of products this node would model.
         if self._num_inputs == 1:
@@ -210,14 +216,22 @@ class PermProducts(OpNode):
     @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
+
+        # Wrap the log value with its custom gradient
         @tf.custom_gradient
-        def value_gradient(*value_tensors):
+        def log_value(*value_tensors):
+            # Defines gradient for the log value
             def gradient(gradients):
                 scattered_grads = self._compute_mpe_path(gradients, *value_tensors)
                 return [sg for sg in scattered_grads if sg is not None]
             return tf.reduce_sum(values, axis=-1, keepdims=(False if self._num_prods > 1
                                                              else True)), gradient
-        return value_gradient(*value_tensors)
+
+        if conf.custom_gradient:
+            return log_value(*value_tensors)
+        else:
+            return tf.reduce_sum(values, axis=-1,
+                                 keep_dims=(False if self._num_prods > 1 else True))
 
     def _compute_mpe_value(self, *value_tensors):
         return self._compute_value(*value_tensors)
@@ -227,7 +241,7 @@ class PermProducts(OpNode):
 
     @utils.lru_cache
     def _compute_mpe_path(self, counts, *value_values, add_random=False,
-                          use_unweighted=False, with_ivs=False, sample=False, sample_prob=None):
+                          use_unweighted=False, sample=False, sample_prob=None):
         # Path per product node is calculated by permuting backwards to the
         # input nodes, then adding the appropriate counts per input, and then
         # scattering the summed counts to value inputs
@@ -285,8 +299,8 @@ class PermProducts(OpNode):
         return self._scatter_to_input_tensors(*value_counts)
 
     def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False, with_ivs=False, sample=False, sample_prob=None):
+                              use_unweighted=False, sample=False, sample_prob=None):
         return self._compute_mpe_path(counts, *value_values)
 
-    def _compute_log_gradient(self, gradients, *value_values, with_ivs=False):
+    def _compute_log_gradient(self, gradients, *value_values):
         return self._compute_mpe_path(gradients, *value_values)

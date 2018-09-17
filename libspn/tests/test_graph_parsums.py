@@ -406,6 +406,7 @@ class TestNodesParSums(unittest.TestCase):
 
     def test_compute_mpe_value(self):
         """Calculating MPE value of ParSums."""
+        spn.conf.argmax_zero = True
         def test(values, num_sums, ivs, weights, feed, output):
             with self.subTest(values=values, num_sums=num_sums, ivs=ivs,
                               weights=weights, feed=feed):
@@ -1355,15 +1356,13 @@ class TestNodesParSums(unittest.TestCase):
         weights = np.random.rand(num_sums, 6)
         w = s.generate_weights(weights)
         gradients = tf.placeholder(tf.float32, shape=(None, num_sums))
-        with_ivs = True
         op = s._compute_log_gradient(tf.identity(gradients),
                                      w.get_log_value(),
                                      iv.get_log_value(),
                                      v12.get_log_value(),
                                      v34.get_log_value(),
                                      v12.get_log_value(),
-                                     v5.get_log_value(),
-                                     with_ivs=with_ivs)
+                                     v5.get_log_value())
         init = w.initialize()
         batch_size = 100
         gradients_feed = np.random.rand(batch_size, num_sums)
@@ -1399,10 +1398,10 @@ class TestNodesParSums(unittest.TestCase):
         with np.warnings.catch_warnings():
             np.warnings.filterwarnings('ignore', r'divide by zero encountered in log')
             ivs_log = np.log(ivs_values)
-        if with_ivs:
-            weighted_inputs = np.expand_dims(inputs_log, axis=1) + (ivs_log + weights_log)
-        else:
-            weighted_inputs = np.expand_dims(inputs_log, axis=1) + weights_log
+        # if with_ivs:
+        weighted_inputs = np.expand_dims(inputs_log, axis=1) + (ivs_log + weights_log)
+        # else:
+        #     weighted_inputs = np.expand_dims(inputs_log, axis=1) + weights_log
         weighted_inputs_exp = np.exp(weighted_inputs)
 
         with np.warnings.catch_warnings():

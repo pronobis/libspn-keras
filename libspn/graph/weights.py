@@ -130,6 +130,7 @@ class Weights(ParamNode):
         else:
             shape = self._num_weights
         value = utils.broadcast_value(value, (shape,), dtype=conf.dtype)
+        value = tf.where(tf.is_nan(value), tf.ones_like(value) * 0.01, value)
         if self._mask and not all(self._mask):
             # Only perform masking if mask is given and mask contains any 'False'
             value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
@@ -155,12 +156,39 @@ class Weights(ParamNode):
         else:
             shape = self._num_weights
         value = utils.broadcast_value(value, (shape,), dtype=conf.dtype)
+        value = tf.where(tf.is_nan(value), tf.log(tf.ones_like(value) * 0.01), value)
         if self._mask and not all(self._mask):
             # Only perform masking if mask is given and mask contains any 'False'
             value += tf.log(tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype))
         normalized_value = \
             utils.normalize_log_tensor_2D(value, self._num_weights, self._num_sums)
         return tf.assign(self._variable, normalized_value)
+
+    def normalize(self, value=None, name="Normalize", linear_w_minimum=1e-2, log_w_minimum=-1e10):
+        """Renormalizes the weights. If no value is given, the method will use the current
+        weight values.
+
+        Args:
+            value (Tensor): A tensor to normalize and assign to this weight node.
+
+        Returns:
+            An Op that assigns a normalized value to this node.
+        """
+        with tf.name_scope(name):
+            value = value or self._variable
+            if self._log:
+                value = tf.maximum(value, log_w_minimum)
+                if self._mask and not all(self._mask):
+                    # Only perform masking if mask is given and mask contains any 'False'
+                    value += tf.log(tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype))
+                return tf.assign(self._variable, tf.nn.log_softmax(value, axis=-1))
+            else:
+                value = tf.maximum(value, linear_w_minimum)
+                if self._mask and not all(self._mask):
+                    # Only perform masking if mask is given and mask contains any 'False'
+                    value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
+                return tf.assign(self._variable, value / tf.reduce_sum(
+                    value, axis=-1, keepdims=True))
 
     def update(self, value):
         """Return a TF operation adding the log-values to the log-weights.
@@ -221,25 +249,19 @@ class Weights(ParamNode):
         init_val = utils.normalize_tensor_2D(init_val, self._num_weights, self._num_sums)
         if self._log:
             init_val = tf.log(init_val)
-        self._variable = tf.Variable(init_val, dtype=conf.dtype,
-                                     collections=['spn_weights'])
+        self._variable = tf.Variable(
+            init_val, dtype=conf.dtype, collections=['spn_weights'], trainable=self._trainable)
 
     def _compute_out_size(self):
         return self._num_weights * self._num_sums
 
     @utils.lru_cache
     def _compute_value(self):
-        if self._log:
-            return tf.exp(self._variable)
-        else:
-            return self._variable
+        return tf.exp(self._variable) if self._log else self._variable
 
     @utils.lru_cache
     def _compute_log_value(self):
-        if self._log:
-            return self._variable
-        else:
-            return tf.log(self._variable)
+        return self._variable if self._log else tf.log(self._variable)
 
     @utils.lru_cache
     def _compute_hard_gd_update(self, grads):

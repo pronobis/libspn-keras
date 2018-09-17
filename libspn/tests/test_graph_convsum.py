@@ -103,9 +103,9 @@ class TestBaseSum(tf.test.TestCase):
         self.assertTrue(np.all(np.less_equal(parsum_concat_val, 0.0)))
         self.assertAllClose(weight_value_conv_out, weight_value_parsum_out)
         self.assertAllClose(root_conv_value_out, root_parsum_value_out)
-        self.assertAllEqual(ivs_counts_conv_out, ivs_counts_parsum_out)
-        self.assertAllEqual(parsum_counts_out, conv_counts_out)
-        self.assertAllEqual(weight_counts_conv_out, weight_counts_parsum_out)
+        self.assertAllClose(ivs_counts_conv_out, ivs_counts_parsum_out)
+        self.assertAllClose(parsum_counts_out, conv_counts_out)
+        self.assertAllClose(weight_counts_conv_out, weight_counts_parsum_out)
 
     def test_compute_value(self):
         ivs = spn.IVs(num_vals=2, num_vars=2 * 2)
@@ -159,8 +159,8 @@ class TestBaseSum(tf.test.TestCase):
             [[10 + 11, 0, 0, 12 + 13, 0, 14 + 15, 16 + 17, 0],
              [19, 18, 21, 20, 23, 22, 24 + 25, 0]]
 
-        self.assertAllEqual(w_counts_out, counts_truth)
-        self.assertAllEqual(ivs_counts_truth, ivs_counts_out)
+        self.assertAllClose(w_counts_out, counts_truth)
+        self.assertAllClose(ivs_counts_truth, ivs_counts_out)
 
     def test_compute_scope(self):
         ivs = spn.IVs(num_vals=2, num_vars=2 * 2)
@@ -201,7 +201,7 @@ class TestBaseSum(tf.test.TestCase):
             conv_truth_out, conv_out = sess.run(
                 [conv_truth_op, conv_op], {ivs: values})
 
-        self.assertAllEqual(conv_truth_out, conv_out)
+        self.assertAllClose(conv_truth_out, conv_out)
 
     @argsprod([2, 3])
     def test_compute_value_sum(self, grid_size):

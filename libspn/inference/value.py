@@ -11,6 +11,7 @@ from libspn.graph.algorithms import compute_graph_up
 from libspn.graph.spatialsum import SpatialSum
 from libspn.inference.type import InferenceType
 from libspn.graph.basesum import BaseSum
+from libspn.graph.convprod2d import ConvProd2D
 
 
 class Value:
@@ -26,12 +27,14 @@ class Value:
             MPE inference will be used for all nodes.
     """
 
-    def __init__(self, inference_type=None, dropconnect_keep_prob=None, dropout_keep_prob=None,
-                 name="Value", matmul_or_conv=True):
+    def __init__(self, inference_type=None, dropconnect_keep_prob=None, dropprod_keep_prob=None,
+                 name="Value", matmul_or_conv=True, noise=None, batch_noise=None):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
-        self._dropout_keep_prob = dropout_keep_prob
+        self._dropprod_keep_prob = dropprod_keep_prob
+        self._noise = noise
+        self._batch_noise = batch_noise
         self._name = name
         self._matmul_or_conv = matmul_or_conv
 
@@ -60,17 +63,19 @@ class Value:
         """
         def fun(node, *args):
             if self._dropconnect_keep_prob and isinstance(node, BaseSum):
-                kwargs = dict(
-                    dropconnect_keep_prob=self._dropconnect_keep_prob,
-                    dropout_keep_prob=self._dropout_keep_prob)
+                kwargs = dict(dropconnect_keep_prob=self._dropconnect_keep_prob)
             else:
                 kwargs = dict()
+            if self._dropprod_keep_prob and isinstance(node, ConvProd2D):
+                kwargs['dropout_keep_prob'] = self._dropprod_keep_prob
             with tf.name_scope(node.name):
                 if (self._inference_type == InferenceType.MARGINAL
                     or (self._inference_type is None and
                         node.inference_type == InferenceType.MARGINAL)):
                     if isinstance(node, SpatialSum):
                         kwargs['matmul_or_conv'] = self._matmul_or_conv
+                        kwargs['noise'] = self._noise
+                        kwargs['batch_noise'] = self._batch_noise
                     return node._compute_value(*args, **kwargs)
                 else:
                     return node._compute_mpe_value(*args, **kwargs)
@@ -94,14 +99,17 @@ class LogValue:
             MPE inference will be used for all nodes.
     """
 
-    def __init__(self, inference_type=None, dropout_keep_prob=None, dropconnect_keep_prob=None,
-                 name="LogValue", matmul_or_conv=True):
+    def __init__(self, inference_type=None, dropconnect_keep_prob=None,
+                 name="LogValue", matmul_or_conv=True, dropprod_keep_prob=None, noise=None, 
+                 batch_noise=None):
         self._inference_type = inference_type
         self._values = {}
         self._dropconnect_keep_prob = dropconnect_keep_prob
-        self._dropout_keep_prob = dropout_keep_prob
         self._name = name
         self._matmul_or_conv = matmul_or_conv
+        self._dropprod_keep_prob = dropprod_keep_prob
+        self._noise = noise
+        self._batch_noise = batch_noise
 
     @property
     def values(self):
@@ -130,16 +138,19 @@ class LogValue:
         def fun(node, *args):
             if self._dropconnect_keep_prob and isinstance(node, BaseSum):
                 kwargs = dict(
-                    dropconnect_keep_prob=self._dropconnect_keep_prob,
-                    dropout_keep_prob=self._dropout_keep_prob)
+                    dropconnect_keep_prob=self._dropconnect_keep_prob)
             else:
                 kwargs = dict()
+            if self._dropprod_keep_prob and isinstance(node, ConvProd2D):
+                kwargs['dropout_keep_prob'] = self._dropprod_keep_prob
             with tf.name_scope(node.name):
                 if (self._inference_type == InferenceType.MARGINAL
                     or (self._inference_type is None and
                         node.inference_type == InferenceType.MARGINAL)):
                     if isinstance(node, SpatialSum):
                         kwargs['matmul_or_conv'] = self._matmul_or_conv
+                        kwargs['noise'] = self._noise
+                        kwargs['batch_noise'] = self._batch_noise
                     return node._compute_log_value(*args, **kwargs)
                 else:
                     return node._compute_log_mpe_value(*args, **kwargs)

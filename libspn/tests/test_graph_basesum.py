@@ -7,41 +7,35 @@ from unittest.mock import MagicMock
 
 class TestBaseSum(tf.test.TestCase):
 
-    @argsprod([False, True])
-    def test_dropout_mask(self, log):
-        iv = spn.IVs(num_vals=2, num_vars=4)
-        s = spn.Sum(iv)
-        mask = s._get_or_create_dropout_mask(100000, 0.5, log=log)
+    def test_dropconnect_sumslayer(self):
+        ivs0 = spn.IVs(num_vals=2, num_vars=2)
+        ivs1 = spn.IVs(num_vals=2, num_vars=1)
 
+        probs = tf.constant(np.log(np.random.rand(4096, 2, 4)), dtype=tf.float32)
+
+        s = spn.SumsLayer(ivs0, ivs1, num_or_size_sums=[4, 2])
+
+        dropconnect_mask = s._create_dropconnect_mask(
+            keep_prob=0.1, shape=tf.shape(probs))
+
+        self.assertAllEqual(s._build_mask(), [[1, 1, 1, 1],
+                                              [1, 1, 0, 0]])
         with self.test_session() as sess:
-            mask_out = sess.run(mask)
+            mask_out = sess.run(dropconnect_mask)
 
-        if log:
-            mask_out = np.exp(mask_out)
+        masked_part = mask_out[:, 1, 2:]
+        self.assertAllEqual(
+            masked_part.astype(np.int32), np.zeros_like(masked_part, dtype=np.int32))
+        self.assertAllEqual(
+            masked_part.astype(np.int32), np.zeros_like(masked_part, dtype=np.int32))
+        self.assertAllGreater(np.sum(mask_out, axis=-1), 0)
 
-        self.assertAlmostEqual(np.mean(mask_out), 0.5, places=2)
-        self.assertTrue(np.all(np.greater_equal(mask_out, 0.0)))
-        self.assertTrue(np.all(np.less_equal(mask_out, 1.0)))
-
-    @argsprod([False, True])
-    def test_maybe_dropout(self, log):
-        probs = tf.constant([0.1, 0.2, 0.5, 0.9, 0.1])
-        s = spn.Sum()
-
-        mask = tf.constant([0, 1, 0, 1, 1], dtype=tf.float32)
-        s._get_or_create_dropout_mask = MagicMock(
-            return_value=tf.log(mask) if log else mask)
-        dropped = s._maybe_dropout(
-            tf.log(probs) if log else probs, dropout_keep_prob=0.5, log=log)
-        if log:
-            dropped = tf.exp(dropped)
-        with self.test_session() as sess:
-            out = sess.run(dropped)
-
-        self.assertAllClose(out, [0.0, 0.2, 0.0, 0.9, 0.1])
+        non_masked_part = mask_out[:, 0, 2:]
+        self.assertGreater(np.sum(non_masked_part), 0)
 
     @argsprod([False, True])
     def test_dropconnect(self, log):
+        spn.conf.dropout_mode = "pairwise"
         ivs = spn.IVs(num_vals=2, num_vars=4)
         s = spn.Sum(ivs, dropconnect_keep_prob=0.5)
         spn.generate_weights(s)
@@ -49,55 +43,25 @@ class TestBaseSum(tf.test.TestCase):
 
         mask = [
             [0., 1., 0., 1., 1., 1., 0., 1.],
-            [1., 0., 0., 0., 0., 0., 1., 0.]
+            [0., 1., 0., 1., 1., 1., 0., 1.]
         ]
-        s._create_dropout_mask = MagicMock(
-            return_value=tf.expand_dims(tf.log(mask) if log else mask, 1))
+        s._create_dropconnect_mask = MagicMock(
+            return_value=tf.cast(tf.expand_dims(mask, 1), tf.bool))
 
         if log:
             val_op = tf.exp(s.get_log_value())
         else:
             val_op = s.get_value()
 
-        mask = tf.constant(mask, dtype=tf.float32)
-        truth = tf.reduce_mean(mask, axis=-1, keepdims=True)
+        feed = [[-1, -1, -1, -1],
+                [0, 1, -1, 0]]
 
         with self.test_session() as sess:
             sess.run(init)
-            dropconnect_out, truth_out = sess.run(
-                [val_op, truth], feed_dict={ivs: -np.ones((2, 4), dtype=np.int32)})
+            dropconnect_out = sess.run(val_op, feed_dict={ivs: feed})
 
-        self.assertAllClose(dropconnect_out, truth_out)
-
-    @argsprod([False, True])
-    def test_dropout_value(self, log):
-        ivs = spn.IVs(num_vals=2, num_vars=4)
-        s = spn.ParSums(ivs, dropout_keep_prob=0.5, num_sums=2)
-        spn.generate_weights(s)
-        init = spn.initialize_weights(s)
-
-        mask = tf.constant([
-            [0., 1.],
-            [1., 0.],
-            [1., 1.],
-            [0., 0.]
-        ])
-        s._create_dropout_mask = MagicMock(return_value=tf.log(mask) if log else mask)
-
-        if log:
-            val_op = tf.exp(s.get_log_value())
-        else:
-            val_op = s.get_value()
-
-        sum_op = tf.reduce_sum(val_op, axis=1)
-        sum_truth = [1.0, 1.0, 2.0, 0.0]
-
-        with self.test_session() as sess:
-            sess.run(init)
-            sum_out = sess.run(
-                sum_op, feed_dict={ivs: -np.ones((4, 4), dtype=np.int32)})
-
-        self.assertAllClose(sum_out, sum_truth)
+        truth = [[np.mean(mask)], [3/8]]
+        self.assertAllClose(dropconnect_out, truth)
 
     @argsprod([False, True])
     def test_stochastic_argmax(self, argmax_zero):

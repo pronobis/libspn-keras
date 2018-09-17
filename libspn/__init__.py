@@ -19,15 +19,14 @@ from libspn.graph.contvars import ContVars
 from libspn.graph.concat import Concat
 from libspn.graph.sum import Sum
 from libspn.graph.parsums import ParSums
-from libspn.graph.sums import Sums
 from libspn.graph.sumslayer import SumsLayer
 from libspn.graph.convsum import ConvSum
 from libspn.graph.localsum import LocalSum
 from libspn.graph.product import Product
 from libspn.graph.permproducts import PermProducts
-from libspn.graph.products import Products
 from libspn.graph.productslayer import ProductsLayer
 from libspn.graph.convprod2d import ConvProd2D, _ConvProdNaive
+from libspn.graph.convproddepthwise import ConvProdDepthWise
 from libspn.graph.spatialpermproducts import SpatialPermProducts
 from libspn.graph.stridedslice import StridedSlice2D
 from libspn.graph.weights import Weights
@@ -58,8 +57,9 @@ from libspn.inference.mpe_state import MPEState
 from libspn.inference.gradient import Gradient
 from libspn.learning.em import EMLearning
 from libspn.learning.gd import GDLearning
-from libspn.learning.type import LearningType
-from libspn.learning.type import LearningInferenceType
+from libspn.learning.type import LearningTaskType
+from libspn.learning.type import LearningMethodType
+from libspn.learning.type import GradientType
 
 # Data
 from libspn.data.dataset import Dataset
@@ -118,7 +118,7 @@ __all__ = [
     # Graph
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IVs', 'ContVars',
-    'Sum', 'ParSums', 'Sums', 'SumsLayer',
+    'Sum', 'ParSums', 'SumsLayer',
     'Product', 'PermProducts', 'Products', 'ProductsLayer',
     'ConvProd2D', '_ConvProdNaive',
     'NormalLeaf', 'MultivariateNormalDiagLeaf',
@@ -132,7 +132,8 @@ __all__ = [
     'WeightsGenerator', 'generate_weights',
     # Inference and learning
     'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient', 'MPEState',
-    'EMLearning', 'GDLearning', 'LearningType', 'LearningInferenceType',
+    'EMLearning', 'GDLearning', 'LearningTaskType',
+    'LearningMethodType', 'GradientType',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
     'IntGridDataset', 'ImageFormat', 'ImageShape', 'ImageDatasetBase',
