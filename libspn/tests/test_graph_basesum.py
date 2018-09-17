@@ -11,12 +11,12 @@ class TestBaseSum(tf.test.TestCase):
         ivs0 = spn.IVs(num_vals=2, num_vars=2)
         ivs1 = spn.IVs(num_vals=2, num_vars=1)
 
-        probs = np.log(np.random.rand(4096, 2, 4))
+        probs = tf.constant(np.log(np.random.rand(4096, 2, 4)), dtype=tf.float32)
 
         s = spn.SumsLayer(ivs0, ivs1, num_or_size_sums=[4, 2])
 
         dropconnect_mask = s._create_dropconnect_mask(
-            keep_prob=0.1, shape=probs.shape)
+            keep_prob=0.1, shape=tf.shape(probs))
 
         self.assertAllEqual(s._build_mask(), [[1, 1, 1, 1],
                                               [1, 1, 0, 0]])

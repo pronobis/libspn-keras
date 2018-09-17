@@ -47,7 +47,7 @@ class TestBaseSum(tf.test.TestCase):
         self.assertTrue(conv_root.is_valid())
         self.assertTrue(parsum_root.is_valid())
 
-        self.assertAllClose(parsum_concat.get_scope(), convsum.get_scope())
+        self.assertAllEqual(parsum_concat.get_scope(), convsum.get_scope())
 
         spn.generate_weights(conv_root, log=log_weights)
         spn.generate_weights(parsum_root, log=log_weights)
@@ -174,7 +174,7 @@ class TestBaseSum(tf.test.TestCase):
                        [spn.Scope(ivs, 1)] * 2 + \
                        [spn.Scope(ivs, 2)] * 2 + \
                        [spn.Scope(ivs, 3)] * 2
-        self.assertAllClose(scope, target_scope)
+        self.assertAllEqual(scope, target_scope)
 
     def test_compute_value_conv(self):
         batch_size = 8
