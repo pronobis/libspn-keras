@@ -162,10 +162,10 @@ class GaussianLeaf(VarNode):
 
         if self._kwamy:
             self._alpha_var = tf.Variable(tfd.softplus_inverse(tf.concat(
-                [tf.ones([self._num_vars, 1]), 3 * tf.ones([self._num_vars, 1])], axis=1)),
+                [tf.ones([self._num_vars, 1]), 2 * tf.ones([self._num_vars, 1])], axis=1)),
                 trainable=self._train_var)
             self._beta_var = tf.Variable(tfd.softplus_inverse(tf.concat(
-                [tf.ones([self._num_vars, 1]) * 3, tf.ones([self._num_vars, 1])], axis=1)),
+                [tf.ones([self._num_vars, 1]) * 2, tf.ones([self._num_vars, 1])], axis=1)),
                 trainable=self._train_var)
             self._dist = tfd.Kumaraswamy(
                 concentration0=tf.nn.softplus(self._alpha_var), 

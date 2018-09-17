@@ -18,7 +18,7 @@ from libspn.graph.sum import Sum
 from libspn.graph.concat import Concat
 from libspn.log import get_logger
 from libspn.utils import maybe_first
-import tensorflow.distributions as tfd
+import tensorflow.contrib.distributions as tfd
 
 
 class GDLearning:
