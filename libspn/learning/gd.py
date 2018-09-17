@@ -13,7 +13,7 @@ from libspn.graph.algorithms import traverse_graph
 from libspn.learning.type import LearningType
 from libspn.learning.type import LearningInferenceType
 from libspn import conf
-from libspn.graph.distribution import GaussianLeaf
+from libspn.graph.distribution import NormalLeaf
 
 
 class GDLearning:
@@ -179,7 +179,7 @@ class GDLearning:
                         else:
                             weight_norm_ops.append(node.assign(node.variable))
 
-                    if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
+                    if isinstance(node, NormalLeaf) and node.learn_distribution_parameters:
                         weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
                             node.scale_variable, node._min_stddev)))
                 with tf.name_scope("Weight_Normalization"):
@@ -197,7 +197,7 @@ class GDLearning:
                     self._param_nodes.append(param_node)
                     self._grads_and_vars.append((accum, node.variable))
 
-            if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
+            if isinstance(node, NormalLeaf) and node.learn_distribution_parameters:
                 with tf.name_scope(node.name) as scope:
                     mean_grad_accum = tf.Variable(
                         tf.zeros_like(node.loc_variable, dtype=conf.dtype),

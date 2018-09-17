@@ -8,7 +8,7 @@
 from collections import namedtuple
 import tensorflow as tf
 
-from libspn.graph.distribution import GaussianLeaf, MultivariateGaussianDiagLeaf
+from libspn.graph.distribution import NormalLeaf, MultivariateNormalDiagLeaf
 from libspn.inference.mpe_path import MPEPath
 from libspn.graph.algorithms import traverse_graph
 from libspn import conf
@@ -103,10 +103,15 @@ class EMLearning():
                     counts = self._mpe_path.counts[dn.node]
                     update_value = dn.node._compute_hard_em_update(counts)
                     with tf.control_dependencies(update_value.values()):
-                        assign_ops.append(tf.assign_add(dn.accum, update_value['accum']))
-                        assign_ops.append(tf.assign_add(dn.sum_data, update_value['sum_data']))
-                        assign_ops.append(tf.assign_add(
-                            dn.sum_data_squared, update_value['sum_data_squared']))
+                        if dn.node.dimensionality > 1:
+                            accum = tf.squeeze(update_value['accum'], axis=-1)
+                        else:
+                            accum = update_value['accum']
+                        assign_ops.extend(
+                            [tf.assign_add(dn.accum, accum),
+                             tf.assign_add(dn.sum_data, update_value['sum_data']),
+                             tf.assign_add(
+                                 dn.sum_data_squared, update_value['sum_data_squared'])])
 
             return tf.group(*assign_ops, name="accumulate_updates")
 
@@ -160,11 +165,12 @@ class EMLearning():
                     param_node = EMLearning.ParamNode(node=node, accum=accum,
                                                       name_scope=scope)
                     self._param_nodes.append(param_node)
-            if isinstance(node, (GaussianLeaf, MultivariateGaussianDiagLeaf)) \
-                    and node.learn_distribution_parameters:
+            if isinstance(node, (NormalLeaf, MultivariateNormalDiagLeaf)) \
+                    and node.trainable:
+                shape = (node.num_vars, node.num_components)
                 with tf.name_scope(node.name) as scope:
                     if self._initial_accum_value is not None:
-                        accum = tf.Variable(tf.ones_like(node.loc_variable, dtype=conf.dtype) *
+                        accum = tf.Variable(tf.ones(shape, dtype=conf.dtype) *
                                             self._initial_accum_value,
                                             dtype=conf.dtype,
                                             collections=['em_accumulators'])
@@ -174,7 +180,7 @@ class EMLearning():
                                              self._initial_accum_value,
                                              dtype=conf.dtype, collections=['em_accumulators'])
                     else:
-                        accum = tf.Variable(tf.zeros_like(node.loc_variable, dtype=conf.dtype),
+                        accum = tf.Variable(tf.zeros(shape, dtype=conf.dtype),
                                             dtype=conf.dtype,
                                             collections=['em_accumulators'])
                         sum_x = tf.Variable(tf.zeros_like(node.loc_variable), dtype=conf.dtype,
