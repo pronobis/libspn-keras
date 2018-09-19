@@ -55,7 +55,7 @@ class GaussianLeaf(VarNode):
                  learn_dist_params=False, train_var=True, loc_init=0.0, scale_init=1.0,
                  train_mean=True, use_prior=False, prior_alpha=2.0, prior_beta=3.0, min_stddev=1e-2,
                  evidence_indicator_feed=None, softplus_scale=False, share_scales=False,
-                 normalized=True, student_t=False, kwamy=False):
+                 normalized=True, student_t=False, kwamy=False, precision_init=10):
         self._loc_variable = None
         self._scale_variable = None
         self._num_vars = num_vars
@@ -73,6 +73,11 @@ class GaussianLeaf(VarNode):
             self._loc_init = tf.ones((num_vars, num_components), dtype=conf.dtype) * loc_init
         else:
             self._loc_init = loc_init
+        if kwamy:
+            self._loc_init = tf.clip_by_value(tf.to_float(self._loc_init), 0.05, 0.95)
+
+        self._precision_init = precision_init * np.ones(
+            (num_vars, num_components), dtype=np.float32)
 
         # Initial values for variances.
         self._scale_init = tf.ones([1, 1]) * scale_init if share_scales else \
@@ -92,7 +97,7 @@ class GaussianLeaf(VarNode):
     def initialize(self):
         """Provide initializers for mean, variance and total counts """
         if self._kwamy:
-            return self._alpha_var.initializer, self._beta_var.initializer
+            return self._loc_variable.initializer, self._precision_variable.initializer
         return (self._loc_variable.initializer, self._scale_variable.initializer,
                 self._total_count_variable.initializer)
 
@@ -161,15 +166,14 @@ class GaussianLeaf(VarNode):
         super()._create()
 
         if self._kwamy:
-            self._alpha_var = tf.Variable(tfd.softplus_inverse(tf.concat(
-                [tf.ones([self._num_vars, 1]), 2 * tf.ones([self._num_vars, 1])], axis=1)),
-                trainable=self._train_var)
-            self._beta_var = tf.Variable(tfd.softplus_inverse(tf.concat(
-                [tf.ones([self._num_vars, 1]) * 2, tf.ones([self._num_vars, 1])], axis=1)),
-                trainable=self._train_var)
-            self._dist = tfd.Kumaraswamy(
-                concentration0=tf.nn.softplus(self._alpha_var), 
-                concentration1=tf.nn.softplus(self._beta_var))
+            self._loc_variable = tf.Variable(
+                self._loc_init, trainable=self._train_mean, dtype=tf.float32)
+            self._precision_variable = tf.Variable(
+                self._precision_init, trainable=self._train_var, dtype=tf.float32)
+            alpha = self._loc_variable * self._precision_variable
+            beta = self._precision_variable * (1.0 - self._loc_variable)
+            self._dist = tfd.BetaWithSoftplusConcentration(
+                concentration0=alpha, concentration1=beta)
         else:
             self._loc_variable = tf.Variable(
                 self._loc_init, dtype=conf.dtype, collections=['spn_distribution_parameters'],
