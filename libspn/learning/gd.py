@@ -12,7 +12,7 @@ from libspn.exceptions import StructureError
 from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
 from libspn.learning.type import GradientType
-from libspn.graph.distribution import NormalLeaf
+from libspn.graph.distribution import LocationScaleLeaf
 from libspn.graph.weights import Weights
 from libspn.graph.sum import Sum
 from libspn.graph.concat import Concat
@@ -179,7 +179,7 @@ class GDLearning:
                         weight_norm_ops.append(
                             node.normalize(linear_w_minimum=self._linear_w_minimum))
 
-                    if isinstance(node, NormalLeaf) and node._trainable_scale:
+                    if isinstance(node, LocationScaleLeaf) and node._trainable_scale:
                         weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
                             node.scale_variable, node._min_scale)))
 
@@ -324,7 +324,7 @@ class GDLearning:
             losses = []
 
             def regularize_node(node):
-                if isinstance(node, GaussianLeaf):
+                if isinstance(node, LocationScaleLeaf):
                     if _enable(self._gauss_regularize_coeff):
                         losses.append(self._gauss_regularize_coeff * tf.negative(
                             tf.reduce_sum(node.entropy())))

@@ -188,6 +188,15 @@ class DistributionLeaf(VarNode, abc.ABC):
         flat_shape = (-1,) if self._dimensionality == 1 else (-1, self._dimensionality)
         return tf.gather(tf.reshape(self._dist.mode(), flat_shape), indices=indices, axis=0)
 
+    def entropy(self):
+        return self._dist.entropy()
+
+    def kl_divergence(self, other):
+        return self._dist.kl_divergence(other)
+
+    def cross_entropy(self, other):
+        return self._dist.cross_entropy(other)
+
 
 class LocationScaleLeaf(DistributionLeaf, abc.ABC):
 
@@ -328,7 +337,7 @@ class NormalLeaf(LocationScaleLeaf):
                  scale_init=1.0, use_prior=False, prior_alpha=2.0, prior_beta=3.0,
                  min_scale=1e-2, softplus_scale=True, name="NormalLeaf"):
         self._initialization_data = initialization_data
-        self._estimate_variance_init = estimate_variance_init
+        self._estimate_scale_init = estimate_variance_init
         self._use_prior = use_prior
         self._prior_alpha = prior_alpha
         self._prior_beta = prior_beta
@@ -350,7 +359,7 @@ class NormalLeaf(LocationScaleLeaf):
                                  "there are variables in this NormalLeaf node.")
             self.initialize_from_quantiles(
                 self._initialization_data, num_quantiles=shape[1],
-                estimate_variance=self._estimate_variance_init, use_prior=self._use_prior,
+                estimate_variance=self._estimate_scale_init, use_prior=self._use_prior,
                 prior_alpha=self._prior_alpha, prior_beta=self._prior_beta)
 
     def _create_dist(self):

@@ -11,7 +11,7 @@ logger = get_logger()
 def _preprocess_prod_num_channels(*inp_nodes, prod_num_channels, kernel_size):
     kernel_surface = kernel_size ** 2 if isinstance(kernel_size, int) else np.prod(kernel_size)
 
-    if not all(isinstance(node, (spn.GaussianLeaf, spn.IVs)) for node in inp_nodes):
+    if not all(isinstance(node, (spn.DistributionLeaf, spn.IVs)) for node in inp_nodes):
         logger.warn("Preprocessing skipped. Preprocessing only works for IVs and "
                     "GaussianLeaf nodes.")
         return prod_num_channels
