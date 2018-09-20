@@ -333,6 +333,10 @@ class BaseSum(OpNode, abc.ABC):
         zero_prob_val = -float('inf') if log else 0.0
         cwise_op = self.cwise_add if log else self.cwise_mul
 
+        # Maybe apply dropconnect
+        dropconnect_keep_prob = utils.maybe_first(
+            self._dropconnect_keep_prob, dropconnect_keep_prob)
+
         # Prepare tensors for component-wise application of weights and IVs
         w_tensor, ivs_tensor, reducible = self._prepare_component_wise_processing(
             w_tensor, ivs_tensor, *input_tensors, zero_prob_val=zero_prob_val)
@@ -341,24 +345,22 @@ class BaseSum(OpNode, abc.ABC):
         if self._ivs:
             reducible = cwise_op(reducible, ivs_tensor)
 
-        # Maybe apply dropconnect
-        dropconnect_keep_prob = utils.maybe_first(
-            self._dropconnect_keep_prob, dropconnect_keep_prob)
-
         # Apply weights
         if weighted:
-
-            if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
+            if conf.dropout_mode != "sum_inputs" and dropconnect_keep_prob is not None and \
+                    dropconnect_keep_prob != 1.0:
                 if self._ivs:
                     self.logger.warn(
                         "Using dropconnect and latent IVs simultaneously. "
                         "This might result in zero probabilities throughout and unpredictable "
                         "behavior of learning. Therefore, dropconnect is turned off for node {}."
-                        .format(self))
+                            .format(self))
                 else:
                     self.logger.debug1("{}: Applying dropout with p={} to pairwise "
                                        "multiplications.".format(self, dropconnect_keep_prob))
-                    mask = self._create_dropconnect_mask(dropconnect_keep_prob, tf.shape(reducible))
+                    shape = tf.shape(reducible) if conf.dropout_mode == "pairwise" \
+                        else tf.shape(w_tensor)
+                    mask = self._create_dropconnect_mask(dropconnect_keep_prob, shape)
                     if log:
                         mask = tf.log(tf.to_float(mask))
                     else:
@@ -373,6 +375,30 @@ class BaseSum(OpNode, abc.ABC):
                         w_tensor -= tf.log(
                             dropconnect_keep_prob +
                             dropconnect_keep_prob ** w_tensor.shape[-1].value)
+
+            if conf.dropout_mode == "sum_inputs" and dropconnect_keep_prob is not None and \
+                    dropconnect_keep_prob != 1.0:
+
+                if self._ivs:
+                    self.logger.warn(
+                        "Using dropconnect and latent IVs simultaneously. "
+                        "This might result in zero probabilities throughout and unpredictable "
+                        "behavior of learning. Therefore, dropconnect is turned off for node {}."
+                            .format(self))
+                else:
+                    mask = self._create_dropconnect_mask(dropconnect_keep_prob, tf.shape(reducible))
+                    if log:
+                        mask = tf.log(tf.to_float(mask))
+                    else:
+                        mask = tf.to_float(mask)
+                    reducible = cwise_op(reducible, mask)
+                    if conf.rescale_dropconnect:
+                        if log:
+                            reducible -= tf.log(
+                                dropconnect_keep_prob + dropconnect_keep_prob ** self._max_sum_size)
+                        else:
+                            reducible /= \
+                                dropconnect_keep_prob + dropconnect_keep_prob ** self._max_sum_size
 
             reducible = cwise_op(reducible, w_tensor)
 
@@ -789,6 +815,7 @@ class BaseSum(OpNode, abc.ABC):
         """
         w_tensor, ivs_tensor, *input_tensors = self._gather_input_tensors(
             w_tensor, ivs_tensor, *input_tensors)
+
         reducible_inputs = tf.expand_dims(
             utils.concat_maybe(input_tensors, axis=self._reduce_axis - 1), axis=self._op_axis)
 
