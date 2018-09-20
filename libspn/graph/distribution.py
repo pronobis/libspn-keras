@@ -55,7 +55,7 @@ class GaussianLeaf(VarNode):
                  learn_dist_params=False, train_var=True, loc_init=0.0, scale_init=1.0,
                  train_mean=True, use_prior=False, prior_alpha=2.0, prior_beta=3.0, min_stddev=1e-2,
                  evidence_indicator_feed=None, softplus_scale=False, share_scales=False,
-                 normalized=True, student_t=False, kwamy=False, precision_init=10):
+                 normalized=True, student_t=False, kwamy=False, precision_init=50):
         self._loc_variable = None
         self._scale_variable = None
         self._num_vars = num_vars
