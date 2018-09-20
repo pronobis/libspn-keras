@@ -59,7 +59,7 @@ class ConvSPN:
 
     def full_wicker(self, *input_nodes, sum_node_type='local',
                     sum_num_channels=16, prod_num_channels=256, spatial_dims=None, kernel_size=2,
-                    strides=1, num_channels_top=128, prod_node_type='default'):
+                    strides=1, num_channels_top=128, prod_node_type='default', depthwise_top=False):
         if spatial_dims[0] != spatial_dims[1]:
             raise ValueError("Spatial dimensions must be square.")
         stack_size = int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
@@ -79,12 +79,18 @@ class ConvSPN:
         pad_right = (dilation_rate - (out_shape[1] % dilation_rate)) % dilation_rate
 
         level, spatial_dims_parsed, input_nodes = self._prepare_inputs(wicker_head)
-        final_conv = ConvProd2D(
-            wicker_head, strides=1, pad_right=pad_right,
-            pad_bottom=pad_bottom, grid_dim_sizes=out_shape,
-            dilation_rate=int((kernel_size ** stack_size) // np.prod(strides)),
-            num_channels=num_channels_top
-        )
+        if depthwise_top:
+            final_conv = ConvProdDepthWise(
+                wicker_head, strides=1, pad_right=pad_right, pad_bottom=pad_bottom,
+                grid_dim_sizes=out_shape,
+                dilation_rate=int((kernel_size ** stack_size) // np.prod(strides)))
+        else:
+            final_conv = ConvProd2D(
+                wicker_head, strides=1, pad_right=pad_right,
+                pad_bottom=pad_bottom, grid_dim_sizes=out_shape,
+                dilation_rate=int((kernel_size ** stack_size) // np.prod(strides)),
+                num_channels=num_channels_top
+            )
         self._register_node(final_conv, level)
         root = Sum(final_conv)
         return root
