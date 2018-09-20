@@ -179,9 +179,9 @@ class GDLearning:
                         weight_norm_ops.append(
                             node.normalize(linear_w_minimum=self._linear_w_minimum))
 
-                    if isinstance(node, NormalLeaf) and node.learn_distribution_parameters:
+                    if isinstance(node, NormalLeaf) and node._trainable_scale:
                         weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
-                            node.scale_variable, node._min_stddev)))
+                            node.scale_variable, node._min_scale)))
 
                 with tf.name_scope("WeightNormalization"):
                     traverse_graph(self._root, fun=fun)

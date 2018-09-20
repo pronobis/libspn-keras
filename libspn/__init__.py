@@ -40,6 +40,10 @@ from libspn.graph.algorithms import compute_graph_up
 from libspn.graph.algorithms import compute_graph_up_down
 from libspn.graph.algorithms import traverse_graph
 from libspn.graph.distribution import NormalLeaf
+from libspn.graph.distribution import LaplaceLeaf
+from libspn.graph.distribution import StudentTLeaf
+from libspn.graph.distribution import CauchyLeaf
+from libspn.graph.distribution import LocationScaleLeaf
 from libspn.graph.distribution import MultivariateNormalDiagLeaf
 
 # Generators
@@ -122,6 +126,7 @@ __all__ = [
     'Product', 'PermProducts', 'Products', 'ProductsLayer',
     'ConvProd2D', '_ConvProdNaive',
     'NormalLeaf', 'MultivariateNormalDiagLeaf',
+    'CauchyLeaf', 'LaplaceLeaf', 'StudentTLeaf', 'LocationScaleLeaf',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
