@@ -13,7 +13,7 @@ from libspn.graph.algorithms import traverse_graph
 from libspn.learning.type import LearningType
 from libspn.learning.type import LearningInferenceType
 from libspn import conf
-from libspn.graph.distribution import NormalLeaf
+from libspn.graph.distribution import LocationScaleLeaf
 
 
 class GDLearning:
@@ -179,9 +179,9 @@ class GDLearning:
                         else:
                             weight_norm_ops.append(node.assign(node.variable))
 
-                    if isinstance(node, NormalLeaf) and node.learn_distribution_parameters:
+                    if isinstance(node, LocationScaleLeaf) and node._trainable_scale:
                         weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
-                            node.scale_variable, node._min_stddev)))
+                            node.scale_variable, node._min_scale)))
                 with tf.name_scope("Weight_Normalization"):
                     traverse_graph(self._root, fun=fun)
             return tf.group(*weight_norm_ops, name="weight_norm")

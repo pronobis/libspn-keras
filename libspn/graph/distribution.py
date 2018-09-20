@@ -194,12 +194,12 @@ class LocationScaleLeaf(DistributionLeaf, abc.ABC):
     def __init__(self, feed=None, evidence_indicator_feed=None, num_vars=1, num_components=2,
                  total_counts_init=1, trainable_loc=True, trainable_scale=True,
                  loc_init=tf.initializers.random_uniform(minval=0.0, maxval=1.0),
-                 scale_init=1.0, min_stddev=1e-2, softplus_scale=True,
+                 scale_init=1.0, min_scale=1e-2, softplus_scale=True,
                  dimensionality=1, name="LocationScaleLeaf", component_axis=-1):
         self._softplus_scale = softplus_scale
         # Initial value for means
         variable_shape = self._variable_shape(num_vars, num_components, dimensionality)
-        self._min_stddev = min_stddev if not softplus_scale else np.log(np.exp(min_stddev) - 1)
+        self._min_scale = min_scale if not softplus_scale else np.log(np.exp(min_scale) - 1)
         self.init_variables(variable_shape, loc_init, scale_init, softplus_scale)
         self._trainable_scale = trainable_scale
         self._trainable_loc = trainable_loc
@@ -239,7 +239,7 @@ class LocationScaleLeaf(DistributionLeaf, abc.ABC):
             # Initialize scale
             shape_kwarg = dict(shape=shape) if callable(self._scale_init) else dict()
             self._scale_variable = tf.get_variable(
-                "Scale", initializer=tf.maximum(self._scale_init, self._min_stddev),
+                "Scale", initializer=tf.maximum(self._scale_init, self._min_scale),
                 dtype=conf.dtype,
                 collections=[SPNGraphKeys.NORMAL_SCALE, SPNGraphKeys.NORMAL_VARIABLES,
                              tf.GraphKeys.GLOBAL_VARIABLES],
@@ -268,6 +268,19 @@ class LocationScaleLeaf(DistributionLeaf, abc.ABC):
     def scale_variable(self):
         """Tensor holding variance variable. """
         return self._scale_variable
+
+    @utils.docinherit(Node)
+    def serialize(self):
+        data = super().serialize()
+        data['loc_init'] = self._loc_init
+        data['scale_init'] = self._scale_init
+        return data
+
+    @utils.docinherit(Node)
+    def deserialize(self, data):
+        self._loc_init = data['loc_init']
+        self._scale_init = data['scale_init']
+        super().deserialize(data)
 
 
 class NormalLeaf(LocationScaleLeaf):
@@ -313,7 +326,7 @@ class NormalLeaf(LocationScaleLeaf):
                  trainable_loc=True, trainable_scale=True,
                  loc_init=tf.initializers.random_uniform(minval=0.0, maxval=1.0),
                  scale_init=1.0, use_prior=False, prior_alpha=2.0, prior_beta=3.0,
-                 min_stddev=1e-2, softplus_scale=True, name="NormalLeaf"):
+                 min_scale=1e-2, softplus_scale=True, name="NormalLeaf"):
         self._initialization_data = initialization_data
         self._estimate_variance_init = estimate_variance_init
         self._use_prior = use_prior
@@ -323,7 +336,7 @@ class NormalLeaf(LocationScaleLeaf):
             feed=feed, name=name, dimensionality=1, num_components=num_components,
             num_vars=num_vars, evidence_indicator_feed=evidence_indicator_feed,
             softplus_scale=softplus_scale, loc_init=loc_init, trainable_loc=trainable_loc,
-            trainable_scale=trainable_scale, scale_init=scale_init, min_stddev=min_stddev,
+            trainable_scale=trainable_scale, scale_init=scale_init, min_scale=min_scale,
             total_counts_init=total_counts_init)
         self._initialization_data = None
 
@@ -376,7 +389,7 @@ class NormalLeaf(LocationScaleLeaf):
         if estimate_variance:
             self._scale_init = _softplus_inverse_np(np.sqrt(variance)) if self._softplus_scale \
                 else np.sqrt(variance)
-            self._scale_init = np.maximum(self._scale_init, self._min_stddev)
+            self._scale_init = np.maximum(self._scale_init, self._min_scale)
 
     @staticmethod
     def _split_in_quantiles(data, num_quantiles):
@@ -397,19 +410,6 @@ class NormalLeaf(LocationScaleLeaf):
         values_per_quantile = np.split(
             sorted_features, indices_or_sections=quantile_sections, axis=0)
         return values_per_quantile
-
-    @utils.docinherit(Node)
-    def serialize(self):
-        data = super().serialize()
-        data['mean_init'] = self._loc_init
-        data['variance_init'] = self._scale_init
-        return data
-
-    @utils.docinherit(Node)
-    def deserialize(self, data):
-        self._loc_init = data['mean_init']
-        self._scale_init = data['variance_init']
-        super().deserialize(data)
 
     @utils.docinherit(Node)
     @utils.lru_cache
@@ -493,7 +493,7 @@ class NormalLeaf(LocationScaleLeaf):
         scale = tf.sqrt(variance)
         if self._softplus_scale:
             scale = tfd.softplus_inverse(scale)
-        scale = tf.maximum(scale, self._min_stddev)
+        scale = tf.maximum(scale, self._min_scale)
         with tf.control_dependencies([n, mean, scale]):
             return (
                 tf.assign_add(self._total_count_variable, k),
@@ -510,7 +510,7 @@ class NormalLeaf(LocationScaleLeaf):
         Returns:
              Tuple: An update ``Op`` for the locations and an update ``Op`` for the scales.
         """
-        new_var = tf.maximum(self._scale_variable + delta_scale, self._min_stddev)
+        new_var = tf.maximum(self._scale_variable + delta_scale, self._min_scale)
         with tf.control_dependencies([new_var]):
             update_variance = tf.assign(self._scale_variable, new_var)
         return tf.assign_add(self._loc_variable, delta_loc), update_variance
@@ -546,14 +546,14 @@ class MultivariateNormalDiagLeaf(LocationScaleLeaf):
                  name="MultivariateNormalDiagLeaf", total_counts_init=1,
                  trainable_scale=True, trainable_loc=True,
                  loc_init=tf.initializers.random_uniform(minval=0.0, maxval=1.0),
-                 scale_init=1.0, min_stddev=1e-2, evidence_indicator_feed=None,
+                 scale_init=1.0, min_scale=1e-2, evidence_indicator_feed=None,
                  softplus_scale=False):
         super().__init__(
             feed=feed, name=name, dimensionality=dimensionality,
             num_components=num_components, num_vars=num_vars,
             evidence_indicator_feed=evidence_indicator_feed, component_axis=-2,
             total_counts_init=total_counts_init, loc_init=loc_init, trainable_loc=trainable_loc,
-            trainable_scale=trainable_scale, scale_init=scale_init, min_stddev=min_stddev,
+            trainable_scale=trainable_scale, scale_init=scale_init, min_scale=min_scale,
             softplus_scale=softplus_scale)
 
     def _create_dist(self):
@@ -577,20 +577,6 @@ class MultivariateNormalDiagLeaf(LocationScaleLeaf):
         sum_data = tf.reduce_sum(data_per_component, axis=0)
         sum_data_squared = tf.reduce_sum(squared_data_per_component, axis=0)
         return {'accum': accum, "sum_data": sum_data, "sum_data_squared": sum_data_squared}
-
-    def _compute_gradient(self, incoming_grad):
-        """
-        Computes gradients for location and scales of the distributions propagated gradients via
-        chain rule. The incoming gradient is the summed gradient of the parents of this node.
-
-        Args:
-             incoming_grad (Tensor): A ``Tensor`` holding the summed gradient of the parents of this
-                                     node
-        Returns:
-            Tuple: A ``Tensor`` holding the gradient of the locations and a ``Tensor`` holding the
-                   gradient of the scales.
-        """
-        raise NotImplementedError("Compute gradient not yet implemented")
 
     def assign(self, accum, sum_data, sum_data_squared):
         """
@@ -622,24 +608,89 @@ class MultivariateNormalDiagLeaf(LocationScaleLeaf):
         scale = tf.sqrt(variance)
         if self._softplus_scale:
             scale = tfd.softplus_inverse(scale)
-        scale = tf.maximum(scale, self._min_stddev)
+        scale = tf.maximum(scale, self._min_scale)
         with tf.control_dependencies([n, mean, scale]):
             return (
                 tf.assign_add(self._total_count_variable, tf.squeeze(k, axis=-1)),
                 tf.assign(self._scale_variable, scale) if self._trainable_scale else tf.no_op(),
                 tf.assign(self._loc_variable, mean) if self._trainable_loc else tf.no_op())
 
-    def assign_add(self, delta_loc, delta_scale):
-        """
-        Updates distribution parameters by adding a small delta value.
 
-        Args:
-            delta_loc (Tensor): A delta ``Tensor`` for the locations of the distributions.
-            delta_scale (Tensor): A delta ``Tensor`` for the scales of the distributions.
-        Returns:
-             Tuple: An update ``Op`` for the locations and an update ``Op`` for the scales.
-        """
-        raise NotImplementedError("Assign add not yet implemented")
+class LaplaceLeaf(LocationScaleLeaf):
+
+    def __init__(self, feed=None, num_vars=1, num_components=2, name="MultivariateNormalDiagLeaf",
+                 trainable_scale=True, trainable_loc=True,
+                 loc_init=tf.initializers.random_uniform(minval=0.0, maxval=1.0), scale_init=1.0,
+                 min_scale=1e-2, evidence_indicator_feed=None, softplus_scale=False):
+        super().__init__(
+            feed=feed, evidence_indicator_feed=evidence_indicator_feed,
+            num_vars=num_vars, num_components=num_components, trainable_loc=trainable_loc,
+            trainable_scale=trainable_scale, loc_init=loc_init, scale_init=scale_init,
+            min_scale=min_scale, softplus_scale=softplus_scale, name=name, dimensionality=1)
+
+    def _create_dist(self):
+        if self._softplus_scale:
+            return tfd.LaplaceWithSoftplusScale(self._loc_variable, self._scale_variable)
+        return tfd.Laplace(self._loc_variable, self._scale_variable)
+
+
+class CauchyLeaf(LocationScaleLeaf):
+
+    def __init__(self, feed=None, num_vars=1, num_components=2, name="MultivariateNormalDiagLeaf",
+                 trainable_scale=True, trainable_loc=True,
+                 loc_init=tf.initializers.random_uniform(minval=0.0, maxval=1.0), scale_init=1.0,
+                 min_scale=1e-2, evidence_indicator_feed=None, softplus_scale=False):
+        super().__init__(
+            feed=feed, evidence_indicator_feed=evidence_indicator_feed,
+            num_vars=num_vars, num_components=num_components, trainable_loc=trainable_loc,
+            trainable_scale=trainable_scale, loc_init=loc_init, scale_init=scale_init,
+            min_scale=min_scale, softplus_scale=softplus_scale, name=name, dimensionality=1)
+
+    def _create_dist(self):
+        if self._softplus_scale:
+            return tfd.Cauchy(self._loc_variable, tf.nn.softplus(self._scale_variable))
+        return tfd.Cauchy(self._loc_variable, self._scale_variable)
+
+
+class StudentTLeaf(LocationScaleLeaf):
+
+    def __init__(self, feed=None, num_vars=1, num_components=2, name="MultivariateNormalDiagLeaf",
+                 trainable_scale=True, trainable_loc=True,
+                 loc_init=tf.initializers.random_uniform(minval=0.0, maxval=1.0), scale_init=1.0,
+                 min_scale=1e-2, evidence_indicator_feed=None, softplus_scale=False,
+                 trainable_df=False, df_init=tf.initializers.constant(1.0)):
+        self._trainable_df = trainable_df
+        self._df_init = df_init
+
+        super().__init__(
+            feed=feed, evidence_indicator_feed=evidence_indicator_feed,
+            num_vars=num_vars, num_components=num_components, trainable_loc=trainable_loc,
+            trainable_scale=trainable_scale, loc_init=loc_init, scale_init=scale_init,
+            min_scale=min_scale, softplus_scale=softplus_scale, name=name, dimensionality=1)
+
+    def _create_dist(self):
+        if self._softplus_scale:
+            return tfd.StudentTWithAbsDfSoftplusScale(
+                self._df_variable, self._loc_variable, self._scale_variable)
+        return tfd.Cauchy(self._loc_variable, self._scale_variable)
+
+    @utils.docinherit(Node)
+    def _create(self):
+        super()._create()
+        with tf.variable_scope(self._name):
+            # Initialize locations
+            shape = self._variable_shape(self._num_vars, self._num_components, self._dimensionality)
+            shape_kwarg = dict(shape=shape) if callable(self._df_init) else dict()
+            self._df_variable = tf.get_variable(
+                "Df", initializer=self._df_init, dtype=conf.dtype,
+                collections=[SPNGraphKeys.NORMAL_LOC, SPNGraphKeys.NORMAL_VARIABLES,
+                             tf.GraphKeys.GLOBAL_VARIABLES],
+                trainable=self._trainable_df, **shape_kwarg)
+
+    @property
+    def variables(self):
+        """Returns mean and variance variables. """
+        return self._df_variable, self._loc_variable, self._scale_variable
 
 
 def _softplus_inverse_np(x):
