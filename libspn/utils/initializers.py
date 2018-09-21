@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.python import Initializer
+from tensorflow.python.ops.init_ops import Initializer
 
 from libspn import conf
 
