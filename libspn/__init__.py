@@ -45,6 +45,7 @@ from libspn.graph.distribution import StudentTLeaf
 from libspn.graph.distribution import CauchyLeaf
 from libspn.graph.distribution import LocationScaleLeaf
 from libspn.graph.distribution import DistributionLeaf
+from libspn.graph.distribution import TruncatedNormalLeaf
 from libspn.graph.distribution import MultivariateNormalDiagLeaf
 
 # Generators
@@ -124,10 +125,11 @@ __all__ = [
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IVs', 'ContVars',
     'Sum', 'ParSums', 'SumsLayer',
-    'Product', 'PermProducts', 'Products', 'ProductsLayer',
+    'Product', 'PermProducts', 'ProductsLayer',
     'ConvProd2D', '_ConvProdNaive',
     'NormalLeaf', 'MultivariateNormalDiagLeaf',
-    'CauchyLeaf', 'LaplaceLeaf', 'StudentTLeaf', 'LocationScaleLeaf', 'DistributioLeaf',
+    'CauchyLeaf', 'LaplaceLeaf', 'StudentTLeaf', 'LocationScaleLeaf',
+    'DistributionLeaf', 'TruncatedNormalLeaf',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',

@@ -11,6 +11,7 @@ from libspn import conf
 from libspn import utils
 import numpy as np
 import tensorflow.contrib.distributions as tfd
+from tensorflow_probability import distributions as tfp
 import abc
 from libspn.utils import SPNGraphKeys
 
@@ -701,6 +702,30 @@ class StudentTLeaf(LocationScaleLeaf):
         """Returns mean and variance variables. """
         return self._df_variable, self._loc_variable, self._scale_variable
 
+
+class TruncatedNormalLeaf(LocationScaleLeaf):
+
+    def __init__(self, feed=None, num_vars=1, num_components=2, name="TruncatedNormalLeaf",
+                 trainable_scale=True, trainable_loc=True,
+                 loc_init=tf.initializers.random_uniform(minval=0.0, maxval=1.0), scale_init=1.0,
+                 min_scale=1e-2, evidence_indicator_feed=None, softplus_scale=False,
+                 truncate_min=0.0, truncate_max=1.0):
+        self._truncate_min = truncate_min
+        self._truncate_max = truncate_max
+        super().__init__(
+            feed=feed, evidence_indicator_feed=evidence_indicator_feed,
+            num_vars=num_vars, num_components=num_components, trainable_loc=trainable_loc,
+            trainable_scale=trainable_scale, loc_init=loc_init, scale_init=scale_init,
+            min_scale=min_scale, softplus_scale=softplus_scale, name=name, dimensionality=1)
+
+    def _create_dist(self):
+        if self._softplus_scale:
+            return tfp.TruncatedNormal(
+                self._loc_variable, tf.nn.softplus(self._scale_variable), low=self._truncate_min,
+                high=self._truncate_max)
+        return tfp.TruncatedNormal(
+            self._loc_variable, self._scale_variable,
+            low=self._truncate_min, high=self._truncate_max)
 
 def _softplus_inverse_np(x):
     return np.log(1 - np.exp(-x)) + x
