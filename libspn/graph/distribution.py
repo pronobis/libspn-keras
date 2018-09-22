@@ -664,12 +664,14 @@ class CauchyLeaf(LocationScaleLeaf):
     def __init__(self, feed=None, num_vars=1, num_components=2, name="CauchyLeaf",
                  trainable_scale=True, trainable_loc=True,
                  loc_init=Equidistant(), scale_init=1.0,
-                 min_scale=1e-2, evidence_indicator_feed=None, softplus_scale=False):
+                 min_scale=1e-2, evidence_indicator_feed=None, softplus_scale=False,
+                 share_scales=False, share_locs_across_vars=False):
         super().__init__(
             feed=feed, evidence_indicator_feed=evidence_indicator_feed,
             num_vars=num_vars, num_components=num_components, trainable_loc=trainable_loc,
             trainable_scale=trainable_scale, loc_init=loc_init, scale_init=scale_init,
-            min_scale=min_scale, softplus_scale=softplus_scale, name=name, dimensionality=1)
+            min_scale=min_scale, softplus_scale=softplus_scale, name=name, dimensionality=1,
+            share_scales=share_scales, share_locs_across_vars=share_locs_across_vars)
 
     def _create_dist(self):
         if self._softplus_scale:
