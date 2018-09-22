@@ -371,10 +371,11 @@ class BaseSum(OpNode, abc.ABC):
                             w_tensor -= tf.reduce_logsumexp(w_tensor, axis=-1, keepdims=True)
                         else:
                             w_tensor /= tf.reduce_sum(w_tensor, axis=-1, keepdims=True)
-                    if conf.rescale_dropconnect:
+                    elif conf.rescale_dropconnect:
                         w_tensor -= tf.log(
                             dropconnect_keep_prob +
-                            dropconnect_keep_prob ** w_tensor.shape[-1].value)
+                            1.0 / self._max_sum_size * (1.0 - dropconnect_keep_prob) **
+                            self._max_sum_size)
 
             if conf.dropout_mode == "sum_inputs" and dropconnect_keep_prob is not None and \
                     dropconnect_keep_prob != 1.0:
@@ -395,10 +396,14 @@ class BaseSum(OpNode, abc.ABC):
                     if conf.rescale_dropconnect:
                         if log:
                             reducible -= tf.log(
-                                dropconnect_keep_prob + dropconnect_keep_prob ** self._max_sum_size)
+                                dropconnect_keep_prob +
+                                1.0 / self._max_sum_size *
+                                (1.0 - dropconnect_keep_prob) ** self._max_sum_size)
                         else:
                             reducible /= \
-                                dropconnect_keep_prob + dropconnect_keep_prob ** self._max_sum_size
+                                dropconnect_keep_prob + \
+                                1.0 / self._max_sum_size * \
+                                (1.0 - dropconnect_keep_prob) ** self._max_sum_size
 
             reducible = cwise_op(reducible, w_tensor)
 
