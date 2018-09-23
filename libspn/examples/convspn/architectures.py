@@ -31,9 +31,10 @@ def full_wicker(
         *inp_nodes, spatial_dims=(28, 28), strides=(1, 2, 2, 1, 1),
         sum_node_types='local', kernel_size=2,
         sum_num_channels=(32, 32, 32, 64, 64), prod_num_channels=(16, 32, 32, 64, 64),
-        num_channels_top=32, prod_node_types='default', depthwise_top=False):
+        num_channels_top=32, prod_node_types='default', depthwise_top=False, level_offset=0,
+        stack_size=None):
     conv_spn_gen = ConvSPN()
-    stack_size = int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
+    stack_size = stack_size or int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
     if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise' and \
             any(isinstance(n, spn.VarNode) for n in inp_nodes):
         prod_node_types = ['default'] + (stack_size - 1) * ['depthwise']
@@ -47,7 +48,8 @@ def full_wicker(
         *inp_nodes, sum_num_channels=sum_num_channels,
         prod_num_channels=prod_num_channels, spatial_dims=spatial_dims,
         num_channels_top=num_channels_top, strides=strides, kernel_size=kernel_size,
-        sum_node_type=sum_node_types, prod_node_type=prod_node_types, depthwise_top=depthwise_top)
+        sum_node_type=sum_node_types, prod_node_type=prod_node_types, depthwise_top=depthwise_top,
+        level_offset=level_offset, stack_size=stack_size)
     for node in conv_spn_gen.nodes_per_level[2]:
         node.set_dropconnect_keep_prob(1.0)
     return root
