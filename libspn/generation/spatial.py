@@ -63,7 +63,8 @@ class ConvSPN:
                     level_offset=0, stack_size=None):
         if spatial_dims[0] != spatial_dims[1]:
             raise ValueError("Spatial dimensions must be square.")
-        stack_size = stack_size or int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
+        stack_size = stack_size if stack_size is not None else \
+            int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
         print("Stack size", stack_size)
         if isinstance(strides, int):
             strides = [strides] * stack_size

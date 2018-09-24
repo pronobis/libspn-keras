@@ -34,7 +34,8 @@ def full_wicker(
         num_channels_top=32, prod_node_types='default', depthwise_top=False, level_offset=0,
         stack_size=None):
     conv_spn_gen = ConvSPN()
-    stack_size = stack_size or int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
+    stack_size = stack_size if stack_size is not None else \
+        int(np.ceil(np.log(spatial_dims[0]) / np.log(kernel_size)))
     if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise' and \
             any(isinstance(n, spn.VarNode) for n in inp_nodes):
         prod_node_types = ['default'] + (stack_size - 1) * ['depthwise']
