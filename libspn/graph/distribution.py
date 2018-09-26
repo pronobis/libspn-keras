@@ -188,7 +188,10 @@ class DistributionLeaf(VarNode, abc.ABC):
         indices = tf.argmax(counts_reshaped, axis=-1) + tf.expand_dims(
             tf.range(self._num_vars, dtype=tf.int64) * self._num_components, axis=0)
         flat_shape = (-1,) if self._dimensionality == 1 else (-1, self._dimensionality)
-        return tf.gather(tf.reshape(self._dist.mode(), flat_shape), indices=indices, axis=0)
+        mpe_state = tf.gather(tf.reshape(self._dist.mode(), flat_shape), indices=indices, axis=0)
+        evidence = tf.tile(tf.expand_dims(self.evidence, -1), (1, 1, self.dimensionality)) \
+            if self.dimensionality > 1 else self.evidence
+        return tf.where(evidence, self.feed, mpe_state)
 
     def entropy(self):
         return self._dist.entropy()
