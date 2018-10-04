@@ -317,19 +317,17 @@ class SpatialSum(BaseSum, abc.ABC):
             tuples correspond to the nodes in ``self._values``.
         """
         sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
-        sample_shape = (self._tile_unweighted_size,) if use_unweighted else ()
+        num_samples = self._tile_unweighted_size if use_unweighted else 1
+        # print(self, reducible_tensor.shape)
         if sample:
             if log:
                 max_indices = self._reduce_sample_log(
-                    reducible_tensor, sample_prob=sample_prob, sample_shape=sample_shape)
+                    reducible_tensor, sample_prob=sample_prob, num_samples=num_samples)
             else:
                 max_indices = self._reduce_sample(
-                    reducible_tensor, sample_prob=sample_prob, sample_shape=sample_shape)
+                    reducible_tensor, sample_prob=sample_prob, num_samples=num_samples)
         else:
-            max_indices = self._reduce_argmax(
-                reducible_tensor, sample_shape=sample_shape)
-        if use_unweighted:
-            max_indices = tf.squeeze(max_indices, axis=self._reduce_axis - 1)
+            max_indices = self._reduce_argmax(reducible_tensor, num_samples=num_samples)
 
         max_indices = tf.reshape(max_indices, (-1, self._compute_out_size()))
         max_counts = utils.scatter_values(
