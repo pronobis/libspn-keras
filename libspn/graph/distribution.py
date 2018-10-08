@@ -305,6 +305,48 @@ class LocationScaleLeaf(DistributionLeaf, abc.ABC):
         self._scale_init = data['scale_init']
         super().deserialize(data)
 
+    def assign(self, accum, sum_data, sum_data_squared):
+        """
+        Assigns new values to variables based on accumulated tensors. It updates the distribution
+        parameters based on what can be found in "Online Structure Learning for Sum-Product Networks
+        with Gaussian Leaves" by Hsu et al. (2017) https://arxiv.org/pdf/1701.05265.pdf
+
+        Args:
+            accum (Tensor): A ``Variable`` with accumulated counts per component.
+            sum_data (Tensor): A ``Variable`` with the accumulated sum of data per component.
+            sum_data_squared (Tensor): A ``Variable`` with the accumulated sum of squares of data
+                                       per component.
+        Returns:
+            Tuple: A tuple containing assignment operations for the new total counts, the variance
+            and the mean.
+        """
+        n = tf.maximum(self._total_count_variable, tf.ones_like(self._total_count_variable))
+        k = accum
+        mean = self._compute_hard_em_mean(k, n, sum_data)
+        with tf.control_dependencies([n, mean]):
+            return (
+                tf.assign_add(self._total_count_variable, k),
+                tf.assign(self._loc_variable, mean) if self._trainable_loc else tf.no_op())
+
+    @utils.docinherit(Node)
+    @utils.lru_cache
+    def _compute_hard_em_update(self, counts):
+        counts_reshaped = tf.reshape(counts, (-1, self._num_vars, self._num_components))
+        # Determine accumulates per component
+        accum = tf.reduce_sum(counts_reshaped, axis=0)
+
+        # Tile the feed
+        tiled_feed = self._tile_num_components(self._feed)
+        data_per_component = tf.multiply(counts_reshaped, tiled_feed, name="DataPerComponent")
+        squared_data_per_component = tf.multiply(
+            counts_reshaped, tf.square(tiled_feed), name="SquaredDataPerComponent")
+        sum_data = tf.reduce_sum(data_per_component, axis=0)
+        sum_data_squared = tf.reduce_sum(squared_data_per_component, axis=0)
+        return {'accum': accum, "sum_data": sum_data, "sum_data_squared": sum_data_squared}
+
+    def _compute_hard_em_mean(self, k, n, sum_data):
+        return (n * self._loc_variable + sum_data) / (n + k)
+
 
 class NormalLeaf(LocationScaleLeaf):
     """A node representing multiple uni-variate Gaussian distributions for continuous input
@@ -345,14 +387,14 @@ class NormalLeaf(LocationScaleLeaf):
     """
 
     def __init__(self, feed=None, evidence_indicator_feed=None, num_vars=1, num_components=2,
-                 initialization_data=None, estimate_variance_init=True, total_counts_init=1,
+                 initialization_data=None, estimate_scale=True, total_counts_init=1,
                  trainable_loc=True, trainable_scale=True,
                  loc_init=Equidistant(),
                  scale_init=1.0, use_prior=False, prior_alpha=2.0, prior_beta=3.0,
                  min_scale=1e-2, softplus_scale=True, name="NormalLeaf",
                  share_locs_across_vars=False, share_scales=False):
         self._initialization_data = initialization_data
-        self._estimate_scale_init = estimate_variance_init
+        self._estimate_scale_init = estimate_scale
         self._use_prior = use_prior
         self._prior_alpha = prior_alpha
         self._prior_beta = prior_beta
@@ -507,7 +549,7 @@ class NormalLeaf(LocationScaleLeaf):
         """
         n = tf.maximum(self._total_count_variable, tf.ones_like(self._total_count_variable))
         k = accum
-        mean = (n * self._loc_variable + sum_data) / (n + k)
+        mean = self._compute_hard_em_mean(k, n, sum_data)
 
         current_var = tf.square(self.scale_variable) if not self._softplus_scale else \
             tf.square(tf.nn.softplus(self._scale_variable))
@@ -524,6 +566,9 @@ class NormalLeaf(LocationScaleLeaf):
                 tf.assign_add(self._total_count_variable, k),
                 tf.assign(self._scale_variable, scale) if self._trainable_scale else tf.no_op(),
                 tf.assign(self._loc_variable, mean) if self._trainable_loc else tf.no_op())
+
+    def _compute_hard_em_mean(self, k, n, sum_data):
+        return (n * self._loc_variable + sum_data) / (n + k)
 
     def assign_add(self, delta_loc, delta_scale):
         """

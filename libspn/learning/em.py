@@ -8,7 +8,7 @@
 from collections import namedtuple
 import tensorflow as tf
 
-from libspn.graph.distribution import NormalLeaf, MultivariateNormalDiagLeaf
+from libspn.graph.distribution import LocationScaleLeaf
 from libspn.inference.mpe_path import MPEPath
 from libspn.graph.algorithms import traverse_graph
 from libspn import conf
@@ -172,7 +172,7 @@ class EMLearning():
                     param_node = EMLearning.ParamNode(node=node, accum=accum,
                                                       name_scope=scope)
                     self._param_nodes.append(param_node)
-            if isinstance(node, (NormalLeaf, MultivariateNormalDiagLeaf)) \
+            if isinstance(node, (LocationScaleLeaf)) \
                     and node.trainable:
                 shape = (node.num_vars, node.num_components)
                 with tf.name_scope(node.name) as scope:
