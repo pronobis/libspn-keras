@@ -141,8 +141,12 @@ class LogValue:
                     dropconnect_keep_prob=self._dropconnect_keep_prob)
             else:
                 kwargs = dict()
+            if self._dropprod_keep_prob and isinstance(node, ConvProd2D):
+                kwargs['dropout_keep_prob'] = self._dropprod_keep_prob
             with tf.name_scope(node.name):
-                if node.inference_type == InferenceType.MARGINAL:
+                if (self._inference_type == InferenceType.MARGINAL
+                    or (self._inference_type is None and
+                        node.inference_type == InferenceType.MARGINAL)):
                     if isinstance(node, SpatialSum):
                         kwargs['matmul_or_conv'] = self._matmul_or_conv
                         kwargs['noise'] = self._noise
