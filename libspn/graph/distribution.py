@@ -208,6 +208,119 @@ class DistributionLeaf(VarNode, abc.ABC):
         return self._dist.mode()
 
 
+class BetaLocationPrecisionLeaf(DistributionLeaf):
+
+    def __init__(self, feed=None, evidence_indicator_feed=None, num_vars=1, num_components=2,
+                 total_counts_init=1, trainable_loc=True, trainable_precision=True,
+                 loc_init=Equidistant(minval=0.01, maxval=0.99),
+                 precision_init=10.0, min_precision=1e-2, softplus_precision=True,
+                 name="BetaLocationPrecision",
+                 share_locs_across_vars=False, share_precision=False, sigmoid_loc=True):
+        self._softplus_precision = softplus_precision
+        self._sigmoid_loc = sigmoid_loc
+        # Initial value for means
+        variable_shape = self._variable_shape(num_vars, num_components)
+        self._min_scale = _softplus_inverse_np(min_precision) if softplus_precision else min_precision
+        self.init_variables(variable_shape, loc_init, precision_init, softplus_precision)
+        self._trainable_precision = trainable_precision
+        self._trainable_loc = trainable_loc
+        self._share_locs_across_vars = share_locs_across_vars
+        self._share_precision = share_precision
+
+        super().__init__(feed=feed, name=name, dimensionality=1,
+                         num_components=num_components, num_vars=num_vars,
+                         evidence_indicator_feed=evidence_indicator_feed,
+                         component_axis=-1)
+        self._total_count_variable = self._total_accumulates(
+            total_counts_init, (num_vars, num_components))
+
+    @property
+    def variables(self):
+        return self._loc_variable, self._precision_variable
+
+    def _create_dist(self):
+        loc = tf.nn.sigmoid(self._loc_variable) if self._sigmoid_loc else self._loc_variable
+        precision = tf.nn.softplus(self._precision_variable) \
+            if self._softplus_precision else self._precision_variable
+        concentration0 = precision * loc
+        concentration1 = precision * (1 - loc)
+        return tfp.Beta(concentration0=concentration0, concentration1=concentration1)
+
+    def _variable_shape(self, num_vars, num_components):
+        return [num_vars, num_components]
+
+    def init_variables(self, shape, loc_init, precision_init, softplus_scale):
+        # Initial value for means
+        if isinstance(loc_init, float):
+            self._loc_init = np.ones(shape, dtype=np.float32) * loc_init
+        else:
+            self._loc_init = loc_init
+
+        # Initial values for variances.
+        self._precision_init = np.ones(shape, dtype=np.float32) * precision_init
+        if softplus_scale:
+            self._precision_init = _softplus_inverse_np(self._precision_init)
+
+    def initialize(self):
+        """Provide initializers for mean, variance and total counts """
+        return (self._loc_variable.initializer, self._precision_variable.initializer,
+                self._total_count_variable.initializer)
+
+    @property
+    def loc_variable(self):
+        """Tensor holding mean variable. """
+        return self._loc_variable
+
+    @property
+    def precision_variable(self):
+        return self._precision_variable
+
+    @utils.docinherit(Node)
+    def _create(self):
+        super()._create()
+        with tf.variable_scope(self._name):
+            # Initialize locations
+            shape = self._variable_shape(
+                1 if self._share_locs_across_vars else self._num_vars,
+                self._num_components)
+            shape_kwarg = dict(shape=shape) if callable(self._loc_init) else dict()
+
+            def init_wrapper(shape, dtype=None, partition_info=None):
+                ret = self._loc_init(shape=shape, dtype=dtype, partition_info=partition_info)
+                return logit(ret) if self._sigmoid_loc else ret
+
+            self._loc_variable = tf.get_variable(
+                "Loc", initializer=init_wrapper, dtype=conf.dtype,
+                collections=[SPNGraphKeys.DIST_LOC, SPNGraphKeys.DIST_PARAMETERS,
+                             tf.GraphKeys.GLOBAL_VARIABLES],
+                trainable=self._trainable_loc, **shape_kwarg)
+
+            # Initialize precision
+            shape = self._variable_shape(
+                1 if self._share_precision else self._num_vars,
+                1 if self._share_precision else self._num_vars)
+            shape_kwarg = dict(shape=shape) if callable(self._precision_init) else dict()
+            self._precision_variable = tf.get_variable(
+                "Scale", initializer=tf.maximum(self._precision_init, self._min_scale),
+                dtype=conf.dtype,
+                collections=[SPNGraphKeys.DIST_SCALE, SPNGraphKeys.DIST_PARAMETERS,
+                             tf.GraphKeys.GLOBAL_VARIABLES],
+                trainable=self._trainable_precision, **shape_kwarg)
+
+    @utils.docinherit(Node)
+    def serialize(self):
+        data = super().serialize()
+        data['loc_init'] = self._loc_init
+        data['scale_init'] = self._scale_init
+        return data
+
+    @utils.docinherit(Node)
+    def deserialize(self, data):
+        self._loc_init = data['loc_init']
+        self._precision_init = data['precision_init']
+        super().deserialize(data)
+
+
 class LocationScaleLeaf(DistributionLeaf, abc.ABC):
 
     def __init__(self, feed=None, evidence_indicator_feed=None, num_vars=1, num_components=2,
@@ -847,5 +960,10 @@ class TruncatedNormalLeaf(LocationScaleLeaf):
 
 def _softplus_inverse_np(x):
     return np.log(1 - np.exp(-x)) + x
+
+
+def logit(x, name="Logit"):
+    with tf.name_scope(name):
+        return -tf.log(tf.reciprocal(x) - 1)
 
 
