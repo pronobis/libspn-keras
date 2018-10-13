@@ -350,6 +350,32 @@ def quadruple_stride(
     return dsds_mixtures_top
 
 
+def penta_stride(
+        *inp_nodes, spatial_dims=(28, 28), sum_node_types='local', kernel_size=2,
+        sum_num_channels=(32, 32), prod_num_channels=(16, 32), prod_node_types='default',
+        dropconnect_from=1, dropprod_to=1):
+    conv_spn_gen = ConvSPN()
+
+    if not isinstance(prod_node_types, list) and prod_node_types == 'depthwise' and \
+            any(isinstance(n, spn.VarNode) for n in inp_nodes):
+        prod_node_types = ['default'] + 4 * ['depthwise']
+    elif not isinstance(prod_node_types, (tuple, list)):
+        prod_node_types = [prod_node_types] * 5
+
+    prod_num_channels = _preprocess_prod_num_channels(
+        *inp_nodes, prod_num_channels=prod_num_channels, kernel_size=kernel_size)
+
+    sum_node_types = list(sum_node_types) if isinstance(sum_node_types, tuple) else sum_node_types
+    sum_node_types[-1] = 'skip'
+
+    stride_out = conv_spn_gen.add_stack(
+        *inp_nodes, sum_num_channels=sum_num_channels,
+        prod_num_channels=prod_num_channels, spatial_dims=spatial_dims,
+        name_prefixes="PentaStride", stack_size=5, kernel_size=2, strides=2,
+        sum_node_type=sum_node_types, prod_node_type=prod_node_types)
+    set_dropout_probs(conv_spn_gen, dropconnect_from, dropprod_to)
+    return spn.Sum(stride_out)
+
 
 def wicker_dense(
         *inp_nodes, spatial_dims=(28, 28), strides=(1, 2, 2),
