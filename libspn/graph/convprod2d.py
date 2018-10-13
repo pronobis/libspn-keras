@@ -167,6 +167,14 @@ class ConvProd2D(OpNode):
                 p //= num_input_channels
             return np.stack(kernel_cells, axis=0).reshape(self._kernel_size + [total_possibilities])
 
+        if self._num_channels >= num_input_channels:
+            kernel_cells = []
+            for _ in range(kernel_surface):
+                ind = np.arange(self._num_channels) % num_input_channels
+                np.random.shuffle(ind)
+                kernel_cells.append(ind)
+            return np.asarray(kernel_cells).reshape(self._kernel_size + [self._num_channels])
+
         sparse_shape = self._kernel_size + [num_channels]
         size = int(np.prod(sparse_shape))
         return np.random.randint(num_input_channels, size=size).reshape(sparse_shape)
