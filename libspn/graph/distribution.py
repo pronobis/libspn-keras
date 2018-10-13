@@ -13,6 +13,8 @@ from libspn import utils
 import numpy as np
 import tensorflow.contrib.distributions as tfd
 from tensorflow_probability import distributions as tfp
+from tensorflow_probability import bijectors
+from tensorflow.contrib.distributions.python.ops import distribution_util
 import abc
 from libspn.utils import SPNGraphKeys
 
@@ -188,7 +190,7 @@ class DistributionLeaf(VarNode, abc.ABC):
         indices = tf.argmax(counts_reshaped, axis=-1) + tf.expand_dims(
             tf.range(self._num_vars, dtype=tf.int64) * self._num_components, axis=0)
         flat_shape = (-1,) if self._dimensionality == 1 else (-1, self._dimensionality)
-        mpe_state = tf.gather(tf.reshape(self._dist.mode(), flat_shape), indices=indices, axis=0)
+        mpe_state = tf.gather(tf.reshape(self.mode(), flat_shape), indices=indices, axis=0)
         evidence = tf.tile(tf.expand_dims(self.evidence, -1), (1, 1, self.dimensionality)) \
             if self.dimensionality > 1 else self.evidence
         return tf.where(evidence, self.feed, mpe_state)
@@ -201,6 +203,9 @@ class DistributionLeaf(VarNode, abc.ABC):
 
     def cross_entropy(self, other):
         return self._dist.cross_entropy(other)
+
+    def mode(self):
+        return self._dist.mode()
 
 
 class LocationScaleLeaf(DistributionLeaf, abc.ABC):
@@ -352,7 +357,7 @@ class NormalLeaf(LocationScaleLeaf):
     """A node representing multiple uni-variate Gaussian distributions for continuous input
     variables. Each variable will have *k* Gaussian components. Each Gaussian component has its
     own location (mean) and scale (standard deviation). These parameters can be learned or fixed.
-    Lack of evidence must be provided explicitly through feeding
+    Lack of evidence must be provided explicitly through feeding_
     :meth:`~libspn.NormalLeaf.evidence`.
 
     Args:
@@ -567,9 +572,6 @@ class NormalLeaf(LocationScaleLeaf):
                 tf.assign(self._scale_variable, scale) if self._trainable_scale else tf.no_op(),
                 tf.assign(self._loc_variable, mean) if self._trainable_loc else tf.no_op())
 
-    def _compute_hard_em_mean(self, k, n, sum_data):
-        return (n * self._loc_variable + sum_data) / (n + k)
-
     def assign_add(self, delta_loc, delta_scale):
         """
         Updates distribution parameters by adding a small delta value.
@@ -705,6 +707,48 @@ class LaplaceLeaf(LocationScaleLeaf):
         if self._softplus_scale:
             return tfd.LaplaceWithSoftplusScale(self._loc_variable, self._scale_variable)
         return tfd.Laplace(self._loc_variable, self._scale_variable)
+
+
+class MultivariateCauchyDiagLeaf(LocationScaleLeaf):
+
+    def __init__(self, feed=None, num_vars=1, num_components=2, dimensionality=2,
+                 name="MultivariateCauchyDiagLeaf", total_counts_init=1,
+                 trainable_scale=True, trainable_loc=True,
+                 loc_init=tf.initializers.random_uniform(0.0, 1.0),
+                 scale_init=1.0, min_scale=1e-2, evidence_indicator_feed=None,
+                 softplus_scale=False, share_locs_across_vars=False, share_scales=False):
+        super().__init__(
+            feed=feed, name=name, dimensionality=dimensionality,
+            num_components=num_components, num_vars=num_vars,
+            evidence_indicator_feed=evidence_indicator_feed, component_axis=-2,
+            total_counts_init=total_counts_init, loc_init=loc_init, trainable_loc=trainable_loc,
+            trainable_scale=trainable_scale, scale_init=scale_init, min_scale=min_scale,
+            softplus_scale=softplus_scale, share_locs_across_vars=share_locs_across_vars,
+            share_scales=share_scales)
+
+    def _create_dist(self):
+        scale_diag = tf.nn.softplus(self._scale_variable) if self._softplus_scale \
+            else self._scale_variable
+        scale = distribution_util.make_diag_scale(
+            loc=self._loc_variable,
+            scale_diag=scale_diag,
+            validate_args=False,
+            assert_positive=False)
+        batch_shape, event_shape = distribution_util.shapes_from_loc_and_scale(
+            self._loc_variable, scale)
+
+        return tfp.TransformedDistribution(
+            distribution=tfp.Cauchy(
+                loc=tf.zeros([], dtype=scale.dtype),
+                scale=tf.ones([], dtype=scale.dtype)),
+            bijector=bijectors.AffineLinearOperator(
+                shift=self._loc_variable, scale=scale),
+            batch_shape=batch_shape,
+            event_shape=event_shape,
+            name="MultivariateCauchyDiag" + ("SoftplusScale" if self._softplus_scale else ""))
+
+    def mode(self):
+        return self._loc_variable
 
 
 class CauchyLeaf(LocationScaleLeaf):
