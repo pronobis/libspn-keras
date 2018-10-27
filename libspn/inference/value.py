@@ -141,8 +141,6 @@ class LogValue:
                     dropconnect_keep_prob=self._dropconnect_keep_prob)
             else:
                 kwargs = dict()
-            if self._dropprod_keep_prob and isinstance(node, ConvProd2D):
-                kwargs['dropout_keep_prob'] = self._dropprod_keep_prob
             with tf.name_scope(node.name):
                 if (self._inference_type == InferenceType.MARGINAL
                     or (self._inference_type is None and

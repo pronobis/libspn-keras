@@ -141,7 +141,7 @@ def dilate_stride_double_stride_full_wicker(
     root = conv_spn_gen.full_wicker(
         dsds_mixtures_top, sum_num_channels=sum_num_channels[2:],
         prod_num_channels=prod_num_channels[2:], spatial_dims=spatial_dims,
-        strides=strides or 1, kernel_size=kernel_size, num_channels_top=num_channels_top,
+        strides=strides[2:], kernel_size=kernel_size, num_channels_top=num_channels_top,
         sum_node_type=sum_node_types[2:], prod_node_type=prod_node_types[2:],
         depthwise_top=depthwise_top)
 
