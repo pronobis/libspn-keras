@@ -40,7 +40,8 @@ class Weights(ParamNode):
             raise ValueError("num_weights must be a positive integer")
 
         if not isinstance(num_sums, int) or num_sums < 1:
-            raise ValueError("num_sums must be a positive integer")
+            raise ValueError("num_sums must be a positive integer, got {} ({})".format(
+                num_sums, type(num_sums)))
 
         self._init_value = init_value
         self._num_weights = num_weights
