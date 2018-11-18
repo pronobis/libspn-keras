@@ -22,11 +22,13 @@ from libspn.utils import SPNGraphKeys
 class DistributionLeaf(VarNode, abc.ABC):
 
     def __init__(self, feed=None, num_vars=1, num_components=2, name="DistributionLeaf",
-                 evidence_indicator_feed=None, dimensionality=1, component_axis=-1):
+                 evidence_indicator_feed=None, dimensionality=1, component_axis=-1,
+                 samplewise_normalization=False):
         self._dimensionality = dimensionality
         self._num_vars = num_vars
         self._num_components = num_components
         self._component_axis = component_axis
+        self._sample_wise_normalization = samplewise_normalization
         super().__init__(feed=feed, name=name)
         self.attach_evidence_indicator(evidence_indicator_feed)
         self._dist = self._create_dist()
@@ -165,17 +167,43 @@ class DistributionLeaf(VarNode, abc.ABC):
         value = tf.reshape(value, out_shape)
         return tf.where(evidence, value, no_evidence_fn(value))
 
+    @utils.lru_cache
+    def _normalized_feed(self, epsilon=1e-10):
+        feed_mean, feed_stddev = self._feed_mean_and_stddev()
+        return (self._feed - feed_mean) / (feed_stddev + epsilon)
+
+    @utils.lru_cache
+    def _feed_mean_and_stddev(self):
+        reduce_axes = list(range(1, len(self._feed.shape)))
+
+        feed_mean = tf.reduce_mean(self._feed, axis=reduce_axes, keepdims=True)
+        feed_stddev = tf.sqrt(tf.reduce_mean(
+            tf.square(self._feed - feed_mean), keepdims=True, axis=reduce_axes))
+        return feed_mean, feed_stddev
+        # evidence_size = tf.reduce_sum(
+        #     tf.to_float(self.evidence), axis=reduce_axes, keepdims=True)
+        # zeros = tf.zeros_like(self._feed)
+        # feed_mean = tf.reduce_sum(tf.where(self.evidence, self._feed, zeros),
+        #     axis=reduce_axes, keepdims=True) / evidence_size
+        # feed_stddev = tf.sqrt(tf.reduce_sum(
+        #     tf.where(self.evidence, tf.square(self._feed - feed_mean), zeros),
+        #     keepdims=True, axis=reduce_axes) / evidence_size)
+        # return feed_mean, feed_stddev
+
+    @utils.lru_cache
+    def _preprocessed_feed(self):
+        return self._tile_num_components(
+            self._normalized_feed() if self._sample_wise_normalization else self._feed)
+
     @utils.docinherit(Node)
     @utils.lru_cache
     def _compute_value(self, step=None):
-        return self._evidence_mask(
-            self._dist.prob(self._tile_num_components(self._feed)), tf.ones_like)
+        return self._evidence_mask(self._dist.prob(self._preprocessed_feed()), tf.ones_like)
 
     @utils.docinherit(Node)
     @utils.lru_cache
     def _compute_log_value(self):
-        return self._evidence_mask(
-            self._dist.log_prob(self._tile_num_components(self._feed)), tf.zeros_like)
+        return self._evidence_mask(self._dist.log_prob(self._preprocessed_feed()), tf.zeros_like)
 
     @utils.docinherit(Node)
     def _compute_scope(self):
@@ -194,6 +222,17 @@ class DistributionLeaf(VarNode, abc.ABC):
         evidence = tf.tile(tf.expand_dims(self.evidence, -1), (1, 1, self.dimensionality)) \
             if self.dimensionality > 1 else self.evidence
         return tf.where(evidence, self.feed, mpe_state)
+
+    def completion_by_posterior_marginal(self, root):
+        grad_log_likelihood = tf.gradients(root.get_log_value(), self.get_log_value())[0]
+        grad_log_likelihood = tf.reshape(
+            grad_log_likelihood, [-1, self.num_vars, self.num_components])
+        marginal = tf.reduce_sum(tf.expand_dims(self.mode(), 0) * grad_log_likelihood, axis=-1)
+        marginal /= (tf.reduce_sum(grad_log_likelihood, axis=-1) + 1e-8)
+        if self._sample_wise_normalization:
+            feed_mean, feed_stddev = self._feed_mean_and_stddev()
+            marginal = marginal * feed_stddev + feed_mean
+        return tf.where(self.evidence, self._feed, marginal)
 
     def entropy(self):
         return self._dist.entropy()
@@ -328,7 +367,7 @@ class LocationScaleLeaf(DistributionLeaf, abc.ABC):
                  loc_init=Equidistant(),
                  scale_init=1.0, min_scale=1e-2, softplus_scale=True,
                  dimensionality=1, name="LocationScaleLeaf", component_axis=-1,
-                 share_locs_across_vars=False, share_scales=False):
+                 share_locs_across_vars=False, share_scales=False, samplewise_normalization=False):
         self._softplus_scale = softplus_scale
         # Initial value for means
         variable_shape = self._variable_shape(num_vars, num_components, dimensionality)
@@ -342,7 +381,8 @@ class LocationScaleLeaf(DistributionLeaf, abc.ABC):
         super().__init__(feed=feed, name=name, dimensionality=dimensionality,
                          num_components=num_components, num_vars=num_vars,
                          evidence_indicator_feed=evidence_indicator_feed,
-                         component_axis=component_axis)
+                         component_axis=component_axis,
+                         samplewise_normalization=samplewise_normalization)
         self._total_count_variable = self._total_accumulates(
             total_counts_init, (num_vars, num_components))
 
@@ -454,7 +494,8 @@ class LocationScaleLeaf(DistributionLeaf, abc.ABC):
         accum = tf.reduce_sum(counts_reshaped, axis=0)
 
         # Tile the feed
-        tiled_feed = self._tile_num_components(self._feed)
+        # tiled_feed = self._tile_num_components(self._feed)
+        tiled_feed = self._preprocessed_feed()
         data_per_component = tf.multiply(counts_reshaped, tiled_feed, name="DataPerComponent")
         squared_data_per_component = tf.multiply(
             counts_reshaped, tf.square(tiled_feed), name="SquaredDataPerComponent")
@@ -510,7 +551,7 @@ class NormalLeaf(LocationScaleLeaf):
                  loc_init=Equidistant(),
                  scale_init=1.0, use_prior=False, prior_alpha=2.0, prior_beta=3.0,
                  min_scale=1e-2, softplus_scale=True, name="NormalLeaf",
-                 share_locs_across_vars=False, share_scales=False):
+                 share_locs_across_vars=False, share_scales=False, samplewise_normalization=False):
         self._initialization_data = initialization_data
         self._estimate_scale_init = estimate_scale
         self._use_prior = use_prior
@@ -522,7 +563,7 @@ class NormalLeaf(LocationScaleLeaf):
             softplus_scale=softplus_scale, loc_init=loc_init, trainable_loc=trainable_loc,
             trainable_scale=trainable_scale, scale_init=scale_init, min_scale=min_scale,
             total_counts_init=total_counts_init, share_locs_across_vars=share_locs_across_vars,
-            share_scales=share_scales)
+            share_scales=share_scales, samplewise_normalization=samplewise_normalization)
         self._initialization_data = None
 
     def init_variables(self, shape, loc_init, scale_init, softplus_scale):
@@ -576,8 +617,7 @@ class NormalLeaf(LocationScaleLeaf):
                 else np.sqrt(variance)
             self._scale_init = np.maximum(self._scale_init, self._min_scale)
 
-    @staticmethod
-    def _split_in_quantiles(data, num_quantiles):
+    def _split_in_quantiles(self, data, num_quantiles):
         """Given data, finds quantiles of it along zeroth axis. Each quantile is assigned to a
         component. Taken from "Sum-Product Networks: A New Deep Architecture"
         (Poon and Domingos 2012), https://arxiv.org/abs/1202.3732.
@@ -588,6 +628,9 @@ class NormalLeaf(LocationScaleLeaf):
         Returns:
             Data per quantile: a list of numpy.ndarray corresponding to quantiles.
         """
+        if self._sample_wise_normalization:
+            reduce_axes = tuple(range(1, len(data.shape)))
+            data = (data - np.mean(data, axis=reduce_axes)) / np.std(data, axis=reduce_axes)
         batch_size = data.shape[0]
         quantile_sections = np.arange(
             batch_size // num_quantiles, batch_size, int(np.ceil(batch_size / num_quantiles)))
@@ -604,7 +647,8 @@ class NormalLeaf(LocationScaleLeaf):
         accum = tf.reduce_sum(counts_reshaped, axis=0)
 
         # Tile the feed
-        tiled_feed = self._tile_num_components(self._feed)
+        # tiled_feed = self._tile_num_components(self._feed)
+        tiled_feed = self._preprocessed_feed()
         data_per_component = tf.multiply(counts_reshaped, tiled_feed, name="DataPerComponent")
         squared_data_per_component = tf.multiply(
             counts_reshaped, tf.square(tiled_feed), name="SquaredDataPerComponent")
@@ -625,7 +669,8 @@ class NormalLeaf(LocationScaleLeaf):
                    gradient of the scales.
         """
         incoming_grad = tf.reshape(incoming_grad, (-1, self._num_vars, self._num_components))
-        tiled_feed = self._tile_num_components(self._feed)
+        # tiled_feed = self._tile_num_components(self._feed)
+        tiled_feed = self._preprocessed_feed()
         mean = tf.expand_dims(self._loc_variable, 0)
 
         # Compute the actual variance of the Gaussian without softplus
@@ -755,7 +800,8 @@ class MultivariateNormalDiagLeaf(LocationScaleLeaf):
         accum = tf.reduce_sum(counts_reshaped, axis=0)
 
         # Tile the feed
-        tiled_feed = self._tile_num_components(self._feed)
+        # tiled_feed = self._tile_num_components(self._feed)
+        tiled_feed = self._preprocessed_feed()
         # Accumulate data (broadcast along dim axis)
         data_per_component = tf.multiply(counts_reshaped, tiled_feed, name="DataPerComponent")
         squared_data_per_component = tf.multiply(
