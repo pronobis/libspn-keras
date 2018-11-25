@@ -372,6 +372,7 @@ class LocationScaleLeaf(DistributionLeaf, abc.ABC):
         # Initial value for means
         variable_shape = self._variable_shape(num_vars, num_components, dimensionality)
         self._min_scale = min_scale if not softplus_scale else np.log(np.exp(min_scale) - 1)
+        self._sample_wise_normalization = samplewise_normalization
         self.init_variables(variable_shape, loc_init, scale_init, softplus_scale)
         self._trainable_scale = trainable_scale
         self._trainable_loc = trainable_loc
