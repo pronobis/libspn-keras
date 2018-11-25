@@ -631,7 +631,8 @@ class NormalLeaf(LocationScaleLeaf):
         """
         if self._sample_wise_normalization:
             reduce_axes = tuple(range(1, len(data.shape)))
-            data = (data - np.mean(data, axis=reduce_axes)) / np.std(data, axis=reduce_axes)
+            data = (data - np.mean(data, axis=reduce_axes, keepdims=True)) \
+                   / np.std(data, axis=reduce_axes, keepdims=True)
         batch_size = data.shape[0]
         quantile_sections = np.arange(
             batch_size // num_quantiles, batch_size, int(np.ceil(batch_size / num_quantiles)))
