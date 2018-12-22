@@ -180,15 +180,6 @@ class DistributionLeaf(VarNode, abc.ABC):
         feed_stddev = tf.sqrt(tf.reduce_mean(
             tf.square(self._feed - feed_mean), keepdims=True, axis=reduce_axes))
         return feed_mean, feed_stddev
-        # evidence_size = tf.reduce_sum(
-        #     tf.to_float(self.evidence), axis=reduce_axes, keepdims=True)
-        # zeros = tf.zeros_like(self._feed)
-        # feed_mean = tf.reduce_sum(tf.where(self.evidence, self._feed, zeros),
-        #     axis=reduce_axes, keepdims=True) / evidence_size
-        # feed_stddev = tf.sqrt(tf.reduce_sum(
-        #     tf.where(self.evidence, tf.square(self._feed - feed_mean), zeros),
-        #     keepdims=True, axis=reduce_axes) / evidence_size)
-        # return feed_mean, feed_stddev
 
     @utils.lru_cache
     def _preprocessed_feed(self):
@@ -649,7 +640,6 @@ class NormalLeaf(LocationScaleLeaf):
         accum = tf.reduce_sum(counts_reshaped, axis=0)
 
         # Tile the feed
-        # tiled_feed = self._tile_num_components(self._feed)
         tiled_feed = self._preprocessed_feed()
         data_per_component = tf.multiply(counts_reshaped, tiled_feed, name="DataPerComponent")
         squared_data_per_component = tf.multiply(
@@ -919,13 +909,14 @@ class CauchyLeaf(LocationScaleLeaf):
                  trainable_scale=True, trainable_loc=True,
                  loc_init=Equidistant(), scale_init=1.0,
                  min_scale=1e-2, evidence_indicator_feed=None, softplus_scale=False,
-                 share_scales=False, share_locs_across_vars=False):
+                 share_scales=False, share_locs_across_vars=False, samplewise_normalization=False):
         super().__init__(
             feed=feed, evidence_indicator_feed=evidence_indicator_feed,
             num_vars=num_vars, num_components=num_components, trainable_loc=trainable_loc,
             trainable_scale=trainable_scale, loc_init=loc_init, scale_init=scale_init,
             min_scale=min_scale, softplus_scale=softplus_scale, name=name, dimensionality=1,
-            share_scales=share_scales, share_locs_across_vars=share_locs_across_vars)
+            share_scales=share_scales, share_locs_across_vars=share_locs_across_vars,
+            samplewise_normalization=samplewise_normalization)
 
     def _create_dist(self):
         if self._softplus_scale:
