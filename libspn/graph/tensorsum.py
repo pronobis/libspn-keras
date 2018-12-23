@@ -5,6 +5,7 @@ from libspn.graph.weights import Weights, TensorWeights
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
 import libspn.utils as utils
+from tensorflow.python.framework import tensor_util
 from libspn.log import get_logger
 from itertools import chain
 import tensorflow as tf
@@ -121,6 +122,32 @@ class TensorSum(TensorNode):
         if weights and not isinstance(weights.node, (Weights, TensorWeights)):
             raise StructureError("%s is not Weights" % weights.node)
         self._weights = weights
+
+    @utils.lru_cache
+    def _create_dropconnect_mask(
+            self, keep_prob, to_be_masked, enforce_one_axis=-1, name="DropconnectMask"):
+        with tf.name_scope(name):
+            shape = tf.shape(to_be_masked)
+            drop_mask = tf.random_uniform(shape=shape, minval=0.0, maxval=1.0)
+            # To ensure numerical stability and the opportunity to always learn something,
+            # we enforce at least a single 'True' value along the last axis (sum axis) by comparing
+            # the randomly drawn floats with their minimum and setting True in case of equality.
+            # return tf.less(mask, keep_prob)
+            if self._masked:
+                rank = tf.size(shape)
+                size_mask = tf.reshape(
+                    self._build_mask(),
+                    tf.concat([tf.ones(rank - 2, dtype=tf.int32),
+                               [self._num_sums, self._max_sum_size]], axis=0))
+                size_mask = tf.tile(size_mask, tf.concat([shape[:rank - 2], [1, 1]], axis=0))
+                drop_mask = tf.where(
+                    size_mask, drop_mask, tf.ones_like(size_mask, dtype=tf.float32) * 1e20)
+
+            if enforce_one_axis is None:
+                return tf.less(drop_mask, keep_prob)
+            mask_min = tf.reduce_min(drop_mask, axis=enforce_one_axis, keepdims=True)
+            out = tf.logical_or(tf.equal(drop_mask, mask_min), tf.less(drop_mask, keep_prob))
+            return out
 
     @property
     def ivs(self):
@@ -248,6 +275,11 @@ class TensorSum(TensorNode):
     def _compute_log_value(self, w_tensor, ivs_tensor, *value_tensors, dropconnect_keep_prob=None,
                            with_ivs=True):
         child = value_tensors[0]
+        if ivs_tensor is None and dropconnect_keep_prob is not None and \
+            tensor_util.constant_value(dropconnect_keep_prob):
+            mask = self._create_dropconnect_mask(dropconnect_keep_prob, to_be_masked=child)
+            child += tf.log(mask)
+
         return utils.logmatmul(self._compute_apply_ivs(child, ivs_tensor), w_tensor)
 
     @utils.docinherit(OpNode)
@@ -280,6 +312,7 @@ class TensorSum(TensorNode):
         child = self._compute_apply_ivs(child, ivs_tensor)
         return tf.expand_dims(child, 4) + tf.expand_dims(w_tensor, 2)
 
+    @utils.lru_cache
     def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, *value_tensors,
                           use_unweighted=False, with_ivs=True, add_random=None,
                           sample=False, sample_prob=None, dropconnect_keep_prob=None):
