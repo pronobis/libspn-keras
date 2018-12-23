@@ -99,8 +99,6 @@ class MPEPath:
                 # Compute for inputs
                 with tf.name_scope(node.name):
                     if self._log:
-                        print(node)
-                        print(summed, [self._value.values[i.node] if i else None for i in node.inputs])
                         return node._compute_log_mpe_path(
                             summed, *[self._value.values[i.node] if i else None
                                       for i in node.inputs], **kwargs)
@@ -115,8 +113,6 @@ class MPEPath:
 
         with tf.name_scope("TrueMPEPath"):
             # Compute the tensor to feed to the root node
-            for k, v in self._value.values.items():
-                print(k, v)
             graph_input = tf.ones_like(self._value.values[root])
 
             # Traverse the graph computing counts
@@ -159,8 +155,6 @@ class MPEPath:
             self._value.get_value(root)
 
         with tf.name_scope("ActualMPEPath"):
-            for k, v in self._value.values.items():
-                print(k, v)
             graph_input = tf.ones_like(self._value.values[root])
 
             # Traverse the graph computing counts
