@@ -47,6 +47,61 @@ class ValueType:
             self.max_val = data['max_val']
 
 
+def logmatmul(a, b, transpose_a=False, transpose_b=False, name=None):
+    with tf.name_scope(name, "logmatmul", [a, b]):
+        # Number of outer dimensions
+        num_outer_a = len(a.shape) - 2
+        num_outer_b = len(b.shape) - 2
+
+        # Reduction axis
+        reduce_axis_a = num_outer_a if transpose_a else num_outer_a + 1
+        reduce_axis_b = num_outer_b + 1 if transpose_b else num_outer_b
+
+        # Compute max for each tensor for numerical stability
+        max_a = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(a, axis=reduce_axis_a, keepdims=True)))
+        max_b = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(b, axis=reduce_axis_b, keepdims=True)))
+
+        # Subtract
+        a -= max_a
+        b -= max_b
+
+        # Compute logsumexp using matrix mutiplication
+        out = tf.log(tf.matmul(
+            tf.exp(a), tf.exp(b), transpose_a=transpose_a, transpose_b=transpose_b))
+
+        # If necessary, transpose max_a or max_b
+        if transpose_a:
+            max_a = tf.transpose(
+                max_a, list(range(num_outer_a)) + [num_outer_a + 1, num_outer_a])
+        if transpose_b:
+            max_b = tf.transpose(
+                max_b, list(range(num_outer_b)) + [num_outer_b + 1, num_outer_b])
+        out += max_a
+        out += max_b
+    return out
+
+
+def logconv_1x1(input, filter, name=None):
+    with tf.name_scope(name, "logconv_1x1", [input, filter]):
+        filter_max = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(filter, axis=-2, keepdims=True)))
+        input_max = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(input, axis=-1, keepdims=True)))
+
+        filter -= filter_max
+        input -= input_max
+
+        out = tf.log(tf.nn.convolution(
+            input=tf.exp(input), filter=tf.exp(filter), padding="SAME"))
+        out += filter_max + input_max
+
+    return out
+
+def replace_infs_with_zeros(x):
+    return tf.where(tf.is_inf(x), tf.zeros_like(x), x)
+
 def gather_cols(params, indices, name=None):
     """Gather columns of a 2D tensor or values of a 1D tensor.
 

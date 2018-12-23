@@ -1152,3 +1152,44 @@ class ParameterizedDistributionNode(DistributionNode, abc.ABC):
             init_val = utils.broadcast_value(init, shape, dtype=conf.dtype)
             self._variables[name] = tf.Variable(
                 init_val, dtype=conf.dtype, collections=['spn_distribution_accumulates'])
+
+
+class TensorNode(OpNode, abc.ABC):
+
+    def __init__(self, num_decomps=None, num_scopes=None, inference_type=InferenceType.MARGINAL,
+                 name="TensorNode", input_format="SDBN", output_format="SDBN"):
+        super().__init__(inference_type=inference_type, name=name)
+        self._num_decomps = num_decomps
+        self._num_scopes = num_scopes
+        self._input_format = input_format
+        self._output_format = output_format
+
+    def describe(self):
+        return "{}: [{} x {} x ? x {}]".format(
+            self._name, self.dim_scope, self.dim_decomps, self.dim_nodes)
+
+    @abstractmethod
+    def dim_nodes(self):
+        """Number of nodes per decomposition and scope. """
+
+    @property
+    def dim_scope(self):
+        return self._num_scopes
+
+    @property
+    def dim_decomps(self):
+        return self._num_decomps
+
+    def set_values(self, *values):
+        """Set the inputs providing input values to this node. If no arguments
+        are given, all existing value inputs get disconnected.
+
+        Args:
+            *values (input_like): Inputs providing input values to this node.
+                See :meth:`~libspn.Input.as_input` for possible values.
+        """
+        if len(values) > 1:
+            raise NotImplementedError("Can only deal with single inputs")
+        if not isinstance(values[0], TensorNode):
+            raise NotImplementedError("Inputs must be TensorNode")
+        self._values = self._parse_inputs(*values)
