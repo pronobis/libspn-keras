@@ -132,7 +132,7 @@ class TensorMergeDecomps(TensorNode):
     @utils.lru_cache
     def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
                                dropconnect_keep_prob=None):
-        raise NotImplementedError()
+        raise self._compute_log_value(*value_tensors, with_ivs=with_ivs)
 
     @utils.lru_cache
     def _compute_mpe_path_common(
@@ -159,13 +159,14 @@ class TensorMergeDecomps(TensorNode):
         """
         raise NotImplementedError()
 
-
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, *value_tensors,
                           use_unweighted=False, with_ivs=True, add_random=None,
                           sample=False, sample_prob=None, dropconnect_keep_prob=None):
-        raise NotImplementedError()
+        child_node = self.values[0]
+        counts = tf.reshape(counts, (-1, child_node.dim_nodes, child_node.dim_decomps))
+        return tf.expand_dims(tf.transpose(counts, [2, 0, 1]), 0)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache

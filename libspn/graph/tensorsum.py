@@ -265,7 +265,49 @@ class TensorSum(TensorNode):
     @utils.lru_cache
     def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
                                dropconnect_keep_prob=None):
-        raise NotImplementedError()
+        child = value_tensors[0]
+        if len(value_tensors) > 1:
+            raise NotImplementedError("Can only deal with a single input")
+        # child: [scope, decomp, batch, nodes_in]
+        # weights: [scope, decomp, nodes_in, nodes_out]
+        return tf.reduce_max(self._compute_weighted(child, w_tensor, ivs_tensor), axis=3)
+
+    @utils.lru_cache
+    def _compute_apply_ivs(self, child, ivs_tensor):
+        if ivs_tensor is not None:
+            if self.dim_scope != 1 or self.dim_decomps != 1:
+                raise NotImplementedError("{}: scope dim and decomposition dim must be 1 to "
+                                          "apply IVs".format(self))
+            # [batch, nodes_input]
+            return tf.reshape(ivs_tensor, (1, 1, -1, self.values[0].node.dim_nodes))
+        return child
+
+    @utils.lru_cache
+    def _compute_weighted(self, child, w_tensor, ivs_tensor):
+        child = self._compute_apply_ivs(child, ivs_tensor)
+        return tf.expand_dims(child, 4) + tf.expand_dims(w_tensor, 2)
+
+    def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, *value_tensors,
+                          use_unweighted=False, with_ivs=True, add_random=None,
+                          sample=False, sample_prob=None, dropconnect_keep_prob=None):
+        # counts: [scope, decomp, batch, nodes_out]
+        # ret: [scope, decomp, batch, nodes_in]
+        # winning_indices: [scope, decomp, batch, nodes_out]
+        child = value_tensors[0]
+        if use_unweighted:
+            winning_indices = \
+                tf.tile(tf.expand_dims(
+                    tf.argmax(self._compute_apply_ivs(child, ivs_tensor), axis=-1), -1
+                ), (1, 1, 1, child.dim_nodes))
+        else:
+            weighted = self._compute_weighted(child, w_tensor, ivs_tensor)
+            winning_indices = tf.argmax(weighted, axis=3)
+
+        winning_indices_one_hot = tf.one_hot(winning_indices, depth=child.dim_nodes, axis=-1)
+        paths = tf.expand_dims(counts, axis=3) * winning_indices_one_hot
+        input_counts = tf.reduce_sum(paths, axis=3)
+        weight_counts = tf.reduce_sum(paths, axis=0)
+        return weight_counts, input_counts, input_counts
 
     @utils.lru_cache
     def _compute_mpe_path_common(
@@ -295,22 +337,14 @@ class TensorSum(TensorNode):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, *value_tensors,
-                          use_unweighted=False, with_ivs=True, add_random=None,
-                          sample=False, sample_prob=None, dropconnect_keep_prob=None):
-        weighted = not use_unweighted or any(v.node.is_var for v in self._values)
-        reducible = self._compute_reducible(w_tensor, ivs_tensor, *value_tensors, log=False,
-                                            weighted=weighted, use_ivs=with_ivs,
-                                            dropconnect_keep_prob=dropconnect_keep_prob)
-        raise NotImplementedError()
-
-    @utils.docinherit(OpNode)
-    @utils.lru_cache
     def _compute_log_mpe_path(self, counts, w_tensor, ivs_tensor, *input_tensors,
                               use_unweighted=False, with_ivs=True, add_random=None,
                               sum_weight_grads=False, sample=False, sample_prob=None,
                               dropconnect_keep_prob=None):
-        raise NotImplementedError()
+        raise self._compute_mpe_path(
+            counts, w_tensor, ivs_tensor, *input_tensors, use_unweighted=use_unweighted,
+            with_ivs=with_ivs, add_random=add_random, sample=sample,
+            sample_prob=sample_prob, dropconnect_keep_prob=dropconnect_keep_prob)
 
     def _get_flat_value_scopes(self, weight_scopes, ivs_scopes, *value_scopes):
         """Get a flat representation of the value scopes per sum.

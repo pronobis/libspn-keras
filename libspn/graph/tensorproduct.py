@@ -153,7 +153,8 @@ class TensorProduct(TensorNode):
     @utils.lru_cache
     def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
                                dropconnect_keep_prob=None):
-        raise NotImplementedError()
+        return self._compute_log_value(w_tensor, ivs_tensor, *value_tensors, with_ivs=with_ivs,
+                                       dropconnect_keep_prob=dropconnect_keep_prob)
 
     @utils.lru_cache
     def _compute_mpe_path_common(
@@ -186,7 +187,22 @@ class TensorProduct(TensorNode):
     def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, *value_tensors,
                           use_unweighted=False, with_ivs=True, add_random=None,
                           sample=False, sample_prob=None, dropconnect_keep_prob=None):
-        raise NotImplementedError()
+        # Simple case first:
+        # Number of factors is 2 and inputs are vectors of size m and n
+        # value = outer_product(x, y) with shape m x n
+
+        # More sophisticated
+        # Num of factors is 3
+        # value = outer_product(x, y, z) with shape m x n x o
+        child = self.values[0].node
+        counts_reshaped = tf.reshape(
+            counts, [self.dim_scope, self.dim_decomps, -1] + [child.dim_nodes] * self._num_factors)
+        counts_reduced = []
+        for i in range(self._num_factors):
+            reduce_axes = [j + 3 for j in range(self._num_factors) if j != i]
+            counts_reduced.append(tf.reduce_sum(counts_reshaped, axis=reduce_axes))
+        return tuple(tf.reshape(tf.stack(counts_reduced, axis=1),
+                                (child.dim_scope, self.dim_decomps, -1, child.dim_nodes)))
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
@@ -194,7 +210,11 @@ class TensorProduct(TensorNode):
                               use_unweighted=False, with_ivs=True, add_random=None,
                               sum_weight_grads=False, sample=False, sample_prob=None,
                               dropconnect_keep_prob=None):
-        raise NotImplementedError()
+        return self._compute_mpe_path(
+            counts, w_tensor, ivs_tensor, *input_tensors,
+            use_unweighted=use_unweighted, with_ivs=with_ivs, add_random=add_random,
+            sum_weight_grads=sum_weight_grads, sample=sample, sample_prob=sample_prob,
+            dropconnect_keep_prob=dropconnect_keep_prob)
 
     @utils.docinherit(OpNode)
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):

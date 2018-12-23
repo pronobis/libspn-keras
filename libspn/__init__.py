@@ -20,6 +20,9 @@ from libspn.graph.concat import Concat
 from libspn.graph.sum import Sum
 from libspn.graph.parsums import ParSums
 from libspn.graph.sumslayer import SumsLayer
+from libspn.graph.tensorsum import TensorSum
+from libspn.graph.tensorproduct import TensorProduct
+from libspn.graph.tensor_merge_decomps import TensorMergeDecomps
 from libspn.graph.product import Product
 from libspn.graph.permproducts import PermProducts
 from libspn.graph.productslayer import ProductsLayer
