@@ -15,6 +15,7 @@ from libspn import utils
 from libspn.exceptions import StructureError
 
 import numbers
+from tensorflow.initializers import random_uniform as random_uniform_initializer
 
 
 @register_serializable
@@ -277,6 +278,169 @@ class Weights(ParamNode):
         return counts
 
 
+@register_serializable
+class TensorWeights(ParamNode):
+    """A node containing a vector of weights of a sum node.
+
+    Args:
+        init_value: Initial value of the weights. For possible values, see
+                    :meth:`~libspn.utils.broadcast_value`.
+        num_weights (int): Number of weights in the vector.
+        num_sums (int): Number of sum nodes the weight vector/matrix represents.
+        log (bool): If "True", the weights are represented in log space.
+        mask (list): List of booleans with num_weights * num_sums elements, used for masking weights
+        name (str): Name of the node.
+
+    Attributes:
+        trainable(bool): Should these weights be updated during training?
+    """
+
+    def __init__(self, num_inputs, num_outputs, num_decomps, num_scopes, in_logspace=True,
+                 init_value=1, trainable=True, mask=None,
+                 initializer=random_uniform_initializer(0.0, 1.0), name="TensorWeights"):
+        if not isinstance(num_inputs, int) or num_inputs < 1:
+            raise ValueError("num_inputs must be a positive integer")
+
+        if not isinstance(num_outputs, int) or num_outputs < 1:
+            raise ValueError("num_outputs must be a positive integer")
+
+        self._init_value = init_value
+        self._num_inputs = num_inputs
+        self._num_outputs = num_outputs
+        self._num_decomps = num_decomps
+        self._num_scopes = num_scopes
+        self._normalize_axis = 2
+        self._in_logspace = in_logspace
+        self._trainable = trainable
+        self._initializer = initializer
+        self._mask = mask
+        super().__init__(name)
+
+    def serialize(self):
+        raise NotImplementedError()
+
+    def deserialize(self, data):
+        raise NotImplementedError()
+
+    @property
+    def in_logspace(self):
+        """bool: Boolean variable indicating the space in which weights are stored."""
+        return self._in_logspace
+
+    @property
+    def mask(self):
+        """list(int): Boolean mask for weights."""
+        return self._mask
+
+    @property
+    def num_inputs(self):
+        """int: Number of weights in the vector."""
+        return self._num_inputs
+
+    @property
+    def num_outputs(self):
+        """int: Number of sum nodes the weights vector/matrix represents."""
+        return self._num_outputs
+
+    @property
+    def num_decomps(self):
+        return self._num_decomps
+
+    @property
+    def num_scopes(self):
+        return self._scopes
+
+    @property
+    def variable(self):
+        """Variable: The TF variable of shape ``[num_sums, num_weights]``
+        holding the weights."""
+        return self._variable
+
+    def initialize(self):
+        """Return a TF operation assigning the initial value to the weights.
+
+        Returns:
+            Tensor: The initialization assignment operation.
+        """
+        return self._variable.initializer
+
+    def _normalized(self, x=None, logspace=None, linear_w_minimum=1e-2, log_w_minimum=-1e10):
+        x = x if x is not None else self._variable
+        logspace = logspace or self._in_logspace
+        if logspace:
+            x = tf.maximum(x, log_w_minimum)
+            return x - tf.reduce_logsumexp(x, axis=self._normalize_axis, keepdims=True)
+        x = tf.maximum(x, linear_w_minimum)
+        return x / tf.reduce_sum(x, axis=self._normalize_axis, keepdims=True)
+
+    def normalize(self, value=None, name="Normalize", linear_w_minimum=1e-2, log_w_minimum=-1e10):
+        with tf.name_scope(name):
+            normalized = self._normalized(
+                x=value, linear_w_minimum=linear_w_minimum, log_w_minimum=log_w_minimum)
+            return tf.assign(self._variable, normalized)
+
+    def assign(self, value):
+        """Return a TF operation assigning values to the weights.
+
+        Args:
+            value: The value to assign to the weights. For possible values, see
+                   :meth:`~libspn.utils.broadcast_value`.
+
+        Returns:
+            Tensor: The assignment operation.
+        """
+        return tf.assign(self._variable, self._normalized(value))
+
+    def renormalize(self):
+        return self.assign(self._variable)
+
+    @property
+    def shape(self):
+        return [self._num_scopes, self._num_decomps, self._num_inputs, self._num_outputs]
+
+    def _create(self):
+        """Creates a TF variable holding the vector of the SPN weights.
+
+        Returns:
+            Variable: A TF variable of shape ``[num_weights]``.
+        """
+
+        def log_wrapper(shape, dtype=None, partition_info=None):
+            linspace = self._initializer(
+                shape=shape, dtype=dtype, partition_info=partition_info)
+            return self._normalized(tf.log(linspace) if self._in_logspace else linspace)
+
+        self._variable = tf.get_variable(
+            self._name, shape=self.shape, trainable=self._trainable, initializer=log_wrapper)
+
+    def _compute_out_size(self):
+        return self._num_inputs * self._num_outputs
+
+    @utils.lru_cache
+    def _compute_value(self):
+        if self._in_logspace:
+            return tf.exp(self._variable)
+        else:
+            return self._variable
+
+    @utils.lru_cache
+    def _compute_log_value(self):
+        if self._in_logspace:
+            return self._variable
+        else:
+            return tf.log(self._variable)
+
+    def _compute_hard_gd_update(self, grads):
+        if len(grads.shape) == 3:
+            return tf.reduce_sum(grads, axis=0)
+        return grads
+
+    def _compute_hard_em_update(self, counts):
+        if len(counts.shape) == 3:
+            return tf.reduce_sum(counts, axis=0)
+        return counts
+
+
 def assign_weights(root, value, name=None):
     """Generate an assign operation assigning a value to all the weights in
     the SPN graph rooted in ``root``.
@@ -311,12 +475,8 @@ def initialize_weights(root, name="InitializeWeights"):
     initialize_ops = []
 
     def initialize(node):
-        if isinstance(node, Weights):
+        if isinstance(node, (Weights, TensorWeights, NormalLeaf, MultivariateNormalDiagLeaf)):
             initialize_ops.append(node.initialize())
-        if isinstance(node, NormalLeaf):
-            initialize_ops.extend(node.initialize())
-        if isinstance(node, MultivariateNormalDiagLeaf):
-            initialize_ops.extend(node.initialize())
 
     with tf.name_scope(name):
         # Get all assignment operations

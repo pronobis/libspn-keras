@@ -8,6 +8,7 @@
 import tensorflow as tf
 from libspn.graph.basesum import BaseSum
 from libspn.graph.algorithms import compute_graph_up
+from libspn.graph.tensorsum import TensorSum
 
 
 class WeightsGenerator:
@@ -43,7 +44,7 @@ class WeightsGenerator:
             root: The root node of the SPN graph.
         """
         def gen(node, *input_out_sizes):
-            if isinstance(node, (BaseSum)):
+            if isinstance(node, (BaseSum, TensorSum)):
                 self._weights[node] = node.generate_weights(
                     init_value=self.init_value, trainable=self.trainable,
                     input_sizes=node._gather_input_sizes(*input_out_sizes),

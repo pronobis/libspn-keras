@@ -4,6 +4,7 @@
 # This file is part of LibSPN. Unauthorized use or copying of this file,
 # via any medium is strictly prohibited. Proprietary and confidential.
 # ------------------------------------------------------------------------
+from collections import OrderedDict
 
 import tensorflow as tf
 from types import MappingProxyType
@@ -153,6 +154,6 @@ class LogValue:
                 else:
                     return node._compute_log_mpe_value(*args, **kwargs)
 
-        self._values = {}
+        self._values = OrderedDict()
         with tf.name_scope(self._name):
             return compute_graph_up(root, val_fun=fun, all_values=self._values)

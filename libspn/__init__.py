@@ -22,6 +22,10 @@ from libspn.graph.parsums import ParSums
 from libspn.graph.sumslayer import SumsLayer
 from libspn.graph.convsum import ConvSum
 from libspn.graph.localsum import LocalSum
+from libspn.graph.tensorsum import TensorSum
+from libspn.graph.tensorproduct import TensorProduct
+from libspn.graph.tensorrandomize import TensorRandomize
+from libspn.graph.tensor_merge_decomps import TensorMergeDecomps
 from libspn.graph.product import Product
 from libspn.graph.permproducts import PermProducts
 from libspn.graph.productslayer import ProductsLayer
@@ -124,9 +128,10 @@ __all__ = [
     # Graph
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IVs', 'ContVars',
-    'Sum', 'ParSums', 'SumsLayer',
-    'Product', 'PermProducts', 'ProductsLayer',
+    'Sum', 'ParSums', 'SumsLayer', 'TensorSum',
+    'Product', 'PermProducts', 'ProductsLayer', 'TensorProduct',
     'ConvProd2D', '_ConvProdNaive',
+    'TensorMergeDecomps', 'TensorRandomize',
     'NormalLeaf', 'MultivariateNormalDiagLeaf',
     'CauchyLeaf', 'LaplaceLeaf', 'StudentTLeaf', 'LocationScaleLeaf',
     'DistributionLeaf', 'TruncatedNormalLeaf',

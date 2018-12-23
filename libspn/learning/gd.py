@@ -214,6 +214,7 @@ class GDLearning:
                 dropconnect_keep_prob=dropconnect_keep_prob,
                 dropprod_keep_prob=dropprod_keep_prob,
                 noise=noise, batch_noise=batch_noise)
+            # log_prob_data_and_labels = tf.Print(log_prob_data_and_labels, [log_prob_data_and_labels, log_prob_data], summarize=10)
             return -reduce_fn(log_prob_data_and_labels - log_prob_data)
 
     def mle_loss(self, name="MaximumLikelihoodLoss", reduce_fn=tf.reduce_mean,
