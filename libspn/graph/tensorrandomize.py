@@ -174,6 +174,7 @@ class TensorRandomize(TensorNode):
                           (1, 0, 2))], axis=0)
         gather_indices = self._perms + 1
         permuted = self._gather_op = tf.gather(zero_padded, np.transpose(gather_indices))
+        self._zero_padded_shape = tf.shape(zero_padded)
 
         return permuted
 
@@ -212,7 +213,6 @@ class TensorRandomize(TensorNode):
         """
         raise NotImplementedError()
 
-
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_mpe_path(self, counts, *value_tensors,
@@ -228,8 +228,11 @@ class TensorRandomize(TensorNode):
                               dropconnect_keep_prob=None):
         # counts is shape [scope, decomps, batch, nodes]
         # will have to be transformed to [batch, scope * nodes]
-        grad = _GatherV2Grad(self._gather_op._op, counts)[0]
-        return tf.reshape(tf.transpose(grad, (1, 0, 2)), (-1, self.values[0].node._compute_out_size())),
+        grad = tf.reshape(_GatherV2Grad(self._gather_op._op, counts)[0], self._zero_padded_shape)
+        dim_scope_in = self.values[0].node.num_vars
+        _, counts_in = tf.split(grad, num_or_size_splits=[1, dim_scope_in], axis=0)
+        return tf.reshape(tf.transpose(counts_in, (1, 0, 2)),
+                          (-1, self.values[0].node._compute_out_size())),
 
     @utils.docinherit(OpNode)
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):

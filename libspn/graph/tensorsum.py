@@ -316,20 +316,17 @@ class TensorSum(TensorNode):
     def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, *value_tensors,
                           use_unweighted=False, with_ivs=True, add_random=None,
                           sample=False, sample_prob=None, dropconnect_keep_prob=None):
-        # counts: [scope, decomp, batch, nodes_out]
-        # ret: [scope, decomp, batch, nodes_in]
-        # winning_indices: [scope, decomp, batch, nodes_out]
         child = value_tensors[0]
         child_node = self.values[0].node
         if use_unweighted:
-            winning_indices = \
-                tf.tile(tf.expand_dims(
-                    tf.argmax(self._compute_apply_ivs(child, ivs_tensor), axis=-1), -1
-                ), (1, 1, 1, child_node.dim_nodes))
+            winning_indices = utils.argmax_breaking_ties(
+                self._compute_apply_ivs(child, ivs_tensor), num_samples=child_node.dim_nodes,
+                keepdims=True)
         else:
             weighted = self._compute_weighted(child, w_tensor, ivs_tensor)
-            winning_indices = tf.argmax(weighted, axis=3)
+            winning_indices = utils.argmax_breaking_ties(weighted, axis=-2)
 
+        # paths = utils.scatter_values_nd(counts, winning_indices, depth=child_node.dim_nodes)
         winning_indices_one_hot = tf.one_hot(winning_indices, depth=child_node.dim_nodes, axis=-1)
         paths = tf.expand_dims(counts, axis=3) * winning_indices_one_hot
         input_counts = tf.reduce_sum(paths, axis=3)
@@ -370,20 +367,18 @@ class TensorSum(TensorNode):
                               dropconnect_keep_prob=None):
         child = value_tensors[0]
         child_node = self.values[0].node
-        if use_unweighted:
-            winning_indices = \
-                tf.tile(tf.expand_dims(
-                    tf.argmax(self._compute_apply_ivs(child, ivs_tensor), axis=-1), -1
-                ), (1, 1, 1, child_node.dim_nodes))
-        else:
-            # print(child, w_tensor, ivs_tensor)
-            weighted = self._compute_weighted(child, w_tensor, ivs_tensor)
-            winning_indices = tf.argmax(weighted, axis=3)
 
-        winning_indices_one_hot = tf.one_hot(winning_indices, depth=child_node.dim_nodes, axis=3)
-        paths = tf.expand_dims(counts, axis=3) * winning_indices_one_hot
-        input_counts = tf.reduce_sum(paths, axis=4)
-        weight_counts = tf.reduce_sum(paths, axis=0)
+        if use_unweighted:
+            winning_indices = utils.argmax_breaking_ties(
+                self._compute_apply_ivs(child, ivs_tensor), num_samples=child_node.dim_nodes,
+                keepdims=True)
+        else:
+            weighted = self._compute_weighted(child, w_tensor, ivs_tensor)
+            winning_indices = utils.argmax_breaking_ties(weighted, axis=-2)
+
+        paths = utils.scatter_values_nd(counts, winning_indices, depth=child_node.dim_nodes)
+        input_counts = tf.reduce_sum(paths, axis=3)
+        weight_counts = tf.transpose(tf.reduce_sum(paths, axis=2), (0, 1, 3, 2))
         ivs_counts = tf.reshape(input_counts, (-1, self._num_sums))
         return weight_counts, ivs_counts, input_counts
 

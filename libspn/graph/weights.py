@@ -364,6 +364,10 @@ class TensorWeights(ParamNode):
         """
         return self._variable.initializer
 
+    @property
+    def log(self):
+        return self._in_logspace
+
     def _normalized(self, x=None, logspace=None, linear_w_minimum=1e-2, log_w_minimum=-1e10):
         x = x if x is not None else self._variable
         logspace = logspace or self._in_logspace
@@ -378,6 +382,9 @@ class TensorWeights(ParamNode):
             normalized = self._normalized(
                 x=value, linear_w_minimum=linear_w_minimum, log_w_minimum=log_w_minimum)
             return tf.assign(self._variable, normalized)
+
+    def assign_log(self, value):
+        return self.assign(value)
 
     def assign(self, value):
         """Return a TF operation assigning values to the weights.

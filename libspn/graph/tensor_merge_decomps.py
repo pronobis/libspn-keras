@@ -180,7 +180,7 @@ class TensorMergeDecomps(TensorNode):
         child = self.values[0].node
         counts = tf.reshape(counts, (self.dim_decomps, -1, child.dim_nodes, self._factor))
         return tf.reshape(tf.transpose(counts, [0, 3, 1, 2]),
-                          (child.dim_scope, child.dim_decomps, -1, child.dim_nodes))
+                          (child.dim_scope, child.dim_decomps, -1, child.dim_nodes)),
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
@@ -190,7 +190,7 @@ class TensorMergeDecomps(TensorNode):
         child = self.values[0].node
         counts = tf.reshape(counts, (self.dim_decomps, -1, child.dim_nodes, self._factor))
         return tf.reshape(tf.transpose(counts, [0, 3, 1, 2]),
-                          (child.dim_scope, child.dim_decomps, -1, child.dim_nodes))
+                          (child.dim_scope, child.dim_decomps, -1, child.dim_nodes)),
 
     @utils.docinherit(OpNode)
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):

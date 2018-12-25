@@ -27,6 +27,9 @@ from .math import one_hot_conv2d_backprop
 from .math import logmatmul
 from .math import logtensordot
 from .math import logconv_1x1
+from .math import multinomial_sample
+from .math import argmax_breaking_ties
+from .math import scatter_values_nd
 from .partition import StirlingNumber
 from .partition import StirlingRatio
 from .partition import Stirling
@@ -48,6 +51,7 @@ from .spngraphkeys import SPNGraphKeys
 __all__ = ['decode_bytes_array', 'scatter_cols', 'scatter_values',
            'one_hot_conv2d', 'one_hot_conv2d_backprop',
            'logmatmul', 'logtensordot', 'logconv_1x1',
+           'multinomial_sample', 'argmax_breaking_ties',
            'gather_cols', 'gather_cols_3d', 'ValueType', 'broadcast_value',
            'normalize_tensor', 'normalize_tensor_2D', 'normalize_log_tensor_2D',
            'reduce_log_sum', 'reduce_log_sum_3D', 'concat_maybe', 'split_maybe',

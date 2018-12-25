@@ -493,6 +493,50 @@ def scatter_cols(params, indices, num_out_cols, name=None):
                     return gather_cols(with_zeros, gather_indices)
 
 
+@lru_cache
+def multinomial_sample(logits, num_samples, name="MultinomialSample"):
+    with tf.name_scope(name):
+        shape = tf.shape(logits)
+        last_dim = shape[-1]
+        logits = tf.reshape(logits, (-1, last_dim))
+        sample = tf.multinomial(logits, num_samples)
+        return tf.reshape(sample, tf.concat([shape[:-1], [num_samples]], axis=0))
+
+
+@lru_cache
+def argmax_breaking_ties(x, num_samples=1, keepdims=False, name="ArgMaxBreakingTies", axis=-1):
+    with tf.name_scope(name):
+        axis = (axis + len(x.shape)) % len(x.shape)
+        if axis != len(x.shape) - 1:
+            permutation = [i if i != axis else len(x.shape) - 1
+                           for i in range(len(x.shape) - 1)] + [axis]
+            x = tf.transpose(x, permutation)
+            permutation_inverse = tf.invert_permutation(permutation)
+        else:
+            permutation_inverse = None
+        eq_max = tf.equal(x, tf.reduce_max(x, axis=-1, keepdims=True))
+        logits = tf.log(tf.to_float(eq_max))
+        argmax = multinomial_sample(logits, num_samples)
+        if keepdims:
+            if permutation_inverse is not None:
+                return tf.transpose(argmax, permutation_inverse)
+            return argmax
+        elif num_samples != 1:
+            raise ValueError("Cannot take out last dim if num_samples > 1")
+        return tf.squeeze(argmax, axis=-1)
+
+
+def scatter_values_nd(params, indices, depth, name="ScatterValuesND"):
+
+    with tf.name_scope(name):
+        last_dim = params.shape[-1].value
+        shape = (-1, last_dim)
+        out_shape = tf.concat([tf.shape(params), [depth]], axis=0)
+        scattered = scatter_values(
+            tf.reshape(params, shape), tf.reshape(indices, shape), num_out_cols=depth)
+        return tf.reshape(scattered, out_shape)
+
+
 def scatter_values(params, indices, num_out_cols, name=None):
     """Scatter values of a rank R (1D or 2D) tensor into a rank R+1 (2D or 3D)
     tensor, with the inner-most dimensions having size ``num_out_cols``.
