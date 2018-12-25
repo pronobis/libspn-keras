@@ -64,11 +64,6 @@ class TensorProduct(TensorNode):
             output_format=output_format, num_decomps=num_decomps, num_scopes=num_scopes)
         self.set_values(*values)
         self._num_factors = num_factors
-        self._batch_axis = 2
-        self._decomp_axis = 1
-        self._scope_axis = 0
-        self._node_axis = 3
-
     @property
     def dim_scope(self):
         return self._values[0].node.dim_scope // self._num_factors

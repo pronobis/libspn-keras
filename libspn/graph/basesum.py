@@ -358,8 +358,8 @@ class BaseSum(OpNode, abc.ABC):
                 else:
                     self.logger.debug1("{}: Applying dropout with p={} to pairwise "
                                        "multiplications.".format(self, dropconnect_keep_prob))
-                    shape = tf.shape(reducible) if conf.dropout_mode == "pairwise" \
-                        else tf.shape(w_tensor)
+                    shape = tf.concat([tf.shape(reducible)[:1], [self._num_sums, self._max_sum_size]], axis=0) \
+                        if conf.dropout_mode == "pairwise" else tf.shape(w_tensor)
                     mask = self._create_dropconnect_mask(dropconnect_keep_prob, shape)
                     if log:
                         mask = tf.log(tf.to_float(mask))
@@ -387,7 +387,9 @@ class BaseSum(OpNode, abc.ABC):
                         "behavior of learning. Therefore, dropconnect is turned off for node {}."
                             .format(self))
                 else:
-                    mask = self._create_dropconnect_mask(dropconnect_keep_prob, tf.shape(reducible))
+                    mask = self._create_dropconnect_mask(
+                        dropconnect_keep_prob,
+                        tf.concat([tf.shape(reducible)[:1], [self._num_sums, self._max_sum_size]], axis=0))
                     if log:
                         mask = tf.log(tf.to_float(mask))
                     else:

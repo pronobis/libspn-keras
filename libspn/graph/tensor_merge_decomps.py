@@ -39,12 +39,13 @@ class TensorMergeDecomps(TensorNode):
                                        used during the next inference/learning
                                        op generation.
     """
-    def __init__(self, *values, inference_type=InferenceType.MARGINAL,
+    def __init__(self, *values, factor, inference_type=InferenceType.MARGINAL,
                  name="TensorMergeDecomps", input_format="SDBN", output_format="SDBN"):
         super().__init__(
             inference_type=inference_type, name=name, input_format=input_format,
-            output_format=output_format, num_decomps=1, num_scopes=1)
+            output_format=output_format, num_scopes=1)
         self.set_values(*values)
+        self._factor = factor
 
     def set_values(self, *values):
         self._values = self._parse_inputs(*values)
@@ -65,7 +66,15 @@ class TensorMergeDecomps(TensorNode):
             raise StructureError("{}: cannot get num outputs per decomp and scope since this "
                                  "node has no children.".format(self))
         child = self._values[0].node
-        return child.dim_nodes * child.dim_decomps
+        return child.dim_nodes * self._factor
+
+    @property
+    def dim_decomps(self):
+        if not self._values:
+            raise StructureError("{}: cannot get num outputs per decomp and scope since this "
+                                 "node has no children.".format(self))
+        child = self._values[0].node
+        return child.dim_decomps // self._factor
 
     def _compute_out_size(self, *input_out_sizes):
         pass
@@ -116,7 +125,17 @@ class TensorMergeDecomps(TensorNode):
     @utils.lru_cache
     def _compute_log_value(self, *value_tensors, with_ivs=True):
         child = value_tensors[0]
-        return tf.reshape(tf.transpose(child, [0, 2, 3, 1]), [1, 1, -1, self.dim_nodes])
+        child_node = self.values[0].node
+        if child_node.dim_scope != 1:
+            raise StructureError("Can only merge decompositions if scope axis is 1")
+        if child_node.dim_decomps % self._factor != 0:
+            raise StructureError("Number of decomps in child is not multiple of factor {} vs {} "
+                                 .format(child_node.dim_decomps, self._factor))
+
+        dim_decomps = child_node.dim_decomps // self._factor
+        child = tf.reshape(child, (child_node.dim_scope, dim_decomps, self._factor, -1, child_node.dim_nodes))
+
+        return tf.reshape(tf.transpose(child, [0, 1, 3, 4, 2]), [1, dim_decomps, -1, self.dim_nodes])
 
     @utils.docinherit(OpNode)
     def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):
@@ -158,18 +177,20 @@ class TensorMergeDecomps(TensorNode):
     def _compute_mpe_path(self, counts, *value_tensors, use_unweighted=False, with_ivs=True,
                           add_random=None, sample=False, sample_prob=None,
                           dropconnect_keep_prob=None):
-        child_node = self.values[0].node
-        counts = tf.reshape(counts, (-1, child_node.dim_nodes, child_node.dim_decomps))
-        return tf.expand_dims(tf.transpose(counts, [2, 0, 1]), 0)
+        child = self.values[0].node
+        counts = tf.reshape(counts, (self.dim_decomps, -1, child.dim_nodes, self._factor))
+        return tf.reshape(tf.transpose(counts, [0, 3, 1, 2]),
+                          (child.dim_scope, child.dim_decomps, -1, child.dim_nodes))
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_log_mpe_path(self, counts, *input_tensors, use_unweighted=False, with_ivs=True,
                               add_random=None, sum_weight_grads=False, sample=False, sample_prob=None,
                               dropconnect_keep_prob=None):
-        child_node = self.values[0].node
-        counts = tf.reshape(counts, (-1, child_node.dim_nodes, child_node.dim_decomps))
-        return tf.expand_dims(tf.transpose(counts, [2, 0, 1]), 0)
+        child = self.values[0].node
+        counts = tf.reshape(counts, (self.dim_decomps, -1, child.dim_nodes, self._factor))
+        return tf.reshape(tf.transpose(counts, [0, 3, 1, 2]),
+                          (child.dim_scope, child.dim_decomps, -1, child.dim_nodes))
 
     @utils.docinherit(OpNode)
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):
