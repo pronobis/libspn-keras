@@ -70,6 +70,7 @@ from libspn.learning.gd import GDLearning
 from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
 from libspn.learning.type import GradientType
+from libspn.learning.ebw import ExtendedBaumWelch
 
 # Data
 from libspn.data.dataset import Dataset
@@ -147,6 +148,7 @@ __all__ = [
     'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient', 'MPEState',
     'EMLearning', 'GDLearning', 'LearningTaskType',
     'LearningMethodType', 'GradientType',
+    'ExtendedBaumWelch',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
     'IntGridDataset', 'ImageFormat', 'ImageShape', 'ImageDatasetBase',
