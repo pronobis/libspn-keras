@@ -275,15 +275,14 @@ class TensorSum(TensorNode):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_value(self, w_tensor, ivs_tensor, *value_tensors, dropconnect_keep_prob=None,
+    def _compute_log_value(self, w_tensor, ivs_tensor, child_log_prob, dropconnect_keep_prob=None,
                            with_ivs=True):
-        child = value_tensors[0]
         if ivs_tensor is None and dropconnect_keep_prob is not None and \
-            tensor_util.constant_value(dropconnect_keep_prob):
-            mask = self._create_dropconnect_mask(dropconnect_keep_prob, to_be_masked=child)
-            child += tf.log(mask)
+                tensor_util.constant_value(dropconnect_keep_prob) != 1.0:
+            mask = self._create_dropconnect_mask(dropconnect_keep_prob, to_be_masked=child_log_prob)
+            child_log_prob += tf.log(mask)
 
-        return utils.logmatmul(self._compute_apply_ivs(child, ivs_tensor), w_tensor)
+        return utils.logmatmul(self._compute_apply_ivs(child_log_prob, ivs_tensor), w_tensor)
 
     @utils.docinherit(OpNode)
     def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):
@@ -326,8 +325,8 @@ class TensorSum(TensorNode):
                               sample=False, sample_prob=None, dropconnect_keep_prob=None):
         if use_unweighted:
             winning_indices = utils.argmax_breaking_ties(
-                self._compute_apply_ivs(child_log_prob, ivs_tensor), num_samples=self.child.dim_nodes,
-                keepdims=True)
+                self._compute_apply_ivs(child_log_prob, ivs_tensor),
+                num_samples=self.child.dim_nodes, keepdims=True)
         else:
             weighted = self._compute_weighted(child_log_prob, w_tensor, ivs_tensor)
             winning_indices = utils.argmax_breaking_ties(weighted, axis=-2)
