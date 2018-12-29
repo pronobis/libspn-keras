@@ -47,26 +47,31 @@ class TensorProduct(TensorNode):
 
     @property
     def dim_nodes(self):
-        return self.values[0].node.dim_nodes ** self._num_factors
+        return self.child.dim_nodes ** self._num_factors
 
     @property
     def dim_decomps(self):
-        return self.values[0].node.dim_decomps
+        return self.child.dim_decomps
 
     def _compute_out_size(self, *input_out_sizes):
         pass
 
-    def __init__(self, *values, num_factors, num_decomps=None, num_scopes=None,
+    def __init__(self, child, num_subsets, num_decomps=None, num_scopes=None,
                  inference_type=InferenceType.MARGINAL,
                  name="TensorProduct", input_format="SDBN", output_format="SDBN"):
         super().__init__(
             inference_type=inference_type, name=name, input_format=input_format,
             output_format=output_format, num_decomps=num_decomps, num_scopes=num_scopes)
-        self.set_values(*values)
-        self._num_factors = num_factors
+        self.set_values(child)
+        self._num_factors = num_subsets
+    
+    @property
+    def child(self):
+        return self.values[0].node
+    
     @property
     def dim_scope(self):
-        return self._values[0].node.dim_scope // self._num_factors
+        return self.child.dim_scope // self._num_factors
 
     @utils.docinherit(OpNode)
     def serialize(self):
@@ -122,13 +127,12 @@ class TensorProduct(TensorNode):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_value(self, *value_tensors, dropconnect_keep_prob=None,
-                           with_ivs=True):
-        child = value_tensors[0]
-        shape = [self.dim_scope, self._num_factors, self.dim_decomps, -1,
-                 self.values[0].node.dim_nodes]
+    def _compute_log_value(self, child_log_prob):
+
+        # Split in list of tensors which will be added up using outer products
+        shape = [self.dim_scope, self._num_factors, self.dim_decomps, -1, self.child.dim_nodes]
         log_prob_per_out_scope = tf.split(
-            tf.reshape(child, shape=shape), axis=1, num_or_size_splits=self._num_factors)
+            tf.reshape(child_log_prob, shape=shape), axis=1, num_or_size_splits=self._num_factors)
 
         def log_outer_product(a, b):
             a_last_dim = a.shape[-1].value
@@ -146,53 +150,27 @@ class TensorProduct(TensorNode):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
-                               dropconnect_keep_prob=None):
-        return self._compute_log_value(w_tensor, ivs_tensor, *value_tensors, with_ivs=with_ivs,
-                                       dropconnect_keep_prob=dropconnect_keep_prob)
-
-    @utils.lru_cache
-    def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
-            log=True, sample=False, sample_prob=None, sum_weight_grads=False):
-        """Common operations for computing the MPE path.
-
-        Args:
-            reducible_tensor (Tensor): A (weighted) ``Tensor`` of (log-)values of this node.
-            counts (Tensor): A ``Tensor`` that contains the accumulated counts of the parents
-                             of this node.
-            w_tensor (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
-            ivs_tensor (Tensor): A ``Tensor`` containing the (log-)value of the IVs.
-            input_tensors (list): A list of ``Tensor``s with outputs of the child nodes.
-            log (bool): Whether the computation is in log-space or not
-            sample (bool): Whether to sample the 'winner' of the max or not
-            sample_prob (Tensor): A scalar ``Tensor`` indicating the probability of drawing
-                a sample. If a sample is drawn, the probability for each index is given by the
-                (log-)normalized probability as given by ``reducible_tensor``.
-        Returns:
-            A ``list`` of ``tuple``s [(MPE counts, input tensor), ...] where the first corresponds
-            to the Weights of this node, the second corresponds to the IVs and the remaining
-            tuples correspond to the nodes in ``self._values``.
-        """
-        raise NotImplementedError()
+    def _compute_log_mpe_value(self, child_log_prob):
+        return self._compute_log_value(child_log_prob)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_mpe_path(self, counts, *value_tensors, use_unweighted=False, with_ivs=True):
-        # Simple case first:
-        # Number of factors is 2 and inputs are vectors of size m and n
-        # value = outer_product(x, y) with shape m x n
-
-        # More sophisticated
-        # Num of factors is 3
-        # value = outer_product(x, y, z) with shape m x n x o
-        child = self.values[0].node
+        # In the forward pass, we performed out products in #factors directions. For each direction,
+        # we simply need to sum up the counts of the other directions from the parent to obtain the
+        # counts for the child. This is a many-to-few operation.
+        child = self.child
         counts_reshaped = tf.reshape(
             counts, [self.dim_scope, self.dim_decomps, -1] + [child.dim_nodes] * self._num_factors)
+
+        # Reducing 'inverts' the outer products
         counts_reduced = []
         for i in range(self._num_factors):
+            # reduce_axes_i == {j | j \in {0, 1, ..., #num_factors - 1} \ i}
             reduce_axes = [j + 3 for j in range(self._num_factors) if j != i]
             counts_reduced.append(tf.reduce_sum(counts_reshaped, axis=reduce_axes))
+
+        # Stacking 'inverts' the split
         return (tf.reshape(tf.stack(counts_reduced, axis=1),
                            (child.dim_scope, self.dim_decomps, -1, child.dim_nodes)),)
 

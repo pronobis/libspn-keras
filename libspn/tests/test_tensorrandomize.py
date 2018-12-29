@@ -12,21 +12,11 @@ from libspn.graph.tensorrandomize import TensorRandomize
 from libspn.graph.tensorproduct import TensorProduct
 from libspn.graph.tensorsum import TensorSum
 from libspn.graph.tensor_merge_decomps import TensorMergeDecomps
-from test import TestCase
 import tensorflow as tf
 import numpy as np
-import collections
-from random import shuffle
-from parameterized import parameterized
-import itertools
 
 
 class TestTensorRandomize(tf.test.TestCase):
-
-    # def test_generate_permutations(self):
-    #     iv = spn.IVs(num_vals=2, num_vars=13)
-    #     randomize = TensorRandomize(iv, num_decomps=2)
-    #     randomize.generate_permutations([4, 4])
 
     def test_small_spn(self):
         num_vars = 13
@@ -35,16 +25,16 @@ class TestTensorRandomize(tf.test.TestCase):
         randomize = TensorRandomize(iv, num_decomps=2)
         factors = [4, 2, 2]
 
-        p0 = TensorProduct(randomize, num_factors=4)
+        p0 = TensorProduct(randomize, num_subsets=4)
         s0 = TensorSum(p0, num_sums=3)
-        p1 = TensorProduct(s0, num_factors=2)
+        p1 = TensorProduct(s0, num_subsets=2)
         s1 = TensorSum(p1, num_sums=3)
-        p2 = TensorProduct(s1, num_factors=2)
-        m = TensorMergeDecomps(p2)
+        p2 = TensorProduct(s1, num_subsets=2)
+        m = TensorMergeDecomps(p2, factor=2)
         root = TensorSum(m, num_sums=1)
+        randomize.generate_permutations(factors=factors)
 
         latent = root.generate_ivs(name="Latent")
-        randomize.generate_permutations(factors=factors)
         spn.generate_weights(root, init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
 
         valgen = spn.LogValue()
