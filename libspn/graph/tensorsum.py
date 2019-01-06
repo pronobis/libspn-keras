@@ -58,9 +58,6 @@ class TensorSum(TensorNode):
         self.set_weights(weights)
         self.set_ivs(latent_ivs)
 
-        # Set whether this instance is masked (e.g. SumsLayer)
-        self._masked = masked
-
         # Set the sampling probability and sampling type
         self._sample_prob = sample_prob
 

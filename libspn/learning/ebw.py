@@ -16,7 +16,7 @@ from libspn.graph.distribution import NormalLeaf
 
 
 class ExtendedBaumWelch:
-    """Assembles TF operations performing EM learning of an SPN.
+    """Assembles TF operations performing Extended Baum Welch learning.
 
     Args:
         mpe_path (MPEPath): Pre-computed MPE_path.
@@ -63,32 +63,31 @@ class ExtendedBaumWelch:
             d_grads = w_and_d_grads[num_w:]
 
             new_vals = [tf.maximum((w_g * w + self._decay * w)
-                        / (tf.reduce_sum(w * w_g, axis=-1, keepdims=True) + self._decay), 1e-4)
+                        / (tf.reduce_sum(w * w_g, axis=-1, keepdims=True) + self._decay), 1e-10)
                         for w, w_g in zip(weight_vars, w_grads)]
-            updates = [tf.assign(w, nv) #/ tf.reduce_sum(nv, axis=-1, keepdims=True))
-                       for w, nv in zip(weight_vars, new_vals)]
-            for n, dg in zip(cont_vars, d_grads):
-                current_mode = tf.reshape(tf.tile(
-                    tf.expand_dims(n.loc_variable, 0), [tf.shape(n.feed)[0], 1, 1]),
-                    [-1, n.num_vars * n.num_components])
-                x = tf.reshape(
-                    n._evidence_mask(n._preprocessed_feed(), lambda *_: current_mode),
-                    [-1, n.num_vars, n.num_components])
-                dg = tf.reshape(dg, [-1, n.num_vars, n.num_components])
-
-                denom = tf.reduce_sum(dg, axis=0)
-
-                mu_new = tf.reduce_sum(dg * x, axis=0) + self._decay * n.loc_variable
-                mu_new /= denom + self._decay
-
-                sigma2 = tf.reduce_sum(dg * tf.square(x), axis=0) + (
-                    tf.square(n.loc_variable) + tf.square(n.scale_variable))
-                sigma2 /= denom + self._decay
-                sigma2 -= tf.square(mu_new)
-
-                sigma = tf.maximum(tf.sqrt(sigma2), 0.01)
-                updates.append(tf.assign(n.loc_variable, mu_new))
-                updates.append(tf.assign(n.scale_variable, sigma))
+            updates = [tf.assign(w, nv) for w, nv in zip(weight_vars, new_vals)]
+            # for n, dg in zip(cont_vars, d_grads):
+            #     current_mode = tf.reshape(tf.tile(
+            #         tf.expand_dims(n.loc_variable, 0), [tf.shape(n.feed)[0], 1, 1]),
+            #         [-1, n.num_vars * n.num_components])
+            #     x = tf.reshape(
+            #         n._evidence_mask(n._preprocessed_feed(), lambda *_: current_mode),
+            #         [-1, n.num_vars, n.num_components])
+            #     dg = tf.reshape(dg, [-1, n.num_vars, n.num_components])
+            #
+            #     denom = tf.reduce_sum(dg, axis=0)
+            #
+            #     mu_new = tf.reduce_sum(dg * x, axis=0) + self._decay * n.loc_variable
+            #     mu_new /= denom + self._decay
+            #
+            #     sigma2 = tf.reduce_sum(dg * tf.square(x), axis=0) + (
+            #         tf.square(n.loc_variable) + tf.square(n.scale_variable))
+            #     sigma2 /= denom + self._decay
+            #     sigma2 -= tf.square(mu_new)
+            #
+            #     sigma = tf.maximum(tf.sqrt(sigma2), 0.01)
+            #     updates.append(tf.assign(n.loc_variable, mu_new))
+            #     updates.append(tf.assign(n.scale_variable, sigma))
 
             return tf.group(*updates)
 
