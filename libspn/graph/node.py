@@ -1171,6 +1171,11 @@ class TensorNode(OpNode, abc.ABC):
         self._input_format = input_format
         self._output_format = output_format
 
+        self._scope_axis = 0
+        self._decomp_axis = 1
+        self._batch_axis = 2
+        self._node_axis = 3
+
     def describe(self):
         return "{}: [{} x {} x ? x {}]".format(
             self._name, self.dim_scope, self.dim_decomps, self.dim_nodes)
