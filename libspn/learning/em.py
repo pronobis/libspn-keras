@@ -32,7 +32,7 @@ class EMLearning():
     def __init__(self, root, mpe_path=None, log=True, value_inference_type=None,
                  additive_smoothing=None, add_random=None, initial_accum_value=None,
                  use_unweighted=False, sample=False, sample_prob=None,
-                 dropconnect_keep_prob=None, matmul_or_conv=True, accum_decay_factor=1.0):
+                 dropconnect_keep_prob=None, matmul_or_conv=True, accum_decay_factor=None):
         self._root = root
         self._log = log
         self._additive_smoothing = additive_smoothing
