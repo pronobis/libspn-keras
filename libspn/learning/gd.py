@@ -54,7 +54,7 @@ class GDLearning:
                  confidence_penalty_coeff=None,
                  entropy_regularize_coeff=None,
                  gauss_regularize_coeff=None, gauss_kl_coeff=None, gauss_ce_coeff=None,
-                 batch_noise=None,
+                 batch_noise=None, global_step=None,
                  linear_w_minimum=1e-2):
 
         if learning_task_type == LearningTaskType.UNSUPERVISED and \
@@ -87,6 +87,7 @@ class GDLearning:
         self._name = name
         self._noise = noise
         self._linear_w_minimum = linear_w_minimum
+        self._global_step = global_step
 
     def loss(self, learning_method=None, dropconnect_keep_prob=None, dropprod_keep_prob=None,
              noise=None, batch_noise=None, reduce_fn=tf.reduce_mean):
@@ -154,7 +155,8 @@ class GDLearning:
 
             # Assemble TF ops for optimizing and weights normalization
             with tf.name_scope("ParameterUpdate"):
-                minimize = optimizer(self._learning_rate).minimize(loss=loss)
+                minimize = optimizer(self._learning_rate).minimize(
+                    loss=loss, global_step=self._global_step)
                 return self.post_gradient_update(minimize), loss
 
     def post_gradient_update(self, update_op):
