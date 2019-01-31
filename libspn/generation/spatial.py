@@ -186,12 +186,12 @@ class ConvSPN:
                     *input_nodes, grid_dim_sizes=spatial_dims, pad_bottom=pad_b, pad_top=pad_t,
                     pad_left=pad_l, pad_right=pad_r, num_channels=prod_nc,
                     name="{}Prod{}".format(name_pref, name_suff), dilation_rate=dilation_r,
-                    kernel_size=kernel_s, padding_algorithm=pad_algo, strides=stride)
+                    kernel_size=kernel_s, padding=pad_algo, strides=stride)
             elif p_node_type == "depthwise":
                 next_node = ConvProdDepthWise(
                     *input_nodes, grid_dim_sizes=spatial_dims, pad_bottom=pad_b, pad_top=pad_t,
                     pad_left=pad_l, pad_right=pad_r, name="{}Prod{}".format(name_pref, name_suff),
-                    dilation_rate=dilation_r, kernel_size=kernel_s, padding_algorithm=pad_algo,
+                    dilation_rate=dilation_r, kernel_size=kernel_s, padding=pad_algo,
                     strides=stride)
                 if next_node._num_channels != prod_nc:
                     self.__logger.warn("Built ConvProdDepthWise with {} output channels instead "

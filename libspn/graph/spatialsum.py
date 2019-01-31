@@ -18,7 +18,6 @@ from libspn import conf
 import abc
 
 from libspn.utils.math import logconv_1x1, logmatmul
-from libspn.log import get_logger
 
 
 @utils.register_serializable
@@ -50,16 +49,15 @@ class SpatialSum(BaseSum, abc.ABC):
                  inference_type=InferenceType.MARGINAL, name="LocalSum",
                  grid_dim_sizes=None):
 
-        if not grid_dim_sizes:
-            raise NotImplementedError(
-                "{}: Must also provide grid_dim_sizes at this point.".format(self))
-
-        self._grid_dim_sizes = grid_dim_sizes or [-1] * 2
-        self._grid_dim_sizes = list(grid_dim_sizes) if isinstance(grid_dim_sizes, tuple) \
-            else grid_dim_sizes
         self._channel_axis = 3
         self._num_channels = num_channels
         self._scope_mask = None
+        try:
+            self._grid_dim_sizes = values[0].output_shape_spatial[:2]
+        except:
+            self._grid_dim_sizes = grid_dim_sizes
+        if isinstance(self._grid_dim_sizes, tuple):
+            self._grid_dim_sizes = list(self._grid_dim_sizes)
         super().__init__(
             *values, num_sums=self._num_inner_sums(), weights=weights, ivs=ivs,
             inference_type=inference_type, name=name, reduce_axis=4, op_axis=[1, 2])
@@ -318,7 +316,6 @@ class SpatialSum(BaseSum, abc.ABC):
         """
         sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
         num_samples = self._tile_unweighted_size if use_unweighted else 1
-        # print(self, reducible_tensor.shape)
         if sample:
             if log:
                 max_indices = self._reduce_sample_log(
@@ -328,7 +325,6 @@ class SpatialSum(BaseSum, abc.ABC):
                     reducible_tensor, sample_prob=sample_prob, num_samples=num_samples)
         else:
             max_indices = self._reduce_argmax(reducible_tensor, num_samples=num_samples)
-
         max_indices = tf.reshape(max_indices, (-1, self._compute_out_size()))
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
