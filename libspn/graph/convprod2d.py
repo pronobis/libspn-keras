@@ -49,7 +49,7 @@ class ConvProd2D(OpNode):
     def __init__(self, *values, num_channels=None, padding='valid', dilation_rate=1,
                  strides=2, kernel_size=2, inference_type=InferenceType.MARGINAL, name="ConvProd2D",
                  sparse_connections=None, dense_connections=None, grid_dim_sizes=None,
-                 num_channels_max=512, dropout_keep_prob=None):
+                 num_channels_max=512):
         self._batch_axis = 0
         self._channel_axis = 3
         super().__init__(inference_type=inference_type, name=name)
@@ -71,7 +71,6 @@ class ConvProd2D(OpNode):
         self._num_channels = num_channels
         self._kernel_size = [kernel_size] * 2 if isinstance(kernel_size, int) \
             else list(kernel_size)
-        self._dropout_keep_prob = dropout_keep_prob
 
         # Generate connections if needed
         if sparse_connections is not None:
@@ -176,9 +175,6 @@ class ConvProd2D(OpNode):
         sparse_shape = self._kernel_size + [num_channels]
         size = int(np.prod(sparse_shape))
         return np.random.randint(num_input_channels, size=size).reshape(sparse_shape)
-
-    def set_dropout_keep_prob(self, p):
-        self._dropout_keep_prob = p
 
     @utils.lru_cache
     def _spatial_concat(self, *input_tensors):
@@ -296,16 +292,6 @@ class ConvProd2D(OpNode):
     def _compute_log_value(self, *input_tensors, dropout_keep_prob=None):
         # Concatenate along channel axis
         concat_inp = self._prepare_convolutional_processing(*input_tensors)
-
-        dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
-        if dropout_keep_prob is not None and (not isinstance(
-                dropout_keep_prob, (int, float)) or dropout_keep_prob != 1.0):
-            if self._scope_mask is None:
-                raise StructureError("{}: need to set scope mask for dropping abstract evidence."
-                                     .format(self))
-            dropout_mask = tf.expand_dims(tf.less(self._scope_mask, dropout_keep_prob), axis=-1)
-            dropout_mask = tf.tile(dropout_mask, [1, 1, 1, self._num_input_channels()])
-            concat_inp = tf.where(dropout_mask, concat_inp, tf.zeros_like(concat_inp))
 
         if conf.custom_one_hot_conv2d:
             conv_out = utils.one_hot_conv2d(

@@ -40,23 +40,13 @@ class ConvProdDepthWise(ConvProd2D):
         super().__init__(*values, inference_type=inference_type, name=name,
                          grid_dim_sizes=grid_dim_sizes, strides=strides,
                          kernel_size=kernel_size, padding=padding,
-                         dilation_rate=dilation_rate, dropout_keep_prob=None)
+                         dilation_rate=dilation_rate)
         self._num_channels = self._num_input_channels()
 
     @utils.lru_cache
     def _compute_log_value(self, *input_tensors, dropout_keep_prob=None):
         # Concatenate along channel axis
         concat_inp = self._prepare_convolutional_processing(*input_tensors)
-
-        dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
-        if dropout_keep_prob is not None and (not isinstance(
-                dropout_keep_prob, (int, float)) or dropout_keep_prob != 1.0):
-            if self._scope_mask is None:
-                raise StructureError("{}: need to set scope mask for dropping abstract evidence."
-                                     .format(self))
-            dropout_mask = tf.expand_dims(tf.less(self._scope_mask, dropout_keep_prob), axis=-1)
-            dropout_mask = tf.tile(dropout_mask, [1, 1, 1, self._num_input_channels()])
-            concat_inp = tf.where(dropout_mask, concat_inp, tf.zeros_like(concat_inp))
 
         # Convolve
         # TODO, this the quickest workaround for TensorFlow's apparent optimization whenever
