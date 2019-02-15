@@ -16,6 +16,7 @@ class DataIterator:
 
     def __init__(self, data, batch_size, shuffle=True):
         self._data = [data] if not isinstance(data, (list, tuple)) else data
+        print(self._data[0].shape)
         self._num_samples = len(data[0])
         self._ind = 0
         self._batch_size = batch_size
@@ -35,7 +36,7 @@ class DataIterator:
         if end_ind == self._num_samples:
             self._reset()
         else:
-            self._ind += self._batch_size
+            self._ind += batch_size
         return out
 
     def iter_epoch(self, desc="Epoch", batch_size=None):

@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 
-from libspn.examples.convspn.architecture import mnist_wicker
+from libspn.examples.convspn.architecture import wicker_convspn_two_non_overlapping, full_wicker
 from libspn.examples.convspn.utils import DataIterator, ImageIterator, ExperimentLogger, GroupedMetrics
 from libspn.examples.convspn.amsgrad import AMSGrad
 import tensorflow as tf
@@ -325,8 +325,27 @@ def build_spn(args, num_dims, num_vars, train_x, train_y):
     prod_num_channels = tuple(prod_num_channels)
     sum_num_channels = tuple(sum_num_channels)
     num_classes = args.class_subset if args.class_subset else 10
-    root, class_roots = mnist_wicker(
-        in_var, prod_num_channels, sum_num_channels, num_classes=num_classes)
+    edge_size = {
+        'mnist': 28,
+        'fashion_mnist': 28,
+        'cifar10': 32,
+        'olivetti': 64,
+        'caltech': 100
+    }[args.dataset]
+    if args.dataset == 'cifar10':
+        in_var_ = spn.LocalSum(in_var, num_channels=args.sum_num_c0, grid_dim_sizes=[32, 32])
+    else:
+        in_var_ = in_var
+
+    if args.supervised:
+        root, class_roots = wicker_convspn_two_non_overlapping(
+            in_var_, prod_num_channels, sum_num_channels, num_classes=num_classes, edge_size=edge_size,
+            first_depthwise=args.first_depthwise)
+    else:
+        root, class_roots = full_wicker(
+            in_var_, prod_num_channels, sum_num_channels, num_classes=num_classes,
+            edge_size=edge_size,
+            first_depthwise=args.first_depthwise)
     return in_var, root
 
 
@@ -381,8 +400,7 @@ def setup_learning(args, in_var, root):
         em_learning = spn.EMLearning(
             root, value_inference_type=inference_type,
             initial_accum_value=args.initial_accum_value, sample=args.sample_path,
-            sample_prob=args.sample_prob, use_unweighted=args.use_unweighted,
-            accum_decay_factor=args.accum_decay_factor)
+            sample_prob=args.sample_prob, use_unweighted=args.use_unweighted)
         accumulate = em_learning.accumulate_updates()
         with tf.control_dependencies([accumulate]):
             update_op = em_learning.update_spn()
@@ -401,8 +419,7 @@ def setup_learning(args, in_var, root):
         learning_task_type=spn.LearningTaskType.SUPERVISED if args.supervised else \
             spn.LearningTaskType.UNSUPERVISED,
         learning_method=learning_method, learning_rate=learning_rate,
-        marginalizing_root=root_marginalized, linear_w_minimum=args.linear_w_minimum,
-        global_step=global_step)
+        marginalizing_root=root_marginalized, global_step=global_step)
 
     optimizer = {
         'adam': tf.train.AdamOptimizer,
@@ -619,6 +636,7 @@ if __name__ == "__main__":
     params.add_argument("--equidistant-means", action='store_true', dest='equidistant_means')
     params.add_argument("--num-epochs", default=500, type=int)
     params.add_argument("--input-dropout", default=None, type=float)
+    params.add_argument("--first-depthwise", action='store_true', dest='first_depthwise')
 
     params.add_argument("--class_subset", default=None, type=int)
     params.add_argument("--dataset", default="mnist",
@@ -638,10 +656,10 @@ if __name__ == "__main__":
     params.add_argument("--snt4", default='local', type=str, choices=['local', 'conv'])
 
     params.add_argument("--sum_num_c0", default=32, type=int)
-    params.add_argument("--sum_num_c1", default=32, type=int)
-    params.add_argument("--sum_num_c2", default=32, type=int)
-    params.add_argument("--sum_num_c3", default=64, type=int)
-    params.add_argument("--sum_num_c4", default=64, type=int)
+    params.add_argument("--sum_num_c1", default=64, type=int)
+    params.add_argument("--sum_num_c2", default=64, type=int)
+    params.add_argument("--sum_num_c3", default=128, type=int)
+    params.add_argument("--sum_num_c4", default=128, type=int)
 
     params.add_argument("--dsdsfw_s0", default=1, type=int)
     params.add_argument("--dsdsfw_s1", default=1, type=int)
@@ -649,17 +667,16 @@ if __name__ == "__main__":
 
     params.add_argument("--fw_s0", default=1, type=int)
     params.add_argument("--fw_s1", default=2, type=int)
-    params.add_argument("--fw_s2", default=2, type=int)
+    params.add_argument("--fw_s2", default=1, type=int)
     params.add_argument("--fw_s3", default=1, type=int)
     params.add_argument("--fw_s4", default=1, type=int)
 
-    params.add_argument("--l1_reg_coeff", default=None, type=float)
-    params.add_argument("--l2_reg_coeff", default=None, type=float)
-    params.add_argument("--linear_w_minimum", default=1e-2, type=float)
+    params.add_argument("--initial-accum-value", type=float, default=0.1)
+    params.add_argument("--sample-path", action="store_true", dest="sample_path")
+    params.add_argument("--sample-prob", type=float, default=None)
+    params.add_argument("--use-unweighted", action="store_true", dest="use_unweighted")
 
-    params.add_argument("--batch_noise", default=None, type=float)
-
-    params.add_argument("--random_range", action="store_false", dest="sparse_range")
+    params.add_argument("--stop-epsilon", default=1e-5, type=float)
 
     params.add_argument("--prod_node_type", default='default',
                         choices=['default', 'depthwise'])
@@ -667,7 +684,6 @@ if __name__ == "__main__":
     params.add_argument("--num_channels_top", default=32, type=int)
 
     params.add_argument("--share_scales", action="store_true", dest="share_scales")
-    params.add_argument("--student_t", action="store_true", dest="student_t")
 
     params.add_argument("--kernel_size", type=int, default=2)
     params.add_argument("--precision_init", type=float, default=10)
@@ -704,7 +720,8 @@ if __name__ == "__main__":
                         share_locs=False, share_dfs=False, share_ds=True, horizontal_flip=False,
                         supervised=True, estimate_scale=False, only_root_marginalize=False,
                         normalize_data=False, tensor_spn=False, fixed_variance=False,
-                        log_weights=False, equidistant_means=False)
+                        log_weights=False, equidistant_means=False, first_depthwise=False,
+                        sample_path=False, use_unweighted=False)
     args = params.parse_args()
     pprint.pprint(vars(args))
     train(args)
