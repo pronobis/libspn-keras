@@ -2,7 +2,7 @@ LibSPN
 ======
 
 LibSPN is a library for learning and inference with Sum-Product Networks. LibSPN
-is integrated with [`TensorFlow`](http://www.tensorflow.org)`_.
+is integrated with [`TensorFlow`](http://www.tensorflow.org)`.
 
 
 What are SPNs?
