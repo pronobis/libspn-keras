@@ -60,7 +60,7 @@ def train(args):
     mpe_in_var = setup_learning(args, in_var, root)
     
     # Set up the evaluation tasks
-    def evaluate(image_batch, labels_batch, epoch, step):
+    def evaluate_classification(image_batch, labels_batch, epoch, step):
         feed_dict = {in_var: image_batch}
         if args.supervised:
             feed_dict[labels_node] = labels_batch
@@ -73,9 +73,8 @@ def train(args):
         feed_dict = {in_var: image_batch}
         if args.supervised:
             feed_dict[labels_node] = labels_batch
-        likelihood_out = sess.run(likelihood, feed_dict=feed_dict)
-        return likelihood_out
-
+        return sess.run(likelihood, feed_dict=feed_dict)
+        
     # These are default evaluation metrics to be measured at the end of each epoch
     metrics = ["loss", "reg_loss", "accuracy", 'likelihood']
     gm_default = GroupedMetrics(reporter=reporter,
@@ -83,10 +82,10 @@ def train(args):
 
     if args.supervised:
 
-        gm_default.add_task('test_epoch.csv', fun=evaluate, iterator=test_iterator,
+        gm_default.add_task('test_epoch.csv', fun=evaluate_classification, iterator=test_iterator,
                             metric_names=metrics, desc="Evaluate test ",
                             batch_size=args.eval_batch_size)
-        gm_default.add_task('train_epoch.csv', fun=evaluate, iterator=train_iterator,
+        gm_default.add_task('train_epoch.csv', fun=evaluate_classification, iterator=train_iterator,
                             metric_names=metrics, desc="Evaluate train",
                             batch_size=args.eval_batch_size, return_val=True)
     else:
@@ -221,13 +220,10 @@ def train(args):
                 if args.supervised:
                     feed_dict[labels_node] = labels_batch
                 sess.run(update_op, feed_dict=feed_dict)
-            # Assess default metrics
-            progress_epoch = gm_default.evaluate_one_epoch(epoch + 1)[progress_metric]
-
-            # Predict
-            progress_history.append(progress_epoch)
-
+                        
             # Check stopping criterion
+            progress_epoch = gm_default.evaluate_one_epoch(epoch + 1)[progress_metric]
+            progress_history.append(progress_epoch)
             if len(progress_history) == 5 and np.std(progress_history) < args.stop_epsilon or \
                 np.isnan(progress_epoch) or progress_epoch == 0.0:
                 print("Stopping criterion reached!")
@@ -299,27 +295,20 @@ def build_spn(args, num_dims, num_vars, train_x, train_y):
                 share_scales=args.share_scales, share_locs_across_vars=args.share_locs,
                 dimensionality=num_dims, samplewise_normalization=args.normalize_data,
                 loc_init=tf.initializers.random_uniform(minval=minval, maxval=maxval))
-    prod_num_channels_head = [args.prod_num_c0 if args.num_components > 4 \
-                                  else args.num_components ** (args.kernel_size ** 2)]
+    prod_num_channels_head = [args.prod_num_c0 if args.num_components > 4 
+                              else args.num_components ** 4]
     prod_num_channels_tail = [args.prod_num_c1, args.prod_num_c2, args.prod_num_c3,
                               args.prod_num_c4]
     sum_num_channels = [args.sum_num_c0, args.sum_num_c1, args.sum_num_c2,
                         args.sum_num_c3, args.sum_num_c4]
     prod_num_channels = prod_num_channels_head + prod_num_channels_tail
 
-    sum_node_types = [args.snt0, args.snt1, args.snt2, args.snt3, args.snt4]
-    strides = [args.fw_s0, args.fw_s1, args.fw_s2, args.fw_s3, args.fw_s4]
-
     if args.dataset in ['olivetti', 'caltech']:
-        sum_node_types.insert(1, sum_node_types[1])
         prod_num_channels.insert(1, prod_num_channels[1])
-        strides.insert(1, strides[1])
         sum_num_channels.insert(1, sum_num_channels[1])
 
     if args.dataset == 'caltech':
-        sum_node_types.insert(1, sum_node_types[1])
         prod_num_channels.insert(1, prod_num_channels[1])
-        strides.insert(1, strides[1])
         sum_num_channels.insert(1, sum_num_channels[1])
 
     prod_num_channels = tuple(prod_num_channels)
@@ -340,12 +329,11 @@ def build_spn(args, num_dims, num_vars, train_x, train_y):
     if args.supervised:
         root, class_roots = wicker_convspn_two_non_overlapping(
             in_var_, prod_num_channels, sum_num_channels, num_classes=num_classes, edge_size=edge_size,
-            first_depthwise=args.first_depthwise)
+            first_depthwise=args.first_depthwise, supervised=args.supervised)
     else:
         root, class_roots = full_wicker(
             in_var_, prod_num_channels, sum_num_channels, num_classes=num_classes,
-            edge_size=edge_size,
-            first_depthwise=args.first_depthwise)
+            edge_size=edge_size, first_depthwise=args.first_depthwise, supervised=args.supervised)
     return in_var, root
 
 
@@ -353,17 +341,17 @@ def setup_learning(args, in_var, root):
     no_op = tf.constant(0)
     inference_type = spn.InferenceType.MARGINAL if args.value_inf_type == 'marginal' \
         else spn.InferenceType.MPE
+    mpe_state = spn.MPEState(value_inference_type=inference_type, matmul_or_conv=True)
     if args.supervised:
         # Root is provided with labels, p(x,y)
         labels_node = root.generate_ivs(name="LabelsIVs")
 
-        # Marginalized root, so without filling in labels, so p(x)
+        # Marginalized root, so without filling in labels, so p(x) = \sum_y p(x,y)
         root_marginalized = spn.Sum(*root.values, name="RootMarginalized", weights=root.weights,
                                     dropconnect_keep_prob=1.0)
         # A dummy node to get MPE state
         labels_no_evidence_node = root_marginalized.generate_ivs(
             name="LabesNoEvidenceIVs", feed=-tf.ones([tf.shape(in_var.feed)[0], 1], dtype=tf.int32))
-        mpe_state = spn.MPEState(value_inference_type=inference_type, matmul_or_conv=True)
 
         # Get prediction from dummy node
         with tf.name_scope("Prediction"):
@@ -380,8 +368,6 @@ def setup_learning(args, in_var, root):
         with tf.name_scope("Prediction"):
             class_mpe = correct = no_op
             labels_node = root_marginalized = None
-            mpe_state = spn.MPEState(
-                value_inference_type=spn.InferenceType.MARGINAL, matmul_or_conv=True)
             if args.completion_by_marginal and isinstance(in_var, spn.DistributionLeaf):
                 in_var_mpe = in_var.completion_by_posterior_marginal(root)
             else:
@@ -584,7 +570,6 @@ def impainting_mosaic(reconstruction, truth, completion_indices, num_rows, batch
         im = (im - rec_min) / (rec_max - rec_min)
         return im
 
-
     reconstruction = normalize_01(reconstruction)
     truth = normalize_01(truth)
 
@@ -614,29 +599,29 @@ def tv_norm(x, completion_ind):
 
 if __name__ == "__main__":
     params = ArgumentParser()
-    params.add_argument("--log-base-path", default='logs')
+    params.add_argument("--log_base_path", default='logs')
     params.add_argument("--name", default="convspn")
-    params.add_argument("--batch-size", default=32, type=int)
+    params.add_argument("--batch_size", default=32, type=int)
     params.add_argument(
-        "--learning-algo", default='amsgrad', choices=['amsgrad', 'adam', 'rmsprop', 'em'])
+        "--learning_algo", default='amsgrad', choices=['amsgrad', 'adam', 'rmsprop', 'em'])
 
-    params.add_argument("--num-components", default=4, type=int)
-    params.add_argument("--fixed-variance", action='store_true', dest='fixed_variance')
-    params.add_argument("--fixed-mean", action="store_true", dest='fixed_mean')
-    params.add_argument("--variance-init", type=float, default=1.0)
-    params.add_argument("--log-weights", action='store_true', dest="log_weights")
-    params.add_argument("--weight-init-min", type=float, default=1.0)
-    params.add_argument("--weight-init-max", type=float, default=10.0)
-    params.add_argument("--value-inf-type", default='marginal', choices=['marginal', 'mpe'])
-    params.add_argument("--learning-rate", type=float, default=1e-2)
-    params.add_argument("--dropconnect-keep-prob", type=float, default=None)
-    params.add_argument("--learning-type", default='discriminative', choices=['discriminative', 'generative'])
+    params.add_argument("--num_components", default=4, type=int)
+    params.add_argument("--fixed_variance", action='store_true', dest='fixed_variance')
+    params.add_argument("--fixed_mean", action="store_true", dest='fixed_mean')
+    params.add_argument("--variance_init", type=float, default=1.0)
+    params.add_argument("--log_weights", action='store_true', dest="log_weights")
+    params.add_argument("--weight_init_min", type=float, default=1.0)
+    params.add_argument("--weight_init_max", type=float, default=10.0)
+    params.add_argument("--value_inf_type", default='marginal', choices=['marginal', 'mpe'])
+    params.add_argument("--learning_rate", type=float, default=1e-2)
+    params.add_argument("--dropconnect_keep_prob", type=float, default=None)
+    params.add_argument("--learning_type", default='discriminative', choices=['discriminative', 'generative'])
     params.add_argument("--completion", action='store_true', dest='completion')
-    params.add_argument("--completion-batch-size", type=int, default=32)
-    params.add_argument("--equidistant-means", action='store_true', dest='equidistant_means')
-    params.add_argument("--num-epochs", default=500, type=int)
-    params.add_argument("--input-dropout", default=None, type=float)
-    params.add_argument("--first-depthwise", action='store_true', dest='first_depthwise')
+    params.add_argument("--completion_batch_size", type=int, default=32)
+    params.add_argument("--equidistant_means", action='store_true', dest='equidistant_means')
+    params.add_argument("--num_epochs", default=500, type=int)
+    params.add_argument("--input_dropout", default=None, type=float)
+    params.add_argument("--first_depthwise", action='store_true', dest='first_depthwise')
 
     params.add_argument("--class_subset", default=None, type=int)
     params.add_argument("--dataset", default="mnist",
@@ -649,43 +634,20 @@ if __name__ == "__main__":
     params.add_argument("--prod_num_c3", default=64, type=int)
     params.add_argument("--prod_num_c4", default=64, type=int)
 
-    params.add_argument("--snt0", default='local', type=str, choices=['local', 'conv'])
-    params.add_argument("--snt1", default='local', type=str, choices=['local', 'conv'])
-    params.add_argument("--snt2", default='local', type=str, choices=['local', 'conv'])
-    params.add_argument("--snt3", default='local', type=str, choices=['local', 'conv'])
-    params.add_argument("--snt4", default='local', type=str, choices=['local', 'conv'])
-
-    params.add_argument("--sum_num_c0", default=32, type=int)
+    params.add_argument("--sum_num_c0", default=64, type=int)
     params.add_argument("--sum_num_c1", default=64, type=int)
     params.add_argument("--sum_num_c2", default=64, type=int)
-    params.add_argument("--sum_num_c3", default=128, type=int)
-    params.add_argument("--sum_num_c4", default=128, type=int)
+    params.add_argument("--sum_num_c3", default=64, type=int)
+    params.add_argument("--sum_num_c4", default=64, type=int)
 
-    params.add_argument("--dsdsfw_s0", default=1, type=int)
-    params.add_argument("--dsdsfw_s1", default=1, type=int)
-    params.add_argument("--dsdsfw_s2", default=1, type=int)
+    params.add_argument("--initial_accum_value", type=float, default=1e-4)
+    params.add_argument("--sample_path", action="store_true", dest="sample_path")
+    params.add_argument("--sample_prob", type=float, default=None)
+    params.add_argument("--use_unweighted", action="store_true", dest="use_unweighted")
 
-    params.add_argument("--fw_s0", default=1, type=int)
-    params.add_argument("--fw_s1", default=2, type=int)
-    params.add_argument("--fw_s2", default=1, type=int)
-    params.add_argument("--fw_s3", default=1, type=int)
-    params.add_argument("--fw_s4", default=1, type=int)
-
-    params.add_argument("--initial-accum-value", type=float, default=0.1)
-    params.add_argument("--sample-path", action="store_true", dest="sample_path")
-    params.add_argument("--sample-prob", type=float, default=None)
-    params.add_argument("--use-unweighted", action="store_true", dest="use_unweighted")
-
-    params.add_argument("--stop-epsilon", default=1e-5, type=float)
-
-    params.add_argument("--prod_node_type", default='default',
-                        choices=['default', 'depthwise'])
-
-    params.add_argument("--num_channels_top", default=32, type=int)
+    params.add_argument("--stop_epsilon", default=1e-5, type=float)
 
     params.add_argument("--share_scales", action="store_true", dest="share_scales")
-
-    params.add_argument("--kernel_size", type=int, default=2)
     params.add_argument("--precision_init", type=float, default=10)
 
     params.add_argument("--dist",

@@ -8,7 +8,7 @@ import numpy as np
 
 def wicker_convspn_two_non_overlapping(
         in_var, num_channels_prod, num_channels_sums, num_classes=10, edge_size=28,
-        first_depthwise=False):
+        first_depthwise=False, supervised=True):
     stack_size = int(np.ceil(np.log2(edge_size))) - 2
 
     if first_depthwise:
@@ -31,13 +31,16 @@ def wicker_convspn_two_non_overlapping(
 
     full_scope_prod = ConvProdDepthWise(
         h, padding='final', kernel_size=2, strides=1, dilation_rate=2 ** stack_size)
-    class_roots = ParSums(full_scope_prod, num_sums=num_classes)
-    root = Sum(class_roots)
-    return root, class_roots
+    if supervised:
+        class_roots = ParSums(full_scope_prod, num_sums=num_classes)
+        root = Sum(class_roots)
+        return root, class_roots
+
+    return Sum(full_scope_prod), None
 
 
 def full_wicker(in_var, num_channels_prod, num_channels_sums, num_classes=10, edge_size=28,
-                first_depthwise=False):
+                first_depthwise=False, supervised=True):
     stack_size = int(np.ceil(np.log2(edge_size))) - 1
 
     if first_depthwise:
@@ -58,6 +61,8 @@ def full_wicker(in_var, num_channels_prod, num_channels_sums, num_classes=10, ed
 
     full_scope_prod = ConvProdDepthWise(
         h, padding='final', kernel_size=2, strides=1, dilation_rate=2 ** (stack_size + 1))
-    class_roots = ParSums(full_scope_prod, num_sums=num_classes)
-    root = Sum(class_roots)
-    return root, class_roots
+    if supervised:
+        class_roots = ParSums(full_scope_prod, num_sums=num_classes)
+        root = Sum(class_roots)
+        return root, class_roots
+    return Sum(full_scope_prod), None

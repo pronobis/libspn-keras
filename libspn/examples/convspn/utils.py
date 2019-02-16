@@ -16,7 +16,6 @@ class DataIterator:
 
     def __init__(self, data, batch_size, shuffle=True):
         self._data = [data] if not isinstance(data, (list, tuple)) else data
-        print(self._data[0].shape)
         self._num_samples = len(data[0])
         self._ind = 0
         self._batch_size = batch_size
@@ -122,17 +121,14 @@ class ExperimentLogger:
     RUN = 'run'
     METARESULTS = "results.csv"
 
-    def __init__(self, name, base_path='results', in_repo=True, cmd_args=None,
-                 csv_writer=None, debug=False):
+    def __init__(self, name, base_path='results', cmd_args=None, csv_writer=None, debug=False):
         self._base_path = base_path
         self._name = name
 
-        if in_repo:
-            self._outdir = opth.join(opth.dirname(opth.realpath(__file__)), '..', base_path, name)
-        else:
-            self._outdir = opth.join(base_path, name)
+        self._outdir = opth.join(base_path, name)
 
         os.makedirs(self._outdir, exist_ok=True)
+        self._outdir = opth.abspath(self._outdir)
         subdirs = listdirs(self._outdir)
 
         if debug:
@@ -154,6 +150,8 @@ class ExperimentLogger:
 
         self._debug = debug
         self._csv_writer = csv_writer
+
+        print("LOGGING AT {}".format(self._experiment_dir))
 
     @property
     def logdir(self):
