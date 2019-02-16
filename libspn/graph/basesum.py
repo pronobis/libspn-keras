@@ -358,8 +358,8 @@ class BaseSum(OpNode, abc.ABC):
                 else:
                     self.logger.debug1("{}: Applying dropout with p={} to pairwise "
                                        "multiplications.".format(self, dropconnect_keep_prob))
-                    shape = tf.shape(reducible) if conf.dropout_mode == "pairwise" \
-                        else tf.shape(w_tensor)
+                    shape = tf.concat([tf.shape(reducible)[:1], [self._num_sums, self._max_sum_size]], axis=0) \
+                        if conf.dropout_mode == "pairwise" else tf.shape(w_tensor)
                     mask = self._create_dropconnect_mask(dropconnect_keep_prob, shape)
                     if log:
                         mask = tf.log(tf.to_float(mask))
@@ -387,7 +387,9 @@ class BaseSum(OpNode, abc.ABC):
                         "behavior of learning. Therefore, dropconnect is turned off for node {}."
                             .format(self))
                 else:
-                    mask = self._create_dropconnect_mask(dropconnect_keep_prob, tf.shape(reducible))
+                    mask = self._create_dropconnect_mask(
+                        dropconnect_keep_prob,
+                        tf.concat([tf.shape(reducible)[:1], [self._num_sums, self._max_sum_size]], axis=0))
                     if log:
                         mask = tf.log(tf.to_float(mask))
                     else:
@@ -579,19 +581,18 @@ class BaseSum(OpNode, abc.ABC):
             tuples correspond to the nodes in ``self._values``.
         """
         sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
-        sample_shape = (self._tile_unweighted_size,) if use_unweighted else ()
+        num_samples = self._tile_unweighted_size if use_unweighted else 1
         if sample:
             if log:
                 max_indices = self._reduce_sample_log(
-                    reducible_tensor, sample_prob=sample_prob, sample_shape=sample_shape)
+                    reducible_tensor, sample_prob=sample_prob, num_samples=num_samples)
             else:
                 max_indices = self._reduce_sample(
-                    reducible_tensor, sample_prob=sample_prob, sample_shape=sample_shape)
+                    reducible_tensor, sample_prob=sample_prob, num_samples=num_samples)
         else:
-            max_indices = self._reduce_argmax(
-                reducible_tensor, sample_shape=sample_shape)
-        if use_unweighted:
-            max_indices = tf.squeeze(max_indices, axis=self._reduce_axis - 1)
+            max_indices = self._reduce_argmax(reducible_tensor, num_samples=num_samples)
+        # if use_unweighted:
+        #     max_indices = tf.squeeze(max_indices, axis=self._reduce_axis - 1)
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_acc, max_counts_split = self._accumulate_and_split_to_children(
@@ -633,9 +634,9 @@ class BaseSum(OpNode, abc.ABC):
                           use_unweighted=False, add_random=None, sample=False, sample_prob=None,
                           dropconnect_keep_prob=None):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
-        reducible = self._compute_reducible(w_tensor, ivs_tensor, *value_tensors, log=False,
-                                            weighted=weighted,
-                                            dropconnect_keep_prob=dropconnect_keep_prob)
+        reducible = self._compute_reducible(
+            w_tensor, ivs_tensor, *value_tensors, log=False, weighted=weighted,
+            dropconnect_keep_prob=dropconnect_keep_prob)
         if add_random is not None:
             self.logger.warn(
                 "%s: no support for add_random in non-log MPE path computation." % self)
@@ -679,7 +680,7 @@ class BaseSum(OpNode, abc.ABC):
             w_tensor (Tensor): A ``Tensor`` of shape [num_sums, max_sum_size] that contains the
                 weights corresponding to this node.
             ivs_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] that
-                corresponds to the IVs of this node.
+                                 corresponds to the IVs of this node.
             value_tensors (tuple): A ``tuple`` of ``Tensor``s that correspond to the values of the
                 children of this node.
             accumulate_weights_batch (bool): A ``bool`` that marks whether the weight gradients
@@ -884,7 +885,7 @@ class BaseSum(OpNode, abc.ABC):
         return self._reduce_mpe_inference(x)
 
     @utils.lru_cache
-    def _reduce_argmax(self, x, sample_shape=()):
+    def _reduce_argmax(self, x, num_samples=1):
         """Reduces a tensor by argmax(x, axis=reduce_axis)).
 
         Args:
@@ -897,7 +898,7 @@ class BaseSum(OpNode, abc.ABC):
         if conf.argmax_zero:
             # If true, uses TensorFlow's argmax directly, yielding a bias towards the zeroth index
             argmax = tf.argmax(x, axis=self._reduce_axis)
-            if sample_shape == ():
+            if num_samples == 1:
                 return argmax
             return tf.tile(tf.expand_dims(
                 argmax, axis=-1), [1] * (len(argmax.shape) - 1) + [self._tile_unweighted_size])
@@ -907,11 +908,9 @@ class BaseSum(OpNode, abc.ABC):
         x_eq_max = tf.to_float(tf.equal(x, x_max))
         if self._masked:
             x_eq_max *= tf.expand_dims(tf.to_float(self._build_mask()), axis=self._batch_axis)
-        x_eq_max /= tf.reduce_sum(x_eq_max, axis=self._reduce_axis, keepdims=True)
 
-        return self.sample_and_transpose(
-            tfd.Categorical(probs=x_eq_max, name="StochasticArgMax", dtype=tf.int64),
-            sample_shape=sample_shape)
+        sample = self.multinomial_sample(tf.log(x_eq_max), num_samples)
+        return sample
 
     @staticmethod
     def sample_and_transpose(d, sample_shape):
@@ -922,7 +921,7 @@ class BaseSum(OpNode, abc.ABC):
             return tf.transpose(sample, list(range(1, len(sample.shape))) + [0])
 
     @utils.lru_cache
-    def _reduce_sample_log(self, logits, sample_prob=None, sample_shape=()):
+    def _reduce_sample_log(self, logits, sample_prob=None, num_samples=1):
         """Samples a tensor with log likelihoods, i.e. sample(x, axis=reduce_axis)).
 
         Args:
@@ -937,14 +936,12 @@ class BaseSum(OpNode, abc.ABC):
         # Categorical eventually uses non-log probabilities, so here we reuse as much as we can to
         # predetermine it
         def _sample():
-            logits_sum = self._reduce_marginal_inference_log(logits)
-            log_prob = tf.exp(logits - tf.expand_dims(logits_sum, axis=self._reduce_axis))
-            return self.sample_and_transpose(
-                tfd.Categorical(probs=tf.exp(log_prob), dtype=tf.int64), sample_shape=sample_shape)
+            sample = self.multinomial_sample(logits, num_samples=num_samples)
+            return sample
 
         def _select_sample_or_argmax(x):
-            mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.bool).sample(sample_shape=tf.shape(x))
-            return tf.where(mask, x, self._reduce_argmax(logits, sample_shape=sample_shape))
+            mask = tf.less(tf.random_uniform(tf.shape(x)), sample_prob)
+            return tf.where(mask, x, self._reduce_argmax(logits, num_samples=num_samples))
 
         if sample_prob is not None:
             if isinstance(sample_prob, (float, int)):
@@ -962,7 +959,7 @@ class BaseSum(OpNode, abc.ABC):
             return _sample()
 
     @utils.lru_cache
-    def _reduce_sample(self, x, epsilon=1e-8, sample_prob=None, sample_shape=()):
+    def _reduce_sample(self, x, sample_prob=None, num_samples=1):
         """Samples a tensor with likelihoods, i.e. sample(x, axis=reduce_axis)).
 
         Args:
@@ -972,15 +969,11 @@ class BaseSum(OpNode, abc.ABC):
         Returns:
             A ``Tensor`` reduced over the last axis.
         """
-        x_sum = self._reduce_marginal_inference(x)
-        x_normalized = x / tf.expand_dims(x_sum + epsilon, axis=self._reduce_axis)
-        sample = self.sample_and_transpose(tfd.Categorical(probs=x_normalized, dtype=tf.int64),
-                                           sample_shape=sample_shape)
+        sample = self.multinomial_sample(tf.log(x), num_samples=num_samples)
 
         if sample_prob is not None:
-            sample_mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.bool).sample(
-                sample_shape=tf.shape(x_sum))
-            return tf.where(sample_mask, sample, self._reduce_argmax(x))
+            mask = tf.less(tf.random_uniform(tf.shape(sample)), sample_prob)
+            return tf.where(mask, sample, self._reduce_argmax(x))
         return sample
 
     @staticmethod
@@ -1012,3 +1005,16 @@ class BaseSum(OpNode, abc.ABC):
             A component wise multiplication of ``a`` and ``b``.
         """
         return a * b
+
+    @utils.lru_cache
+    def multinomial_sample(self, logits, num_samples):
+        shape = tf.shape(logits)
+        last_dim = shape[-1]
+        logits = tf.reshape(logits, (-1, last_dim))
+        sample = tf.multinomial(logits, num_samples)
+
+        if self._tile_unweighted_size == num_samples:
+            shape = tf.concat((shape[:-1], [num_samples]), axis=0)
+            return tf.squeeze(tf.reshape(sample, shape), axis=self._reduce_axis - 1)
+
+        return tf.reshape(sample, shape[:-1])

@@ -22,6 +22,10 @@ from libspn.graph.parsums import ParSums
 from libspn.graph.sumslayer import SumsLayer
 from libspn.graph.convsum import ConvSum
 from libspn.graph.localsum import LocalSum
+from libspn.graph.tensorsum import TensorSum
+from libspn.graph.tensorproduct import TensorProduct
+from libspn.graph.tensorrandomize import TensorRandomize
+from libspn.graph.tensor_merge_decomps import TensorMergeDecomps
 from libspn.graph.product import Product
 from libspn.graph.permproducts import PermProducts
 from libspn.graph.productslayer import ProductsLayer
@@ -39,7 +43,14 @@ from libspn.graph.loader import Loader, JSONLoader
 from libspn.graph.algorithms import compute_graph_up
 from libspn.graph.algorithms import compute_graph_up_down
 from libspn.graph.algorithms import traverse_graph
-from libspn.graph.distribution import GaussianLeaf
+from libspn.graph.distribution import NormalLeaf
+from libspn.graph.distribution import LaplaceLeaf
+from libspn.graph.distribution import StudentTLeaf
+from libspn.graph.distribution import CauchyLeaf
+from libspn.graph.distribution import LocationScaleLeaf
+from libspn.graph.distribution import DistributionLeaf
+from libspn.graph.distribution import TruncatedNormalLeaf
+from libspn.graph.distribution import MultivariateNormalDiagLeaf
 
 # Generators
 from libspn.generation.dense import DenseSPNGenerator
@@ -59,6 +70,7 @@ from libspn.learning.gd import GDLearning
 from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
 from libspn.learning.type import GradientType
+from libspn.learning.ebw import ExtendedBaumWelch
 
 # Data
 from libspn.data.dataset import Dataset
@@ -117,11 +129,13 @@ __all__ = [
     # Graph
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IVs', 'ContVars',
-    'Sum', 'ParSums', 'SumsLayer',
-    'ConvSum', 'LocalSum',
-    'Product', 'PermProducts', 'ProductsLayer',
-    'ConvProd2D', '_ConvProdNaive', 'ConvProdDepthWise',
-    'GaussianLeaf',
+    'Sum', 'ParSums', 'SumsLayer', 'TensorSum',
+    'Product', 'PermProducts', 'ProductsLayer', 'TensorProduct',
+    'ConvProd2D', '_ConvProdNaive',
+    'TensorMergeDecomps', 'TensorRandomize',
+    'NormalLeaf', 'MultivariateNormalDiagLeaf',
+    'CauchyLeaf', 'LaplaceLeaf', 'StudentTLeaf', 'LocationScaleLeaf',
+    'DistributionLeaf', 'TruncatedNormalLeaf',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
@@ -131,9 +145,10 @@ __all__ = [
     'DenseSPNGenerator', 'DenseSPNGeneratorLayerNodes',
     'WeightsGenerator', 'generate_weights',
     # Inference and learning
-    'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient',
-    'MPEState', 'EMLearning', 'GDLearning', 'LearningTaskType',
+    'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient', 'MPEState',
+    'EMLearning', 'GDLearning', 'LearningTaskType',
     'LearningMethodType', 'GradientType',
+    'ExtendedBaumWelch',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
     'IntGridDataset', 'ImageFormat', 'ImageShape', 'ImageDatasetBase',

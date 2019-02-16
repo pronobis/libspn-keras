@@ -6,13 +6,13 @@
 # ------------------------------------------------------------------------
 
 import tensorflow as tf
-from libspn.inference.value import Value, LogValue
+from libspn.inference.value import LogValue
 from libspn.graph.algorithms import traverse_graph
 from libspn.exceptions import StructureError
 from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
 from libspn.learning.type import GradientType
-from libspn.graph.distribution import GaussianLeaf
+from libspn.graph.distribution import LocationScaleLeaf
 from libspn.graph.weights import Weights
 from libspn.graph.sum import Sum
 from libspn.graph.concat import Concat
@@ -54,7 +54,7 @@ class GDLearning:
                  confidence_penalty_coeff=None,
                  entropy_regularize_coeff=None,
                  gauss_regularize_coeff=None, gauss_kl_coeff=None, gauss_ce_coeff=None,
-                 batch_noise=None,
+                 batch_noise=None, global_step=None,
                  linear_w_minimum=1e-2):
 
         if learning_task_type == LearningTaskType.UNSUPERVISED and \
@@ -87,6 +87,7 @@ class GDLearning:
         self._name = name
         self._noise = noise
         self._linear_w_minimum = linear_w_minimum
+        self._global_step = global_step
 
     def loss(self, learning_method=None, dropconnect_keep_prob=None, dropprod_keep_prob=None,
              noise=None, batch_noise=None, reduce_fn=tf.reduce_mean):
@@ -154,7 +155,8 @@ class GDLearning:
 
             # Assemble TF ops for optimizing and weights normalization
             with tf.name_scope("ParameterUpdate"):
-                minimize = optimizer(self._learning_rate).minimize(loss=loss)
+                minimize = optimizer(self._learning_rate).minimize(
+                    loss=loss, global_step=self._global_step)
                 return self.post_gradient_update(minimize), loss
 
     def post_gradient_update(self, update_op):
@@ -179,10 +181,9 @@ class GDLearning:
                         weight_norm_ops.append(
                             node.normalize(linear_w_minimum=self._linear_w_minimum))
 
-                    if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters and \
-                            not node._kwamy:
+                    if isinstance(node, LocationScaleLeaf) and node._trainable_scale:
                         weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
-                            node.scale_variable, node._min_stddev)))
+                            node.scale_variable, node._min_scale)))
 
                 with tf.name_scope("WeightNormalization"):
                     traverse_graph(self._root, fun=fun)
@@ -215,6 +216,7 @@ class GDLearning:
                 dropconnect_keep_prob=dropconnect_keep_prob,
                 dropprod_keep_prob=dropprod_keep_prob,
                 noise=noise, batch_noise=batch_noise)
+            # log_prob_data_and_labels = tf.Print(log_prob_data_and_labels, [log_prob_data_and_labels, log_prob_data], summarize=10)
             return -reduce_fn(log_prob_data_and_labels - log_prob_data)
 
     def mle_loss(self, name="MaximumLikelihoodLoss", reduce_fn=tf.reduce_mean,
@@ -325,7 +327,7 @@ class GDLearning:
             losses = []
 
             def regularize_node(node):
-                if isinstance(node, GaussianLeaf):
+                if isinstance(node, LocationScaleLeaf):
                     if _enable(self._gauss_regularize_coeff):
                         losses.append(self._gauss_regularize_coeff * tf.negative(
                             tf.reduce_sum(node.entropy())))

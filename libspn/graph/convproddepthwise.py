@@ -34,32 +34,19 @@ class ConvProdDepthWise(ConvProd2D):
 
     logger = get_logger()
 
-    def __init__(self, *values, padding_algorithm='valid', dilation_rate=1,
+    def __init__(self, *values, padding='valid', dilation_rate=1,
                  strides=2, kernel_size=2, inference_type=InferenceType.MARGINAL,
-                 name="ConvProdDepthWise", grid_dim_sizes=None,
-                 pad_top=None, pad_bottom=None, pad_left=None, pad_right=None):
+                 name="ConvProdDepthWise", grid_dim_sizes=None):
         super().__init__(*values, inference_type=inference_type, name=name,
-                         grid_dim_sizes=grid_dim_sizes, pad_left=pad_left, pad_right=pad_right,
-                         pad_top=pad_top, pad_bottom=pad_bottom, strides=strides,
-                         kernel_size=kernel_size, padding_algorithm=padding_algorithm,
-                         dilation_rate=dilation_rate, dropout_keep_prob=None,
-                         dropout_scope_wise=True)
+                         grid_dim_sizes=grid_dim_sizes, strides=strides,
+                         kernel_size=kernel_size, padding=padding,
+                         dilation_rate=dilation_rate)
         self._num_channels = self._num_input_channels()
 
     @utils.lru_cache
     def _compute_log_value(self, *input_tensors, dropout_keep_prob=None):
         # Concatenate along channel axis
         concat_inp = self._prepare_convolutional_processing(*input_tensors)
-
-        dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
-        if dropout_keep_prob is not None and (not isinstance(
-                dropout_keep_prob, (int, float)) or dropout_keep_prob != 1.0):
-            if self._scope_mask is None:
-                raise StructureError("{}: need to set scope mask for dropping abstract evidence."
-                                     .format(self))
-            dropout_mask = tf.expand_dims(tf.less(self._scope_mask, dropout_keep_prob), axis=-1)
-            dropout_mask = tf.tile(dropout_mask, [1, 1, 1, self._num_input_channels()])
-            concat_inp = tf.where(dropout_mask, concat_inp, tf.zeros_like(concat_inp))
 
         # Convolve
         # TODO, this the quickest workaround for TensorFlow's apparent optimization whenever
@@ -110,17 +97,16 @@ class ConvProdDepthWise(ConvProd2D):
             filter=tf.ones(self._kernel_size + [1, 1]),
             out_backprop=spatial_counts,
             strides=[1, 1] + self._strides,  # [1] + self._strides + [1],
-            padding=self._padding.upper(),
+            padding='VALID',
             dilations=[1, 1] + self._dilation_rate,
             data_format="NCHW")  # [1] + self._dilation_rate + [1])
 
         input_counts = self._batch_to_channels(input_counts)
 
-        if self._no_explicit_padding:
-            return self._split_to_children(input_counts)
-
         # In case we have explicitly padded the tensor before forward convolution, we should
         # slice the counts now
-        pad_bottom, pad_left, pad_right, pad_top = self._explicit_pad_sizes()
+        pad_left, pad_right, pad_top, pad_bottom = self.pad_sizes()
+        if not any([pad_left, pad_right, pad_top, pad_bottom]):
+            return self._split_to_children(input_counts)
         return self._split_to_children(input_counts[:, pad_top:-pad_bottom, pad_left:-pad_right, :])
 

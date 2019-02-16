@@ -6,7 +6,6 @@
 # ------------------------------------------------------------------------
 
 from itertools import chain
-import tensorflow as tf
 from libspn.graph.node import OpNode, Input
 from libspn import utils
 from libspn.inference.type import InferenceType

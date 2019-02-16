@@ -13,6 +13,7 @@ from libspn.exceptions import StructureError
 import numpy as np
 from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode
+from libspn.graph.spatialsum import SpatialSum
 from libspn import conf
 from libspn.graph.productslayer import ProductsLayer
 from libspn.log import get_logger
@@ -45,25 +46,24 @@ class ConvProd2D(OpNode):
 
     logger = get_logger()
 
-    def __init__(self, *values, num_channels=None, padding_algorithm='valid', dilation_rate=1,
+    def __init__(self, *values, num_channels=None, padding='valid', dilation_rate=1,
                  strides=2, kernel_size=2, inference_type=InferenceType.MARGINAL, name="ConvProd2D",
                  sparse_connections=None, dense_connections=None, grid_dim_sizes=None,
-                 num_channels_max=512, pad_top=None, pad_bottom=None,
-                 pad_left=None, pad_right=None, dropout_keep_prob=None, dropout_scope_wise=True):
+                 num_channels_max=512):
         self._batch_axis = 0
         self._channel_axis = 3
         super().__init__(inference_type=inference_type, name=name)
         self.set_values(*values)
 
         num_channels = min(num_channels or num_channels_max, num_channels_max)
-        if grid_dim_sizes is None:
-            raise NotImplementedError(
-                "{}: Must also provide grid_dim_sizes at this point.".format(self))
 
-        self._grid_dim_sizes = grid_dim_sizes or [-1] * 2
+        self._grid_dim_sizes = self._values[0].node.output_shape_spatial[:2] if \
+            isinstance(self._values[0].node, (SpatialSum, ConvProd2D)) else grid_dim_sizes
+        if self._grid_dim_sizes is None:
+            raise StructureError("{}: if no spatial".format(self))
         if isinstance(self._grid_dim_sizes, tuple):
             self._grid_dim_sizes = list(self._grid_dim_sizes)
-        self._padding = padding_algorithm
+        self._padding = padding
         self._dilation_rate = [dilation_rate] * 2 \
             if isinstance(dilation_rate, int) else list(dilation_rate)
         self._strides = [strides] * 2 \
@@ -71,8 +71,6 @@ class ConvProd2D(OpNode):
         self._num_channels = num_channels
         self._kernel_size = [kernel_size] * 2 if isinstance(kernel_size, int) \
             else list(kernel_size)
-        self._dropout_keep_prob = dropout_keep_prob
-        self._dropout_scope_wise = dropout_scope_wise
 
         # Generate connections if needed
         if sparse_connections is not None:
@@ -88,9 +86,6 @@ class ConvProd2D(OpNode):
             self._sparse_connections = self.generate_sparse_kernels(num_channels)
             self._dense_connections = self.sparse_kernels_to_onehot(self._sparse_connections)
 
-        self._pad_top, self._pad_bottom = pad_top, pad_bottom
-        self._pad_left, self._pad_right = pad_left, pad_right
-
         self._scope_mask = None
 
     def set_values(self, *values):
@@ -101,6 +96,8 @@ class ConvProd2D(OpNode):
             *values (input_like): Inputs providing input values to this node.
                 See :meth:`~libspn.Input.as_input` for possible values.
         """
+        if len(values) == 0:
+            raise StructureError("{}: must be initialized with at least one input.".format(self))
         self._values = self._parse_inputs(*values)
 
     def sparse_kernels_to_onehot(self, sparse):
@@ -167,12 +164,17 @@ class ConvProd2D(OpNode):
                 p //= num_input_channels
             return np.stack(kernel_cells, axis=0).reshape(self._kernel_size + [total_possibilities])
 
+        if self._num_channels >= num_input_channels:
+            kernel_cells = []
+            for _ in range(kernel_surface):
+                ind = np.arange(self._num_channels) % num_input_channels
+                np.random.shuffle(ind)
+                kernel_cells.append(ind)
+            return np.asarray(kernel_cells).reshape(self._kernel_size + [self._num_channels])
+
         sparse_shape = self._kernel_size + [num_channels]
         size = int(np.prod(sparse_shape))
         return np.random.randint(num_input_channels, size=size).reshape(sparse_shape)
-
-    def set_dropout_keep_prob(self, p):
-        self._dropout_keep_prob = p
 
     @utils.lru_cache
     def _spatial_concat(self, *input_tensors):
@@ -291,16 +293,6 @@ class ConvProd2D(OpNode):
         # Concatenate along channel axis
         concat_inp = self._prepare_convolutional_processing(*input_tensors)
 
-        dropout_keep_prob = utils.maybe_first(self._dropout_keep_prob, dropout_keep_prob)
-        if dropout_keep_prob is not None and (not isinstance(
-                dropout_keep_prob, (int, float)) or dropout_keep_prob != 1.0):
-            if self._scope_mask is None:
-                raise StructureError("{}: need to set scope mask for dropping abstract evidence."
-                                     .format(self))
-            dropout_mask = tf.expand_dims(tf.less(self._scope_mask, dropout_keep_prob), axis=-1)
-            dropout_mask = tf.tile(dropout_mask, [1, 1, 1, self._num_input_channels()])
-            concat_inp = tf.where(dropout_mask, concat_inp, tf.zeros_like(concat_inp))
-
         if conf.custom_one_hot_conv2d:
             conv_out = utils.one_hot_conv2d(
                 concat_inp, self._sparse_connections, self._strides, self._dilation_rate)        
@@ -315,7 +307,7 @@ class ConvProd2D(OpNode):
 
             conv_out = tf.nn.conv2d(
                 input=concat_inp,
-                filter=self._dense_connections, padding=self._padding.upper(),
+                filter=self._dense_connections, padding='VALID',
                 strides=[1] + self._strides + [1],
                 dilations=[1] + self._dilation_rate + [1],
                 data_format='NHWC'
@@ -349,45 +341,20 @@ class ConvProd2D(OpNode):
                 inp_concat, self._sparse_connections, spatial_counts, strides=self._strides,
                 dilations=self._dilation_rate)
         else:
-            # We can use the backprop Op, as the counts should be passed on to the input tensor.
-            # Note that our 'kernels' are either 0 or 1, so either passing on the counts through
-            # multiplying with 1, or not passing them on through multiplying with 0
-            # input_shape = tf.shape(inp_concat)
-            # input_shape_py = inp_concat.shape.as_list()
-            # transposed_shape = [input_shape[0], input_shape_py[3]] + input_shape_py[1:3]
-            #
-            # # Transpose from NHWC to NCHW
-            # transposed_spatial_counts = self._transpose_channel_last_to_first(spatial_counts)
-            #
-            # # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
-            # # to be a TF debug. Now we transpose before and after
-            # input_counts = tf.nn.conv2d_backprop_input(
-            #     input_sizes=transposed_shape,
-            #     filter=self._dense_connections,
-            #     out_backprop=transposed_spatial_counts,
-            #     strides=[1, 1] + self._strides,  # [1] + self._strides + [1],
-            #     padding=self._padding.upper(),
-            #     dilations=[1, 1] + self._dilation_rate,
-            #     data_format="NCHW")  # [1] + self._dilation_rate + [1])
-            #
-            # # Transpose from NCHW to NHWC
-            # input_counts = self._transpose_channel_first_to_last(input_counts)
-
             input_counts = tf.nn.conv2d_backprop_input(
                 input_sizes=tf.shape(inp_concat),
                 filter=self._dense_connections,
                 out_backprop=spatial_counts,
-                strides=[1] + self._strides + [1],  # [1] + self._strides + [1],
-                padding=self._padding.upper(),
+                strides=[1] + self._strides + [1],
+                padding='VALID',
                 dilations=[1] + self._dilation_rate + [1],
-                data_format="NHWC")  # [1] + self._dilation_rate + [1])
-
-        if self._no_explicit_padding:
-            return self._split_to_children(input_counts)
+                data_format="NHWC")
 
         # In case we have explicitly padded the tensor before forward convolution, we should
         # slice the counts now
-        pad_bottom, pad_left, pad_right, pad_top = self._explicit_pad_sizes()
+        pad_left, pad_right, pad_bottom, pad_top = self.pad_sizes()
+        if not any([pad_bottom, pad_left, pad_right, pad_top]):
+            self._split_to_children(input_counts)
         return self._split_to_children(input_counts[:, pad_top:-pad_bottom, pad_left:-pad_right, :])
 
     @property
@@ -397,15 +364,14 @@ class ConvProd2D(OpNode):
     @utils.lru_cache
     def _prepare_convolutional_processing(self, *input_values):
         inp_concat = self._spatial_concat(*input_values)
-        return self._maybe_explicit_pad(inp_concat)
+        return self._maybe_pad(inp_concat)
 
-    def _maybe_explicit_pad(self, x):
-        if self._no_explicit_padding:
+    def _maybe_pad(self, x):
+        pad_left, pad_right, pad_top, pad_bottom = self.pad_sizes()
+        if not any([pad_left, pad_right, pad_top, pad_bottom]):
             # If all pad sizes are 0, just return x
             return x
-
         # Pad x
-        pad_bottom, pad_left, pad_right, pad_top = self._explicit_pad_sizes()
         paddings = [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]]
         return tf.pad(x, paddings=paddings, mode="CONSTANT", constant_values=0)
 
@@ -526,36 +492,19 @@ class ConvProd2D(OpNode):
         Returns:
             A tuple of left, right, top and bottom padding sizes.
         """
-        pad_top_explicit, pad_bottom_explicit, pad_left_explicit, pad_right_explicit = \
-            self._explicit_pad_sizes()
-        if self.valid_padding:
-            # No padding
-            if pad_top_explicit == pad_bottom_explicit \
-                    == pad_left_explicit == pad_right_explicit == 0:
-                return 0, 0, 0, 0
-            return pad_left_explicit, pad_right_explicit, pad_top_explicit, pad_bottom_explicit
-
-        # See https://www.tensorflow.org/api_guides/python/nn#Convolution
-        filter_height, filter_width = self._effective_kernel_size()
-        if self._grid_dim_sizes[0] % self._strides[0] == 0:
-            pad_along_height = max(filter_height - self._strides[0], 0)
-        else:
-            pad_along_height = max(filter_height - (self._grid_dim_sizes[0] % self._strides[0]), 0)
-        if self._grid_dim_sizes[1] % self._strides[1] == 0:
-            pad_along_width = max(filter_width - self._strides[1], 0)
-        else:
-            pad_along_width = max(filter_width - (self._grid_dim_sizes[1] % self._strides[1]), 0)
-
-        pad_top = pad_along_height // 2
-        pad_bottom = pad_along_height - pad_top
-        pad_left = pad_along_width // 2
-        pad_right = pad_along_width - pad_left
-        return (
-            pad_left + pad_left_explicit,
-            pad_right + pad_right_explicit,
-            pad_top + pad_top_explicit,
-            pad_bottom + pad_bottom_explicit
-        )
+        if self._padding == 'valid':
+            return 0, 0, 0, 0
+        if self._padding == 'full':
+            kernel_height, kernel_width = self._effective_kernel_size()
+            pad_top = pad_bottom = kernel_height - 1
+            pad_left = pad_right = kernel_width - 1
+            return pad_left, pad_right, pad_top, pad_bottom
+        if self._padding == 'final':
+            kernel_height, kernel_width = self._effective_kernel_size()
+            pad_top = (kernel_height - 1) * 2 - self._grid_dim_sizes[0]
+            pad_left = (kernel_width - 1) * 2 - self._grid_dim_sizes[1]
+            return 0, pad_left, 0, pad_top
+        raise ValueError("{}: invalid padding algorithm. Use 'valid', 'full' or 'final'")
 
     @utils.docinherit(OpNode)
     def _compute_valid(self, *value_scopes):
