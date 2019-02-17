@@ -231,7 +231,7 @@ class ProductsLayer(OpNode):
             combined_indices.append(indices)
             offset += size
 
-        return combined_indices, utils.concat_maybe(unique_tensors, 1)
+        return combined_indices, tf.concat(unique_tensors, 1)
 
     @utils.lru_cache
     def _compute_value_common(self, *value_tensors, padding_value=0.0):
@@ -251,7 +251,7 @@ class ProductsLayer(OpNode):
         else:
             # Gather input tensors
             value_tensors = self._gather_input_tensors(*value_tensors)
-            return utils.concat_maybe(value_tensors, 1)
+            return tf.concat(value_tensors, 1)
 
     @utils.lru_cache
     def _compute_value(self, *value_tensors):

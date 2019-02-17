@@ -47,78 +47,6 @@ class ValueType:
             self.max_val = data['max_val']
 
 
-def gather_cols(params, indices, name=None):
-    """Gather columns of a 2D tensor or values of a 1D tensor.
-
-    Args:
-        params (Tensor): A 1D or 2D tensor.
-        indices (array_like): A 1D integer array.
-        name (str): A name for the operation (optional).
-
-    Returns:
-        Tensor: Has the same dtype and number of dimensions and type as ``params``.
-    """
-    with tf.name_scope(name, "gather_cols", [params, indices]):
-        params = tf.convert_to_tensor(params, name="params")
-        indices = np.asarray(indices)
-        # Check params
-        param_shape = params.get_shape()
-        param_dims = param_shape.ndims
-        if param_dims == 1:
-            param_size = param_shape[0].value
-        elif param_dims == 2:
-            param_size = param_shape[1].value
-        else:
-            raise ValueError("'params' must be 1D or 2D")
-        # We need the size defined for optimizations
-        if param_size is None:
-            raise RuntimeError("The indexed dimension of 'params' is not specified")
-        # Check indices
-        if indices.ndim != 1:
-            raise ValueError("'indices' must be 1D")
-        if indices.size < 1:
-            raise ValueError("'indices' cannot be empty")
-        if not np.issubdtype(indices.dtype, np.integer):
-            raise ValueError("'indices' must be integer, not %s"
-                             % indices.dtype)
-        if np.any((indices < 0) | (indices >= param_size)):
-            raise ValueError("'indices' must fit the the indexed dimension")
-        # Define op
-        if param_size == 1:
-            if indices.size == 1:
-                # Single column tensor with a single indices, which should include
-                # it, so just forward tensor
-                return params
-            else:
-                # Single column tensor with multiple indices - case of tiling
-                return tf.tile(params, ([indices.size] if param_dims == 1
-                                        else [1, indices.size]))
-        elif indices.size == param_size and np.all(np.ediff1d(indices) == 1):
-            # Indices index all params in the original order, pass through
-            return params
-        elif indices.size == 1:
-            # Gathering a single column
-            if param_dims == 1:
-                # Gather is faster than custom for 1D.
-                # It is as fast as slice for int64, and generates smaller graph
-                return tf.gather(params, indices)
-            else:
-                if conf.custom_gather_cols:
-                    return ops.gather_cols(params, indices)
-                else:
-                    return tf.slice(params, [0, indices[0]], [-1, 1])
-        else:
-            # Gathering multiple columns from multi-column tensor
-            if param_dims == 1:
-                # Gather is faster than custom for 1D.
-                return tf.gather(params, indices)
-            else:
-                if conf.custom_gather_cols:
-                    return ops.gather_cols(params, indices)
-                else:
-                    return tf.gather(params, indices, axis=1)
-
-
 def gather_cols_3d(params, indices, pad_elem=0, name=None):
     """Gather columns of a 2D tensor or values of a 1D tensor into a 1D, 2D or 3D
        tensor, based on the dimension of params and list size of indices.
@@ -178,7 +106,7 @@ def gather_cols_3d(params, indices, pad_elem=0, name=None):
                 return_tensor = params
             else:
                 # If not, then just pass it to gather_cols() function
-                return_tensor = gather_cols(params, indices[0])
+                return_tensor = tf.gather(params, indices[0], axis=1)
 
             if ind_2D:
                 # Indices is 2D, so insert an extra dimension to the output
@@ -189,7 +117,7 @@ def gather_cols_3d(params, indices, pad_elem=0, name=None):
             # Multiple rows of indices
             indices_cols = max([ind.size for ind in indices])
             padding = False
-            for i, ind in enumerate(indices):
+            for i, indf in enumerate(indices):
                 if ind.size < indices_cols:
                     padding = True
                     indices[i] = np.append(ind, np.ones(indices_cols-ind.size,
@@ -318,7 +246,7 @@ def scatter_cols(params, indices, num_out_cols, name=None):
                     with_zeros = tf.concat(values=([0], params), axis=0)
                     gather_indices = np.zeros(num_out_cols, dtype=int)
                     gather_indices[indices] = np.arange(indices.size) + 1
-                    return gather_cols(with_zeros, gather_indices)
+                    return tf.gather(with_zeros, gather_indices, axis=1)
             else:
                 if conf.custom_scatter_cols:
                     return ops.scatter_cols(
@@ -331,7 +259,7 @@ def scatter_cols(params, indices, num_out_cols, name=None):
                     with_zeros = tf.concat(values=(zero_col, params), axis=1)
                     gather_indices = np.zeros(num_out_cols, dtype=int)
                     gather_indices[indices] = np.arange(indices.size) + 1
-                    return gather_cols(with_zeros, gather_indices)
+                    return tf.gather(with_zeros, gather_indices, axis=1)
 
 
 def scatter_values(params, indices, num_out_cols, name=None):
@@ -434,157 +362,6 @@ def broadcast_value(value, shape, dtype, name=None):
 
         # Return original input if we cannot broadcast
         return tensor
-
-
-def normalize_tensor(tensor, name=None):
-    """Normalize the tensor so that all elements sum to 1.
-
-    Args:
-        tensor (Tensor): Input tensor.
-
-    Returns:
-        Tensor: Normalized tensor.
-    """
-    with tf.name_scope(name, "normalize_tensor", [tensor]):
-        tensor = tf.convert_to_tensor(tensor)
-        s = tf.reduce_sum(tensor)
-        return tf.truediv(tensor, s)
-
-
-def normalize_tensor_2D(tensor, num_weights=1, num_sums=1, name=None):
-    """Reshape weight vector to a 2D tensor, and normalize such each row sums to 1.
-
-    Args:
-        tensor (Tensor): Input tensor.
-
-    Returns:
-        Tensor: Normalized tensor.
-    """
-    with tf.name_scope(name, "normalize_tensor_2D", [tensor]):
-        tensor = tf.convert_to_tensor(tensor)
-        tensor = tf.reshape(tensor, [num_sums, num_weights])
-        s = tf.reduce_sum(tensor, axis=1, keepdims=True)
-        return tf.truediv(tensor, s)
-
-
-def normalize_log_tensor_2D(tensor, num_weights=1, num_sums=1, name=None):
-    """Reshape weight vector to a 2D tensor, and normalize such each row sums to 1.
-
-    Args:
-        tensor (Tensor): Input tensor.
-
-    Returns:
-        Tensor: Normalized tensor.
-    """
-    with tf.name_scope(name, "normalize_log_tensor_2D", [tensor]):
-        tensor = tf.convert_to_tensor(tensor)
-        tensor = tf.reshape(tensor, [num_sums, num_weights])
-        log_sum = reduce_log_sum(tensor)
-        # Normalize assuming that log_sum does not contain -inf
-        normalized_log_tensor = tf.subtract(tensor, log_sum)
-        return normalized_log_tensor
-
-
-def reduce_log_sum(log_input, name=None):
-    """Calculate log of a sum of elements of a tensor containing log values
-    row-wise.
-
-    Args:
-        log_input (Tensor): Tensor containing log values.
-
-    Returns:
-        Tensor: The reduced tensor of shape ``(None, 1)``, where the first
-        dimension corresponds to the first dimension of ``log_input``.
-    """
-    with tf.name_scope(name, "reduce_log_sum", [log_input]):
-        log_max = tf.reduce_max(log_input, 1, keepdims=True)
-        # Compute the value assuming at least one input is not -inf
-        log_rebased = tf.subtract(log_input, log_max)
-        out_normal = log_max + tf.log(tf.reduce_sum(tf.exp(log_rebased),
-                                                    1, keepdims=True))
-        # Check if all input values in a row are -inf (all non-log inputs are 0)
-        # and produce output for that case
-        # We use float('inf') for compatibility with Python<3.5
-        # For Python>=3.5 we can use math.inf instead
-        all_zero = tf.equal(log_max,
-                            tf.constant(-float('inf'), dtype=log_input.dtype))
-        out_zeros = tf.fill(tf.shape(out_normal),
-                            tf.constant(-float('inf'), dtype=log_input.dtype))
-        # Choose the output for each row
-        return tf.where(all_zero, out_zeros, out_normal)
-
-
-# log(x + y) = log(x) + log(1 + exp(log(y) - log(x)))
-def reduce_log_sum_3D(log_input, transpose=True, name=None):
-    """Calculate log of a sum of elements of a 3D tensor containing log values
-    row-wise, with each slice representing a single sum node.
-
-    Args:
-        log_input (Tensor): Tensor containing log values.
-
-    Returns:
-        Tensor: The reduced tensor of shape ``(None, num_sums)``, where the first
-         and the second dimensions corresponds to the second and first  dimensions
-         of ``log_input``.
-    """
-    with tf.name_scope(name, "reduce_log_sum_3D", [log_input]):
-        # log(x)
-        log_max = tf.reduce_max(log_input, axis=-1, keepdims=True)
-        # Compute the value assuming at least one input is not -inf
-        # r = log(y) - log(x)
-        log_rebased = tf.subtract(log_input, log_max)
-        # log(x) + log(1 + exp(r))???
-        out_normal = log_max + tf.log(tf.reduce_sum(tf.exp(log_rebased),
-                                                    axis=-1, keepdims=True))
-        # Check if all input values in a row are -inf (all non-log inputs are 0)
-        # and produce output for that case
-        all_zero = tf.equal(log_max,
-                            tf.constant(-float('inf'), dtype=log_input.dtype))
-        out_zeros = tf.fill(tf.shape(out_normal),
-                            tf.constant(-float('inf'), dtype=log_input.dtype))
-        # Choose the output for each row
-        if transpose:
-            return tf.transpose(tf.squeeze(tf.where(all_zero, out_zeros,
-                                                    out_normal), -1))
-        else:
-            return tf.squeeze(tf.where(all_zero, out_zeros, out_normal), -1)
-
-
-def concat_maybe(values, axis, name='concat'):
-    """Concatenate ``values`` if there is more than one value. Oherwise, just
-    forward value as is.
-
-    Args:
-        values (list of Tensor): Values to concatenate
-
-    Returns:
-        Tensor: Concatenated values.
-    """
-    if len(values) > 1:
-        return tf.concat(values=values, axis=axis, name=name)
-    else:
-        return values[0]
-
-
-def split_maybe(value, split_sizes, axis, name='split'):
-    """Split ``value`` into multiple tensors of sizes given by ``split_sizes``.
-    ``split_sizes`` must sum to the size of ``split_dim``. If only one split_size
-    is given, the function does nothing and just forwards the value as the only
-    split.
-
-    Args:
-        value (Tensor): The tensor to split.
-        split_sizes (list of int): Sizes of each split.
-        axis (int): The dimensions along which to split.
-
-    Returns:
-        list of Tensor: List of resulting tensors.
-    """
-    if len(split_sizes) > 1:
-        return tf.split(value=value, num_or_size_splits=split_sizes,
-                        axis=axis, name=name)
-    else:
-        return [value]
 
 
 def print_tensor(*tensors):

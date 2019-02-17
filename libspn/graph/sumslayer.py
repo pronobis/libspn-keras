@@ -252,7 +252,7 @@ class SumsLayer(BaseSum):
         nested_multi_sum_indices = np.split(flat_col_indices + flat_tensor_offsets, split_indices)
         # Concatenate the unique tensors
         unique_tensors = list(unique_tensors_offsets_dict.keys())
-        return nested_multi_sum_indices, utils.concat_maybe(unique_tensors, axis=self._op_axis)
+        return nested_multi_sum_indices, tf.concat(unique_tensors, axis=self._op_axis)
 
     def _flat_indices_and_uniq_tensors(self, value_tensors):
         """Determines the flattened column indices to gather from the concatenated unique value
@@ -299,11 +299,11 @@ class SumsLayer(BaseSum):
         if all(np.array_equal(indices[0], ind) for ind in indices):
             # In case all sum nodes model the same sum, we can just use broadcasting
             reducible_values = tf.reshape(
-                utils.gather_cols(values, indices[0]), (-1, 1, self._max_sum_size))
+                tf.gather(values, indices[0], axis=1), (-1, 1, self._max_sum_size))
         elif len(set(self._sum_sizes)) == 1:
             # In case all sum sizes are the same, use gather and reshape accordingly
             indices_flat = list(itertools.chain(*indices))
-            reducible_values = tf.reshape(utils.gather_cols(values, indices_flat),
+            reducible_values = tf.reshape(tf.gather(values, indices_flat, axis=1),
                                           (-1, self._num_sums, self._max_sum_size))
         else:
             reducible_values = utils.gather_cols_3d(

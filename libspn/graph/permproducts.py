@@ -194,7 +194,7 @@ class PermProducts(OpNode):
             values = value_tensors[0]
         if self._num_prods > 1:
             # Gather values based on permuted_indices
-            permuted_values = utils.gather_cols(values, self._permuted_indices)
+            permuted_values = tf.gather(values, self._permuted_indices, axis=1)
 
             # Shape of values tensor = [Batch, (num_prods * num_vals)]
             # First, split the values tensor into 'num_prods' smaller tensors.

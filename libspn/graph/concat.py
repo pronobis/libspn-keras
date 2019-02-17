@@ -106,7 +106,7 @@ class Concat(OpNode):
 
             gathered_inputs = self._gather_input_tensors(*input_tensors)
             # Concatenate inputs
-            return utils.concat_maybe(gathered_inputs, 1), gradient
+            return tf.concat(gathered_inputs, 1), gradient
         return value_gradient(*input_tensors)
 
     @utils.docinherit(OpNode)

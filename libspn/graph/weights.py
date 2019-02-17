@@ -134,7 +134,7 @@ class Weights(ParamNode):
         if self._mask and not all(self._mask):
             # Only perform masking if mask is given and mask contains any 'False'
             value *= tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype)
-        value = utils.normalize_tensor_2D(value, self._num_weights, self._num_sums)
+        value = value / tf.reduce_sum(value, axis=-1, keepdims=True)
         return tf.assign(self._variable, value)
 
     def assign_log(self, value):
@@ -160,8 +160,7 @@ class Weights(ParamNode):
         if self._mask and not all(self._mask):
             # Only perform masking if mask is given and mask contains any 'False'
             value += tf.log(tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype))
-        normalized_value = \
-            utils.normalize_log_tensor_2D(value, self._num_weights, self._num_sums)
+        normalized_value = value - tf.reduce_logsumexp(value, axis=-1, keepdims=True)
         return tf.assign(self._variable, normalized_value)
 
     def normalize(self, value=None, name="Normalize"):
@@ -204,8 +203,7 @@ class Weights(ParamNode):
             value += tf.log(tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype))
         # w_ij: w_ij + Δw_ij
         update_value = (self._variable if self._log else tf.log(self._variable)) + value
-        normalized_value = \
-            utils.normalize_log_tensor_2D(update_value, self._num_weights, self._num_sums)
+        normalized_value = tf.nn.log_softmax(update_value, axis=-1)
         return tf.assign(self._variable, (normalized_value if self._log else
                                           tf.exp(normalized_value)))
 
@@ -225,8 +223,7 @@ class Weights(ParamNode):
             value += tf.log(tf.cast(tf.reshape(self._mask, value.shape), dtype=conf.dtype))
         # w_ij: w_ij + Δw_ij
         update_value = self._variable + value
-        normalized_value = \
-            utils.normalize_log_tensor_2D(update_value, self._num_weights, self._num_sums)
+        normalized_value = tf.nn.log_softmax(update_value, axis=-1)
         return tf.assign(self._variable, normalized_value)
 
     def _create(self):
@@ -246,7 +243,7 @@ class Weights(ParamNode):
         if self._mask and not all(self._mask):
             # Only perform masking if mask is given and mask contains any 'False'
             init_val *= tf.cast(tf.reshape(self._mask, init_val.shape), dtype=conf.dtype)
-        init_val = utils.normalize_tensor_2D(init_val, self._num_weights, self._num_sums)
+        init_val = init_val / tf.reduce_sum(init_val, axis=-1, keepdims=True)
         if self._log:
             init_val = tf.log(init_val)
         self._variable = tf.Variable(init_val, dtype=conf.dtype,
