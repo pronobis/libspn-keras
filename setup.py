@@ -278,7 +278,7 @@ class CleanCommand(distutils.command.clean.clean):
 
 def get_readme():
     """Read readme file."""
-    with open('README.rst') as f:
+    with open('README.md') as f:
         return f.read()
 
 
