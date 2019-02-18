@@ -444,7 +444,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         v5 = spn.ContVars(num_vars=1)
         s = spn.SumsLayer((v12, [0, 5]), v34, (v12, [3]), v5, (v12, [0, 5]), v34,
                           (v12, [3]), v5, num_or_size_sums=[3, 1, 3, 4, 1])
-        s.generate_weights(init_value=spn.ValueType.RANDOM_UNIFORM())
+        s.generate_weights(init_value=tf.initializers.random_uniform(0.0, 1.0))
         with self.test_session() as sess:
             sess.run(s.weights.node.initialize())
             weights = sess.run(s.weights.node.variable)

@@ -60,7 +60,7 @@ class Ops:
 
         # Generate a dense SPN, with single-op nodes, and all weights in the network
         root = gen.generate(inputs, root_name="root")
-        spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM())
+        spn.generate_weights(root, tf.initializers.random_uniform(0.0, 1.0))
 
         # Generate value ops based on inf_type and log
         if log:
@@ -91,7 +91,7 @@ class Ops:
 
         # Generate a dense SPN, with block-nodes, and all weights in the network
         root = gen.generate(inputs, root_name="root")
-        spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM())
+        spn.generate_weights(root, tf.initializers.random_uniform(0.0, 1.0))
 
         # Generate value ops based on inf_type and log
         if log:
@@ -122,7 +122,7 @@ class Ops:
 
         # Generate a dense SPN, with layer-nodes, and all weights in the network
         root = gen.generate(inputs, root_name="root")
-        spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM())
+        spn.generate_weights(root, tf.initializers.random_uniform(0.0, 1.0))
 
         # Generate value ops based on inf_type and log
         if log:

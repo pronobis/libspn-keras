@@ -24,7 +24,7 @@ class TestGraphWeights(TestCase):
         # Multi sums
         w4 = spn.Weights(3, num_weights=2, num_sums=2)
         w5 = spn.Weights(0.3, num_weights=4, num_sums=3)
-        w6 = spn.Weights(spn.ValueType.RANDOM_UNIFORM(), num_weights=1, num_sums=4)
+        w6 = spn.Weights(tf.initializers.random_uniform(0.0, 1.0), num_weights=1, num_sums=4)
         init1 = w1.initialize()
         init2 = w2.initialize()
         init3 = w3.initialize()
@@ -93,7 +93,7 @@ class TestGraphWeights(TestCase):
         assign3 = w3.assign(5)
         assign4 = w4.assign([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
         assign5 = w5.assign(0.5)
-        assign6 = w6.assign(spn.ValueType.RANDOM_UNIFORM())
+        assign6 = w6.assign(tf.initializers.random_uniform(0.0, 1.0))
         with tf.Session() as sess:
             sess.run([init1, init3, init4, init5, init6])
             sess.run([assign1, assign2, assign3, assign4, assign5, assign6])

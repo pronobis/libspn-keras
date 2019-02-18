@@ -236,8 +236,8 @@ class BaseSum(OpNode, abc.ABC):
         self._values += self._parse_inputs(*values)
         self._reset_sum_sizes()
 
-    def generate_weights(self, init_value=1, trainable=True, input_sizes=None,
-                         log=False, name=None):
+    def generate_weights(self, initializer=tf.initializers.constant(1.0), trainable=True,
+                         input_sizes=None, log=False, name=None):
         """Generate a weights node matching this sum node and connect it to
         this sum.
 
@@ -246,7 +246,7 @@ class BaseSum(OpNode, abc.ABC):
         once all inputs are added to this node.
 
         Args:
-            init_value: Initial value of the weights. For possible values, see
+            initializer: Initial value of the weights. For possible values, see
                 :meth:`~libspn.utils.broadcast_value`.
             trainable (bool): See :class:`~libspn.Weights`.
             input_sizes (list of int): Pre-computed sizes of each input of
@@ -269,8 +269,9 @@ class BaseSum(OpNode, abc.ABC):
         else:
             num_values = max(self._sum_sizes)
         # Generate weights
+        print(self, "generating", self._num_sums, num_values)
         weights = Weights(
-            init_value=init_value, num_weights=num_values, num_sums=self._num_sums,
+            initializer=initializer, num_weights=num_values, num_sums=self._num_sums,
             log=log, trainable=trainable, name=name)
         self.set_weights(weights)
         return weights
@@ -380,17 +381,17 @@ class BaseSum(OpNode, abc.ABC):
         def _log_value(*input_tensors):
             # First reduce over last axis
             val = self._reduce_marginal_inference_log(self._compute_reducible(
-                w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True,
+                w_tensor, ivs_tensor, *value_tensors, weighted=True,
                 dropconnect_keep_prob=dropconnect_keep_prob))
 
             return val, custom_grad
 
-        if conf.custom_gradient:
-            return _log_value(*self._get_differentiable_inputs(
-                w_tensor, ivs_tensor, *value_tensors))
-        else:
-            return self._reduce_marginal_inference_log(self._compute_reducible(
-                w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True))
+        # if conf.custom_gradient:
+        #     return _log_value(*self._get_differentiable_inputs(
+        #         w_tensor, ivs_tensor, *value_tensors))
+        # else:
+        return self._reduce_marginal_inference_log(self._compute_reducible(
+            w_tensor, ivs_tensor, *value_tensors, weighted=True))
 
     def _get_differentiable_inputs(self, w_tensor, ivs_tensor, *value_tensors):
         """Selects the tensors to include for a tf.custom_gradient when computing the log-value.
@@ -420,7 +421,7 @@ class BaseSum(OpNode, abc.ABC):
         @tf.custom_gradient
         def _log_mpe_value(*input_tensors):
             val = self._reduce_mpe_inference_log(self._compute_reducible(
-                w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True,
+                w_tensor, ivs_tensor, *value_tensors, weighted=True,
                 dropconnect_keep_prob=dropconnect_keep_prob))
             return val, custom_grad
 
@@ -429,7 +430,7 @@ class BaseSum(OpNode, abc.ABC):
                 w_tensor, ivs_tensor, *value_tensors))
         else:
             return self._reduce_mpe_inference_log(self._compute_reducible(
-                w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True,
+                w_tensor, ivs_tensor, *value_tensors, weighted=True,
                 dropconnect_keep_prob=dropconnect_keep_prob))
 
     @utils.lru_cache
@@ -503,7 +504,7 @@ class BaseSum(OpNode, abc.ABC):
                               dropconnect_keep_prob=None):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
         reducible = self._compute_reducible(
-            w_tensor, ivs_tensor, *input_tensors, log=True, weighted=weighted,
+            w_tensor, ivs_tensor, *input_tensors, weighted=weighted,
             dropconnect_keep_prob=dropconnect_keep_prob)
         if not weighted and self._num_sums > 1 and reducible.shape[self._op_axis].value == 1:
             reducible = tf.tile(reducible, (1, self._num_sums, 1))
@@ -650,24 +651,13 @@ class BaseSum(OpNode, abc.ABC):
             w_tensor, ivs_tensor, *input_tensors)
         input_tensors = [tf.expand_dims(t, axis=self._op_axis) if len(t.shape) == 2 else t for
                          t in input_tensors]
+        print(self, w_tensor, 'b')
         w_tensor = tf.expand_dims(w_tensor, axis=self._batch_axis)
+        print(self, w_tensor, 'a')
         reducible_inputs = tf.concat(input_tensors, axis=self._reduce_axis)
         if ivs_tensor is not None:
             ivs_tensor = tf.reshape(ivs_tensor, shape=(-1, self._num_sums, self._max_sum_size))
         return w_tensor, ivs_tensor, reducible_inputs
-
-    @utils.lru_cache
-    def _reduce_marginal_inference(self, x):
-        """Reduces a tensor for marginal non-log inference by sum(x, axis=reduce_axis).
-
-        Args:
-            x (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] to reduce over the
-                        last axis.
-
-        Returns:
-            A ``Tensor`` reduced over the last axis.
-        """
-        return tf.reduce_sum(x, axis=self._reduce_axis, keepdims=False)
 
     @utils.lru_cache
     def _reduce_marginal_inference_log(self, x):

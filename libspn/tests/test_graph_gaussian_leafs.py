@@ -428,7 +428,7 @@ class TestGaussianQuantile(TestCase):
         root = gen.generate(gl, root_name="root")
 
         with tf.name_scope("Weights"):
-            spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM(), log=True)
+            spn.generate_weights(root, tf.initializers.random_uniform(0.0, 1.0), log=True)
 
         init = spn.initialize_weights(root)
 

@@ -522,7 +522,7 @@ class TestMath(TestCase):
     def test_broadcast_value(self):
         """broadcast_value for various value types"""
 
-        v1 = spn.utils.broadcast_value(spn.ValueType.RANDOM_UNIFORM(0, 1),
+        v1 = spn.utils.broadcast_value(tf.initializers.random_uniform(0.0, 1.0)(0, 1),
                                        (2, 3), dtype=tf.float64)
 
         v2 = spn.utils.broadcast_value(1,

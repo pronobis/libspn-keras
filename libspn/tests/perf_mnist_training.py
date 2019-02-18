@@ -47,7 +47,7 @@ class Ops:
         min_additive_smoothing = 1
 
         # Weight initialization
-        weight_init_value = spn.ValueType.RANDOM_UNIFORM(10, 11)
+        weight_init_value = tf.initializers.random_uniform(0.0, 1.0)(10, 11)
 
         # Generate SPN structure
         dense_gen = spn.DenseSPNGenerator(num_decomps=num_decomps,
@@ -84,7 +84,7 @@ class Ops:
         initial_accum_value = 20
 
         # Weight initialization
-        weight_init_value = spn.ValueType.RANDOM_UNIFORM(0, 1)
+        weight_init_value = tf.initializers.random_uniform(0.0, 1.0)(0, 1)
 
         # Add random values before max
         add_random = None

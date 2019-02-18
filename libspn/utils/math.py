@@ -116,7 +116,7 @@ def gather_cols_3d(params, indices, pad_elem=0, name=None):
             # Multiple rows of indices
             indices_cols = max([ind.size for ind in indices])
             padding = False
-            for i, indf in enumerate(indices):
+            for i, ind in enumerate(indices):
                 if ind.size < indices_cols:
                     padding = True
                     indices[i] = np.append(ind, np.ones(indices_cols-ind.size,

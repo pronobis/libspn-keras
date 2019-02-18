@@ -169,8 +169,8 @@ class SumsLayer(BaseSum):
         indices = np.arange(self._max_sum_size).reshape((1, self._max_sum_size))
         return np.less(indices, sizes)  # Use broadcasting
 
-    def generate_weights(self, init_value=1, trainable=True, input_sizes=None,
-                         log=False, name=None):
+    def generate_weights(self, initializer=tf.initializers.constant(1.0), trainable=True,
+                         input_sizes=None, log=False, name=None):
         """Generate a weights node matching this sum node and connect it to
         this sum.
 
@@ -179,7 +179,7 @@ class SumsLayer(BaseSum):
         once all inputs are added to this node.
 
         Args:
-            init_value: Initial value of the weights. For possible values, see
+            initializer: Initial value of the weights. For possible values, see
                 :meth:`~libspn.utils.broadcast_value`.
             trainable (bool): See :class:`~libspn.Weights`.
             input_sizes (list of int): Pre-computed sizes of each input of
@@ -200,33 +200,13 @@ class SumsLayer(BaseSum):
         # Set sum node sizes to inferred _sum_input_sizes
         sum_input_sizes = self._sum_sizes
         max_size = self._max_sum_size
-        sum_size = sum(sum_input_sizes)
 
         # Mask is used to select the indices to assign the value to, since the weights tensor can
         # be larger than the total number of weights being modeled due to padding
         mask = self._build_mask().reshape((-1,))
 
-        init_padded_flat = np.zeros(self._num_sums * max_size)
-        if isinstance(init_value, int) and init_value == 1:
-            # If an int, just broadcast its value to the sum dimensions
-            init_padded_flat[mask] = init_value
-            init_value = init_padded_flat.reshape((self._num_sums, max_size))
-        elif hasattr(init_value, '__iter__'):
-            # If the init value is iterable, check if number of elements matches number of
-            init_flat = np.asarray(init_value).reshape((-1,))
-            if init_flat.size == sum_size:
-                init_padded_flat[mask] = init_flat
-            else:
-                raise ValueError("Incorrect initializer size {}, use an int or an iterable of size"
-                                 " {}.".format(init_flat.size, sum_size))
-            init_value = init_padded_flat.reshape((self._num_sums, max_size))
-        elif not isinstance(init_value, utils.ValueType.RANDOM_UNIFORM):
-            raise ValueError("Initialization value {} of type {} not usable, use an int or an "
-                             "iterable of size {} or an instance of "
-                             "libspn.ValueType.RANDOM_UNIFORM."
-                             .format(init_value, type(init_value), sum_size))
         # Generate weights
-        weights = Weights(init_value=init_value, num_weights=max_size,
+        weights = Weights(initializer=initializer, num_weights=max_size,
                           num_sums=len(sum_input_sizes), log=log,
                           trainable=trainable, mask=mask.tolist(), name=name)
         self.set_weights(weights)
@@ -316,13 +296,10 @@ class SumsLayer(BaseSum):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
+            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
             accumulate_weights_batch=False, sample=False, sample_prob=None):
         if sample:
-            if log:
-                max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
-            else:
-                max_indices = self._reduce_sample(reducible_tensor, sample_prob=sample_prob)
+            max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
         else:
             max_indices = self._reduce_argmax(reducible_tensor)
         max_counts = utils.scatter_values(
@@ -343,8 +320,7 @@ class SumsLayer(BaseSum):
     def _compute_log_gradient(self, gradients, w_tensor, ivs_tensor, *value_tensors,
                               accumulate_weights_batch=False, dropconnect_keep_prob=None):
         reducible = self._compute_reducible(
-            w_tensor, ivs_tensor, *value_tensors, log=True,
-            dropconnect_keep_prob=dropconnect_keep_prob)
+            w_tensor, ivs_tensor, *value_tensors, dropconnect_keep_prob=dropconnect_keep_prob)
         log_sum = tf.expand_dims(
             self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
 

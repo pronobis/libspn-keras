@@ -18,15 +18,15 @@ class WeightsGenerator:
     otherwise the number of weight values will be incorrect.
 
     Attributes:
-        init_value: Initial value of the weights. For possible values, see
+        initializer: Initial value of the weights. For possible values, see
                     :meth:`~libspn.utils.broadcast_value`.
         trainable: See :class:`~libspn.Weights`.
         log (bool): If "True", the weights are represented in log space.
     """
 
-    def __init__(self, init_value=1, trainable=True, log=False):
+    def __init__(self, initializer=tf.initializers.constant(1.0), trainable=True, log=False):
         self._weights = {}
-        self.init_value = init_value
+        self.initializer = initializer
         self.trainable = trainable
         self._log = log
 
@@ -45,7 +45,7 @@ class WeightsGenerator:
         def gen(node, *input_out_sizes):
             if isinstance(node, BaseSum):
                 self._weights[node] = node.generate_weights(
-                    init_value=self.init_value, trainable=self.trainable,
+                    initializer=self.initializer, trainable=self.trainable,
                     input_sizes=node._gather_input_sizes(*input_out_sizes),
                     log=self._log)
             return node._compute_out_size(*input_out_sizes)
@@ -56,7 +56,7 @@ class WeightsGenerator:
             return compute_graph_up(root, val_fun=gen)
 
 
-def generate_weights(root, init_value=1, trainable=True, log=False):
+def generate_weights(root, initializer=tf.initializers.constant(1.0), trainable=True, log=False):
     """A helper function for quick generation of sum weights in the SPN graph.
 
     Args:
@@ -66,4 +66,4 @@ def generate_weights(root, init_value=1, trainable=True, log=False):
         trainable: See :class:`~libspn.Weights`.
         log (bool): If "True", the weights are represented in log space.
     """
-    WeightsGenerator(init_value=init_value, trainable=trainable, log=log).generate(root)
+    WeightsGenerator(initializer=initializer, trainable=trainable, log=log).generate(root)

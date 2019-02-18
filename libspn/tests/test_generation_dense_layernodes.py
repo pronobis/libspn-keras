@@ -121,7 +121,7 @@ class TestDenseSPNGenerator(TestCase):
 
         # Generate random weights for the first sub-SPN
         with tf.name_scope("Weights"):
-            spn.generate_weights(sub_spns[0], spn.ValueType.RANDOM_UNIFORM(),
+            spn.generate_weights(sub_spns[0], tf.initializers.random_uniform(0.0, 1.0),
                                  log=log_weights)
 
         # Initialize weights of the first sub-SPN
@@ -171,7 +171,7 @@ class TestDenseSPNGenerator(TestCase):
 
         # Generate random weights for the SPN
         with tf.name_scope("Weights"):
-            spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM(),
+            spn.generate_weights(root, tf.initializers.random_uniform(0.0, 1.0),
                                  log=log_weights)
 
         # Initialize weight of the SPN
@@ -226,19 +226,6 @@ class TestDenseSPNGenerator(TestCase):
             spn_out_path = sess.run(spn_path, feed_dict=feed_dict)
             spn_out_path_log = sess.run(spn_path_log, feed_dict=feed_dict)
 
-            # Compute numerical and theoretical gradients of sub-SPN
-            # and the complete SPN
-            sub_spn_gradients = \
-                tf.test.compute_gradient([w.variable for w in sub_spn_weight_nodes],
-                                         [w.variable.shape for w in sub_spn_weight_nodes],
-                                         sub_spn_v_log, (batch_size, 1),
-                                         extra_feed_dict=feed_dict)
-            spn_gradients = \
-                tf.test.compute_gradient([w.variable for w in spn_weight_nodes],
-                                         [w.variable.shape for w in spn_weight_nodes],
-                                         spn_v_log, (batch_size, 1),
-                                         extra_feed_dict=feed_dict)
-
             # Test if partition function of the sub-SPN and of the
             # complete SPN is 1.0
             self.assertAlmostEqual(sub_spn_out.sum(), 1.0, places=6)
@@ -256,12 +243,6 @@ class TestDenseSPNGenerator(TestCase):
                              [batch_size // num_vals] * num_inputs * num_vars * num_vals)
             self.assertEqual(np.sum(np.hstack(spn_out_path_log), axis=0).tolist(),
                              [batch_size // num_vals] * num_inputs * num_vars * num_vals)
-
-            # Test if numerical and theoretical gradients are similar
-            [self.assertAllClose(grad[0], grad[1], atol=1e-3, rtol=1e-3)
-             for grad in sub_spn_gradients]
-            [self.assertAllClose(grad[0], grad[1], atol=1e-3, rtol=1e-3)
-             for grad in spn_gradients]
 
 
 if __name__ == '__main__':

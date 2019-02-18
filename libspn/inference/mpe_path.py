@@ -38,12 +38,8 @@ class MPEPath:
         self._sample_prob = sample_prob
         # Create internal value generator
         if value is None:
-            if log:
-                self._value = LogValue(
-                    value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob)
-            else:
-                self._value = Value(
-                    value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob)
+            self._value = LogValue(
+                value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob)
         else:
             self._value = value
             self._log = value.log()
@@ -93,14 +89,9 @@ class MPEPath:
                 kwargs = basesum_kwargs if isinstance(node, BaseSum) else dict()
                 # Compute for inputs
                 with tf.name_scope(node.name):
-                    if self._log:
-                        return node._compute_log_mpe_path(
-                            summed, *[self._value.values[i.node] if i else None
-                                      for i in node.inputs], **kwargs)
-                    else:
-                        return node._compute_mpe_path(
-                            summed, *[self._value.values[i.node] if i else None
-                                      for i in node.inputs], **kwargs)
+                    return node._compute_log_mpe_path(
+                        summed, *[self._value.values[i.node] if i else None
+                                  for i in node.inputs], **kwargs)
 
         # Generate values if not yet generated
         if not self._value.values:
@@ -136,14 +127,9 @@ class MPEPath:
                 # Compute for inputs
                 kwargs = basesum_kwargs if isinstance(node, BaseSum) else dict()
                 with tf.name_scope(node.name):
-                    if self._log:
-                        return node._compute_log_mpe_path(
-                            summed, *[self._value.values[i.node] if i else None
-                                      for i in node.inputs], **kwargs)
-                    else:
-                        return node._compute_mpe_path(
-                            summed, *[self._value.values[i.node] if i else None
-                                      for i in node.inputs], **kwargs)
+                    return node._compute_log_mpe_path(
+                        summed, *[self._value.values[i.node] if i else None
+                                  for i in node.inputs], **kwargs)
 
         # Generate values if not yet generated
         if not self._value.values:

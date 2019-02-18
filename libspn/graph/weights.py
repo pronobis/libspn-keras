@@ -22,7 +22,7 @@ class Weights(ParamNode):
     """A node containing a vector of weights of a sum node.
 
     Args:
-        init_value: Initial value of the weights. For possible values, see
+        initializer: Initial value of the weights. For possible values, see
                     :meth:`~libspn.utils.broadcast_value`.
         num_weights (int): Number of weights in the vector.
         num_sums (int): Number of sum nodes the weight vector/matrix represents.
@@ -34,15 +34,15 @@ class Weights(ParamNode):
         trainable(bool): Should these weights be updated during training?
     """
 
-    def __init__(self, init_value=1, num_weights=1, num_sums=1, log=False,
-                 trainable=True, mask=None, name="Weights"):
+    def __init__(self, initializer=tf.initializers.constant(1.0), num_weights=1, num_sums=1,
+                 log=False, trainable=True, mask=None, name="Weights"):
         if not isinstance(num_weights, int) or num_weights < 1:
             raise ValueError("num_weights must be a positive integer")
 
         if not isinstance(num_sums, int) or num_sums < 1:
             raise ValueError("num_sums must be a positive integer")
 
-        self._init_value = init_value
+        self._initializer = initializer
         self._num_weights = num_weights
         self._num_sums = num_sums
         self._log = log
@@ -56,13 +56,13 @@ class Weights(ParamNode):
         data['num_sums'] = self._num_sums
         data['log'] = self._log
         data['trainable'] = self._trainable
-        data['init_value'] = self._init_value
+        data['initializer'] = self._init_value
         data['value'] = self._variable
         data['mask'] = self._mask
         return data
 
     def deserialize(self, data):
-        self._init_value = data['init_value']
+        self._init_value = data['initializer']
         self._num_weights = data['num_weights']
         self._num_sums = data['num_sums']
         self._log = data['log']
@@ -232,22 +232,16 @@ class Weights(ParamNode):
         Returns:
             Variable: A TF variable of shape ``[num_weights]``.
         """
-        if isinstance(self._init_value, utils.ValueType.RANDOM_UNIFORM) \
-           or isinstance(self._init_value, numbers.Real):
-            shape = self._num_sums * self._num_weights
-        else:
-            shape = self._num_weights
-        init_val = utils.broadcast_value(self._init_value,
-                                         shape=(shape,),
-                                         dtype=conf.dtype)
+        shape = (self._num_sums, self._num_weights)
+        init_val = self._initializer(shape=shape, dtype=conf.dtype)
         if self._mask and not all(self._mask):
             # Only perform masking if mask is given and mask contains any 'False'
             init_val *= tf.cast(tf.reshape(self._mask, init_val.shape), dtype=conf.dtype)
         init_val = init_val / tf.reduce_sum(init_val, axis=-1, keepdims=True)
         if self._log:
             init_val = tf.log(init_val)
-        self._variable = tf.Variable(init_val, dtype=conf.dtype,
-                                     collections=['spn_weights'])
+        self._variable = tf.Variable(
+            init_val, dtype=conf.dtype, collections=['spn_weights'])
 
     def _compute_out_size(self):
         return self._num_weights * self._num_sums
