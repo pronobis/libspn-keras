@@ -286,12 +286,6 @@ class GaussianLeaf(VarNode):
 
     @utils.docinherit(Node)
     @utils.lru_cache
-    def _compute_value(self, step=None):
-        return self._evidence_mask(
-            self._dist.prob(self._tile_num_components(self._feed)), tf.ones_like)
-
-    @utils.docinherit(Node)
-    @utils.lru_cache
     def _compute_log_value(self):
         return self._evidence_mask(
             self._dist.log_prob(self._tile_num_components(self._feed)), tf.zeros_like)

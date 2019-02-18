@@ -10,7 +10,7 @@
 import tensorflow as tf
 import numpy as np
 import collections
-from libspn import conf
+from libspn import conf, utils as utils
 from libspn.ops import ops
 from libspn.utils.serialization import register_serializable
 
@@ -134,31 +134,28 @@ def gather_cols_3d(params, indices, pad_elem=0, name=None):
                     return tf.reshape(tf.tile(params, [1, indices_rows]),
                                       (-1, indices_rows, indices_cols))
             else:
-                if conf.custom_gather_cols_3d:
-                    return ops.gather_cols_3d(params, indices, padding, pad_elem)
-                else:
-                    pad_elem = np.array(pad_elem).astype(tf.DType(params.dtype).as_numpy_dtype)
-                    if param_dims == 1:
-                        axis = 0
-                        if padding:
-                            augmented = tf.concat([[tf.constant(pad_elem, dtype=params.dtype)],
-                                                   params], axis=axis)
-                            gathered = tf.gather(augmented, indices=indices.ravel() + 1, axis=axis)
-                        else:
-                            gathered = tf.gather(params, indices=indices.ravel(), axis=axis)
-                        return tf.reshape(gathered, indices.shape)
-                    # else:
-                    axis = 1
+                pad_elem = np.array(pad_elem).astype(tf.DType(params.dtype).as_numpy_dtype)
+                if param_dims == 1:
+                    axis = 0
                     if padding:
-                        augmented = tf.concat([
-                            tf.fill((tf.shape(params)[0], 1), value=tf.constant(
-                                pad_elem, dtype=params.dtype)),
-                            params
-                        ], axis=axis)
+                        augmented = tf.concat([[tf.constant(pad_elem, dtype=params.dtype)],
+                                               params], axis=axis)
                         gathered = tf.gather(augmented, indices=indices.ravel() + 1, axis=axis)
                     else:
                         gathered = tf.gather(params, indices=indices.ravel(), axis=axis)
-                    return tf.reshape(gathered, (-1,) + indices.shape)
+                    return tf.reshape(gathered, indices.shape)
+                # else:
+                axis = 1
+                if padding:
+                    augmented = tf.concat([
+                        tf.fill((tf.shape(params)[0], 1), value=tf.constant(
+                            pad_elem, dtype=params.dtype)),
+                        params
+                    ], axis=axis)
+                    gathered = tf.gather(augmented, indices=indices.ravel() + 1, axis=axis)
+                else:
+                    gathered = tf.gather(params, indices=indices.ravel(), axis=axis)
+                return tf.reshape(gathered, (-1,) + indices.shape)
 
 
 def scatter_cols(params, indices, num_out_cols, name=None):
@@ -237,29 +234,17 @@ def scatter_cols(params, indices, num_out_cols, name=None):
         else:
             # Scatter a multi-column tensor to a multi-column tensor
             if param_dims == 1:
-                if conf.custom_scatter_cols:
-                    return ops.scatter_cols(
-                        params, indices,
-                        pad_elem=tf.constant(0, dtype=params.dtype),
-                        num_out_col=num_out_cols)
-                else:
-                    with_zeros = tf.concat(values=([0], params), axis=0)
-                    gather_indices = np.zeros(num_out_cols, dtype=int)
-                    gather_indices[indices] = np.arange(indices.size) + 1
-                    return tf.gather(with_zeros, gather_indices, axis=1)
+                with_zeros = tf.concat(values=([0], params), axis=0)
+                gather_indices = np.zeros(num_out_cols, dtype=int)
+                gather_indices[indices] = np.arange(indices.size) + 1
+                return tf.gather(with_zeros, gather_indices, axis=1)
             else:
-                if conf.custom_scatter_cols:
-                    return ops.scatter_cols(
-                        params, indices,
-                        pad_elem=tf.constant(0, dtype=params.dtype),
-                        num_out_col=num_out_cols)
-                else:
-                    zero_col = tf.zeros((tf.shape(params)[0], 1),
-                                        dtype=params.dtype)
-                    with_zeros = tf.concat(values=(zero_col, params), axis=1)
-                    gather_indices = np.zeros(num_out_cols, dtype=int)
-                    gather_indices[indices] = np.arange(indices.size) + 1
-                    return tf.gather(with_zeros, gather_indices, axis=1)
+                zero_col = tf.zeros((tf.shape(params)[0], 1),
+                                    dtype=params.dtype)
+                with_zeros = tf.concat(values=(zero_col, params), axis=1)
+                gather_indices = np.zeros(num_out_cols, dtype=int)
+                gather_indices[indices] = np.arange(indices.size) + 1
+                return tf.gather(with_zeros, gather_indices, axis=1)
 
 
 def scatter_values(params, indices, num_out_cols, name=None):
@@ -319,16 +304,12 @@ def scatter_values(params, indices, num_out_cols, name=None):
             # and forward the tensor.
             return tf.expand_dims(params, axis=-1)
         else:
-            if conf.custom_scatter_values:
-                return ops.scatter_values(params, indices,
-                                          num_out_cols=num_out_cols)
-            else:  # OneHot
-                if param_dims == 1:
-                    return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
-                           * tf.expand_dims(params, axis=1)
-                else:
-                    return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
-                           * tf.expand_dims(params, axis=2)
+            if param_dims == 1:
+                return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
+                       * tf.expand_dims(params, axis=1)
+            else:
+                return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
+                       * tf.expand_dims(params, axis=2)
 
 
 def broadcast_value(value, shape, dtype, name=None):
@@ -366,3 +347,33 @@ def broadcast_value(value, shape, dtype, name=None):
 
 def print_tensor(*tensors):
     return tf.Print(tensors[0], tensors)
+
+
+@utils.lru_cache
+def cwise_add(a, b):
+    """Component-wise addition of two tensors. Added explicitly for readability elsewhere and
+    for straightforward memoization.
+
+    Args:
+        a (Tensor): Left-hand side.
+        b (Tensor): Right-hand side.
+
+    Returns:
+        A component wise addition of ``a`` and ``b``.
+    """
+    return a + b
+
+
+@utils.lru_cache
+def cwise_mul(a, b):
+    """Component-wise multiplication of two tensors. Added explicitly for readability elsewhere
+    and for straightforward memoization.
+
+    Args:
+        a (Tensor): Left-hand side.
+        b (Tensor): Right-hand side.
+
+    Returns:
+        A component wise multiplication of ``a`` and ``b``.
+    """
+    return a * b

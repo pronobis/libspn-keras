@@ -208,12 +208,6 @@ class PermProducts(OpNode):
             return values
 
     @utils.lru_cache
-    def _compute_value(self, *value_tensors):
-        values = self._compute_value_common(*value_tensors)
-        return tf.reduce_prod(values, axis=-1,
-                              keepdims=(False if self._num_prods > 1 else True))
-
-    @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
 
@@ -233,14 +227,11 @@ class PermProducts(OpNode):
             return tf.reduce_sum(values, axis=-1,
                                  keep_dims=(False if self._num_prods > 1 else True))
 
-    def _compute_mpe_value(self, *value_tensors):
-        return self._compute_value(*value_tensors)
-
     def _compute_log_mpe_value(self, *value_tensors):
         return self._compute_log_value(*value_tensors)
 
     @utils.lru_cache
-    def _compute_mpe_path(self, counts, *value_values, add_random=False,
+    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
                           use_unweighted=False, sample=False, sample_prob=None):
         # Path per product node is calculated by permuting backwards to the
         # input nodes, then adding the appropriate counts per input, and then
@@ -298,9 +289,5 @@ class PermProducts(OpNode):
 
         return self._scatter_to_input_tensors(*value_counts)
 
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False, sample=False, sample_prob=None):
-        return self._compute_mpe_path(counts, *value_values)
-
     def _compute_log_gradient(self, gradients, *value_values):
-        return self._compute_mpe_path(gradients, *value_values)
+        return self._compute_log_mpe_path(gradients, *value_values)

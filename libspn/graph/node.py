@@ -469,7 +469,7 @@ class Node(ABC):
             otherwise ``None``.
         """
 
-    @abstractmethod
+    @utils.lru_cache
     def _compute_value(self, *input_tensors):
         """Assemble TF operations computing the marginal value of this node.
 
@@ -483,6 +483,7 @@ class Node(ABC):
             Tensor: A tensor of shape ``[None, out_size]``, where the first
             dimension corresponds to the batch size.
         """
+        return tf.exp(self._compute_log_value(*input_tensors))
 
     @abstractmethod
     def _compute_log_value(self, *input_tensors):
@@ -736,26 +737,6 @@ class OpNode(Node):
                          for i, t in zip(self.inputs, tuples))
 
     @abstractmethod
-    def _compute_mpe_path(self, counts, *input_values):
-        """Assemble TF operations computing the MPE branch counts for each input
-        of the node.
-
-        To be re-implemented in sub-classes.
-
-        Args:
-            counts (Tensor): Branch counts for each output value of this node.
-            *input_values (Tensor): For each input, a tensor containing the value
-                                    or log value produced by the input node. Can
-                                    be ``None`` if the input is not connected.
-
-        Returns:
-            list of Tensor: For each input, branch counts to pass to the node
-            connected to the input. Each tensor is of shape ``[None, out_size]``,
-            where the first dimension corresponds to the batch size and the
-            second dimension is the size of the output of the input node.
-        """
-
-    @abstractmethod
     def _compute_log_mpe_path(self, counts, *input_values):
         """Assemble TF operations computing the MPE branch counts for each input
         of the node assuming that value is computed in log space.
@@ -790,6 +771,7 @@ class OpNode(Node):
             mask = tfd.Bernoulli(probs=keep_prob, dtype=conf.dtype, name="DropoutMaskBernoulli")\
                 .sample(sample_shape=shape)
             return tf.log(mask) if log else mask
+
 
 class VarNode(Node):
     """An abstract class defining a variable node of the SPN graph.
@@ -888,38 +870,6 @@ class VarNode(Node):
             all output of this node.
         """
         return self._compute_scope()
-
-    @abstractmethod
-    def _compute_value(self):
-        """Assemble TF operations computing the marginal value of this node.
-
-        To be re-implemented in sub-classes.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-
-    @utils.lru_cache
-    def _compute_log_value(self):
-        """Assemble TF operations computing the marginal log value of this node.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-        return tf.log(self._compute_value())
-
-    def _compute_mpe_value(self):
-        """Assemble TF operations computing the MPE value of this node.
-
-        The MPE value is equal to marginal value for VarNodes.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-        return self._compute_value()
 
     def _compute_log_mpe_value(self):
         """Assemble TF operations computing the log MPE value of this node.
@@ -1024,17 +974,6 @@ class ParamNode(Node):
         return None
 
     @abstractmethod
-    def _compute_value(self):
-        """Assemble TF operations computing the marginal value of this node.
-
-        To be re-implemented in sub-classes.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-
-    @abstractmethod
     def _compute_log_value(self):
         """Assemble TF operations computing the marginal log value of this node.
 
@@ -1042,17 +981,6 @@ class ParamNode(Node):
             Tensor: A tensor of shape ``[None, out_size]``, where the first
             dimension corresponds to the batch size.
         """
-
-    def _compute_mpe_value(self):
-        """Assemble TF operations computing the MPE value of this node.
-
-        The MPE value is equal to marginal value for ParamNodes.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-        return self._compute_value()
 
     def _compute_log_mpe_value(self):
         """Assemble TF operations computing the log MPE value of this node.
@@ -1092,63 +1020,3 @@ class ParamNode(Node):
         Returns:
             Update operation.
         """
-
-
-class DistributionNode(VarNode, abc.ABC):
-
-    def __init__(self, feed=None, num_vars=1, name="DistributionLeaf"):
-        if not isinstance(num_vars, int) or num_vars < 1:
-            raise ValueError("num_vars must be a positive integer")
-        self._num_vars = num_vars
-        super().__init__(feed, name)
-
-    @property
-    def evidence(self):
-        return self._evidence_indicator
-
-    def _create_placeholder(self):
-        return tf.placeholder(conf.dtype, [None, self._num_vars])
-
-    def _create_evidence_indicator(self):
-        return tf.placeholder_with_default(
-            tf.cast(tf.ones_like(self._placeholder), tf.bool), shape=[None, self._num_vars])
-
-    def _create(self):
-        super()._create()
-        self._evidence_indicator = self._create_evidence_indicator()
-
-
-class ParameterizedDistributionNode(DistributionNode, abc.ABC):
-
-    Accumulate = namedtuple("Accumulate", ["name", "shape", "init"])
-
-    def __init__(self, accumulates=None, feed=None, num_vars=1, trainable=True,
-                 name="ParameterizedDistribution"):
-        self._variables = OrderedDict()
-        self._accumulates = accumulates
-        self._trainable = trainable
-        super().__init__(feed, num_vars, name)
-
-    @property
-    def initialize(self):
-        return tf.group(*[var.initializer for var in self._variables])
-
-    @property
-    def variables(self):
-        return self._variables
-
-    @property
-    def accumulates(self):
-        return self._accumulates
-
-    @abc.abstractmethod
-    def _compute_hard_em_update(self, counts):
-        """Compute hard EM update for all variables contained in this node. """
-
-    def _create(self):
-        super()._create()
-        self._variables = OrderedDict()
-        for name, shape, init in self._accumulates:
-            init_val = utils.broadcast_value(init, shape, dtype=conf.dtype)
-            self._variables[name] = tf.Variable(
-                init_val, dtype=conf.dtype, collections=['spn_distribution_accumulates'])

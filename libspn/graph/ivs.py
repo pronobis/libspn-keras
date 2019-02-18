@@ -77,7 +77,7 @@ class IVs(VarNode):
                 for _ in range(self._num_vals)]
     
     @utils.lru_cache
-    def _compute_value(self):
+    def _compute_log_value(self):
         """Assemble the TF operations computing the output value of the node
         for a normal upwards pass.
 
@@ -94,7 +94,7 @@ class IVs(VarNode):
         neg = tf.expand_dims(tf.cast(tf.less(self._feed, 0), dtype=conf.dtype), dim=-1)
         oh = tf.add(oh, neg)
         # Reshape
-        return tf.reshape(oh, [-1, self._num_vars * self._num_vals])
+        return tf.log(tf.reshape(oh, [-1, self._num_vars * self._num_vals]))
 
     @utils.lru_cache
     def _compute_mpe_state(self, counts):

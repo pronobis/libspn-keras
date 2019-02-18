@@ -61,13 +61,18 @@ Variable Nodes
 
 .. autoclass:: libspn.ContVars
 .. autoclass:: libspn.IVs
+.. autoclass:: libspn.GaussianLeaf
 
 
 Operation Nodes
 ---------------
 
 .. autoclass:: libspn.Sum
+.. autoclass:: libspn.ParSums
+.. autoclass:: libspn.SumsLayer
 .. autoclass:: libspn.Product
+.. autoclass:: libspn.PermProducts
+.. autoclass:: libspn.ProductsLayer
 .. autoclass:: libspn.Concat
 
 

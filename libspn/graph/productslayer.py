@@ -254,12 +254,6 @@ class ProductsLayer(OpNode):
             return tf.concat(value_tensors, 1)
 
     @utils.lru_cache
-    def _compute_value(self, *value_tensors):
-        values = self._compute_value_common(*value_tensors, padding_value=1.0)
-        return tf.reduce_prod(values, axis=-1, keepdims=
-            (False if self._num_prods > 1 else True))
-
-    @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors, padding_value=0.0)
 
@@ -284,10 +278,6 @@ class ProductsLayer(OpNode):
     def _get_differentiable_inputs(self, *value_tensors):
         unique_tensors = list(OrderedDict.fromkeys(value_tensors))
         return unique_tensors
-
-    @utils.lru_cache
-    def _compute_mpe_value(self, *value_tensors):
-        return self._compute_value(*value_tensors)
 
     @utils.lru_cache
     def _compute_log_mpe_value(self, *value_tensors):
@@ -372,7 +362,7 @@ class ProductsLayer(OpNode):
         return gather_counts_indices, unique_inps
 
     @utils.lru_cache
-    def _compute_mpe_path(self, counts, *value_values, add_random=False,
+    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
                           use_unweighted=False, sample=False, sample_prob=None):
         # Check inputs
         if not self._values:
@@ -418,9 +408,5 @@ class ProductsLayer(OpNode):
 
         return scattered_counts
 
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False, sample=False, sample_prob=None):
-        return self._compute_mpe_path(counts, *value_values)
-
     def _compute_log_gradient(self, gradients, *value_values):
-        return self._compute_mpe_path(gradients, *value_values)
+        return self._compute_log_mpe_path(gradients, *value_values)
