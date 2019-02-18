@@ -11,7 +11,6 @@ import tensorflow as tf
 import numpy as np
 import collections
 from libspn import conf, utils as utils
-from libspn.ops import ops
 from libspn.utils.serialization import register_serializable
 
 

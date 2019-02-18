@@ -92,9 +92,6 @@ from libspn.log import INFO
 from libspn.log import DEBUG1
 from libspn.log import DEBUG2
 
-# Custom TF ops
-from libspn.ops import ops
-
 # Utils and config
 from libspn import conf
 from libspn import utils
