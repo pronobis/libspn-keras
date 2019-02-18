@@ -501,21 +501,6 @@ class Node(ABC):
         """
 
     @abstractmethod
-    def _compute_mpe_value(self, *input_tensors):
-        """Assemble TF operations computing the MPE value of this node.
-
-        To be re-implemented in sub-classes.
-
-        Args:
-            *input_tensors (Tensor): For each input, a tensor produced by
-                                     the input node.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-
-    @abstractmethod
     def _compute_log_mpe_value(self, *input_tensors):
         """Assemble TF operations computing the log MPE value of this node.
 
