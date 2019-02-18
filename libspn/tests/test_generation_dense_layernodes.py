@@ -21,11 +21,11 @@ def printc(string):
     print(COLOR + string + ENDC)
 
 
-class TestDenseSPNGeneratorLayerNodes(TestCase):
+class TestDenseSPNGenerator(TestCase):
 
     def test_generte_set(self):
         """Generation of sets of inputs with __generate_set"""
-        gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=2,
+        gen = spn.DenseSPNGenerator(num_decomps=2,
                                               num_subsets=3,
                                               num_mixtures=2)
         v1 = spn.IVs(num_vars=2, num_vals=4)
@@ -33,7 +33,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         v3 = spn.ContVars(num_vars=2, name="ContVars2")
         s1 = spn.Sum(v3)
         n1 = spn.Concat(v2)
-        out = gen._DenseSPNGeneratorLayerNodes__generate_set([spn.Input(v1, [0, 3, 2, 6, 7]),
+        out = gen._DenseSPNGenerator__generate_set([spn.Input(v1, [0, 3, 2, 6, 7]),
                                                               spn.Input(v2, [1, 2]),
                                                               spn.Input(s1, None),
                                                               spn.Input(n1, None)])
@@ -48,7 +48,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
 
     def test_generte_set_errors(self):
         """Detecting structure errors in __generate_set"""
-        gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=2,
+        gen = spn.DenseSPNGenerator(num_decomps=2,
                                               num_subsets=3,
                                               num_mixtures=2)
         v1 = spn.IVs(num_vars=2, num_vals=4)
@@ -58,7 +58,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         n1 = spn.Concat(v2)
 
         with self.assertRaises(spn.StructureError):
-            gen._DenseSPNGeneratorLayerNodes__generate_set([spn.Input(v1, [0, 3, 2, 6, 7]),
+            gen._DenseSPNGenerator__generate_set([spn.Input(v1, [0, 3, 2, 6, 7]),
                                                             spn.Input(v2, [1, 2]),
                                                             spn.Input(s1, None),
                                                             spn.Input(n1, None)])
@@ -67,17 +67,17 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         tf.reset_default_graph()
 
     @argsprod([1, 2], [2, 4], [1, 2], [1, 2], [[2, 2], [1, 1]],
-              [spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE,
-               spn.DenseSPNGeneratorLayerNodes.InputDist.RAW],
-              [True, False], [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
-                              spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-                              spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
+              [spn.DenseSPNGenerator.InputDist.MIXTURE,
+               spn.DenseSPNGenerator.InputDist.RAW],
+              [True, False], [spn.DenseSPNGenerator.NodeType.SINGLE,
+                              spn.DenseSPNGenerator.NodeType.BLOCK,
+                              spn.DenseSPNGenerator.NodeType.LAYER],
               [True])
     def test_generate_spn(self, num_decomps, num_subsets, num_mixtures, num_input_mixtures,
                           input_dims, input_dist, balanced, node_type, log_weights):
-        """A generic test for DenseSPNGeneratorLayerNodes."""
+        """A generic test for DenseSPNGenerator."""
 
-        if input_dist == spn.DenseSPNGeneratorLayerNodes.InputDist.RAW \
+        if input_dist == spn.DenseSPNGenerator.InputDist.RAW \
             and num_input_mixtures != 1:
             # Redundant test case, so just return
             return
@@ -94,12 +94,12 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         printc("- num_subsets: %s" % num_subsets)
         printc("- num_mixtures: %s" % num_mixtures)
         printc("- input_dist: %s" % ("MIXTURE" if input_dist ==
-               spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE else "RAW"))
+               spn.DenseSPNGenerator.InputDist.MIXTURE else "RAW"))
         printc("- balanced: %s" % balanced)
         printc("- num_input_mixtures: %s" % num_input_mixtures)
         printc("- node_type: %s" % ("SINGLE" if node_type ==
-               spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE else "BLOCK" if
-               node_type == spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK else
+               spn.DenseSPNGenerator.NodeType.SINGLE else "BLOCK" if
+               node_type == spn.DenseSPNGenerator.NodeType.BLOCK else
                "LAYER"))
         printc("- log_weights: %s" % log_weights)
 
@@ -107,7 +107,7 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         inputs = [spn.IVs(num_vars=num_vars, num_vals=num_vals, name=("IVs_%d" % (i+1)))
                   for i in range(num_inputs)]
 
-        gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
+        gen = spn.DenseSPNGenerator(num_decomps=num_decomps,
                                               num_subsets=num_subsets,
                                               num_mixtures=num_mixtures,
                                               input_dist=input_dist,
@@ -158,9 +158,9 @@ class TestDenseSPNGeneratorLayerNodes(TestCase):
         num_top_mixtures = [2, 1, 3]
         sums_lower = []
         for prods, num_top_mix in zip(products_lower, num_top_mixtures):
-            if node_type == spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE:
+            if node_type == spn.DenseSPNGenerator.NodeType.SINGLE:
                 sums_lower.append([spn.Sum(*prods) for _ in range(num_top_mix)])
-            elif node_type == spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK:
+            elif node_type == spn.DenseSPNGenerator.NodeType.BLOCK:
                 sums_lower.append([spn.ParSums(*prods, num_sums=num_top_mix)])
             else:
                 sums_lower.append([spn.SumsLayer(*prods * num_top_mix,

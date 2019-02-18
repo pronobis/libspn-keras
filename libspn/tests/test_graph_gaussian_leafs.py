@@ -404,8 +404,8 @@ class TestGaussianQuantile(TestCase):
         self.assertAllClose(var_grad_tf_out, var_grad_spn_out)
 
     @argsprod(
-        [1], [2], [4], [spn.DenseSPNGeneratorLayerNodes.InputDist.RAW,
-                        spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE],
+        [1], [2], [4], [spn.DenseSPNGenerator.InputDist.RAW,
+                        spn.DenseSPNGenerator.InputDist.MIXTURE],
         [16], [2], [False, True])
     def test_gradient_on_dense_spn(self, num_decomps, num_subsets, num_mixtures, input_dist,
                                    num_vars, num_components, softplus):
@@ -420,9 +420,9 @@ class TestGaussianQuantile(TestCase):
             num_vars=num_vars, num_components=num_components, loc_init=mean_init,
             softplus_scale=softplus)
 
-        gen = spn.DenseSPNGeneratorLayerNodes(
+        gen = spn.DenseSPNGenerator(
             num_decomps=num_decomps, num_subsets=num_subsets, num_mixtures=num_mixtures,
-            node_type=spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER, input_dist=input_dist
+            node_type=spn.DenseSPNGenerator.NodeType.LAYER, input_dist=input_dist
         )
 
         root = gen.generate(gl, root_name="root")

@@ -43,19 +43,19 @@ class Ops:
                    num_input_mixtures, balanced, input_dist, inf_type, log=False):
 
         # Set node-type as single-node
-        node_type = spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE
+        node_type = spn.DenseSPNGenerator.NodeType.SINGLE
 
         # Create a dense generator
-        gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
+        gen = spn.DenseSPNGenerator(num_decomps=num_decomps,
                                               num_subsets=num_subsets,
                                               num_mixtures=num_mixtures,
                                               num_input_mixtures=num_input_mixtures,
                                               balanced=balanced,
                                               node_type=node_type,
-                                              input_dist=(spn.DenseSPNGeneratorLayerNodes.
+                                              input_dist=(spn.DenseSPNGenerator.
                                                           InputDist.RAW if input_dist is
                                                           "RAW" else spn.
-                                                          DenseSPNGeneratorLayerNodes.
+                                                          DenseSPNGenerator.
                                                           InputDist.MIXTURE))
 
         # Generate a dense SPN, with single-op nodes, and all weights in the network
@@ -74,19 +74,19 @@ class Ops:
                     num_input_mixtures, balanced, input_dist, inf_type, log=False):
 
         # Set node-type as single-node
-        node_type = spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK
+        node_type = spn.DenseSPNGenerator.NodeType.BLOCK
 
         # Create a dense generator
-        gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
+        gen = spn.DenseSPNGenerator(num_decomps=num_decomps,
                                               num_subsets=num_subsets,
                                               num_mixtures=num_mixtures,
                                               num_input_mixtures=num_input_mixtures,
                                               balanced=balanced,
                                               node_type=node_type,
-                                              input_dist=(spn.DenseSPNGeneratorLayerNodes.
+                                              input_dist=(spn.DenseSPNGenerator.
                                                           InputDist.RAW if input_dist is
                                                           "RAW" else spn.
-                                                          DenseSPNGeneratorLayerNodes.
+                                                          DenseSPNGenerator.
                                                           InputDist.MIXTURE))
 
         # Generate a dense SPN, with block-nodes, and all weights in the network
@@ -105,19 +105,19 @@ class Ops:
                     num_input_mixtures, balanced, input_dist, inf_type, log=False):
 
         # Set node-type as single-node
-        node_type = spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER
+        node_type = spn.DenseSPNGenerator.NodeType.LAYER
 
         # Create a dense generator
-        gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
+        gen = spn.DenseSPNGenerator(num_decomps=num_decomps,
                                               num_subsets=num_subsets,
                                               num_mixtures=num_mixtures,
                                               num_input_mixtures=num_input_mixtures,
                                               balanced=balanced,
                                               node_type=node_type,
-                                              input_dist=(spn.DenseSPNGeneratorLayerNodes.
+                                              input_dist=(spn.DenseSPNGenerator.
                                                           InputDist.RAW if input_dist is
                                                           "RAW" else spn.
-                                                          DenseSPNGeneratorLayerNodes.
+                                                          DenseSPNGenerator.
                                                           InputDist.MIXTURE))
 
         # Generate a dense SPN, with layer-nodes, and all weights in the network
