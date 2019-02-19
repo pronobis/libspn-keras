@@ -101,7 +101,7 @@ class Concat(OpNode):
         @tf.custom_gradient
         def value_gradient(*input_tensors):
             def gradient(gradients):
-                scattered_grads = self._compute_mpe_path(gradients, *input_tensors)
+                scattered_grads = self._compute_log_mpe_path(gradients, *input_tensors)
                 return [sg for sg in scattered_grads if sg is not None]
 
             gathered_inputs = self._gather_input_tensors(*input_tensors)

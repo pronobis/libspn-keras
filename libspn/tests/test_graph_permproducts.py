@@ -465,7 +465,7 @@ class TestNodesPermProducts(unittest.TestCase):
         def test(counts, inputs, feed, output):
             with self.subTest(counts=counts, inputs=inputs, feed=feed):
                 p = spn.PermProducts(*inputs)
-                op = p._compute_mpe_path(tf.identity(counts),
+                op = p._compute_log_mpe_path(tf.identity(counts),
                                          *[i[0].get_value() for i in inputs])
                 with tf.Session() as sess:
                     out = sess.run(op, feed_dict=feed)

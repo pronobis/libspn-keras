@@ -130,7 +130,7 @@ class Product(OpNode):
         def log_value(*value_tensors):
             # Defines gradient for the log value
             def gradient(gradients):
-                scattered_grads = self._compute_mpe_path(gradients, *value_tensors)
+                scattered_grads = self._compute_log_mpe_path(gradients, *value_tensors)
                 return [sg for sg in scattered_grads if sg is not None]
 
             return tf.reduce_sum(values, 1, keepdims=True), gradient

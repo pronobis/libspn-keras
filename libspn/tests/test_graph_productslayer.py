@@ -340,7 +340,7 @@ class TestNodesProductsLayer(unittest.TestCase):
         self.assertFalse(p17.is_valid())
         self.assertFalse(p18.is_valid())
 
-    def test_compute_mpe_path(self):
+    def test_compute_log_mpe_path(self):
         """Calculating path of ProductsLayer"""
         num_vals = 2
 
@@ -422,7 +422,7 @@ class TestNodesProductsLayer(unittest.TestCase):
                 counts = tf.placeholder(tf.float32, shape=(None, num_prods))
 
                 # Create mpe path op
-                ops = p._compute_mpe_path(tf.identity(counts),
+                ops = p._compute_log_mpe_path(tf.identity(counts),
                                           *[inp.get_value() for inp in inputs])
 
                 ops = [op for op in ops if op is not None]

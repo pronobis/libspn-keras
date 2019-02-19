@@ -137,24 +137,24 @@ class TestGaussianQuantile(TestCase):
                                   learn_dist_params=True, softplus_scale=softplus_scale)
 
             mixture00 = spn.Sum((gq, [0, 1]), name="Mixture00")
-            weights00 = spn.Weights(init_value=[0.25, 0.75], num_weights=2)
+            weights00 = spn.Weights(initializer=tf.initializers.constant([0.25, 0.75]), num_weights=2)
             mixture00.set_weights(weights00)
             mixture01 = spn.Sum((gq, [0, 1]), name="Mixture01")
-            weights01 = spn.Weights(init_value=[0.75, 0.25], num_weights=2)
+            weights01 = spn.Weights(initializer=tf.initializers.constant([0.75, 0.25]), num_weights=2)
             mixture01.set_weights(weights01)
 
             mixture10 = spn.Sum((gq, [2, 3]), name="Mixture10")
-            weights10 = spn.Weights(init_value=[2/3, 1/3], num_weights=2)
+            weights10 = spn.Weights(initializer=tf.initializers.constant([2/3, 1/3]), num_weights=2)
             mixture10.set_weights(weights10)
             mixture11 = spn.Sum((gq, [2, 3]), name="Mixture11")
-            weights11 = spn.Weights(init_value=[1/3, 2/3], num_weights=2)
+            weights11 = spn.Weights(initializer=tf.initializers.constant([1/3, 2/3]), num_weights=2)
             mixture11.set_weights(weights11)
 
             prod0 = spn.Product(mixture00, mixture10, name="Prod0")
             prod1 = spn.Product(mixture01, mixture11, name="Prod1")
 
             root = spn.Sum(prod0, prod1, name="Root")
-            root_weights = spn.Weights(init_value=[1/2, 1/2], num_weights=2)
+            root_weights = spn.Weights(initializer=tf.initializers.constant([1/2, 1/2]), num_weights=2)
             root.set_weights(root_weights)
 
             # Generate new data from slightly shifted Gaussians

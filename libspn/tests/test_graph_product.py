@@ -13,7 +13,7 @@ import tensorflow as tf
 import numpy as np
 
 
-class TestGraphProduct(TestCase):
+class TestGraphProduct(tf.test.TestCase):
 
     def test_compute_value(self):
         """Calculating value of Product"""
@@ -30,16 +30,16 @@ class TestGraphProduct(TestCase):
                     out_log = sess.run(tf.exp(op_log), feed_dict=feed)
                     out_mpe = sess.run(op_mpe, feed_dict=feed)
                     out_log_mpe = sess.run(tf.exp(op_log_mpe), feed_dict=feed)
-                np.testing.assert_array_almost_equal(
+                self.assertAllClose(
                     out,
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
-                np.testing.assert_array_almost_equal(
+                self.assertAllClose(
                     out_log,
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
-                np.testing.assert_array_almost_equal(
+                self.assertAllClose(
                     out_mpe,
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
-                np.testing.assert_array_almost_equal(
+                self.assertAllClose(
                     out_log_mpe,
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
@@ -171,13 +171,13 @@ class TestGraphProduct(TestCase):
         self.assertFalse(p4.is_valid())
         self.assertFalse(p5.is_valid())
 
-    def test_compute_mpe_path(self):
+    def test_compute_log_mpe_path(self):
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
         p = spn.Product((v12, [0, 5]), v34, (v12, [3]), v5)
         counts = tf.placeholder(tf.float32, shape=(None, 1))
-        op = p._compute_mpe_path(tf.identity(counts),
+        op = p._compute_log_mpe_path(tf.identity(counts),
                                  v12.get_value(),
                                  v34.get_value(),
                                  v12.get_value(),
@@ -187,22 +187,22 @@ class TestGraphProduct(TestCase):
                 [2]]
         with tf.Session() as sess:
             out = sess.run(op, feed_dict={counts: feed})
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[0], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
                               [1., 0., 0., 0., 0., 1., 0., 0.],
                               [2., 0., 0., 0., 0., 2., 0., 0.]],
                              dtype=np.float32))
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[1], np.array([[0., 0.],
                               [1., 1.],
                               [2., 2.]],
                              dtype=np.float32))
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[2], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 1., 0., 0., 0., 0.],
                               [0., 0., 0., 2., 0., 0., 0., 0.]],
                              dtype=np.float32))
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[3], np.array([[0.],
                               [1.],
                               [2.]],
@@ -214,11 +214,9 @@ class TestGraphProduct(TestCase):
         v5 = spn.ContVars(num_vars=1)
         p = spn.Product((v12, [0, 5]), v34, (v12, [3]), v5)
         gradients = tf.placeholder(tf.float32, shape=(None, 1))
-        op = p._compute_gradient(tf.identity(gradients),
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+        op = p._compute_log_gradient(
+            tf.identity(gradients), v12.get_log_value(),
+            v34.get_log_value(), v12.get_log_value(), v5.get_log_value())
         batch_size = 100
         gradients_feed = np.random.rand(batch_size, 1)
         v12_feed = np.random.rand(batch_size, 8)
@@ -248,13 +246,13 @@ class TestGraphProduct(TestCase):
         output_gradients_2[:, 3] = output_gradients[2][:, 0]
         output_gradients[2] = output_gradients_2
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[0], output_gradients[0])
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[1], output_gradients[1])
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[2], output_gradients[2])
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[3], output_gradients[3])
 
 
