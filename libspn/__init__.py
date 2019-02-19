@@ -52,7 +52,6 @@ from libspn.learning.em import EMLearning
 from libspn.learning.gd import GDLearning
 from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
-from libspn.learning.type import GradientType
 
 # Data
 from libspn.data.dataset import Dataset
@@ -122,7 +121,7 @@ __all__ = [
     # Inference and learning
     'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient',
     'MPEState', 'EMLearning', 'GDLearning', 'LearningTaskType',
-    'LearningMethodType', 'GradientType',
+    'LearningMethodType',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
     'IntGridDataset', 'ImageFormat', 'ImageShape', 'ImageDatasetBase',

@@ -34,7 +34,7 @@ from .enum import Enum
 
 # All
 __all__ = ['decode_bytes_array', 'scatter_cols', 'scatter_values',
-           'gather_cols_3d', 'ValueType', 'broadcast_value', 'cwise_mul', 'cwise_add',
+           'gather_cols_3d', 'ValueType', 'cwise_mul', 'cwise_add',
            'StirlingNumber', 'StirlingRatio', 'Stirling', 'random_partition',
            'all_partitions', 'random_partitions_by_sampling',
            'random_partitions_by_enumeration',

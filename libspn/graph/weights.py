@@ -124,12 +124,6 @@ class Weights(ParamNode):
         if self._log:
             raise StructureError("Trying to assign non-log values to log-weights.")
 
-        if isinstance(value, utils.ValueType.RANDOM_UNIFORM) \
-           or isinstance(value, numbers.Real):
-            shape = self._num_sums * self._num_weights
-        else:
-            shape = self._num_weights
-        value = utils.broadcast_value(value, (shape,), dtype=conf.dtype)
         value = tf.where(tf.is_nan(value), tf.ones_like(value) * 0.01, value)
         if self._mask and not all(self._mask):
             # Only perform masking if mask is given and mask contains any 'False'
@@ -150,12 +144,6 @@ class Weights(ParamNode):
         if not self._log:
             raise StructureError("Trying to assign log values to non-log weights.")
 
-        if isinstance(value, utils.ValueType.RANDOM_UNIFORM) \
-           or isinstance(value, numbers.Real):
-            shape = self._num_sums * self._num_weights
-        else:
-            shape = self._num_weights
-        value = utils.broadcast_value(value, (shape,), dtype=conf.dtype)
         value = tf.where(tf.is_nan(value), tf.log(tf.ones_like(value) * 0.01), value)
         if self._mask and not all(self._mask):
             # Only perform masking if mask is given and mask contains any 'False'

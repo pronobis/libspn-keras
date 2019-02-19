@@ -4,7 +4,6 @@ from libspn.graph.ivs import IVs
 from libspn.graph.weights import Weights
 from libspn.graph.scope import Scope
 from libspn.inference.type import InferenceType
-from libspn.learning.type import GradientType
 from libspn import conf
 from libspn.exceptions import StructureError
 import libspn.utils as utils
@@ -51,9 +50,8 @@ class BaseSum(OpNode, abc.ABC):
     def __init__(self, *values, num_sums, weights=None, ivs=None, sum_sizes=None,
                  inference_type=InferenceType.MARGINAL, batch_axis=0, op_axis=1,
                  reduce_axis=2, masked=False, sample_prob=None,
-                 dropconnect_keep_prob=None, gradient_type=GradientType.SOFT, name="Sum"):
-        super().__init__(
-            inference_type=inference_type, name=name, gradient_type=gradient_type)
+                 dropconnect_keep_prob=None, name="Sum"):
+        super().__init__(inference_type=inference_type, name=name)
 
         self.set_values(*values)
         self.set_weights(weights)

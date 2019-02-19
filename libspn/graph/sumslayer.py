@@ -9,7 +9,6 @@ from libspn.graph.scope import Scope
 from libspn.inference.type import InferenceType
 from libspn.graph.weights import Weights
 from libspn.graph.basesum import BaseSum
-from libspn.learning.type import GradientType
 from libspn import utils
 from libspn.exceptions import StructureError
 from libspn import conf
@@ -51,8 +50,7 @@ class SumsLayer(BaseSum):
 
     def __init__(self, *values, num_or_size_sums=None, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, sample_prob=None,
-                 dropconnect_keep_prob=None,
-                 gradient_type=GradientType.SOFT, name="SumsLayer"):
+                 dropconnect_keep_prob=None, name="SumsLayer"):
         if isinstance(num_or_size_sums, int) or num_or_size_sums is None:
             num_sums = num_or_size_sums
             sum_sizes = None
@@ -63,7 +61,7 @@ class SumsLayer(BaseSum):
             *values, num_sums=num_sums, sum_sizes=sum_sizes,
             weights=weights, ivs=ivs, inference_type=inference_type, sample_prob=sample_prob,
             dropconnect_keep_prob=dropconnect_keep_prob,
-            name=name, masked=True, gradient_type=gradient_type)
+            name=name, masked=True)
 
     @utils.docinherit(BaseSum)
     def _reset_sum_sizes(self, num_sums=None, sum_sizes=None):

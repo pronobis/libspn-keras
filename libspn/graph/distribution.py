@@ -79,7 +79,8 @@ class GaussianLeaf(VarNode):
         self.attach_evidence_indicator(evidence_indicator_feed)
 
         var_shape = (num_vars, num_components)
-        self._total_count_variable = self._total_accumulates(total_counts_init, var_shape)
+        self._total_count_variable = self._total_accumulates(
+            tf.initializers.constant(total_counts_init), var_shape)
         self._train_var = train_var
         self._train_mean = train_mean
 
@@ -216,13 +217,13 @@ class GaussianLeaf(VarNode):
         self._scale_init = data['variance_init']
         super().deserialize(data)
 
-    def _total_accumulates(self, init_val, shape):
+    def _total_accumulates(self, initializer, shape):
         """Creates a ``Variable`` that holds the counts per component.
 
         Return:
               Counts per component: ``Variable`` holding counts per component.
         """
-        init = utils.broadcast_value(init_val, shape, dtype=conf.dtype)
+        init = initializer(shape=shape, dtype=conf.dtype)
         return tf.Variable(init, name=self.name + "TotalCounts", trainable=False)
 
     def _split_in_quantiles(self, data):

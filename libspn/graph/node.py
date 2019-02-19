@@ -12,7 +12,6 @@ import tensorflow as tf
 import tensorflow.contrib.distributions as tfd
 from libspn import utils, conf
 from libspn.inference.type import InferenceType
-from libspn.learning.type import GradientType
 from libspn.exceptions import StructureError
 from libspn.graph.algorithms import compute_graph_up, traverse_graph
 
@@ -203,20 +202,14 @@ class Node(ABC):
                                        Can be changed at any time and will be
                                        used during the next inference/learning
                                        op generation.
-        gradient_type(GradientType): Flag indicating the preferred gradient
-                                     type for this node that will be used
-                                     during gradient computation. Can be
-                                     changed at any time and will be used
-                                     during the next learning op generation.
     """
 
-    def __init__(self, inference_type, name, gradient_type=GradientType.SOFT):
+    def __init__(self, inference_type, name):
         self._graph_data = GraphData.get()
         if name is None:
             name = "Node"
         self._name = self.tf_graph.unique_name(name)
         self.inference_type = inference_type
-        self.gradient_type = gradient_type
         with tf.name_scope(self._name + "/"):
             self._create()
 
@@ -228,8 +221,7 @@ class Node(ABC):
             dict: Dictionary with all the data to be serialized.
         """
         return {'name': self._name,
-                'inference_type': self.inference_type.name,
-                'gradient_type': self.gradient_type.name}
+                'inference_type': self.inference_type.name}
 
     @abstractmethod
     def deserialize(self, data):
@@ -239,8 +231,7 @@ class Node(ABC):
             data (dict): Dictionary with all the data to be deserialized.
         """
         Node.__init__(self, name=data['name'],
-                      inference_type=InferenceType[data['inference_type']],
-                      gradient_type=GradientType[data['gradient_type']])
+                      inference_type=InferenceType[data['inference_type']])
 
     @property
     def name(self):
@@ -392,17 +383,6 @@ class Node(ABC):
 
         traverse_graph(self, fun=fun, skip_params=False)
 
-    def set_gradient_types(self, gradient_type):
-        """Set gradient type for each node in the SPN rooted in this node.
-
-        Args:
-           gradient_type (GradientType): Gradient type to set for the nodes.
-        """
-        def fun(node):
-            node.gradient_type = gradient_type
-
-        traverse_graph(self, fun=fun, skip_params=False)
-
     def _create(self):
         """Create any TF placeholder or variable that need to be instantiated
         during the creation of the node and shared between all operations.
@@ -548,16 +528,10 @@ class OpNode(Node):
                                        Can be changed at any time and will be
                                        used during the next inference/learning
                                        op generation.
-        gradient_type(GradientType): Flag indicating the preferred gradient
-                                     type for this node that will be used
-                                     during gradient computation. Can be
-                                     changed at any time and will be used
-                                     during the next learning op generation.
     """
 
-    def __init__(self, inference_type=InferenceType.MARGINAL, gradient_type=GradientType.SOFT,
-                 name=None):
-        super().__init__(inference_type, name, gradient_type)
+    def __init__(self, inference_type=InferenceType.MARGINAL, name=None):
+        super().__init__(inference_type, name)
 
     @abstractmethod
     def deserialize_inputs(self, data, nodes_by_name):

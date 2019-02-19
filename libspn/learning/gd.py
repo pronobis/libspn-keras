@@ -11,7 +11,6 @@ from libspn.graph.algorithms import traverse_graph
 from libspn.exceptions import StructureError
 from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
-from libspn.learning.type import GradientType
 from libspn.graph.distribution import GaussianLeaf
 from libspn.graph.sum import Sum
 from libspn.log import get_logger
@@ -27,10 +26,6 @@ class GDLearning:
         learning_task_type (LearningTaskType): Learning type used while learning.
         learning_method (LearningMethodType): Learning method type, can be either generative
             (LearningMethodType.GENERATIVE) or discriminative (LearningMethodType.DISCRIMINATIVE).
-        gradient_type (GradientType): The type of gradients to use for backpropagation, can be
-            either soft (effectively viewing sum nodes as weighted sums) or hard (effectively
-            viewing sum nodes as weighted maxes). Soft and hard correspond to GradientType.SOFT
-            and GradientType.HARD, respectively.
         marginalizing_root (Sum, ParSums, SumsLayer): A sum node without IVs attached to it (or
             IVs with a fixed no-evidence feed). If it is omitted here, the node will constructed
             internally once needed.
@@ -44,8 +39,8 @@ class GDLearning:
     def __init__(self, root, value=None, value_inference_type=None, dropconnect_keep_prob=None,
                  learning_task_type=LearningTaskType.SUPERVISED,
                  learning_method=LearningMethodType.DISCRIMINATIVE,
-                 gradient_type=GradientType.SOFT, learning_rate=1e-4, marginalizing_root=None,
-                 name="GDLearning", l1_regularize_coeff=None, l2_regularize_coeff=None):
+                 learning_rate=1e-4, marginalizing_root=None, name="GDLearning",
+                 l1_regularize_coeff=None, l2_regularize_coeff=None):
 
         if learning_task_type == LearningTaskType.UNSUPERVISED and \
                 learning_method == LearningMethodType.DISCRIMINATIVE:
@@ -74,20 +69,15 @@ class GDLearning:
         self._l1_regularize_coeff = l1_regularize_coeff
         self._l2_regularize_coeff = l2_regularize_coeff
         self._dropconnect_keep_prob = dropconnect_keep_prob
-        self._gradient_type = gradient_type
         self._name = name
 
-    def learn(self, loss=None, gradient_type=None, optimizer=tf.train.GradientDescentOptimizer):
+    def learn(self, loss=None, optimizer=tf.train.GradientDescentOptimizer):
         """Assemble TF operations performing GD learning of the SPN. This includes setting up
         the loss function (with regularization), setting up the optimizer and setting up
         post gradient-update ops.
 
         loss (Tensor): The operation corresponding to the loss to minimize.
         optimizer (tf.train.Optimizer): A TensorFlow optimizer to use for minimizing the loss.
-        gradient_type (GradientType): The type of gradients to use for backpropagation, can be
-            either soft (effectively viewing sum nodes as weighted sums) or hard (effectively
-            viewing sum nodes as weighted maxes). Soft and hard correspond to GradientType.SOFT
-            and GradientType.HARD, respectively.
 
         Returns:
             A grouped operation that (i) updates the parameters using gradient descent, (ii)
@@ -98,9 +88,6 @@ class GDLearning:
             raise StructureError(
                 "{}: the SPN rooted at {} does not have a latent IVs node, so cannot setup "
                 "conditional class probabilities.".format(self._name, self._root))
-
-        # Traverse the graph and set gradient-type for all OpNodes
-        self._root.set_gradient_types(gradient_type or self._gradient_type)
 
         # If a loss function is not provided, define the loss function based
         # on learning-type and learning-method

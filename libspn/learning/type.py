@@ -23,11 +23,3 @@ class LearningMethodType(Enum):
 
     GENERATIVE = 1
     """Use Generative Learning."""
-
-class GradientType(Enum):
-    """Types of gradient."""
-    SOFT = 0
-    """Compute Soft gradient."""
-
-    HARD = 1
-    """Compute Hard gradient."""
