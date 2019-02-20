@@ -100,7 +100,7 @@ class TestDenseSPNGenerator(TestCase):
         v_log = root.get_log_value()
 
         # Creating session
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initializing weights
             init.run()
             # Computing all values

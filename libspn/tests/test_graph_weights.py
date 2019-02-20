@@ -31,7 +31,7 @@ class TestGraphWeights(TestCase):
         init4 = w4.initialize()
         init5 = w5.initialize()
         init6 = w6.initialize()
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run([init1, init2, init3, init4, init5, init6])
             val1 = sess.run(w1.get_value())
             val2 = sess.run(w2.get_value())
@@ -94,7 +94,7 @@ class TestGraphWeights(TestCase):
     #     assign4 = w4.assign([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
     #     assign5 = w5.assign(0.5)
     #     assign6 = w6.assign(tf.initializers.random_uniform(0.0, 1.0))
-    #     with tf.Session() as sess:
+    #     with self.test_session() as sess:
     #         sess.run([init1, init3, init4, init5, init6])
     #         sess.run([assign1, assign2, assign3, assign4, assign5, assign6])
     #         val1 = sess.run(w1.get_value())
@@ -161,7 +161,7 @@ class TestGraphWeights(TestCase):
         p = spn.Product(s1, s2, s3, s4)
         init = spn.initialize_weights(p)
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run([init])
             val1 = sess.run(s1.weights.node.get_value())
             val2 = sess.run(s2.weights.node.get_value())
@@ -215,7 +215,7 @@ class TestGraphWeights(TestCase):
     #     init1 = s1.weights.node.initialize()
     #     assign = spn.assign_weights(p, tf.initializers.constant(0.2))
     #
-    #     with tf.Session() as sess:
+    #     with self.test_session() as sess:
     #         sess.run([init1])
     #         val1i = sess.run(s1.weights.node.get_value())
     #         val1i_log = sess.run(tf.exp(s1.weights.node.get_log_value()))

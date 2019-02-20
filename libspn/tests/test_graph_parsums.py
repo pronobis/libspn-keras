@@ -957,7 +957,7 @@ class TestNodesParSums(tf.test.TestCase):
                    [1.2],
                    [0.9]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             # Skip the IVs op
             out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
@@ -1034,7 +1034,7 @@ class TestNodesParSums(tf.test.TestCase):
                    [1.2],
                    [0.9]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             # Skip the IVs op
             out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
@@ -1132,7 +1132,7 @@ class TestNodesParSums(tf.test.TestCase):
                    [0.9]]
         ivs_feed = [[-1], [-1], [-1], [-1], [1], [2], [3], [1]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             out = sess.run(op, feed_dict={counts: counts_feed,
                                           iv: ivs_feed,
@@ -1265,7 +1265,7 @@ class TestNodesParSums(tf.test.TestCase):
                     [3, 3],
                     [1, 1]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             out = sess.run(op, feed_dict={counts: counts_feed,
                                           iv: ivs_feed,
@@ -1373,7 +1373,7 @@ class TestNodesParSums(tf.test.TestCase):
         v5_feed = np.random.rand(batch_size, 1)
         ivs_feed = np.random.randint(6, size=(batch_size, num_sums))
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             # Skip the IVs op
             out = sess.run(op, feed_dict={gradients: gradients_feed,

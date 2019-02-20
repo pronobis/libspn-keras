@@ -30,7 +30,7 @@ class TestModelsDiscreteDense(TestCase):
         v_log = root.get_log_value()
 
         # Creating session
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             self.write_tf_graph(sess, self.sid(), self.cid())
             # Initializing weights
             init.run()
@@ -120,7 +120,7 @@ class TestModelsDiscreteDense(TestCase):
 
         feed_samples = np.array(list(itertools.product(range(2), repeat=6)))
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initialize
             init1.run()
 
@@ -132,7 +132,7 @@ class TestModelsDiscreteDense(TestCase):
         # Reset graph
         tf.reset_default_graph()
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Load
             model2 = spn.Model.load_from_json(path,
                                               load_param_vals=True,
@@ -168,7 +168,7 @@ class TestModelsDiscreteDense(TestCase):
                                for _ in range(len(feed_samples))]).reshape(-1, 1)
         feed_samples = np.array(feed_samples * 3)
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initialize
             init1.run()
 
@@ -180,7 +180,7 @@ class TestModelsDiscreteDense(TestCase):
         # Reset graph
         tf.reset_default_graph()
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Load
             model2 = spn.Model.load_from_json(path,
                                               load_param_vals=True,
@@ -215,7 +215,7 @@ class TestModelsDiscreteDense(TestCase):
 
         feed_samples = np.array(list(itertools.product(range(2), repeat=6)))
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initialize
             init1.run()
 
@@ -227,7 +227,7 @@ class TestModelsDiscreteDense(TestCase):
         # Reset graph
         tf.reset_default_graph()
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Load
             model2 = spn.Model.load_from_json(path,
                                               load_param_vals=True,
@@ -266,7 +266,7 @@ class TestModelsDiscreteDense(TestCase):
                                for _ in range(len(feed_samples))]).reshape(-1, 1)
         feed_samples = np.array(feed_samples * 3)
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initialize
             init1.run()
 
@@ -278,7 +278,7 @@ class TestModelsDiscreteDense(TestCase):
         # Reset graph
         tf.reset_default_graph()
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Load
             model2 = spn.Model.load_from_json(path,
                                               load_param_vals=True,

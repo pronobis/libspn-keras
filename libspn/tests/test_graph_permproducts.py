@@ -27,7 +27,7 @@ class TestNodesPermProducts(unittest.TestCase):
                 op_log = n.get_log_value(spn.InferenceType.MARGINAL)
                 op_mpe = n.get_value(spn.InferenceType.MPE)
                 op_log_mpe = n.get_log_value(spn.InferenceType.MPE)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out = sess.run(op, feed_dict=feed)
                     out_log = sess.run(tf.exp(op_log), feed_dict=feed)
                     out_mpe = sess.run(op_mpe, feed_dict=feed)
@@ -467,7 +467,7 @@ class TestNodesPermProducts(unittest.TestCase):
                 p = spn.PermProducts(*inputs)
                 op = p._compute_log_mpe_path(tf.identity(counts),
                                          *[i[0].get_value() for i in inputs])
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out = sess.run(op, feed_dict=feed)
 
                 for o, t in zip(out, output):

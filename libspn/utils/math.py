@@ -105,7 +105,7 @@ def gather_cols_3d(params, indices, pad_elem=0, name=None):
                 return_tensor = params
             else:
                 # If not, then just pass it to gather_cols() function
-                return_tensor = tf.gather(params, indices[0], axis=1)
+                return_tensor = tf.gather(params, indices[0], axis=-1)
 
             if ind_2D:
                 # Indices is 2D, so insert an extra dimension to the output

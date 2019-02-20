@@ -95,7 +95,7 @@ class TestNodesProductsLayer(unittest.TestCase):
                 outputs = collections.OrderedDict()
 
                 # Create a session and execute the generated op
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     outputs[op_marg] = sess.run(op_marg, feed_dict=inputs_feed)
                     outputs[op_log_marg] = sess.run(tf.exp(op_log_marg),
                                                     feed_dict=inputs_feed)
@@ -431,7 +431,7 @@ class TestNodesProductsLayer(unittest.TestCase):
                 coutnts_feed = np.random.randint(100, size=(batch_size, num_prods))
 
                 # Create a session and execute the generated op
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     outputs = sess.run(ops, feed_dict={counts: coutnts_feed})
 
                 # Calculate true-output

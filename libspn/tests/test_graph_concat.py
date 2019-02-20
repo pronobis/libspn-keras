@@ -25,7 +25,7 @@ class TestGraphConcat(TestCase):
                 op_log = n.get_log_value(spn.InferenceType.MARGINAL)
                 op_mpe = n.get_value(spn.InferenceType.MPE)
                 op_log_mpe = n.get_log_value(spn.InferenceType.MPE)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out = sess.run(op, feed_dict=feed)
                     out_log = sess.run(tf.exp(op_log), feed_dict=feed)
                     out_mpe = sess.run(op_mpe, feed_dict=feed)
@@ -118,7 +118,7 @@ class TestGraphConcat(TestCase):
                                      v12.get_value(),
                                      v5.get_value())
         feed = np.r_[:18].reshape(-1, 6)
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             out = sess.run(op, feed_dict={counts: feed})
         np.testing.assert_array_almost_equal(
             out[0], np.array([[0., 0., 0., 0., 0., 1., 0., 0.],

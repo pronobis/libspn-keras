@@ -25,7 +25,7 @@ class TestGraphSum(TestCase):
                 n.generate_weights(tf.initializers.constant(weights))
                 op = n.get_value(spn.InferenceType.MARGINAL)
                 op_log = n.get_log_value(spn.InferenceType.MARGINAL)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     spn.initialize_weights(n).run()
                     out = sess.run(op, feed_dict=feed)
                     out_log = sess.run(tf.exp(op_log), feed_dict=feed)
@@ -185,7 +185,7 @@ class TestGraphSum(TestCase):
                 n.generate_weights(tf.initializers.constant(weights))
                 op = n.get_value(spn.InferenceType.MPE)
                 op_log = n.get_log_value(spn.InferenceType.MPE)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     spn.initialize_weights(n).run()
                     out = sess.run(op, feed_dict=feed)
                     out_log = sess.run(tf.exp(op_log), feed_dict=feed)
@@ -460,7 +460,7 @@ class TestGraphSum(TestCase):
                    [1.2],
                    [0.9]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             # Skip the IVs op
             out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
@@ -550,7 +550,7 @@ class TestGraphSum(TestCase):
                    [0.9]]
         ivs_feed = [[-1], [-1], [-1], [-1], [1], [2], [3], [1]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             # Skip the IVs op
             out = sess.run(op, feed_dict={counts: counts_feed,
@@ -644,7 +644,7 @@ class TestGraphSum(TestCase):
         v5_feed = np.random.rand(batch_size, 1)
         ivs_feed = np.random.randint(6, size=(batch_size, 1))
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             # Skip the IVs op
             out = sess.run(op, feed_dict={gradients: gradients_feed,
