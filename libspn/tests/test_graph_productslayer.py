@@ -14,12 +14,10 @@ import random
 import collections
 import itertools
 from context import libspn as spn
+from test import TestCase
 
 
-class TestNodesProductsLayer(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
+class TestNodesProductsLayer(TestCase):
 
     def test_compute_vals(self):
         """Calculating value of ProductsLayer"""

@@ -11,12 +11,10 @@ import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
+from test import TestCase
 
+class TestNodesPermProducts(TestCase):
 
-class TestNodesPermProducts(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
 
     def test_compute_value(self):
         """Calculating value of PermProducts"""
