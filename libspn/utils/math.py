@@ -236,7 +236,7 @@ def scatter_cols(params, indices, num_out_cols, name=None):
                 with_zeros = tf.concat(values=([0], params), axis=0)
                 gather_indices = np.zeros(num_out_cols, dtype=int)
                 gather_indices[indices] = np.arange(indices.size) + 1
-                return tf.gather(with_zeros, gather_indices, axis=1)
+                return tf.gather(with_zeros, gather_indices, axis=0)
             else:
                 zero_col = tf.zeros((tf.shape(params)[0], 1),
                                     dtype=params.dtype)

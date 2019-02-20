@@ -102,6 +102,36 @@ from libspn.app import App
 # Exceptions
 from libspn.exceptions import StructureError
 
+from libspn.utils.serialization import register_serializable
+
+import tensorflow as tf
+
+
+def _tf_init_serialize(self):
+    return self.get_config()
+
+
+def _tf_init_deserialize(self, data):
+    self.__init__(**{k: v for k, v in data.items() if k != "__type__"})
+
+
+for initializer in [
+        tf.initializers.random_uniform,
+        tf.initializers.random_normal,
+        tf.initializers.constant,
+        tf.initializers.ones,
+        tf.initializers.glorot_normal,
+        tf.initializers.glorot_uniform,
+        tf.initializers.identity,
+        tf.initializers.orthogonal,
+        tf.initializers.truncated_normal,
+        tf.initializers.uniform_unit_scaling,
+        tf.initializers.variance_scaling,
+        tf.initializers.zeros]:
+    initializer.deserialize = _tf_init_deserialize
+    initializer.serialize = _tf_init_serialize
+    register_serializable(initializer)
+
 # All
 __all__ = [
     # Graph

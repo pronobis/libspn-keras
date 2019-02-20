@@ -119,9 +119,14 @@ class BaseSum(OpNode, abc.ABC):
         self.set_values()
         self.set_weights()
         self.set_ivs()
-        self._reset_sum_sizes(num_sums=data['num_sums'], sum_sizes=data['sum_sizes'])
         self._dropconnect_keep_prob = data['dropconnect_keep_prob']
         self._sample_prob = data['sample_prob']
+        self._num_sums = data['num_sums']
+        self._sum_sizes = data['sum_sizes']
+        self._max_sum_size = max(self._sum_sizes) if self._sum_sizes else 0
+        self._batch_axis = data['batch_axis']
+        self._op_axis = data['op_axis']
+        self._reduce_axis = data['reduce_axis']
 
     @utils.docinherit(OpNode)
     def deserialize_inputs(self, data, nodes_by_name):
@@ -134,12 +139,6 @@ class BaseSum(OpNode, abc.ABC):
         ivs = data.get('ivs', None)
         if ivs:
             self._ivs = Input(nodes_by_name[ivs[0]], ivs[1])
-        self._num_sums = data['num_sums']
-        self._sum_sizes = data['sum_sizes']
-        self._max_sum_size = max(self._sum_sizes) if self._sum_sizes else 0
-        self._batch_axis = data['batch_axis']
-        self._op_axis = data['op_axis']
-        self._reduce_axis = data['reduce_axis']
 
     @property
     @utils.docinherit(OpNode)

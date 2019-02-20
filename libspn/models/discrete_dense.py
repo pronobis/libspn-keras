@@ -258,7 +258,7 @@ class DiscreteDenseModel(Model):
 
         # Generate weight nodes
         self.__debug1("Generating weight nodes")
-        generate_weights(self._root, init_value=self._weight_init_value)
+        generate_weights(self._root, initializer=self._weight_init_value)
         if self.__is_debug1():
             self.__debug1("SPN graph has %d nodes and %d TF ops" % (
                 self._root.get_num_nodes(), self._root.get_tf_graph_size()))

@@ -14,8 +14,6 @@ from libspn.utils.serialization import register_serializable
 from libspn import utils
 from libspn.exceptions import StructureError
 
-import numbers
-
 
 @register_serializable
 class Weights(ParamNode):
@@ -56,13 +54,13 @@ class Weights(ParamNode):
         data['num_sums'] = self._num_sums
         data['log'] = self._log
         data['trainable'] = self._trainable
-        data['initializer'] = self._init_value
+        data['initializer'] = self._initializer
         data['value'] = self._variable
         data['mask'] = self._mask
         return data
 
     def deserialize(self, data):
-        self._init_value = data['initializer']
+        self._initializer = data['initializer']
         self._num_weights = data['num_weights']
         self._num_sums = data['num_sums']
         self._log = data['log']
