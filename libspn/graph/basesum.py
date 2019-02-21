@@ -243,8 +243,7 @@ class BaseSum(OpNode, abc.ABC):
         once all inputs are added to this node.
 
         Args:
-            initializer: Initial value of the weights. For possible values, see
-                :meth:`~libspn.utils.broadcast_value`.
+            initializer: Initial value of the weights.
             trainable (bool): See :class:`~libspn.Weights`.
             input_sizes (list of int): Pre-computed sizes of each input of
                 this node.  If given, this function will not traverse the graph

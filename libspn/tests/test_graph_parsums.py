@@ -1217,12 +1217,12 @@ class TestNodesParSums(tf.test.TestCase):
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 2))
         op = s._compute_log_mpe_path(tf.identity(counts),
-                                 w.get_value(),
-                                 iv.get_value(),
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+                                 w.get_log_value(),
+                                 iv.get_log_value(),
+                                 v12.get_log_value(),
+                                 v34.get_log_value(),
+                                 v12.get_log_value(),
+                                 v5.get_log_value())
         init = w.initialize()
         counts_feed = [[10, 20],
                        [11, 21],
@@ -1240,7 +1240,7 @@ class TestNodesParSums(tf.test.TestCase):
                     [1, 1],
                     [0, 0],
                     [3, 3]]
-        v34_feed = [[0.1, 0.2],
+        v34_feed = [[0.1, 0.2],  # 0.2 
                     [1.2, 0.2],
                     [0.1, 0.2],
                     [0.9, 0.8],

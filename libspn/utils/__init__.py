@@ -14,8 +14,6 @@ from .math import scatter_cols
 from .math import scatter_values
 from .math import cwise_add
 from .math import cwise_mul
-from .math import ValueType
-from .math import broadcast_value
 from .partition import StirlingNumber
 from .partition import StirlingRatio
 from .partition import Stirling
@@ -34,7 +32,7 @@ from .enum import Enum
 
 # All
 __all__ = ['decode_bytes_array', 'scatter_cols', 'scatter_values',
-           'gather_cols_3d', 'ValueType', 'cwise_mul', 'cwise_add',
+           'gather_cols_3d', 'cwise_mul', 'cwise_add',
            'StirlingNumber', 'StirlingRatio', 'Stirling', 'random_partition',
            'all_partitions', 'random_partitions_by_sampling',
            'random_partitions_by_enumeration',

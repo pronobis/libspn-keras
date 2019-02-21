@@ -18,8 +18,7 @@ class WeightsGenerator:
     otherwise the number of weight values will be incorrect.
 
     Attributes:
-        initializer: Initial value of the weights. For possible values, see
-                    :meth:`~libspn.utils.broadcast_value`.
+        initializer: Initial value of the weights.
         trainable: See :class:`~libspn.Weights`.
         log (bool): If "True", the weights are represented in log space.
     """
@@ -61,8 +60,7 @@ def generate_weights(root, initializer=tf.initializers.constant(1.0), trainable=
 
     Args:
         root (Node): The root node of the SPN graph.
-        init_value: Initial value of the weights. For possible values, see
-                    :meth:`~libspn.utils.broadcast_value`.
+        init_value: Initial value of the weights.
         trainable: See :class:`~libspn.Weights`.
         log (bool): If "True", the weights are represented in log space.
     """

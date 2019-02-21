@@ -20,8 +20,7 @@ class Weights(ParamNode):
     """A node containing a vector of weights of a sum node.
 
     Args:
-        initializer: Initial value of the weights. For possible values, see
-                    :meth:`~libspn.utils.broadcast_value`.
+        initializer: Initial value of the weights.
         num_weights (int): Number of weights in the vector.
         num_sums (int): Number of sum nodes the weight vector/matrix represents.
         log (bool): If "True", the weights are represented in log space.
@@ -113,9 +112,7 @@ class Weights(ParamNode):
         """Return a TF operation assigning values to the weights.
 
         Args:
-            value: The value to assign to the weights. For possible values, see
-                   :meth:`~libspn.utils.broadcast_value`.
-
+            value: The value to assign to the weights.
         Returns:
             Tensor: The assignment operation.
         """
@@ -133,9 +130,7 @@ class Weights(ParamNode):
         """Return a TF operation assigning log values to the weights.
 
         Args:
-            value: The value to assign to the weights. For possible values, see
-                   :meth:`~libspn.utils.broadcast_value`.
-
+            value: The value to assign to the weights.
         Returns:
             Tensor: The assignment operation.
         """
@@ -256,8 +251,7 @@ def assign_weights(root, value, name=None):
 
     Args:
         root (Node): The root node of the SPN graph.
-        value: The value to assign to the weights. For possible values, see
-               :meth:`~libspn.utils.broadcast_value`.
+        value: The value to assign to the weights.
     """
     assign_ops = []
 

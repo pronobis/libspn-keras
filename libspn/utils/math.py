@@ -10,40 +10,7 @@
 import tensorflow as tf
 import numpy as np
 import collections
-from libspn import conf, utils as utils
-from libspn.utils.serialization import register_serializable
-
-
-class ValueType:
-
-    """A class specifying various types of values that be passed to the SPN
-    graph."""
-
-    @register_serializable
-    class RANDOM_UNIFORM:
-
-        """A random value from a uniform distribution.
-
-        Attributes:
-            min_val: The lower bound of the range of random values.
-            max_val: The upper bound of the range of random values.
-        """
-
-        def __init__(self, min_val=0, max_val=1):
-            self.min_val = min_val
-            self.max_val = max_val
-
-        def __repr__(self):
-            return ("ValueType.RANDOM_UNIFORM(min_val=%s, max_val=%s)" %
-                    (self.min_val, self.max_val))
-
-        def serialize(self):
-            return {'min_val': self.min_val,
-                    'max_val': self.max_val}
-
-        def deserialize(self, data):
-            self.min_val = data['min_val']
-            self.max_val = data['max_val']
+from libspn import utils as utils
 
 
 def gather_cols_3d(params, indices, pad_elem=0, name=None):
@@ -309,39 +276,6 @@ def scatter_values(params, indices, num_out_cols, name=None):
             else:
                 return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
                        * tf.expand_dims(params, axis=2)
-
-
-def broadcast_value(value, shape, dtype, name=None):
-    """Broadcast the given value to the given shape and dtype. If ``value`` is
-    one of the members of :class:`~libspn.ValueType`, the requested value will
-    be generated and placed in every element of a tensor of the requested shape
-    and dtype. If ``value`` is a 0-D tensor or a Python value, it will be
-    broadcasted to the requested shape and converted to the requested dtype.
-    Otherwise, the value is used as is.
-
-    Args:
-        value: The input value.
-        shape: The shape of the output.
-        dtype: The type of the output.
-
-    Return:
-        Tensor: A tensor containing the broadcasted and converted value.
-    """
-    with tf.name_scope(name, "broadcast_value", [value]):
-        # Recognize ValueTypes
-        if isinstance(value, ValueType.RANDOM_UNIFORM):
-            return tf.random_uniform(shape=shape,
-                                     minval=value.min_val,
-                                     maxval=value.max_val,
-                                     dtype=dtype)
-
-        # Broadcast tensors and scalars
-        tensor = tf.convert_to_tensor(value, dtype=dtype)
-        if tensor.get_shape() == tuple():
-            return tf.fill(dims=shape, value=tensor)
-
-        # Return original input if we cannot broadcast
-        return tensor
 
 
 def print_tensor(*tensors):

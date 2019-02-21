@@ -365,7 +365,7 @@ class SpnModel(spn.App):
                 num_mixtures=args.build.dense_mixtures,
                 input_dist=args.build.dense_input_dist,
                 num_input_mixtures=args.build.dense_input_mixtures,
-                weight_init_value=weight_init_value)
+                weight_initializer=weight_init_value)
             self.model.build(num_vars=self.train_set.num_vars,
                              num_vals=self.train_set.num_vals,
                              seed=args.build.dense_seed)
