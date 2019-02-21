@@ -12,9 +12,10 @@ from libspn.graph.distribution import GaussianLeaf
 from libspn.inference.mpe_path import MPEPath
 from libspn.graph.algorithms import traverse_graph
 from libspn import conf
+from libspn import utils
 
 
-class EMLearning():
+class EMLearning:
     """Assembles TF operations performing EM learning of an SPN.
 
     Args:
@@ -69,6 +70,7 @@ class EMLearning():
                 return pn.accum
         return None
 
+    @utils.lru_cache
     def reset_accumulators(self):
         with tf.name_scope(self._name_scope):
             return tf.group(*(
@@ -79,6 +81,14 @@ class EMLearning():
                     [dn.node._total_count_variable.initializer
                      for dn in self._gaussian_leaf_nodes]),
                             name="reset_accumulators")
+
+    def init_accumulators(self):
+        return self.reset_accumulators()
+
+    def accumulate_and_update_weights(self):
+        accumulate_updates = self.accumulate_updates()
+        with tf.control_dependencies([accumulate_updates]):
+            return self.update_spn()
 
     def accumulate_updates(self):
         # Generate path if not yet generated

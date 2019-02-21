@@ -363,7 +363,7 @@ class ProductsLayer(OpNode):
 
     @utils.lru_cache
     def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                          use_unweighted=False, sample=False, sample_prob=None):
+                              use_unweighted=False, sample=False, sample_prob=None):
         # Check inputs
         if not self._values:
             raise StructureError("%s is missing input values." % self)

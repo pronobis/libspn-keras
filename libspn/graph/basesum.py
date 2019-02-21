@@ -265,7 +265,6 @@ class BaseSum(OpNode, abc.ABC):
         else:
             num_values = max(self._sum_sizes)
         # Generate weights
-        print(self, "generating", self._num_sums, num_values)
         weights = Weights(
             initializer=initializer, num_weights=num_values, num_sums=self._num_sums,
             log=log, trainable=trainable, name=name)
@@ -647,9 +646,7 @@ class BaseSum(OpNode, abc.ABC):
             w_tensor, ivs_tensor, *input_tensors)
         input_tensors = [tf.expand_dims(t, axis=self._op_axis) if len(t.shape) == 2 else t for
                          t in input_tensors]
-        print(self, w_tensor, 'b')
         w_tensor = tf.expand_dims(w_tensor, axis=self._batch_axis)
-        print(self, w_tensor, 'a')
         reducible_inputs = tf.concat(input_tensors, axis=self._reduce_axis)
         if ivs_tensor is not None:
             ivs_tensor = tf.reshape(ivs_tensor, shape=(-1, self._num_sums, self._max_sum_size))

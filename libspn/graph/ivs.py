@@ -91,7 +91,7 @@ class IVs(VarNode):
         # complain about being unable to mix types
         oh = tf.one_hot(self._feed, self._num_vals, dtype=conf.dtype)
         # Detect negative input values and convert them to all IVs equal to 1
-        neg = tf.expand_dims(tf.cast(tf.less(self._feed, 0), dtype=conf.dtype), dim=-1)
+        neg = tf.expand_dims(tf.cast(tf.less(self._feed, 0), dtype=conf.dtype), axis=-1)
         oh = tf.add(oh, neg)
         # Reshape
         return tf.log(tf.reshape(oh, [-1, self._num_vars * self._num_vals]))

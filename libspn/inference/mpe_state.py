@@ -9,7 +9,7 @@ import tensorflow as tf
 from libspn.inference.mpe_path import MPEPath
 
 
-class MPEState():
+class MPEState:
     """Assembles TF operations computing MPE state for an SPN.
 
     Args:
@@ -23,10 +23,9 @@ class MPEState():
     def __init__(self, mpe_path=None, log=True, value_inference_type=None):
         # Create internal MPE path generator
         if mpe_path is None:
-            self._mpe_path = MPEPath(log=log,
-                                     value_inference_type=value_inference_type,
+            self._mpe_path = MPEPath(log=log, value_inference_type=value_inference_type,
                                      add_random=None, use_unweighted=False,
-                                     dropconnect_keep_prob=1.0)
+                                     dropconnect_keep_prob=None)
         else:
             self._mpe_path = mpe_path
 

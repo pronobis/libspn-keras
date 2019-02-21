@@ -10,6 +10,7 @@ import tensorflow as tf
 from libspn.inference.value import Value, LogValue
 from libspn.graph.algorithms import compute_graph_up_down
 from libspn.graph.basesum import BaseSum
+from libspn import utils
 
 
 class MPEPath:
@@ -75,13 +76,7 @@ class MPEPath:
             root (Node): The root node of the SPN graph.
         """
         def down_fun(node, parent_vals):
-            # Sum up all parent vals
-            parent_vals = [pv for pv in parent_vals if pv is not None]
-            if len(parent_vals) > 1:
-                summed = tf.add_n(parent_vals, name=node.name + "_add")
-            else:
-                summed = parent_vals[0]
-            self._true_counts[node] = summed
+            self._true_counts[node] = summed = self._accumulate_parents(*parent_vals)
             basesum_kwargs = dict(
                 add_random=self._add_random, use_unweighted=self._use_unweighted,
                 sample=self._sample, sample_prob=self._sample_prob)
@@ -99,11 +94,22 @@ class MPEPath:
 
         with tf.name_scope("TrueMPEPath"):
             # Compute the tensor to feed to the root node
-            graph_input = tf.ones_like(self._value.values[root])
+            graph_input = self._graph_input(self._value.values[root])
 
             # Traverse the graph computing counts
             self._true_counts = {}
             compute_graph_up_down(root, down_fun=down_fun, graph_input=graph_input)
+
+    @staticmethod
+    @utils.lru_cache
+    def _accumulate_parents(*parent_vals):
+        # Sum up all parent vals
+        return tf.add_n([pv for pv in parent_vals if pv is not None], name="AccumulateParents")
+
+    @staticmethod
+    @utils.lru_cache
+    def _graph_input(root_value):
+        return tf.ones_like(root_value)
 
     def get_mpe_path_actual(self, root):
         """Assemble TF operations computing the actual branch counts for the MPE
@@ -113,13 +119,7 @@ class MPEPath:
             root (Node): The root node of the SPN graph.
         """
         def down_fun(node, parent_vals):
-            # Sum up all parent vals
-            parent_vals = [pv for pv in parent_vals if pv is not None]
-            if len(parent_vals) > 1:
-                summed = tf.add_n(parent_vals, name=node.name + "_add")
-            else:
-                summed = parent_vals[0]
-            self._actual_counts[node] = summed
+            self._actual_counts[node] = summed = self._accumulate_parents(*parent_vals)
             basesum_kwargs = dict(
                 add_random=self._add_random, use_unweighted=self._use_unweighted,
                 sample=self._sample, sample_prob=self._sample_prob)
@@ -136,7 +136,7 @@ class MPEPath:
             self._value.get_value(root)
 
         with tf.name_scope("ActualMPEPath"):
-            graph_input = tf.ones_like(self._value.values[root])
+            graph_input = self._graph_input(self._value.values[root] )
 
             # Traverse the graph computing counts
             self._actual_counts = {}
