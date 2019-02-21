@@ -53,7 +53,7 @@ class TestGraphSaving(TestCase):
         feed = np.array(list(itertools.product(range(2), repeat=6)))
         model = spn.DiscreteDenseModel(
             num_classes=1, num_decomps=1, num_subsets=3,
-            num_mixtures=2, weight_init_value=tf.initializers.random_uniform(0.0, 1.0))
+            num_mixtures=2, weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
         root1 = model.build(num_vars=6, num_vals=2)
 
         # Save
@@ -121,7 +121,7 @@ class TestGraphSaving(TestCase):
         feed = np.array(list(itertools.product(range(2), repeat=6)))
         model = spn.DiscreteDenseModel(
             num_classes=1, num_decomps=1, num_subsets=3,
-            num_mixtures=2, weight_init_value=tf.initializers.random_uniform(0.0, 1.0))
+            num_mixtures=2, weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
         root1 = model.build(num_vars=6, num_vals=2)
         init1 = spn.initialize_weights(root1)
 
