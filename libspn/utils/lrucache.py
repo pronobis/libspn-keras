@@ -1,4 +1,5 @@
 import libspn as spn
+from functools import wraps
 
 
 class _HashedSeq(list):
@@ -61,6 +62,7 @@ def lru_cache(f):
     """
     memo = {}
 
+    @wraps(f)
     def helper(*args, **kwargs):
         if not spn.conf.memoization:
             return f(*args, **kwargs)

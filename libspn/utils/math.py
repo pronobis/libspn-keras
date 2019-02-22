@@ -296,17 +296,3 @@ def cwise_add(a, b):
     """
     return a + b
 
-
-@utils.lru_cache
-def cwise_mul(a, b):
-    """Component-wise multiplication of two tensors. Added explicitly for readability elsewhere
-    and for straightforward memoization.
-
-    Args:
-        a (Tensor): Left-hand side.
-        b (Tensor): Right-hand side.
-
-    Returns:
-        A component wise multiplication of ``a`` and ``b``.
-    """
-    return a * b

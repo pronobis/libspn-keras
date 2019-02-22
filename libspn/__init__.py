@@ -146,7 +146,7 @@ __all__ = [
     'traverse_graph',
     # Generators
     'DenseSPNGenerator', 'DenseSPNGenerator',
-    'WeightsGenerator', 'generate_weights',
+    'WeightsGenerator', 'generate_weights', 'convert_to_layer_nodes',
     # Inference and learning
     'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient',
     'MPEState', 'EMLearning', 'GDLearning', 'LearningTaskType',
@@ -165,7 +165,7 @@ __all__ = [
     # Logging
     'config_logger', 'get_logger', 'WARNING', 'INFO', 'DEBUG1', 'DEBUG2',
     # Custom ops, utils and config
-    'ops', 'conf', 'utils', 'App',
+    'conf', 'utils', 'App',
     # Exceptions
     'StructureError']
 

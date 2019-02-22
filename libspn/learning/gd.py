@@ -6,7 +6,7 @@
 # ------------------------------------------------------------------------
 
 import tensorflow as tf
-from libspn.inference.value import Value, LogValue
+from libspn.inference.value import LogValue
 from libspn.graph.algorithms import traverse_graph
 from libspn.exceptions import StructureError
 from libspn.learning.type import LearningTaskType
@@ -39,8 +39,8 @@ class GDLearning:
     def __init__(self, root, value=None, value_inference_type=None, dropconnect_keep_prob=None,
                  learning_task_type=LearningTaskType.SUPERVISED,
                  learning_method=LearningMethodType.DISCRIMINATIVE,
-                 learning_rate=1e-4, marginalizing_root=None, name="GDLearning",
-                 l1_regularize_coeff=None, l2_regularize_coeff=None):
+                 marginalizing_root=None, name="GDLearning", l1_regularize_coeff=None,
+                 l2_regularize_coeff=None, optimizer=None):
 
         if learning_task_type == LearningTaskType.UNSUPERVISED and \
                 learning_method == LearningMethodType.DISCRIMINATIVE:
@@ -63,15 +63,15 @@ class GDLearning:
                     "instead.".format(name))
             self._log_value = LogValue(
                 value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob)
-        self._learning_rate = learning_rate
         self._learning_task_type = learning_task_type
         self._learning_method = learning_method
         self._l1_regularize_coeff = l1_regularize_coeff
         self._l2_regularize_coeff = l2_regularize_coeff
         self._dropconnect_keep_prob = dropconnect_keep_prob
+        self._optimizer = optimizer
         self._name = name
 
-    def learn(self, loss=None, optimizer=tf.train.GradientDescentOptimizer):
+    def learn(self, loss=None, optimizer=None, post_gradient_ops=True):
         """Assemble TF operations performing GD learning of the SPN. This includes setting up
         the loss function (with regularization), setting up the optimizer and setting up
         post gradient-update ops.
@@ -80,9 +80,7 @@ class GDLearning:
         optimizer (tf.train.Optimizer): A TensorFlow optimizer to use for minimizing the loss.
 
         Returns:
-            A grouped operation that (i) updates the parameters using gradient descent, (ii)
-            projects new weights onto the probability simplex and (iii) clips new variances of
-            GaussianLeaf nodes.
+            A tuple of grouped update Ops and a loss Op.
         """
         if self._learning_task_type == LearningTaskType.SUPERVISED and self._root.ivs is None:
             raise StructureError(
@@ -92,16 +90,24 @@ class GDLearning:
         # If a loss function is not provided, define the loss function based
         # on learning-type and learning-method
         with tf.name_scope("Loss"):
-            loss = loss or (self.mle_loss() if
-                            self._learning_method == LearningMethodType.GENERATIVE else
-                            self.cross_entropy_loss())
+            if loss is None:
+                loss = (
+                    self.negative_log_likelihood() if self._learning_method == LearningMethodType.GENERATIVE else
+                    self.cross_entropy_loss()
+                )
             if self._l1_regularize_coeff is not None or self._l2_regularize_coeff is not None:
                 loss += self.regularization_loss()
 
         # Assemble TF ops for optimizing and weights normalization
+        optimizer = optimizer if optimizer is not None else self._optimizer
+        if optimizer is None:
+            raise ValueError("Did not specify GD optimizer")
         with tf.name_scope("ParameterUpdate"):
-            minimize = optimizer(self._learning_rate).minimize(loss=loss)
-            return self.post_gradient_update(minimize), loss
+            minimize = optimizer.minimize(loss=loss)
+            if post_gradient_ops:
+                return self.post_gradient_update(minimize), loss
+            else:
+                return minimize, loss
 
     def post_gradient_update(self, update_op):
         """Constructs post-parameter update ops such as normalization of weights and clipping of
@@ -132,7 +138,7 @@ class GDLearning:
                     traverse_graph(self._root, fun=fun)
             return tf.group(*weight_norm_ops, name="weight_norm")
 
-    def cross_entropy_loss(self, name="CrossEntropyLoss", reduce_fn=tf.reduce_mean,
+    def cross_entropy_loss(self, name="CrossEntropy", reduce_fn=tf.reduce_mean,
                            dropconnect_keep_prob=None):
         """Sets up the cross entropy loss, which is equivalent to -log(p(Y|X)).
 
@@ -145,13 +151,16 @@ class GDLearning:
         Returns:
             A Tensor corresponding to the cross-entropy loss.
         """
+        dropconnect_keep_prob = dropconnect_keep_prob if dropconnect_keep_prob is None else \
+            self._dropconnect_keep_prob
         with tf.name_scope(name):
-            log_prob_data_and_labels = self._log_value.get_value(self._root)
+            log_prob_data_and_labels = LogValue(
+                dropconnect_keep_prob=dropconnect_keep_prob).get_value(self._root)
             log_prob_data = self._log_likelihood(dropconnect_keep_prob=dropconnect_keep_prob)
             return -reduce_fn(log_prob_data_and_labels - log_prob_data)
 
-    def mle_loss(self, name="MaximumLikelihoodLoss", reduce_fn=tf.reduce_mean,
-                 dropconnect_keep_prob=None):
+    def negative_log_likelihood(self, name="NegativeLogLikelihood", reduce_fn=tf.reduce_mean,
+                                dropconnect_keep_prob=None):
         """Returns the maximum (log) likelihood estimate loss function which corresponds to
         -log(p(X)) in the case of unsupervised learning or -log(p(X,Y)) in the case of supservised
         learning.

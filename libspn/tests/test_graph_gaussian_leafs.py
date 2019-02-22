@@ -410,10 +410,6 @@ class TestGaussianQuantile(TestCase):
     def test_gradient_on_dense_spn(self, num_decomps, num_subsets, num_mixtures, input_dist,
                                    num_vars, num_components, softplus):
         batch_size = 9
-        conf.custom_gather_cols = False
-        conf.custom_gather_cols_3d = False
-        conf.custom_scatter_cols = False
-        conf.custom_scatter_values = False
 
         mean_init = np.arange(num_vars*num_components).reshape(num_vars, num_components)
         gl = spn.GaussianLeaf(

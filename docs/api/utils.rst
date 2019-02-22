@@ -13,7 +13,6 @@ Various LibSPN math functions.
 .. autofunction:: libspn.utils.scatter_cols
 .. autofunction:: libspn.utils.scatter_values
 .. autofunction:: libspn.utils.cwise_add
-.. autofunction:: libspn.utils.cwise_mul
 
 Set Partitions
 --------------

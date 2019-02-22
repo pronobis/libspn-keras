@@ -297,40 +297,24 @@ class TestMath(TestCase):
                                                  np.array(params) * 3]),
                                        dtype=params_dtype)
                     # Define ops for different implementations
-                    custom_scatter_cols = spn.conf.custom_scatter_cols
-                    spn.conf.custom_scatter_cols = False
                     op1dn = spn.utils.scatter_cols(p1d, indices, num_out_cols)
                     op2d1n = spn.utils.scatter_cols(p2d1, indices, num_out_cols)
                     op2d2n = spn.utils.scatter_cols(p2d2, indices, num_out_cols)
-                    spn.conf.custom_scatter_cols = True
-                    op1dc = spn.utils.scatter_cols(p1d, indices, num_out_cols)
-                    op2d1c = spn.utils.scatter_cols(p2d1, indices, num_out_cols)
-                    op2d2c = spn.utils.scatter_cols(p2d2, indices, num_out_cols)
-                    spn.conf.custom_scatter_cols = custom_scatter_cols
                     # Run
                     out1dn = sess.run(op1dn)
-                    out1dc = sess.run(op1dc)
                     out2d1n = sess.run(op2d1n)
-                    out2d1c = sess.run(op2d1c)
                     out2d2n = sess.run(op2d2n)
-                    out2d2c = sess.run(op2d2c)
                 # Compare
                 np.testing.assert_array_almost_equal(out1dn, true_output)
-                np.testing.assert_array_almost_equal(out1dc, true_output)
                 self.assertEqual(params_dtype.as_numpy_dtype, out1dn.dtype)
-                self.assertEqual(params_dtype.as_numpy_dtype, out1dc.dtype)
                 true_output_2d1 = [np.array(true_output)]
                 true_output_2d2 = [np.array(true_output),
                                    np.array(true_output) * 2,
                                    np.array(true_output) * 3]
                 np.testing.assert_array_almost_equal(out2d1n, true_output_2d1)
-                np.testing.assert_array_almost_equal(out2d1c, true_output_2d1)
                 np.testing.assert_array_almost_equal(out2d2n, true_output_2d2)
-                np.testing.assert_array_almost_equal(out2d2c, true_output_2d2)
                 self.assertEqual(params_dtype.as_numpy_dtype, out2d1n.dtype)
-                self.assertEqual(params_dtype.as_numpy_dtype, out2d1c.dtype)
                 self.assertEqual(params_dtype.as_numpy_dtype, out2d2n.dtype)
-                self.assertEqual(params_dtype.as_numpy_dtype, out2d2c.dtype)
 
         def test_all_dtypes(params, indices, num_out_cols, true_output):
             # CPU
