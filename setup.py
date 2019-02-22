@@ -5,7 +5,7 @@ from setuptools import setup
 
 def get_readme():
     """Read readme file."""
-    with open('README.md') as f:
+    with open('README.rst') as f:
         return f.read()
 
 
