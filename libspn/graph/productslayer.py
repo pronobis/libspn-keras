@@ -143,9 +143,11 @@ class ProductsLayer(OpNode):
     def _const_out_size(self):
         return True
 
+    @utils.lru_cache
     def _compute_out_size(self, *input_out_sizes):
         return self._num_prods
 
+    @utils.lru_cache
     def _compute_scope(self, *value_scopes):
         if not self._values:
             raise StructureError("%s is missing input values." % self)
@@ -231,7 +233,7 @@ class ProductsLayer(OpNode):
             combined_indices.append(indices)
             offset += size
 
-        return combined_indices, utils.concat_maybe(unique_tensors, 1)
+        return combined_indices, tf.concat(unique_tensors, 1)
 
     @utils.lru_cache
     def _compute_value_common(self, *value_tensors, padding_value=0.0):
@@ -251,13 +253,7 @@ class ProductsLayer(OpNode):
         else:
             # Gather input tensors
             value_tensors = self._gather_input_tensors(*value_tensors)
-            return utils.concat_maybe(value_tensors, 1)
-
-    @utils.lru_cache
-    def _compute_value(self, *value_tensors):
-        values = self._compute_value_common(*value_tensors, padding_value=1.0)
-        return tf.reduce_prod(values, axis=-1, keepdims=
-            (False if self._num_prods > 1 else True))
+            return tf.concat(value_tensors, 1)
 
     @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
@@ -268,7 +264,7 @@ class ProductsLayer(OpNode):
         def log_value(*unique_tensors):
             # Defines gradient for the log value
             def gradient(gradients):
-                scattered_grads = self._compute_mpe_path(gradients, *value_tensors)
+                scattered_grads = self._compute_log_mpe_path(gradients, *value_tensors)
                 return [sg for sg in scattered_grads if sg is not None]
             return tf.reduce_sum(values, axis=-1, keepdims=(False if self._num_prods > 1
                                                              else True)), gradient
@@ -284,10 +280,6 @@ class ProductsLayer(OpNode):
     def _get_differentiable_inputs(self, *value_tensors):
         unique_tensors = list(OrderedDict.fromkeys(value_tensors))
         return unique_tensors
-
-    @utils.lru_cache
-    def _compute_mpe_value(self, *value_tensors):
-        return self._compute_value(*value_tensors)
 
     @utils.lru_cache
     def _compute_log_mpe_value(self, *value_tensors):
@@ -372,8 +364,8 @@ class ProductsLayer(OpNode):
         return gather_counts_indices, unique_inps
 
     @utils.lru_cache
-    def _compute_mpe_path(self, counts, *value_values, add_random=False,
-                          use_unweighted=False, sample=False, sample_prob=None):
+    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
+                              use_unweighted=False, sample=False, sample_prob=None):
         # Check inputs
         if not self._values:
             raise StructureError("%s is missing input values." % self)
@@ -418,9 +410,8 @@ class ProductsLayer(OpNode):
 
         return scattered_counts
 
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False, sample=False, sample_prob=None):
-        return self._compute_mpe_path(counts, *value_values)
-
     def _compute_log_gradient(self, gradients, *value_values):
-        return self._compute_mpe_path(gradients, *value_values)
+        return self._compute_log_mpe_path(gradients, *value_values)
+
+    def disconnect_inputs(self):
+        self._values = None

@@ -12,9 +12,10 @@ from libspn.graph.distribution import GaussianLeaf
 from libspn.inference.mpe_path import MPEPath
 from libspn.graph.algorithms import traverse_graph
 from libspn import conf
+from libspn import utils
 
 
-class EMLearning():
+class EMLearning:
     """Assembles TF operations performing EM learning of an SPN.
 
     Args:
@@ -69,6 +70,7 @@ class EMLearning():
                 return pn.accum
         return None
 
+    @utils.lru_cache
     def reset_accumulators(self):
         with tf.name_scope(self._name_scope):
             return tf.group(*(
@@ -79,6 +81,14 @@ class EMLearning():
                     [dn.node._total_count_variable.initializer
                      for dn in self._gaussian_leaf_nodes]),
                             name="reset_accumulators")
+
+    def init_accumulators(self):
+        return self.reset_accumulators()
+
+    def accumulate_and_update_weights(self):
+        accumulate_updates = self.accumulate_updates()
+        with tf.control_dependencies([accumulate_updates]):
+            return self.update_spn()
 
     def accumulate_updates(self):
         # Generate path if not yet generated
@@ -189,74 +199,3 @@ class EMLearning():
         self._param_nodes = []
         with tf.name_scope(self._name_scope):
             traverse_graph(self._root, fun=fun)
-
-        # def learn(self, value_inference_type=InferenceType.MARGINAL,
-        #           init_accum_value=20, additive_smoothing_value=0.0,
-        #           additive_smoothing_decay=0.2, additive_smoothing_min=0.0,
-        #           stop_condition=0.0):
-        #     self.__info("Adding EM learning ops")
-        #     additive_smoothing_var = tf.Variable(additive_smoothing_value,
-        #                                          dtype=conf.dtype,
-        #                                          name="AdditiveSmoothing")
-        #     em_learning = EMLearning(
-        #         self._root, log=True,
-        #         value_inference_type=value_inference_type,
-        #         additive_smoothing=additive_smoothing_var,
-        #         add_random=None,
-        #         initial_accum_value=init_accum_value,
-        #         use_unweighted=True)
-        #     reset_accumulators = em_learning.reset_accumulators()
-        #     accumulate_updates = em_learning.accumulate_updates()
-        #     update_spn = em_learning.update_spn()
-        #     train_likelihood = em_learning.value.values[self._root]
-        #     avg_train_likelihood = tf.reduce_mean(train_likelihood,
-        #                                           name="AverageTrainLikelihood")
-        #     self.__info("Adding weight initialization ops")
-        #     init_weights = initialize_weights(self._root)
-
-        #     self.__info("Initializing")
-        #     self._sess.run(init_weights)
-        #     self._sess.run(reset_accumulators)
-
-        #     # self.__info("Learning")
-        #     # num_batches = 1
-        #     # batch_size = self._data.training_scans.shape[0] // num_batches
-        #     # prev_likelihood = 100
-        #     # likelihood = 0
-        #     # epoch = 0
-        #     # # Print weights
-        #     # print(self._sess.run(self._root.weights.node.variable))
-        #     # print(self._sess.run(self._em_learning.root_accum()))
-
-        #     # while abs(prev_likelihood - likelihood) > stop_condition:
-        #     #     prev_likelihood = likelihood
-        #     #     likelihoods = []
-        #     #     for batch in range(num_batches):
-        #     #         start = (batch) * batch_size
-        #     #         stop = (batch + 1) * batch_size
-        #     #         print("- EPOCH", epoch, "BATCH", batch, "SAMPLES", start, stop)
-        #     #         # Adjust smoothing
-        #     #         ads = max(np.exp(-epoch * additive_smoothing_decay) *
-        #     #                   self._additive_smoothing_value,
-        #     #                   additive_smoothing_min)
-        #     #         self._sess.run(self._additive_smoothing_var.assign(ads))
-        #     #         print("  Smoothing: ", self._sess.run(self._additive_smoothing_var))
-        #     #         # Run accumulate_updates
-        #     #         train_likelihoods_arr, avg_train_likelihood_val, _, = \
-        #     #             self._sess.run([self._train_likelihood,
-        #     #                             self._avg_train_likelihood,
-        #     #                             self._accumulate_updates],
-        #     #                            feed_dict={self._ivs:
-        #     #                                       self._data.training_scans[start:stop]})
-        #     #         # Print avg likelihood of this batch data on previous batch weights
-        #     #         print("  Avg likelihood (this batch data on previous weights): %s" %
-        #     #               (avg_train_likelihood_val))
-        #     #         likelihoods.append(avg_train_likelihood_val)
-        #     #         # Update weights
-        #     #         self._sess.run(self._update_spn)
-        #     #         # Print weights
-        #     #         print(self._sess.run(self._root.weights.node.variable))
-        #     #         print(self._sess.run(self._em_learning.root_accum()))
-        #     #     likelihood = sum(likelihoods) / len(likelihoods)
-        #     #     print("- Batch avg likelihood: %s" % (likelihood))
-        #     #     epoch += 1

@@ -85,6 +85,7 @@ class Product(OpNode):
     def _compute_out_size(self, *input_out_sizes):
         return 1
 
+    @utils.lru_cache
     def _compute_scope(self, *value_scopes):
         if not self._values:
             raise StructureError("%s is missing input values." % self)
@@ -122,11 +123,6 @@ class Product(OpNode):
         return values
 
     @utils.lru_cache
-    def _compute_value(self, *value_tensors):
-        values = self._compute_value_common(*value_tensors)
-        return tf.reduce_prod(values, 1, keepdims=True)
-
-    @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
 
@@ -135,7 +131,7 @@ class Product(OpNode):
         def log_value(*value_tensors):
             # Defines gradient for the log value
             def gradient(gradients):
-                scattered_grads = self._compute_mpe_path(gradients, *value_tensors)
+                scattered_grads = self._compute_log_mpe_path(gradients, *value_tensors)
                 return [sg for sg in scattered_grads if sg is not None]
 
             return tf.reduce_sum(values, 1, keepdims=True), gradient
@@ -145,14 +141,11 @@ class Product(OpNode):
         else:
             return tf.reduce_sum(values, 1, keepdims=True)
 
-    def _compute_mpe_value(self, *value_tensors):
-        return self._compute_value(*value_tensors)
-
     def _compute_log_mpe_value(self, *value_tensors):
         return self._compute_log_value(*value_tensors)
 
     @utils.lru_cache
-    def _compute_mpe_path(self, counts, *value_values, add_random=False,
+    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
                           use_unweighted=False, sample=False, sample_prob=None):
         # Check inputs
         if not self._values:
@@ -172,25 +165,8 @@ class Product(OpNode):
         # the amount of operations.
         return self._scatter_to_input_tensors(*value_counts)
 
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False, sample=False, sample_prob=None):
-        return self._compute_mpe_path(counts, *value_values)
-
-    @utils.lru_cache
-    def _compute_gradient(self, gradients, *value_values):
-        values = self._compute_value_common(*value_values)
-        output_gradients = (tf.reduce_prod(values, 1, keepdims=True) *
-                            gradients) / values
-
-        # Split the output_gradients to value inputs
-        value_sizes = self.get_input_sizes(*value_values)
-        output_gradients_split = utils.split_maybe(output_gradients, value_sizes, 1)
-
-        return self._scatter_to_input_tensors(
-            *[(g, v) for g, v in zip(output_gradients_split, value_values)])
-
     def _compute_log_gradient(self, gradients, *value_values):
-        return self._compute_mpe_path(gradients, *value_values)
+        return self._compute_log_mpe_path(gradients, *value_values)
 
-    def _compute_log_gradient_log(self, gradients, *value_values):
-        return self._compute_mpe_path(gradients, *value_values)
+    def disconnect_inputs(self):
+        self._values = None

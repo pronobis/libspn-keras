@@ -11,9 +11,9 @@ import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
+import libspn as spn
 
-
-class TestNodesParSums(unittest.TestCase):
+class TestNodesParSums(tf.test.TestCase):
 
     def tearDown(self):
         tf.reset_default_graph()
@@ -24,18 +24,18 @@ class TestNodesParSums(unittest.TestCase):
             with self.subTest(values=values, num_sums=num_sums, ivs=ivs,
                               weights=weights, feed=feed):
                 n = spn.ParSums(*values, num_sums=num_sums, ivs=ivs)
-                n.generate_weights(weights)
+                n.generate_weights(tf.initializers.constant(weights))
                 op = n.get_value(spn.InferenceType.MARGINAL)
                 op_log = n.get_log_value(spn.InferenceType.MARGINAL)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     spn.initialize_weights(n).run()
                     out = sess.run(op, feed_dict=feed)
                     out_log = sess.run(tf.exp(op_log), feed_dict=feed)
 
-                np.testing.assert_array_almost_equal(
+                self.assertAllClose(
                     out,
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
-                np.testing.assert_array_almost_equal(
+                self.assertAllClose(
                     out_log,
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
@@ -406,22 +406,23 @@ class TestNodesParSums(unittest.TestCase):
 
     def test_compute_mpe_value(self):
         """Calculating MPE value of ParSums."""
+        
         def test(values, num_sums, ivs, weights, feed, output):
             with self.subTest(values=values, num_sums=num_sums, ivs=ivs,
                               weights=weights, feed=feed):
                 n = spn.ParSums(*values, num_sums=num_sums, ivs=ivs)
-                n.generate_weights(weights)
+                n.generate_weights(tf.initializers.constant(weights))
                 op = n.get_value(spn.InferenceType.MPE)
                 op_log = n.get_log_value(spn.InferenceType.MPE)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     spn.initialize_weights(n).run()
                     out = sess.run(op, feed_dict=feed)
                     out_log = sess.run(tf.exp(op_log), feed_dict=feed)
 
-                np.testing.assert_array_almost_equal(
+                self.assertAllClose(
                     out,
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
-                np.testing.assert_array_almost_equal(
+                self.assertAllClose(
                     out_log,
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
@@ -923,13 +924,15 @@ class TestNodesParSums(unittest.TestCase):
         self.assertTrue(s10.is_valid())
 
     def test_compute_mpe_path_noivs_single_sum(self):
+        spn.conf.argmax_zero = True
+
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
-        op = s._compute_mpe_path(tf.identity(counts),
+        op = s._compute_log_mpe_path(tf.identity(counts),
                                  w.get_value(),
                                  None,
                                  v12.get_value(),
@@ -954,7 +957,7 @@ class TestNodesParSums(unittest.TestCase):
                    [1.2],
                    [0.9]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             # Skip the IVs op
             out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
@@ -962,35 +965,35 @@ class TestNodesParSums(unittest.TestCase):
                                                        v34: v34_feed,
                                                        v5: v5_feed})
         # Weights
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
                                             [0., 0., 11., 0., 0., 0.],
                                             [0., 0., 0., 0., 0., 12.],
                                             [0., 0., 0., 0., 13., 0.]]],
                                  dtype=np.float32), [1, 0, 2]))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[1], np.array([[10., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[2], np.array([[0., 0.],
                               [11., 0.],
                               [0., 0.],
                               [0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[3], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 13., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[4], np.array([[0.],
                               [0.],
                               [12.],
@@ -998,19 +1001,21 @@ class TestNodesParSums(unittest.TestCase):
                              dtype=np.float32))
 
     def test_compute_mpe_path_noivs_multi_sums(self):
+        spn.conf.argmax_zero = True
+
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=2)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 2))
-        op = s._compute_mpe_path(tf.identity(counts),
-                                 w.get_value(),
+        op = s._compute_log_mpe_path(tf.identity(counts),
+                                 w.get_log_value(),
                                  None,
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+                                 v12.get_log_value(),
+                                 v34.get_log_value(),
+                                 v12.get_log_value(),
+                                 v5.get_log_value())
         init = w.initialize()
         counts_feed = [[10, 20],
                        [11, 21],
@@ -1029,7 +1034,7 @@ class TestNodesParSums(unittest.TestCase):
                    [1.2],
                    [0.9]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             # Skip the IVs op
             out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
@@ -1037,7 +1042,7 @@ class TestNodesParSums(unittest.TestCase):
                                                        v34: v34_feed,
                                                        v5: v5_feed})
         # Weights
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
                                             [0., 0., 11., 0., 0., 0.],
                                             [0., 0., 0., 0., 0., 12.],
@@ -1048,28 +1053,28 @@ class TestNodesParSums(unittest.TestCase):
                                             [0., 0., 0., 0., 23., 0.]]],
                                  dtype=np.float32), [1, 0, 2]))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[1], np.array([[30., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[2], np.array([[0., 0.],
                               [32., 0.],
                               [0., 0.],
                               [0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[3], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 36., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[4], np.array([[0.],
                               [0.],
                               [34.],
@@ -1077,6 +1082,7 @@ class TestNodesParSums(unittest.TestCase):
                              dtype=np.float32))
 
     def test_compute_mpe_path_ivs_single_sum(self):
+        spn.conf.argmax_zero = True
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
@@ -1084,13 +1090,13 @@ class TestNodesParSums(unittest.TestCase):
         iv = s.generate_ivs()
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
-        op = s._compute_mpe_path(tf.identity(counts),
-                                 w.get_value(),
-                                 iv.get_value(),
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+        op = s._compute_log_mpe_path(tf.identity(counts),
+                                 w.get_log_value(),
+                                 iv.get_log_value(),
+                                 v12.get_log_value(),
+                                 v34.get_log_value(),
+                                 v12.get_log_value(),
+                                 v5.get_log_value())
         init = w.initialize()
         counts_feed = [[10],
                        [11],
@@ -1126,7 +1132,7 @@ class TestNodesParSums(unittest.TestCase):
                    [0.9]]
         ivs_feed = [[-1], [-1], [-1], [-1], [1], [2], [3], [1]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             out = sess.run(op, feed_dict={counts: counts_feed,
                                           iv: ivs_feed,
@@ -1134,7 +1140,7 @@ class TestNodesParSums(unittest.TestCase):
                                           v34: v34_feed,
                                           v5: v5_feed})
         # Weights
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
                                             [0., 0., 11., 0., 0., 0.],
                                             [0., 0., 0., 0., 0., 12.],
@@ -1146,7 +1152,7 @@ class TestNodesParSums(unittest.TestCase):
                                  dtype=np.float32), [1, 0, 2]))
 
         # IVs
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[1], np.array([[10., 0., 0., 0., 0., 0.],
                               [0., 0., 11., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 12.],
@@ -1157,7 +1163,7 @@ class TestNodesParSums(unittest.TestCase):
                               [17., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[2], np.array([[10., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
@@ -1168,7 +1174,7 @@ class TestNodesParSums(unittest.TestCase):
                               [17., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[3], np.array([[0., 0.],
                               [11., 0.],
                               [0., 0.],
@@ -1179,7 +1185,7 @@ class TestNodesParSums(unittest.TestCase):
                               [0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[4], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
@@ -1190,7 +1196,7 @@ class TestNodesParSums(unittest.TestCase):
                               [0., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[5], np.array([[0.],
                               [0.],
                               [12.],
@@ -1202,6 +1208,7 @@ class TestNodesParSums(unittest.TestCase):
                              dtype=np.float32))
 
     def test_compute_mpe_path_ivs_multi_sums(self):
+        spn.conf.argmax_zero = True
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
@@ -1209,13 +1216,13 @@ class TestNodesParSums(unittest.TestCase):
         iv = s.generate_ivs()
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 2))
-        op = s._compute_mpe_path(tf.identity(counts),
-                                 w.get_value(),
-                                 iv.get_value(),
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+        op = s._compute_log_mpe_path(tf.identity(counts),
+                                 w.get_log_value(),
+                                 iv.get_log_value(),
+                                 v12.get_log_value(),
+                                 v34.get_log_value(),
+                                 v12.get_log_value(),
+                                 v5.get_log_value())
         init = w.initialize()
         counts_feed = [[10, 20],
                        [11, 21],
@@ -1233,7 +1240,7 @@ class TestNodesParSums(unittest.TestCase):
                     [1, 1],
                     [0, 0],
                     [3, 3]]
-        v34_feed = [[0.1, 0.2],
+        v34_feed = [[0.1, 0.2],  # 0.2 
                     [1.2, 0.2],
                     [0.1, 0.2],
                     [0.9, 0.8],
@@ -1258,7 +1265,7 @@ class TestNodesParSums(unittest.TestCase):
                     [3, 3],
                     [1, 1]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             out = sess.run(op, feed_dict={counts: counts_feed,
                                           iv: ivs_feed,
@@ -1266,7 +1273,7 @@ class TestNodesParSums(unittest.TestCase):
                                           v34: v34_feed,
                                           v5: v5_feed})
         # Weights
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
                                             [0., 0., 11., 0., 0., 0.],
                                             [0., 0., 0., 0., 0., 12.],
@@ -1286,7 +1293,7 @@ class TestNodesParSums(unittest.TestCase):
                                           dtype=np.float32), [1, 0, 2]))
 
         # IVs
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[1], np.array([[30., 0., 0., 0., 0., 0.],
                               [0., 0., 32., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 34.],
@@ -1297,7 +1304,7 @@ class TestNodesParSums(unittest.TestCase):
                               [44., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[2], np.array([[30., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
@@ -1308,7 +1315,7 @@ class TestNodesParSums(unittest.TestCase):
                               [44., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[3], np.array([[0., 0.],
                               [32., 0.],
                               [0., 0.],
@@ -1319,7 +1326,7 @@ class TestNodesParSums(unittest.TestCase):
                               [0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[4], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
@@ -1330,7 +1337,7 @@ class TestNodesParSums(unittest.TestCase):
                               [0., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[5], np.array([[0.],
                               [0.],
                               [34.],
@@ -1349,7 +1356,7 @@ class TestNodesParSums(unittest.TestCase):
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=num_sums)
         iv = s.generate_ivs()
         weights = np.random.rand(num_sums, 6)
-        w = s.generate_weights(weights)
+        w = s.generate_weights(tf.initializers.constant(weights))
         gradients = tf.placeholder(tf.float32, shape=(None, num_sums))
         op = s._compute_log_gradient(tf.identity(gradients),
                                      w.get_log_value(),
@@ -1366,7 +1373,7 @@ class TestNodesParSums(unittest.TestCase):
         v5_feed = np.random.rand(batch_size, 1)
         ivs_feed = np.random.randint(6, size=(batch_size, num_sums))
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             # Skip the IVs op
             out = sess.run(op, feed_dict={gradients: gradients_feed,
@@ -1417,19 +1424,19 @@ class TestNodesParSums(unittest.TestCase):
         output_gradients[2] = output_gradients_2
 
         # Weights
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[0], weights_gradients)
         # IVs
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
            out[1], np.sum(weights_gradients, axis=1))
         # Inputs
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
            out[2], output_gradients[0])
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
            out[3], output_gradients[1])
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
            out[4], output_gradients[2])
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
            out[5], output_gradients[3])
 
 

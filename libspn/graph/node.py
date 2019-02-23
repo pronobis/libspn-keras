@@ -12,7 +12,6 @@ import tensorflow as tf
 import tensorflow.contrib.distributions as tfd
 from libspn import utils, conf
 from libspn.inference.type import InferenceType
-from libspn.learning.type import GradientType
 from libspn.exceptions import StructureError
 from libspn.graph.algorithms import compute_graph_up, traverse_graph
 
@@ -203,20 +202,14 @@ class Node(ABC):
                                        Can be changed at any time and will be
                                        used during the next inference/learning
                                        op generation.
-        gradient_type(GradientType): Flag indicating the preferred gradient
-                                     type for this node that will be used
-                                     during gradient computation. Can be
-                                     changed at any time and will be used
-                                     during the next learning op generation.
     """
 
-    def __init__(self, inference_type, name, gradient_type=GradientType.SOFT):
+    def __init__(self, inference_type, name):
         self._graph_data = GraphData.get()
         if name is None:
             name = "Node"
         self._name = self.tf_graph.unique_name(name)
         self.inference_type = inference_type
-        self.gradient_type = gradient_type
         with tf.name_scope(self._name + "/"):
             self._create()
 
@@ -228,8 +221,7 @@ class Node(ABC):
             dict: Dictionary with all the data to be serialized.
         """
         return {'name': self._name,
-                'inference_type': self.inference_type.name,
-                'gradient_type': self.gradient_type.name}
+                'inference_type': self.inference_type.name}
 
     @abstractmethod
     def deserialize(self, data):
@@ -239,8 +231,7 @@ class Node(ABC):
             data (dict): Dictionary with all the data to be deserialized.
         """
         Node.__init__(self, name=data['name'],
-                      inference_type=InferenceType[data['inference_type']],
-                      gradient_type=GradientType[data['gradient_type']])
+                      inference_type=InferenceType[data['inference_type']])
 
     @property
     def name(self):
@@ -288,27 +279,28 @@ class Node(ABC):
                        skip_params=skip_params)
         return nodes
 
-    def get_num_nodes(self, skip_params=False):
+    def get_num_nodes(self, skip_params=False, node_type=None):
         """Get the number of nodes in the SPN graph for which this node is root.
-
         Args:
             skip_params (bool): If ``True`` don't count param nodes.
-
+            node_type: Type of node in the SPN graph to be counted. If 'None' count
+                       all node types.
         Returns:
             int: Number of nodes.
         """
+
         class Counter:
             """"Mutable int."""
 
             def __init__(self):
                 self.val = 0
 
-            def inc(self):
-                self.val += 1
+            def inc(self, node, *_):
+                if node_type is None or isinstance(node, node_type):
+                    self.val += 1
 
         c = Counter()
-        traverse_graph(self, fun=lambda node: c.inc(),
-                       skip_params=skip_params)
+        traverse_graph(self, fun=c.inc, skip_params=skip_params)
         return c.val
 
     def get_out_size(self):
@@ -322,6 +314,21 @@ class Node(ABC):
                                 (lambda node, *args:
                                  node._compute_out_size(*args)),
                                 (lambda node: node._const_out_size))
+
+    def get_depth(self):
+        """Get depth of the SPN.
+
+        Returns:
+            int: The depth of the SPN
+        """
+        def _increment(_, *args):
+            not_none = [a for a in args if a is not None]
+            return max(not_none) + 1 if len(not_none) else 0
+        return compute_graph_up(self, val_fun=_increment)
+
+    def disconnect_inputs(self):
+        """Disconnect inputs to this node"""
+        pass
 
     def get_scope(self):
         """Get the scope of each output value of this node.
@@ -392,17 +399,6 @@ class Node(ABC):
 
         traverse_graph(self, fun=fun, skip_params=False)
 
-    def set_gradient_types(self, gradient_type):
-        """Set gradient type for each node in the SPN rooted in this node.
-
-        Args:
-           gradient_type (GradientType): Gradient type to set for the nodes.
-        """
-        def fun(node):
-            node.gradient_type = gradient_type
-
-        traverse_graph(self, fun=fun, skip_params=False)
-
     def _create(self):
         """Create any TF placeholder or variable that need to be instantiated
         during the creation of the node and shared between all operations.
@@ -469,7 +465,7 @@ class Node(ABC):
             otherwise ``None``.
         """
 
-    @abstractmethod
+    @utils.lru_cache
     def _compute_value(self, *input_tensors):
         """Assemble TF operations computing the marginal value of this node.
 
@@ -483,25 +479,11 @@ class Node(ABC):
             Tensor: A tensor of shape ``[None, out_size]``, where the first
             dimension corresponds to the batch size.
         """
+        return tf.exp(self._compute_log_value(*input_tensors))
 
     @abstractmethod
     def _compute_log_value(self, *input_tensors):
         """Assemble TF operations computing the marginal log value of this node.
-
-        To be re-implemented in sub-classes.
-
-        Args:
-            *input_tensors (Tensor): For each input, a tensor produced by
-                                     the input node.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-
-    @abstractmethod
-    def _compute_mpe_value(self, *input_tensors):
-        """Assemble TF operations computing the MPE value of this node.
 
         To be re-implemented in sub-classes.
 
@@ -548,6 +530,9 @@ class Node(ABC):
         """Enables sorting nodes."""
         return id(self) < id(other)
 
+    def __del__(self):
+        self.disconnect_inputs()
+
 
 class OpNode(Node):
     """An abstract class defining an operation node of the SPN graph.
@@ -562,16 +547,10 @@ class OpNode(Node):
                                        Can be changed at any time and will be
                                        used during the next inference/learning
                                        op generation.
-        gradient_type(GradientType): Flag indicating the preferred gradient
-                                     type for this node that will be used
-                                     during gradient computation. Can be
-                                     changed at any time and will be used
-                                     during the next learning op generation.
     """
 
-    def __init__(self, inference_type=InferenceType.MARGINAL, gradient_type=GradientType.SOFT,
-                 name=None):
-        super().__init__(inference_type, name, gradient_type)
+    def __init__(self, inference_type=InferenceType.MARGINAL, name=None):
+        super().__init__(inference_type, name)
 
     @abstractmethod
     def deserialize_inputs(self, data, nodes_by_name):
@@ -706,7 +685,7 @@ class OpNode(Node):
         with tf.name_scope("gather_input_tensors", values=input_tensors):
             return tuple(None if not i or it is None
                          else it if i.indices is None
-                         else utils.gather_cols(it, i.indices)
+                         else tf.gather(it, i.indices, axis=1)
                          for i, it in
                          zip(self.inputs, input_tensors))
 
@@ -734,26 +713,6 @@ class OpNode(Node):
                              int(t[1].get_shape()
                                  [0 if t[1].get_shape().ndims == 1 else 1]))
                          for i, t in zip(self.inputs, tuples))
-
-    @abstractmethod
-    def _compute_mpe_path(self, counts, *input_values):
-        """Assemble TF operations computing the MPE branch counts for each input
-        of the node.
-
-        To be re-implemented in sub-classes.
-
-        Args:
-            counts (Tensor): Branch counts for each output value of this node.
-            *input_values (Tensor): For each input, a tensor containing the value
-                                    or log value produced by the input node. Can
-                                    be ``None`` if the input is not connected.
-
-        Returns:
-            list of Tensor: For each input, branch counts to pass to the node
-            connected to the input. Each tensor is of shape ``[None, out_size]``,
-            where the first dimension corresponds to the batch size and the
-            second dimension is the size of the output of the input node.
-        """
 
     @abstractmethod
     def _compute_log_mpe_path(self, counts, *input_values):
@@ -790,6 +749,7 @@ class OpNode(Node):
             mask = tfd.Bernoulli(probs=keep_prob, dtype=conf.dtype, name="DropoutMaskBernoulli")\
                 .sample(sample_shape=shape)
             return tf.log(mask) if log else mask
+
 
 class VarNode(Node):
     """An abstract class defining a variable node of the SPN graph.
@@ -888,38 +848,6 @@ class VarNode(Node):
             all output of this node.
         """
         return self._compute_scope()
-
-    @abstractmethod
-    def _compute_value(self):
-        """Assemble TF operations computing the marginal value of this node.
-
-        To be re-implemented in sub-classes.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-
-    @utils.lru_cache
-    def _compute_log_value(self):
-        """Assemble TF operations computing the marginal log value of this node.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-        return tf.log(self._compute_value())
-
-    def _compute_mpe_value(self):
-        """Assemble TF operations computing the MPE value of this node.
-
-        The MPE value is equal to marginal value for VarNodes.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-        return self._compute_value()
 
     def _compute_log_mpe_value(self):
         """Assemble TF operations computing the log MPE value of this node.
@@ -1024,17 +952,6 @@ class ParamNode(Node):
         return None
 
     @abstractmethod
-    def _compute_value(self):
-        """Assemble TF operations computing the marginal value of this node.
-
-        To be re-implemented in sub-classes.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-
-    @abstractmethod
     def _compute_log_value(self):
         """Assemble TF operations computing the marginal log value of this node.
 
@@ -1042,17 +959,6 @@ class ParamNode(Node):
             Tensor: A tensor of shape ``[None, out_size]``, where the first
             dimension corresponds to the batch size.
         """
-
-    def _compute_mpe_value(self):
-        """Assemble TF operations computing the MPE value of this node.
-
-        The MPE value is equal to marginal value for ParamNodes.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-        return self._compute_value()
 
     def _compute_log_mpe_value(self):
         """Assemble TF operations computing the log MPE value of this node.
@@ -1092,63 +998,3 @@ class ParamNode(Node):
         Returns:
             Update operation.
         """
-
-
-class DistributionNode(VarNode, abc.ABC):
-
-    def __init__(self, feed=None, num_vars=1, name="DistributionLeaf"):
-        if not isinstance(num_vars, int) or num_vars < 1:
-            raise ValueError("num_vars must be a positive integer")
-        self._num_vars = num_vars
-        super().__init__(feed, name)
-
-    @property
-    def evidence(self):
-        return self._evidence_indicator
-
-    def _create_placeholder(self):
-        return tf.placeholder(conf.dtype, [None, self._num_vars])
-
-    def _create_evidence_indicator(self):
-        return tf.placeholder_with_default(
-            tf.cast(tf.ones_like(self._placeholder), tf.bool), shape=[None, self._num_vars])
-
-    def _create(self):
-        super()._create()
-        self._evidence_indicator = self._create_evidence_indicator()
-
-
-class ParameterizedDistributionNode(DistributionNode, abc.ABC):
-
-    Accumulate = namedtuple("Accumulate", ["name", "shape", "init"])
-
-    def __init__(self, accumulates=None, feed=None, num_vars=1, trainable=True,
-                 name="ParameterizedDistribution"):
-        self._variables = OrderedDict()
-        self._accumulates = accumulates
-        self._trainable = trainable
-        super().__init__(feed, num_vars, name)
-
-    @property
-    def initialize(self):
-        return tf.group(*[var.initializer for var in self._variables])
-
-    @property
-    def variables(self):
-        return self._variables
-
-    @property
-    def accumulates(self):
-        return self._accumulates
-
-    @abc.abstractmethod
-    def _compute_hard_em_update(self, counts):
-        """Compute hard EM update for all variables contained in this node. """
-
-    def _create(self):
-        super()._create()
-        self._variables = OrderedDict()
-        for name, shape, init in self._accumulates:
-            init_val = utils.broadcast_value(init, shape, dtype=conf.dtype)
-            self._variables[name] = tf.Variable(
-                init_val, dtype=conf.dtype, collections=['spn_distribution_accumulates'])

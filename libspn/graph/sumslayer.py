@@ -9,7 +9,6 @@ from libspn.graph.scope import Scope
 from libspn.inference.type import InferenceType
 from libspn.graph.weights import Weights
 from libspn.graph.basesum import BaseSum
-from libspn.learning.type import GradientType
 from libspn import utils
 from libspn.exceptions import StructureError
 from libspn import conf
@@ -51,8 +50,7 @@ class SumsLayer(BaseSum):
 
     def __init__(self, *values, num_or_size_sums=None, weights=None, ivs=None,
                  inference_type=InferenceType.MARGINAL, sample_prob=None,
-                 dropconnect_keep_prob=None,
-                 gradient_type=GradientType.SOFT, name="SumsLayer"):
+                 dropconnect_keep_prob=None, name="SumsLayer"):
         if isinstance(num_or_size_sums, int) or num_or_size_sums is None:
             num_sums = num_or_size_sums
             sum_sizes = None
@@ -63,7 +61,7 @@ class SumsLayer(BaseSum):
             *values, num_sums=num_sums, sum_sizes=sum_sizes,
             weights=weights, ivs=ivs, inference_type=inference_type, sample_prob=sample_prob,
             dropconnect_keep_prob=dropconnect_keep_prob,
-            name=name, masked=True, gradient_type=gradient_type)
+            name=name, masked=True)
 
     @utils.docinherit(BaseSum)
     def _reset_sum_sizes(self, num_sums=None, sum_sizes=None):
@@ -105,6 +103,7 @@ class SumsLayer(BaseSum):
         self._reset_sum_sizes(sum_sizes=sizes)
 
     @utils.docinherit(BaseSum)
+    @utils.lru_cache
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):
         flat_value_scopes, ivs_scopes, *value_scopes = self._get_flat_value_scopes(
             weight_scopes, ivs_scopes, *value_scopes)
@@ -169,8 +168,8 @@ class SumsLayer(BaseSum):
         indices = np.arange(self._max_sum_size).reshape((1, self._max_sum_size))
         return np.less(indices, sizes)  # Use broadcasting
 
-    def generate_weights(self, init_value=1, trainable=True, input_sizes=None,
-                         log=False, name=None):
+    def generate_weights(self, initializer=tf.initializers.constant(1.0), trainable=True,
+                         input_sizes=None, log=False, name=None):
         """Generate a weights node matching this sum node and connect it to
         this sum.
 
@@ -179,8 +178,7 @@ class SumsLayer(BaseSum):
         once all inputs are added to this node.
 
         Args:
-            init_value: Initial value of the weights. For possible values, see
-                :meth:`~libspn.utils.broadcast_value`.
+            initializer: Initial value of the weights.
             trainable (bool): See :class:`~libspn.Weights`.
             input_sizes (list of int): Pre-computed sizes of each input of
                 this node.  If given, this function will not traverse the graph
@@ -200,33 +198,13 @@ class SumsLayer(BaseSum):
         # Set sum node sizes to inferred _sum_input_sizes
         sum_input_sizes = self._sum_sizes
         max_size = self._max_sum_size
-        sum_size = sum(sum_input_sizes)
 
         # Mask is used to select the indices to assign the value to, since the weights tensor can
         # be larger than the total number of weights being modeled due to padding
         mask = self._build_mask().reshape((-1,))
 
-        init_padded_flat = np.zeros(self._num_sums * max_size)
-        if isinstance(init_value, int) and init_value == 1:
-            # If an int, just broadcast its value to the sum dimensions
-            init_padded_flat[mask] = init_value
-            init_value = init_padded_flat.reshape((self._num_sums, max_size))
-        elif hasattr(init_value, '__iter__'):
-            # If the init value is iterable, check if number of elements matches number of
-            init_flat = np.asarray(init_value).reshape((-1,))
-            if init_flat.size == sum_size:
-                init_padded_flat[mask] = init_flat
-            else:
-                raise ValueError("Incorrect initializer size {}, use an int or an iterable of size"
-                                 " {}.".format(init_flat.size, sum_size))
-            init_value = init_padded_flat.reshape((self._num_sums, max_size))
-        elif not isinstance(init_value, utils.ValueType.RANDOM_UNIFORM):
-            raise ValueError("Initialization value {} of type {} not usable, use an int or an "
-                             "iterable of size {} or an instance of "
-                             "libspn.ValueType.RANDOM_UNIFORM."
-                             .format(init_value, type(init_value), sum_size))
         # Generate weights
-        weights = Weights(init_value=init_value, num_weights=max_size,
+        weights = Weights(initializer=initializer, num_weights=max_size,
                           num_sums=len(sum_input_sizes), log=log,
                           trainable=trainable, mask=mask.tolist(), name=name)
         self.set_weights(weights)
@@ -252,7 +230,7 @@ class SumsLayer(BaseSum):
         nested_multi_sum_indices = np.split(flat_col_indices + flat_tensor_offsets, split_indices)
         # Concatenate the unique tensors
         unique_tensors = list(unique_tensors_offsets_dict.keys())
-        return nested_multi_sum_indices, utils.concat_maybe(unique_tensors, axis=self._op_axis)
+        return nested_multi_sum_indices, tf.concat(unique_tensors, axis=self._op_axis)
 
     def _flat_indices_and_uniq_tensors(self, value_tensors):
         """Determines the flattened column indices to gather from the concatenated unique value
@@ -299,11 +277,11 @@ class SumsLayer(BaseSum):
         if all(np.array_equal(indices[0], ind) for ind in indices):
             # In case all sum nodes model the same sum, we can just use broadcasting
             reducible_values = tf.reshape(
-                utils.gather_cols(values, indices[0]), (-1, 1, self._max_sum_size))
+                tf.gather(values, indices[0], axis=1), (-1, 1, self._max_sum_size))
         elif len(set(self._sum_sizes)) == 1:
             # In case all sum sizes are the same, use gather and reshape accordingly
             indices_flat = list(itertools.chain(*indices))
-            reducible_values = tf.reshape(utils.gather_cols(values, indices_flat),
+            reducible_values = tf.reshape(tf.gather(values, indices_flat, axis=1),
                                           (-1, self._num_sums, self._max_sum_size))
         else:
             reducible_values = utils.gather_cols_3d(
@@ -316,13 +294,10 @@ class SumsLayer(BaseSum):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
+            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
             accumulate_weights_batch=False, sample=False, sample_prob=None):
         if sample:
-            if log:
-                max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
-            else:
-                max_indices = self._reduce_sample(reducible_tensor, sample_prob=sample_prob)
+            max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
         else:
             max_indices = self._reduce_argmax(reducible_tensor)
         max_counts = utils.scatter_values(
@@ -343,8 +318,7 @@ class SumsLayer(BaseSum):
     def _compute_log_gradient(self, gradients, w_tensor, ivs_tensor, *value_tensors,
                               accumulate_weights_batch=False, dropconnect_keep_prob=None):
         reducible = self._compute_reducible(
-            w_tensor, ivs_tensor, *value_tensors, log=True,
-            dropconnect_keep_prob=dropconnect_keep_prob)
+            w_tensor, ivs_tensor, *value_tensors, dropconnect_keep_prob=dropconnect_keep_prob)
         log_sum = tf.expand_dims(
             self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
 

@@ -13,6 +13,7 @@ import numpy as np
 from context import libspn as spn
 from parameterized import parameterized
 import itertools
+import libspn as spn
 
 
 INPUT_SIZES = [[10], [1] * 10, [2] * 5, [5, 5], [1, 2, 3, 4], [4, 3, 2, 1], [2, 1, 2, 3, 1, 1]]
@@ -115,7 +116,7 @@ def build_iv_mask(inputs_selected, inputs_to_reduce, ivs, sums_sizes):
 class TestNodesSumsLayer(tf.test.TestCase):
 
     @parameterized.expand(arg_product(
-        INPUT_SIZES, SUM_SIZES, BOOLEAN, BOOLEAN, BOOLEAN, INF_TYPES, BOOLEAN))
+        INPUT_SIZES, SUM_SIZES, BOOLEAN, [True], BOOLEAN, INF_TYPES, BOOLEAN))
     def test_sumslayer_value(self, input_sizes, sum_sizes, ivs, log, same_inputs, inf_type,
                              indices):
         batch_size = 32
@@ -144,10 +145,12 @@ class TestNodesSumsLayer(tf.test.TestCase):
         self.assertAllClose(out, true_out)
 
     @parameterized.expand(arg_product(
-        INPUT_SIZES, SUM_SIZES, BOOLEAN, BOOLEAN, BOOLEAN, INF_TYPES,
+        INPUT_SIZES, SUM_SIZES, BOOLEAN, [True], BOOLEAN, INF_TYPES,
         ['gather', 'segmented'], BOOLEAN, BOOLEAN))
     def test_sumslayer_mpe_path(self, input_sizes, sum_sizes, ivs, log, same_inputs, inf_type,
                                 count_strategy, indices, use_unweighted):
+        spn.conf.argmax_zero = True
+
         # Set some defaults
         if (1 in sum_sizes or 1 in input_sizes or np.all(np.equal(sum_sizes, sum_sizes[0]))) \
                 and use_unweighted:
@@ -177,7 +180,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
 
         # Then build MPE path Ops
         mpe_path_gen = spn.MPEPath(
-            value_inference_type=inf_type, log=log, use_unweighted=use_unweighted)
+            value_inference_type=inf_type, log=True, use_unweighted=use_unweighted)
         mpe_path_gen.get_mpe_path(root)
         path_op = [mpe_path_gen.counts[node] for node in [weight_node] + input_nodes + ivs_nodes]
 
@@ -217,10 +220,14 @@ class TestNodesSumsLayer(tf.test.TestCase):
             feed_dict[ivs_nodes[0]] = np.stack(ivs, axis=1)
         else:
             ivs_nodes = []
-        weight_node = sumslayer.generate_weights(init_value=weights)
+        mask = sumslayer._build_mask()
+        weights_padded = np.zeros(mask.size)
+        weights_padded[mask.ravel()] = weights
+        weight_node = sumslayer.generate_weights(
+            initializer=tf.initializers.constant(weights_padded))
         # Connect a single sum to group outcomes
         root = spn.SumsLayer(sumslayer, num_or_size_sums=1)
-        root.generate_weights(init_value=root_weights)
+        root.generate_weights(initializer=tf.initializers.constant(root_weights))
         init = spn.initialize_weights(root)
         return init, ivs_nodes, root, weight_node
 
@@ -444,7 +451,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
         v5 = spn.ContVars(num_vars=1)
         s = spn.SumsLayer((v12, [0, 5]), v34, (v12, [3]), v5, (v12, [0, 5]), v34,
                           (v12, [3]), v5, num_or_size_sums=[3, 1, 3, 4, 1])
-        s.generate_weights(init_value=spn.ValueType.RANDOM_UNIFORM())
+        s.generate_weights(initializer=tf.initializers.random_uniform(0.0, 1.0))
         with self.test_session() as sess:
             sess.run(s.weights.node.initialize())
             weights = sess.run(s.weights.node.variable)

@@ -30,7 +30,7 @@ class TestInference(TestCase):
         val_log_marginal = model.root.get_log_value(
             inference_type=spn.InferenceType.MARGINAL)
         val_log_default = model.root.get_log_value()
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             init.run()
             out_default = sess.run(val_default, feed_dict={model.ivs: model.feed})
             out_marginal = sess.run(val_marginal, feed_dict={model.ivs: model.feed})
@@ -67,7 +67,7 @@ class TestInference(TestCase):
         val_default = model.root.get_value()
         val_log_mpe = model.root.get_log_value(inference_type=spn.InferenceType.MPE)
         val_log_default = model.root.get_log_value()
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             init.run()
             out_default = sess.run(val_default, feed_dict={model.ivs: model.feed})
             out_mpe = sess.run(val_mpe, feed_dict={model.ivs: model.feed})
@@ -97,7 +97,7 @@ class TestInference(TestCase):
         val_log_marginal = model.root.get_log_value(inference_type=spn.InferenceType.MARGINAL)
         val_log_mpe = model.root.get_log_value(inference_type=spn.InferenceType.MPE)
         val_log_default = model.root.get_log_value()
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             init.run()
             out_default = sess.run(val_default, feed_dict={model.ivs: model.feed})
             out_marginal = sess.run(val_marginal, feed_dict={model.ivs: model.feed})
@@ -138,7 +138,7 @@ class TestInference(TestCase):
         mpe_path_gen.get_mpe_path(model.root)
         mpe_path_gen_log.get_mpe_path(model.root)
         # Run
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             init.run()
             out = sess.run(mpe_path_gen.counts[model.ivs],
                            feed_dict={model.ivs: model.feed})
@@ -172,7 +172,7 @@ class TestInference(TestCase):
         ivs_state, = mpe_state_gen.get_state(model.root, model.ivs)
         ivs_state_log, = mpe_state_gen_log.get_state(model.root, model.ivs)
         # Run
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             init.run()
             out = sess.run(ivs_state, feed_dict={model.ivs: [[-1, -1]]})
             out_log = sess.run(ivs_state_log, feed_dict={model.ivs: [[-1, -1]]})

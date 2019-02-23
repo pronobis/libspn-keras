@@ -23,7 +23,7 @@ class TestGraphContVars(TestCase):
                 n = spn.ContVars(num_vars=num_vars)
                 op = n.get_value()
                 op_log = n.get_log_value()
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out = sess.run(op, feed_dict={n: value})
                     out_log = sess.run(tf.exp(op_log), feed_dict={n: value})
                 np.testing.assert_array_almost_equal(
@@ -50,7 +50,7 @@ class TestGraphContVars(TestCase):
                 n = spn.ContVars(feed=p, num_vars=num_vars)
                 op = n.get_value()
                 op_log = n.get_log_value()
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out = sess.run(op, feed_dict={p: value})
                     out_log = sess.run(tf.exp(op_log), feed_dict={p: value})
                 np.testing.assert_array_almost_equal(

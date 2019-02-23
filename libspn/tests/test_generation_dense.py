@@ -87,7 +87,7 @@ class TestDenseSPNGenerator(TestCase):
 
         # Generating random weights
         with tf.name_scope("Weights"):
-            spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM())
+            spn.generate_weights(root, tf.initializers.random_uniform(0.0, 1.0))
 
         # Generating weight initializers
         init = spn.initialize_weights(root)
@@ -100,7 +100,7 @@ class TestDenseSPNGenerator(TestCase):
         v_log = root.get_log_value()
 
         # Creating session
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initializing weights
             init.run()
             # Computing all values

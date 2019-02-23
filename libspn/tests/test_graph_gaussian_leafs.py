@@ -137,24 +137,24 @@ class TestGaussianQuantile(TestCase):
                                   learn_dist_params=True, softplus_scale=softplus_scale)
 
             mixture00 = spn.Sum((gq, [0, 1]), name="Mixture00")
-            weights00 = spn.Weights(init_value=[0.25, 0.75], num_weights=2)
+            weights00 = spn.Weights(initializer=tf.initializers.constant([0.25, 0.75]), num_weights=2)
             mixture00.set_weights(weights00)
             mixture01 = spn.Sum((gq, [0, 1]), name="Mixture01")
-            weights01 = spn.Weights(init_value=[0.75, 0.25], num_weights=2)
+            weights01 = spn.Weights(initializer=tf.initializers.constant([0.75, 0.25]), num_weights=2)
             mixture01.set_weights(weights01)
 
             mixture10 = spn.Sum((gq, [2, 3]), name="Mixture10")
-            weights10 = spn.Weights(init_value=[2/3, 1/3], num_weights=2)
+            weights10 = spn.Weights(initializer=tf.initializers.constant([2/3, 1/3]), num_weights=2)
             mixture10.set_weights(weights10)
             mixture11 = spn.Sum((gq, [2, 3]), name="Mixture11")
-            weights11 = spn.Weights(init_value=[1/3, 2/3], num_weights=2)
+            weights11 = spn.Weights(initializer=tf.initializers.constant([1/3, 2/3]), num_weights=2)
             mixture11.set_weights(weights11)
 
             prod0 = spn.Product(mixture00, mixture10, name="Prod0")
             prod1 = spn.Product(mixture01, mixture11, name="Prod1")
 
             root = spn.Sum(prod0, prod1, name="Root")
-            root_weights = spn.Weights(init_value=[1/2, 1/2], num_weights=2)
+            root_weights = spn.Weights(initializer=tf.initializers.constant([1/2, 1/2]), num_weights=2)
             root.set_weights(root_weights)
 
             # Generate new data from slightly shifted Gaussians
@@ -404,31 +404,27 @@ class TestGaussianQuantile(TestCase):
         self.assertAllClose(var_grad_tf_out, var_grad_spn_out)
 
     @argsprod(
-        [1], [2], [4], [spn.DenseSPNGeneratorLayerNodes.InputDist.RAW,
-                        spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE],
+        [1], [2], [4], [spn.DenseSPNGenerator.InputDist.RAW,
+                        spn.DenseSPNGenerator.InputDist.MIXTURE],
         [16], [2], [False, True])
     def test_gradient_on_dense_spn(self, num_decomps, num_subsets, num_mixtures, input_dist,
                                    num_vars, num_components, softplus):
         batch_size = 9
-        conf.custom_gather_cols = False
-        conf.custom_gather_cols_3d = False
-        conf.custom_scatter_cols = False
-        conf.custom_scatter_values = False
 
         mean_init = np.arange(num_vars*num_components).reshape(num_vars, num_components)
         gl = spn.GaussianLeaf(
             num_vars=num_vars, num_components=num_components, loc_init=mean_init,
             softplus_scale=softplus)
 
-        gen = spn.DenseSPNGeneratorLayerNodes(
+        gen = spn.DenseSPNGenerator(
             num_decomps=num_decomps, num_subsets=num_subsets, num_mixtures=num_mixtures,
-            node_type=spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER, input_dist=input_dist
+            node_type=spn.DenseSPNGenerator.NodeType.LAYER, input_dist=input_dist
         )
 
         root = gen.generate(gl, root_name="root")
 
         with tf.name_scope("Weights"):
-            spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM(), log=True)
+            spn.generate_weights(root, tf.initializers.random_uniform(0.0, 1.0), log=True)
 
         init = spn.initialize_weights(root)
 

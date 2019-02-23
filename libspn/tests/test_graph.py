@@ -516,7 +516,7 @@ class TestGraph(TestCase):
             with self.subTest(inputs=inpt, feed=feed):
                 n = spn.Concat(inpt)
                 op, = n._gather_input_tensors(n.inputs[0].node.get_value())
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out = sess.run(op, feed_dict=feed)
                 np.testing.assert_array_equal(out, np.array(true_output))
 

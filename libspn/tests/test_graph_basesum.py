@@ -7,8 +7,7 @@ from unittest.mock import MagicMock
 
 class TestBaseSum(tf.test.TestCase):
 
-    @argsprod([False, True])
-    def test_dropconnect(self, log):
+    def test_dropconnect(self):
         ivs = spn.IVs(num_vals=2, num_vars=4)
         s = spn.Sum(ivs, dropconnect_keep_prob=0.5)
         spn.generate_weights(s)
@@ -19,12 +18,9 @@ class TestBaseSum(tf.test.TestCase):
             [1., 0., 0., 0., 0., 0., 1., 0.]
         ]
         s._create_dropout_mask = MagicMock(
-            return_value=tf.expand_dims(tf.log(mask) if log else mask, 1))
+            return_value=tf.expand_dims(tf.log(mask), 1))
 
-        if log:
-            val_op = tf.exp(s.get_log_value())
-        else:
-            val_op = s.get_value()
+        val_op = tf.exp(s.get_log_value())
 
         mask = tf.constant(mask, dtype=tf.float32)
         truth = tf.reduce_mean(mask, axis=-1, keepdims=True)
@@ -63,8 +59,8 @@ class TestBaseSum(tf.test.TestCase):
             [self.assertLess(hist_second[i], N / 2 + N / 6) for i in [0, 3]]
             [self.assertGreater(hist_second[i], N / 2 - N / 6) for i in [0, 3]]
 
-    @argsprod([0.2, 0.5, 0.8, 1.0], [False, True])
-    def test_sampling(self, sample_prob, log):
+    @argsprod([0.2, 0.5, 0.8, 1.0])
+    def test_sampling(self, sample_prob):
         N = 100000
         x = tf.expand_dims(
             tf.constant(
@@ -77,10 +73,7 @@ class TestBaseSum(tf.test.TestCase):
         N_sampled = N * sample_prob
         N_argmax = N - N_sampled
 
-        if log:
-            sample_op = tf.squeeze(s._reduce_sample_log(tf.log(x), sample_prob=sample_prob))
-        else:
-            sample_op = tf.squeeze(s._reduce_sample(x, sample_prob=sample_prob))
+        sample_op = tf.squeeze(s._reduce_sample_log(tf.log(x), sample_prob=sample_prob))
 
         with self.test_session() as sess:
             sample_out = sess.run(sample_op)

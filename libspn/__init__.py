@@ -37,7 +37,7 @@ from libspn.graph.distribution import GaussianLeaf
 
 # Generators
 from libspn.generation.dense import DenseSPNGenerator
-from libspn.generation.dense_layernodes import DenseSPNGeneratorLayerNodes
+from libspn.generation.conversion import convert_to_layer_nodes
 from libspn.generation.weights import WeightsGenerator
 from libspn.generation.weights import generate_weights
 
@@ -52,7 +52,6 @@ from libspn.learning.em import EMLearning
 from libspn.learning.gd import GDLearning
 from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
-from libspn.learning.type import GradientType
 
 # Data
 from libspn.data.dataset import Dataset
@@ -92,19 +91,45 @@ from libspn.log import INFO
 from libspn.log import DEBUG1
 from libspn.log import DEBUG2
 
-# Custom TF ops
-from libspn.ops import ops
-
 # Utils and config
 from libspn import conf
 from libspn import utils
-from libspn.utils import ValueType
 
 # App
 from libspn.app import App
 
 # Exceptions
 from libspn.exceptions import StructureError
+
+from libspn.utils.serialization import register_serializable
+
+import tensorflow as tf
+
+
+def _tf_init_serialize(self):
+    return self.get_config()
+
+
+def _tf_init_deserialize(self, data):
+    self.__init__(**{k: v for k, v in data.items() if k != "__type__"})
+
+
+for initializer in [
+        tf.initializers.random_uniform,
+        tf.initializers.random_normal,
+        tf.initializers.constant,
+        tf.initializers.ones,
+        tf.initializers.glorot_normal,
+        tf.initializers.glorot_uniform,
+        tf.initializers.identity,
+        tf.initializers.orthogonal,
+        tf.initializers.truncated_normal,
+        tf.initializers.uniform_unit_scaling,
+        tf.initializers.variance_scaling,
+        tf.initializers.zeros]:
+    initializer.deserialize = _tf_init_deserialize
+    initializer.serialize = _tf_init_serialize
+    register_serializable(initializer)
 
 # All
 __all__ = [
@@ -120,12 +145,12 @@ __all__ = [
     'compute_graph_up', 'compute_graph_up_down',
     'traverse_graph',
     # Generators
-    'DenseSPNGenerator', 'DenseSPNGeneratorLayerNodes',
-    'WeightsGenerator', 'generate_weights',
+    'DenseSPNGenerator', 'DenseSPNGenerator',
+    'WeightsGenerator', 'generate_weights', 'convert_to_layer_nodes',
     # Inference and learning
     'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient',
     'MPEState', 'EMLearning', 'GDLearning', 'LearningTaskType',
-    'LearningMethodType', 'GradientType',
+    'LearningMethodType',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
     'IntGridDataset', 'ImageFormat', 'ImageShape', 'ImageDatasetBase',
@@ -140,7 +165,7 @@ __all__ = [
     # Logging
     'config_logger', 'get_logger', 'WARNING', 'INFO', 'DEBUG1', 'DEBUG2',
     # Custom ops, utils and config
-    'ops', 'conf', 'utils', 'ValueType', 'App',
+    'conf', 'utils', 'App',
     # Exceptions
     'StructureError']
 

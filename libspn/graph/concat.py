@@ -76,6 +76,7 @@ class Concat(OpNode):
         return sum(self._gather_input_sizes(*input_out_sizes))
 
     @utils.docinherit(OpNode)
+    @utils.lru_cache
     def _compute_scope(self, *input_scopes):
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
@@ -94,44 +95,35 @@ class Concat(OpNode):
             return self._compute_scope(*input_scopes)
 
     @utils.docinherit(OpNode)
-    def _compute_value(self, *input_tensors):
+    @utils.lru_cache
+    def _compute_log_value(self, *input_tensors):
         # Check inputs
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
+
         @tf.custom_gradient
         def value_gradient(*input_tensors):
             def gradient(gradients):
-                scattered_grads = self._compute_mpe_path(gradients, *input_tensors)
+                scattered_grads = self._compute_log_mpe_path(gradients, *input_tensors)
                 return [sg for sg in scattered_grads if sg is not None]
 
             gathered_inputs = self._gather_input_tensors(*input_tensors)
             # Concatenate inputs
-            return utils.concat_maybe(gathered_inputs, 1), gradient
+            return tf.concat(gathered_inputs, 1), gradient
         return value_gradient(*input_tensors)
 
     @utils.docinherit(OpNode)
-    def _compute_log_value(self, *input_tensors):
-        return self._compute_value(*input_tensors)
-
-    @utils.docinherit(OpNode)
-    def _compute_mpe_value(self, *input_tensors):
-        return self._compute_value(*input_tensors)
-
-    @utils.docinherit(OpNode)
     def _compute_log_mpe_value(self, *input_tensors):
-        return self._compute_value(*input_tensors)
+        return self._compute_log_value(*input_tensors)
 
-    def _compute_mpe_path(self, counts, *input_values, add_random=False,
-                          use_unweighted=False):
+    @utils.lru_cache
+    def _compute_log_mpe_path(self, counts, *input_values, add_random=False,
+                              use_unweighted=False):
         # Check inputs
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
         # Split counts for each input
         input_sizes = self.get_input_sizes(*input_values)
-        split = utils.split_maybe(counts, input_sizes, 1)
+        split = tf.split(counts, num_or_size_splits=input_sizes, axis=1)
         return self._scatter_to_input_tensors(*[(t, v) for t, v in
                                                 zip(split, input_values)])
-
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False):
-        return self._compute_mpe_path(counts, *value_values)

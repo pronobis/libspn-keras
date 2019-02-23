@@ -14,12 +14,10 @@ import random
 import collections
 import itertools
 from context import libspn as spn
+from test import TestCase
 
 
-class TestNodesProductsLayer(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
+class TestNodesProductsLayer(TestCase):
 
     def test_compute_vals(self):
         """Calculating value of ProductsLayer"""
@@ -95,7 +93,7 @@ class TestNodesProductsLayer(unittest.TestCase):
                 outputs = collections.OrderedDict()
 
                 # Create a session and execute the generated op
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     outputs[op_marg] = sess.run(op_marg, feed_dict=inputs_feed)
                     outputs[op_log_marg] = sess.run(tf.exp(op_log_marg),
                                                     feed_dict=inputs_feed)
@@ -340,7 +338,7 @@ class TestNodesProductsLayer(unittest.TestCase):
         self.assertFalse(p17.is_valid())
         self.assertFalse(p18.is_valid())
 
-    def test_compute_mpe_path(self):
+    def test_compute_log_mpe_path(self):
         """Calculating path of ProductsLayer"""
         num_vals = 2
 
@@ -422,7 +420,7 @@ class TestNodesProductsLayer(unittest.TestCase):
                 counts = tf.placeholder(tf.float32, shape=(None, num_prods))
 
                 # Create mpe path op
-                ops = p._compute_mpe_path(tf.identity(counts),
+                ops = p._compute_log_mpe_path(tf.identity(counts),
                                           *[inp.get_value() for inp in inputs])
 
                 ops = [op for op in ops if op is not None]
@@ -431,7 +429,7 @@ class TestNodesProductsLayer(unittest.TestCase):
                 coutnts_feed = np.random.randint(100, size=(batch_size, num_prods))
 
                 # Create a session and execute the generated op
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     outputs = sess.run(ops, feed_dict={counts: coutnts_feed})
 
                 # Calculate true-output

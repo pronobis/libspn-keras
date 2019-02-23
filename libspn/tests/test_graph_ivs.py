@@ -24,7 +24,7 @@ class TestGraphIVs(TestCase):
                 n = spn.IVs(num_vars=num_vars, num_vals=num_vals)
                 op = n.get_value()
                 op_log = n.get_log_value()
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out = sess.run(op, feed_dict={n: rv_value})
                     out_log = sess.run(tf.exp(op_log), feed_dict={n: rv_value})
                 np.testing.assert_array_almost_equal(
@@ -79,7 +79,7 @@ class TestGraphIVs(TestCase):
                             num_vals=num_vals)
                 op = n.get_value()
                 op_log = n.get_log_value()
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out = sess.run(op, feed_dict={p: rv_value})
                     out_log = sess.run(tf.exp(op_log), feed_dict={p: rv_value})
                 np.testing.assert_array_almost_equal(

@@ -68,15 +68,16 @@ class ContVars(VarNode):
     def _compute_out_size(self):
         return self._num_vars
 
+    @utils.lru_cache
     def _compute_scope(self):
         return [Scope(self, i) for i in range(self._num_vars)]
 
     @utils.lru_cache
-    def _compute_value(self):
+    def _compute_log_value(self):
         # We used identity, since this way we can feed and fetch this node
         # and there is an operation in TensorBoard even if the internal
         # placeholder is not used for feeding.
-        return tf.identity(self._feed)
+        return tf.log(self._feed)
 
     def _compute_mpe_state(self, counts):
         return counts
