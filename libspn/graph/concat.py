@@ -29,7 +29,7 @@ class Concat(OpNode):
     """
 
     def __init__(self, *inputs, name="Concat", axis=1):
-        super().__init__(InferenceType.MARGINAL, name)
+        super().__init__(inference_type=InferenceType.MARGINAL, name=name)
         self.set_inputs(*inputs)
         self._axis = axis
 
