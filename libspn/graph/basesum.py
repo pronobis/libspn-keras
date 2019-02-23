@@ -128,6 +128,9 @@ class BaseSum(OpNode, abc.ABC):
         self._op_axis = data['op_axis']
         self._reduce_axis = data['reduce_axis']
 
+    def disconnect_inputs(self):
+        self._ivs = self._weights = self._values = None
+
     @utils.docinherit(OpNode)
     def deserialize_inputs(self, data, nodes_by_name):
         super().deserialize_inputs(data, nodes_by_name)
@@ -578,6 +581,7 @@ class BaseSum(OpNode, abc.ABC):
         return list(chain.from_iterable(value_scopes)), ivs_scopes, value_scopes
 
     @utils.docinherit(OpNode)
+    @utils.lru_cache
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):
         flat_value_scopes, ivs_scopes, *value_scopes = self._get_flat_value_scopes(
             weight_scopes, ivs_scopes, *value_scopes)

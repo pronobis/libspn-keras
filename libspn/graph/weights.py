@@ -224,6 +224,7 @@ class Weights(ParamNode):
         self._variable = tf.Variable(
             init_val, dtype=conf.dtype, collections=['spn_weights'])
 
+    @utils.lru_cache
     def _compute_out_size(self):
         return self._num_weights * self._num_sums
 

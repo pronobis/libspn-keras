@@ -143,9 +143,11 @@ class ProductsLayer(OpNode):
     def _const_out_size(self):
         return True
 
+    @utils.lru_cache
     def _compute_out_size(self, *input_out_sizes):
         return self._num_prods
 
+    @utils.lru_cache
     def _compute_scope(self, *value_scopes):
         if not self._values:
             raise StructureError("%s is missing input values." % self)
@@ -410,3 +412,6 @@ class ProductsLayer(OpNode):
 
     def _compute_log_gradient(self, gradients, *value_values):
         return self._compute_log_mpe_path(gradients, *value_values)
+
+    def disconnect_inputs(self):
+        self._values = None

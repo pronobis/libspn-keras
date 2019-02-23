@@ -314,6 +314,21 @@ class Node(ABC):
                                  node._compute_out_size(*args)),
                                 (lambda node: node._const_out_size))
 
+    def get_depth(self):
+        """Get depth of the SPN.
+
+        Returns:
+            int: The depth of the SPN
+        """
+        def _increment(_, *args):
+            not_none = [a for a in args if a is not None]
+            return max(not_none) + 1 if len(not_none) else 0
+        return compute_graph_up(self, val_fun=_increment)
+
+    def disconnect_inputs(self):
+        """Disconnect inputs to this node"""
+        pass
+
     def get_scope(self):
         """Get the scope of each output value of this node.
 
@@ -513,6 +528,9 @@ class Node(ABC):
     def __lt__(self, other):
         """Enables sorting nodes."""
         return id(self) < id(other)
+
+    def __del__(self):
+        self.disconnect_inputs()
 
 
 class OpNode(Node):

@@ -103,6 +103,7 @@ class SumsLayer(BaseSum):
         self._reset_sum_sizes(sum_sizes=sizes)
 
     @utils.docinherit(BaseSum)
+    @utils.lru_cache
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):
         flat_value_scopes, ivs_scopes, *value_scopes = self._get_flat_value_scopes(
             weight_scopes, ivs_scopes, *value_scopes)

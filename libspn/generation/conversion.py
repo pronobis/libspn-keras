@@ -132,6 +132,9 @@ def convert_to_layer_nodes(root):
                         parent.set_inputs(*values)
                 # Increment num-sums-counter of the layer-node
                 layer_num_sums += node_num_sums
+                # Disconnect
+                node.disconnect_inputs()
+
             # After all nodes at a certain depth are modelled into a Layer-node,
             # set num-sums parameter accordingly
             sums_layer.set_sum_sizes(num_or_size_sums)
@@ -188,9 +191,13 @@ def convert_to_layer_nodes(root):
                     parent.set_values(*values)
                 # Increment num-prods-counter of the layer node
                 layer_num_prods += node_num_prods
+                # Disconnect
+                node.disconnect_inputs()
+
             # After all nodes at a certain depth are modelled into a Layer-node,
             # set num-prods parameter accordingly
             prods_layer.set_prod_sizes(num_or_size_prods)
+
         elif isinstance(depths[depth][0], (SumsLayer, ProductsLayer, Concat)):  # A Concat node
             pass
         else:
