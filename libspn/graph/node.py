@@ -279,27 +279,28 @@ class Node(ABC):
                        skip_params=skip_params)
         return nodes
 
-    def get_num_nodes(self, skip_params=False):
+    def get_num_nodes(self, skip_params=False, node_type=None):
         """Get the number of nodes in the SPN graph for which this node is root.
-
         Args:
             skip_params (bool): If ``True`` don't count param nodes.
-
+            node_type: Type of node in the SPN graph to be counted. If 'None' count
+                       all node types.
         Returns:
             int: Number of nodes.
         """
+
         class Counter:
             """"Mutable int."""
 
             def __init__(self):
                 self.val = 0
 
-            def inc(self):
-                self.val += 1
+            def inc(self, node, *_):
+                if node_type is None or isinstance(node, node_type):
+                    self.val += 1
 
         c = Counter()
-        traverse_graph(self, fun=lambda node: c.inc(),
-                       skip_params=skip_params)
+        traverse_graph(self, fun=c.inc, skip_params=skip_params)
         return c.val
 
     def get_out_size(self):
