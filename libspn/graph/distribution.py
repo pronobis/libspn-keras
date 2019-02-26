@@ -292,7 +292,6 @@ class GaussianLeaf(VarNode):
             self._dist.log_prob(self._tile_num_components(self._feed)), tf.zeros_like)
 
     @utils.docinherit(Node)
-    @utils.lru_cache
     def _compute_scope(self):
         return [Scope(self, i) for i in range(self._num_vars) for _ in range(self._num_components)]
 

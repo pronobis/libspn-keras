@@ -76,7 +76,6 @@ class Concat(OpNode):
         return sum(self._gather_input_sizes(*input_out_sizes))
 
     @utils.docinherit(OpNode)
-    @utils.lru_cache
     def _compute_scope(self, *input_scopes):
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)

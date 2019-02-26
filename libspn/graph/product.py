@@ -85,7 +85,6 @@ class Product(OpNode):
     def _compute_out_size(self, *input_out_sizes):
         return 1
 
-    @utils.lru_cache
     def _compute_scope(self, *value_scopes):
         if not self._values:
             raise StructureError("%s is missing input values." % self)
