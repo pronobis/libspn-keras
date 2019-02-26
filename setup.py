@@ -19,8 +19,8 @@ _packages = {
 
 
 EXTRA_PACKAGES = {
-    'tensorflow': [_packages['tensorflow']],
-    'tensorflow with gpu': [_packages['tensorflow-gpu']],
+    'cpu': [_packages['tensorflow']],
+    'gpu': [_packages['tensorflow-gpu']],
 }
 
 REQUIRED_PACKAGES = [
