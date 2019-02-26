@@ -88,7 +88,7 @@ setup(
     ################
     packages=['libspn'],
     install_requires=REQUIRED_PACKAGES,
-    extra_require=EXTRA_PACKAGES,
+    extras_require=EXTRA_PACKAGES,
     zip_safe=False,
     # Stuff in git repo will be included in source dist
     include_package_data=True,
