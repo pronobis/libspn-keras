@@ -158,7 +158,6 @@ class PermProducts(OpNode):
 
         return value_scopes_list
 
-    @utils.lru_cache
     def _compute_valid(self, *value_scopes):
         if not self._values:
             raise StructureError("%s is missing input values." % self)
