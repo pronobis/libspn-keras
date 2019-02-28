@@ -31,6 +31,7 @@ REQUIRED_PACKAGES = [
     'parameterized',
     'pillow',
     'pyyaml',
+    'tqdm',
     'colorama'  # For color output in tests
 ]
 
