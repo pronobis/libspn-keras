@@ -1,10 +1,3 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from itertools import chain, combinations
 import tensorflow as tf
 from libspn.graph.scope import Scope
@@ -85,7 +78,6 @@ class Product(OpNode):
     def _compute_out_size(self, *input_out_sizes):
         return 1
 
-    @utils.lru_cache
     def _compute_scope(self, *value_scopes):
         if not self._values:
             raise StructureError("%s is missing input values." % self)

@@ -1,10 +1,3 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.graph.node import VarNode
@@ -68,11 +61,9 @@ class IVs(VarNode):
         """
         return tf.placeholder(tf.int32, [None, self._num_vars])
 
-    @utils.lru_cache
     def _compute_out_size(self):
         return self._num_vars * self._num_vals
 
-    @utils.lru_cache
     def _compute_scope(self):
         return [Scope(self, i)
                 for i in range(self._num_vars)

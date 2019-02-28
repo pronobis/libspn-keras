@@ -1,10 +1,3 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from itertools import chain
 import tensorflow as tf
 from libspn.graph.node import OpNode, Input
@@ -76,7 +69,6 @@ class Concat(OpNode):
         return sum(self._gather_input_sizes(*input_out_sizes))
 
     @utils.docinherit(OpNode)
-    @utils.lru_cache
     def _compute_scope(self, *input_scopes):
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
