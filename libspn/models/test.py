@@ -1,10 +1,3 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from libspn.models.model import Model
 from libspn.graph.product import Product
 from libspn.graph.ivs import IVs
@@ -12,6 +5,7 @@ from libspn.graph.sum import Sum
 from libspn import conf
 from libspn import utils
 import numpy as np
+import tensorflow as tf
 
 
 class Poon11NaiveMixtureModel(Model):
@@ -83,18 +77,18 @@ class Poon11NaiveMixtureModel(Model):
         self._ivs = IVs(num_vars=2, num_vals=2, name="IVs")
         # Input mixtures
         s11 = Sum((self._ivs, [0, 1]), name="Sum1.1")
-        s11.generate_weights([0.4, 0.6])
+        s11.generate_weights(tf.initializers.constant([0.4, 0.6]))
         s12 = Sum((self._ivs, [0, 1]), name="Sum1.2")
-        s12.generate_weights([0.1, 0.9])
+        s12.generate_weights(tf.initializers.constant([0.1, 0.9]))
         s21 = Sum((self._ivs, [2, 3]), name="Sum2.1")
-        s21.generate_weights([0.7, 0.3])
+        s21.generate_weights(tf.initializers.constant([0.7, 0.3]))
         s22 = Sum((self._ivs, [2, 3]), name="Sum2.2")
-        s22.generate_weights([0.8, 0.2])
+        s22.generate_weights(tf.initializers.constant([0.8, 0.2]))
         # Components
         p1 = Product(s11, s21, name="Comp1")
         p2 = Product(s11, s22, name="Comp2")
         p3 = Product(s12, s22, name="Comp3")
         # Mixing components
         self._root = Sum(p1, p2, p3, name="Mixture")
-        self._root.generate_weights([0.5, 0.2, 0.3])
+        self._root.generate_weights(tf.initializers.constant([0.5, 0.2, 0.3]))
         return self._root

@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 import tensorflow as tf
 import numpy as np
 import time
@@ -33,11 +26,20 @@ class Ops:
         return tf.tensordot(a, b, axes=[[1], [1]])
 
     def reduction(a, b):
-        n = (-1, 1, b.shape.as_list()[1])
-        return tf.reduce_sum(tf.reshape(a, shape=n) * b, axis=2)
+        return tf.reduce_sum(tf.expand_dims(a, axis=1) * b, axis=2)
 
     def matmul(a, b):
-        return tf.matmul(a, b, transpose_b=True)
+        if len(b.shape) == 2:
+            return tf.matmul(a, b, transpose_b=True)
+        else:
+            return tf.squeeze(tf.matmul(tf.expand_dims(a, axis=1), b,
+                                        transpose_b=True))
+
+    def reduction_by_matmul(a, b):
+        bcasted = tf.expand_dims(a, axis=1) * b
+        ones = tf.ones(shape=(tf.shape(a)[0], 1, a.shape.as_list()[1]),
+                       dtype=bcasted.dtype)
+        return tf.squeeze(tf.matmul(ones, bcasted, transpose_b=True))
 
 
 class OpTestResult:
@@ -63,13 +65,13 @@ class TestResults:
 
     def print(self, file):
         def get_header(dev):
-            return ("%3s %11s: %5s %11s %15s %14s %10s" %
+            return ("%3s %15s: %5s %11s %15s %14s %10s" %
                     (dev, 'op', 'size', 'setup_time',
                      'first_run_time', 'rest_run_time', 'correct'))
 
         def get_res(res):
             """Helper function printing a single result."""
-            return ("%15s: %5d %11.2f %15.2f %14.2f %10s" %
+            return ("%19s: %5d %11.2f %15.2f %14.2f %10s" %
                     (res.op_name, res.graph_size,
                      res.setup_time * 1000, res.run_times[0] * 1000,
                      np.mean(res.run_times[1:]) * 1000,
@@ -123,18 +125,23 @@ class PerformanceTest:
         print2("--> %s: on_gpu=%s, a_shape=%s, b_shape=%s"
                % (op_name, on_gpu, a.shape, b.shape),
                self.file)
-        true_out = a@b.transpose()
+        # true_out = a@b.transpose()
+        true_out = np.sum(a.reshape(a.shape[0], 1, -1) * b, axis=2)
         # Create graph
         tf.reset_default_graph()
         with tf.device(device_name):
             # Create input
-            # We cannot use a constant here, since the operation will be pre-computed
-            # on a CPU for some cases (e.g. for int64 indices)
+            # We cannot use a constant here, since the operation will be
+            # pre-computed on a CPU for some cases (e.g. for int64 indices)
             # To ensure that data is copied only once, we add an identity op
             # which is served the input data and connected to all ops
             a_pl = tf.placeholder(dtype=self.dtype, shape=(None, a.shape[1]))
             a_op = tf.identity(a_pl)
-            b_pl = tf.placeholder(dtype=self.dtype, shape=(None, b.shape[1]))
+            if b.ndim == 2:
+                b_pl = tf.placeholder(dtype=self.dtype, shape=(None, b.shape[1]))
+            else:
+                b_pl = tf.placeholder(dtype=self.dtype, shape=(None, b.shape[1],
+                                      b.shape[2]))
             b_op = tf.identity(b_pl)
             # Create ops
             start_time = time.time()
@@ -184,8 +191,15 @@ class PerformanceTest:
         results = []
         a = np.random.rand(self.num_a_rows, self.num_a_cols)
         b = np.random.rand(self.num_b_rows, self.num_a_cols)
-        r = self._run_test('case1',
-                           [Ops.reduction, Ops.matmul],
+        r = self._run_test('case1_2d (simulate multiplication with weights)',
+                           [Ops.reduction, Ops.matmul, Ops.reduction_by_matmul],
+                           a, b)
+        results.append(r)
+
+        a = np.random.rand(self.num_a_rows, self.num_a_cols)
+        b = np.random.rand(self.num_a_rows, self.num_b_rows, self.num_a_cols)
+        r = self._run_test('case2_3d (simulate multiplication with IVs)',
+                           [Ops.reduction, Ops.matmul, Ops.reduction_by_matmul],
                            a, b)
         results.append(r)
 

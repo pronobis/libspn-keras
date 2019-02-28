@@ -1,15 +1,12 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from collections import deque
 from libspn import utils
+from libspn.generation.conversion import convert_to_layer_nodes
 from libspn.graph.node import Input
 from libspn.graph.sum import Sum
+from libspn.graph.parsums import ParSums
 from libspn.graph.product import Product
+from libspn.graph.permproducts import PermProducts
+from libspn.graph.concat import Concat
 from libspn.log import get_logger
 from libspn.exceptions import StructureError
 from libspn.utils.enum import Enum
@@ -35,6 +32,10 @@ class DenseSPNGenerator:
                                   ``num_mixtures`` is used.
         balanced (bool): Use only balanced decompositions, into subsets of
                          similar cardinality (differing by max 1).
+        node_type (NodeType): Determines the type of op-node - single (Sum, Product),
+                              block (ParSums, PermProducts) or layer (SumsLayer,
+                              ProductsLayer) - to be used in the generated structure.
+
     """
 
     __logger = get_logger()
@@ -58,6 +59,15 @@ class DenseSPNGenerator:
         distributions over the scope. These mixtures are then used as inputs
         to product nodes for singleton variable subsets."""
 
+    class NodeType(Enum):
+        """Determines the type of op-node - single (Sum, Product), block (ParSums,
+        PermProducts) or layer (SumsLayer, ProductsLayer) - to be used in the
+        generated structure."""
+
+        SINGLE = 0
+        BLOCK = 1
+        LAYER = 2
+
     class SubsetInfo:
         """Stores information about a single subset to be decomposed.
 
@@ -77,7 +87,7 @@ class DenseSPNGenerator:
 
     def __init__(self, num_decomps, num_subsets, num_mixtures,
                  input_dist=InputDist.MIXTURE, num_input_mixtures=None,
-                 balanced=True):
+                 balanced=True, node_type=NodeType.LAYER):
         # Args
         if not isinstance(num_decomps, int) or num_decomps < 1:
             raise ValueError("num_decomps must be a positive integer")
@@ -99,6 +109,7 @@ class DenseSPNGenerator:
         self.num_mixtures = num_mixtures
         self.input_dist = input_dist
         self.balanced = balanced
+        self.node_type = node_type
         if num_input_mixtures is None:
             self.num_input_mixtures = num_mixtures
         else:
@@ -152,7 +163,9 @@ class DenseSPNGenerator:
                 for s in new_subsets:
                     subsets.append(s)
 
-        return root
+        # If NodeType is LAYER, convert the generated graph with LayerNodes
+        return (convert_to_layer_nodes(root) if self.node_type ==
+                                                DenseSPNGenerator.NodeType.LAYER else root)
 
     def __generate_set(self, inputs):
         """Generate a set of inputs to the generated SPN grouped by scope.
@@ -209,6 +222,29 @@ class DenseSPNGenerator:
             list of SubsetInfo: Info about each new generated subset, which
             requires further decomposition.
         """
+
+        def subsubset_to_inputs_list(subsubset):
+            """Convert sub-subsets into a list of tuples, where each
+               tuple contains an input and a list of indices
+            """
+            subsubset_list = list(next(iter(subsubset)))
+            # Create a list of unique inputs from sub-subsets list
+            unique_inputs = list(set(s_subset[0]
+                                 for s_subset in subsubset_list))
+            # For each unique input, collect all associated indices
+            # into a single list, then create a list of tuples,
+            # where each tuple contains an unique input and it's
+            # list of indices
+            inputs_list = []
+            for unique_inp in unique_inputs:
+                indices_list = []
+                for s_subset in subsubset_list:
+                    if s_subset[0] == unique_inp:
+                        indices_list.append(s_subset[1])
+                inputs_list.append(tuple((unique_inp, indices_list)))
+
+            return inputs_list
+
         # Get subset partitions
         self.__debug3("Decomposing subset:\n%s", subset_info.subset)
         num_elems = len(subset_info.subset)
@@ -233,35 +269,77 @@ class DenseSPNGenerator:
             sums_id = 1
             prod_inputs = []
             for subsubset in part:
-                if len(subsubset) > 1:  # Decomposable further
-                    # Add mixtures
-                    with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
-                        sums = [Sum(name="Sum%s" % (i + 1))
-                                for i in range(self.num_mixtures)]
-                        sums_id += 1
-                    # Register the mixtures as inputs of products
-                    prod_inputs.append([(s, 0) for s in sums])
-                    # Generate subsubset info
-                    subsubset_infos.append(DenseSPNGenerator.SubsetInfo(
-                        level=subset_info.level + 1, subset=subsubset,
-                        parents=sums))
-                else:  # Non-decomposable
-                    if self.input_dist == DenseSPNGenerator.InputDist.RAW:
-                        # Register the content of subset as inputs to products
-                        prod_inputs.append(next(iter(subsubset)))
-                    elif self.input_dist == DenseSPNGenerator.InputDist.MIXTURE:
+                if self.node_type == DenseSPNGenerator.NodeType.SINGLE:
+                    # Use single-nodes
+                    if len(subsubset) > 1:  # Decomposable further
                         # Add mixtures
                         with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
                             sums = [Sum(name="Sum%s" % (i + 1))
-                                    for i in range(self.num_input_mixtures)]
+                                    for i in range(self.num_mixtures)]
                             sums_id += 1
                         # Register the mixtures as inputs of products
                         prod_inputs.append([(s, 0) for s in sums])
-                        # Connect inputs to mixtures
-                        for s in sums:
-                            s.add_values(*(list(next(iter(subsubset)))))
+                        # Generate subsubset info
+                        subsubset_infos.append(DenseSPNGenerator.SubsetInfo(
+                            level=subset_info.level + 1, subset=subsubset,
+                            parents=sums))
+                    else:  # Non-decomposable
+                        if self.input_dist == DenseSPNGenerator.InputDist.RAW:
+                            # Register the content of subset as inputs to products
+                            prod_inputs.append(next(iter(subsubset)))
+                        elif self.input_dist == DenseSPNGenerator.InputDist.MIXTURE:
+                            # Add mixtures
+                            with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
+                                sums = [Sum(name="Sum%s" % (i + 1))
+                                        for i in range(self.num_input_mixtures)]
+                                sums_id += 1
+                            # Register the mixtures as inputs of products
+                            prod_inputs.append([(s, 0) for s in sums])
+                            # Create an inputs list
+                            inputs_list = subsubset_to_inputs_list(subsubset)
+                            # Connect inputs to mixtures
+                            for s in sums:
+                                s.add_values(*inputs_list)
+                else:  # Use multi-nodes
+                    if len(subsubset) > 1:  # Decomposable further
+                        # Add mixtures
+                        with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
+                            sums = ParSums(num_sums=self.num_mixtures,
+                                           name="ParallelSums%s.%s" %
+                                           (self.__decomp_id, sums_id))
+                            sums_id += 1
+                        # Register the mixtures as inputs of PermProds
+                        prod_inputs.append(sums)
+                        # Generate subsubset info
+                        subsubset_infos.append(DenseSPNGenerator.SubsetInfo(
+                                               level=subset_info.level + 1,
+                                               subset=subsubset, parents=[sums]))
+                    else:  # Non-decomposable
+                        if self.input_dist == DenseSPNGenerator.InputDist.RAW:
+                            # Create an inputs list
+                            inputs_list = subsubset_to_inputs_list(subsubset)
+                            if len(inputs_list) > 1:
+                                inputs_list = [Concat(*inputs_list)]
+                            # Register the content of subset as inputs to PermProds
+                            [prod_inputs.append(inp) for inp in inputs_list]
+                        elif self.input_dist == DenseSPNGenerator.InputDist.MIXTURE:
+                            # Create an inputs list
+                            inputs_list = subsubset_to_inputs_list(subsubset)
+                            # Add mixtures
+                            with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
+                                sums = ParSums(*inputs_list,
+                                               num_sums=self.num_input_mixtures,
+                                               name="ParallelSums%s.%s" %
+                                               (self.__decomp_id, sums_id))
+                                sums_id += 1
+                            # Register the mixtures as inputs of PermProds
+                            prod_inputs.append(sums)
             # Add product nodes
-            products = self.__add_products(prod_inputs)
+            if self.node_type == DenseSPNGenerator.NodeType.SINGLE:
+                products = self.__add_products(prod_inputs)
+            else:
+                products = ([PermProducts(*prod_inputs, name="PermProducts%s" % self.__decomp_id)]
+                            if len(prod_inputs) > 1 else prod_inputs)
             # Connect products to each parent Sum
             for p in subset_info.parents:
                 p.add_values(*products)
@@ -287,10 +365,14 @@ class DenseSPNGenerator:
         product_num = 1
         with tf.name_scope("Products%s" % self.__decomp_id):
             while cont:
-                # Add a product node
-                products.append(Product(*[pi[s] for (pi, s) in
-                                          zip(prod_inputs, selected)],
-                                        name="Product%s" % product_num))
+                if len(prod_inputs) > 1:
+                    # Add a product node
+                    products.append(Product(*[pi[s] for (pi, s) in
+                                              zip(prod_inputs, selected)],
+                                            name="Product%s" % product_num))
+                else:
+                    products.append(*[pi[s] for (pi, s) in
+                                      zip(prod_inputs, selected)])
                 product_num += 1
                 # Increment selected
                 cont = False

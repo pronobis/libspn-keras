@@ -1,14 +1,8 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.graph.node import VarNode
 from libspn import conf
+from libspn import utils
 from libspn.utils.serialization import register_serializable
 
 
@@ -74,8 +68,9 @@ class IVs(VarNode):
         return [Scope(self, i)
                 for i in range(self._num_vars)
                 for _ in range(self._num_vals)]
-
-    def _compute_value(self):
+    
+    @utils.lru_cache
+    def _compute_log_value(self):
         """Assemble the TF operations computing the output value of the node
         for a normal upwards pass.
 
@@ -89,11 +84,12 @@ class IVs(VarNode):
         # complain about being unable to mix types
         oh = tf.one_hot(self._feed, self._num_vals, dtype=conf.dtype)
         # Detect negative input values and convert them to all IVs equal to 1
-        neg = tf.expand_dims(tf.cast(tf.less(self._feed, 0), dtype=conf.dtype), dim=-1)
+        neg = tf.expand_dims(tf.cast(tf.less(self._feed, 0), dtype=conf.dtype), axis=-1)
         oh = tf.add(oh, neg)
         # Reshape
-        return tf.reshape(oh, [-1, self._num_vars * self._num_vals])
+        return tf.log(tf.reshape(oh, [-1, self._num_vars * self._num_vals]))
 
+    @utils.lru_cache
     def _compute_mpe_state(self, counts):
         r = tf.reshape(counts, (-1, self._num_vars, self._num_vals))
-        return tf.argmax(r, dimension=2)
+        return tf.argmax(r, axis=2)

@@ -1,0 +1,100 @@
+Params:
+- num_input_rows=200
+- num_input_vars=10
+- num_input_vals=5
+- num_decomps=4
+- num_subsets=5
+- num_mixtures=5
+- num_input_mixtures=5
+- balanced=True
+- num_runs=50
+
+Running tests:
+--> dense: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, multi_nodes=False, log=False
+--> dense: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, multi_nodes=False, log=False
+--> dense: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, multi_nodes=False, log=False
+--> dense: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, multi_nodes=False, log=False
+--> dense_multinodes: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, multi_nodes=True, log=False
+--> dense_multinodes: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, multi_nodes=True, log=False
+--> dense_multinodes: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, multi_nodes=True, log=False
+--> dense_multinodes: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, multi_nodes=True, log=False
+--> dense: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, multi_nodes=False, log=True
+--> dense: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, multi_nodes=False, log=True
+--> dense: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, multi_nodes=False, log=True
+--> dense: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, multi_nodes=False, log=True
+--> dense_multinodes: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, multi_nodes=True, log=True
+--> dense_multinodes: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, multi_nodes=True, log=True
+--> dense_multinodes: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MARGINAL, multi_nodes=True, log=True
+--> dense_multinodes: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MARGINAL, multi_nodes=True, log=True
+--> dense: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, multi_nodes=False, log=False
+--> dense: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, multi_nodes=False, log=False
+--> dense: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, multi_nodes=False, log=False
+--> dense: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, multi_nodes=False, log=False
+--> dense_multinodes: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, multi_nodes=True, log=False
+--> dense_multinodes: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, multi_nodes=True, log=False
+--> dense_multinodes: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, multi_nodes=True, log=False
+--> dense_multinodes: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, multi_nodes=True, log=False
+--> dense: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, multi_nodes=False, log=True
+--> dense: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, multi_nodes=False, log=True
+--> dense: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, multi_nodes=False, log=True
+--> dense: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, multi_nodes=False, log=True
+--> dense_multinodes: on_gpu=False, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, multi_nodes=True, log=True
+--> dense_multinodes: on_gpu=False, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, multi_nodes=True, log=True
+--> dense_multinodes: on_gpu=True, inputs_shape=(200, 10), input_dist=RAW, inference=MPE, multi_nodes=True, log=True
+--> dense_multinodes: on_gpu=True, inputs_shape=(200, 10), input_dist=MIXTURE, inference=MPE, multi_nodes=True, log=True
+
+-----------------------
+InferenceType: MARGINAL
+-----------------------
+ CPU          op  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+           dense   13203    59850        RAW    36507.05         2347.95         6042.39         128.00         True
+           dense   13603    68450    MIXTURE    41252.66         3059.08         6255.95         135.02         True
+dense_multinodes     107     3142        RAW     1287.71          206.06          332.78          32.82         True
+dense_multinodes     147     4662    MIXTURE     3569.37          283.38          381.31          34.74         True
+ GPU          op  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+           dense   13203    59850        RAW    38376.90         2847.32         6907.78         391.42         True
+           dense   13603    68450    MIXTURE    42013.03         3196.53         7023.84         385.06         True
+dense_multinodes     107     3142        RAW     1514.46          140.87          281.51          11.10         True
+dense_multinodes     147     4662    MIXTURE     2149.55          241.50          274.26          18.60         True
+
+-----------------------
+InferenceType: MARGINAL-LOG
+-----------------------
+ CPU          op  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+           dense   13203    61164        RAW    37447.82         2363.27         6052.06         134.29         True
+           dense   13603    72364    MIXTURE    41918.23         3171.12         6851.76         144.46         True
+dense_multinodes     107     3516        RAW     1435.03          191.70          325.78          33.13         True
+dense_multinodes     147     5756    MIXTURE     3737.67          291.28          427.44          35.32         True
+ GPU          op  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+           dense   13203    61164        RAW    38177.03         2466.69         6567.31         368.32         True
+           dense   13603    72364    MIXTURE    42137.17         3159.67         7203.25         413.68         True
+dense_multinodes     107     3516        RAW     1540.68          135.70          209.05          17.48         True
+dense_multinodes     147     5756    MIXTURE     2526.18          254.48          316.95          24.98         True
+
+-----------------------
+InferenceType: MPE
+-----------------------
+ CPU          op  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+           dense   13203    59850        RAW    35950.64         2240.26         5628.90         136.09         True
+           dense   13603    68450    MIXTURE    40558.85         2865.47         6034.89         139.00         True
+dense_multinodes     107     3222        RAW     1268.39          156.35          276.66          32.53         True
+dense_multinodes     147     4902    MIXTURE     1897.40          252.82          334.65          32.58         True
+ GPU          op  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+           dense   13203    59850        RAW    37194.41         2392.51         6223.71         300.46         True
+           dense   13603    68450    MIXTURE    40744.61         2896.60         6603.13         319.48         True
+dense_multinodes     107     3222        RAW     1257.42          139.28          217.87          13.86         True
+dense_multinodes     147     4902    MIXTURE     3493.61          242.80          271.76          15.64         True
+
+-----------------------
+InferenceType: MPE-LOG
+-----------------------
+ CPU          op  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+           dense   13203    59952        RAW    35833.29         2239.36         5619.55         134.70         True
+           dense   13603    68752    MIXTURE    40799.23         2849.25         6016.12         134.19         True
+dense_multinodes     107     3244        RAW     1348.92          171.14          294.73          29.35         True
+dense_multinodes     147     4964    MIXTURE     1901.44          254.32          340.72          32.80         True
+ GPU          op  SPN_size  TF_size  input_dist  setup_time weights_init_time  first_run_time  rest_run_time    correct
+           dense   13203    59952        RAW    37166.96         2439.75         6231.95         393.54         True
+           dense   13603    68752    MIXTURE    40672.75         2898.73         6486.75         398.79         True
+dense_multinodes     107     3244        RAW     2760.28          130.29          200.45          15.42         True
+dense_multinodes     147     4964    MIXTURE     2240.72          227.32          253.43          19.29         True

@@ -1,10 +1,3 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 """LibSPN tools and utilities."""
 
 
@@ -14,3 +7,8 @@ def decode_bytes_array(arr):
         return arr.astype(str)
     else:
         return arr
+
+
+def maybe_first(a, b):
+    """Returns first argument 'a' if it is not None else 'b' """
+    return b if a is None else a

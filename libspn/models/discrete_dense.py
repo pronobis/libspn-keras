@@ -1,15 +1,7 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from libspn.models.model import Model
 from libspn.log import get_logger
 from libspn.graph.ivs import IVs
 from libspn.generation.dense import DenseSPNGenerator
-from libspn.utils.math import ValueType
 from libspn.generation.weights import generate_weights
 from libspn.graph.node import Input
 from libspn.graph.serialization import serialize_graph, deserialize_graph
@@ -43,8 +35,7 @@ class DiscreteDenseModel(Model):
                                   discrete data variable (mixing the data variable
                                   IVs) when ``input_dist`` is set to ``MIXTURE``.
                                   If set to ``None``, ``num_mixtures`` is used.
-        weight_init_value: Initial value of the weights. For possible values,
-                           see :meth:`~libspn.utils.broadcast_value`.
+        weight_init_value: Initial value of the weights.
     """
 
     __logger = get_logger()
@@ -58,7 +49,7 @@ class DiscreteDenseModel(Model):
                  num_decomps, num_subsets, num_mixtures,
                  input_dist=DenseSPNGenerator.InputDist.MIXTURE,
                  num_input_mixtures=None,
-                 weight_init_value=ValueType.RANDOM_UNIFORM(0, 1)):
+                 weight_initializer=tf.initializers.random_uniform(0.0, 1.0)):
         super().__init__()
         if not isinstance(num_classes, int):
             raise ValueError("num_classes must be an integer")
@@ -68,7 +59,7 @@ class DiscreteDenseModel(Model):
         self._num_mixtures = num_mixtures
         self._input_dist = input_dist
         self._num_input_mixtures = num_input_mixtures
-        self._weight_init_value = weight_init_value
+        self._weight_initializer = weight_initializer
         self._class_ivs = None
         self._sample_ivs = None
         self._class_input = None
@@ -82,7 +73,7 @@ class DiscreteDenseModel(Model):
                 ("num_mixtures=" + str(self._num_mixtures)) + ", " +
                 ("input_dist=" + str(self._input_dist)) + ", " +
                 ("num_input_mixtures=" + str(self._num_input_mixtures)) + ", " +
-                ("weight_init_value=" + str(self._weight_init_value))
+                ("weight_init_value=" + str(self._weight_initializer))
                 + ")")
 
     @utils.docinherit(Model)
@@ -108,7 +99,7 @@ class DiscreteDenseModel(Model):
         data['num_mixtures'] = self._num_mixtures
         data['input_dist'] = self._input_dist
         data['num_input_mixtures'] = self._num_input_mixtures
-        data['weight_init_value'] = self._weight_init_value
+        data['weight_init_value'] = self._weight_initializer
         return data
 
     @utils.docinherit(Model)
@@ -144,7 +135,7 @@ class DiscreteDenseModel(Model):
         self._num_mixtures = data['num_mixtures']
         self._input_dist = data['input_dist']
         self._num_input_mixtures = data['num_input_mixtures']
-        self._weight_init_value = data['weight_init_value']
+        self._weight_initializer = data['weight_init_value']
 
     @property
     def sample_ivs(self):
@@ -258,7 +249,7 @@ class DiscreteDenseModel(Model):
 
         # Generate weight nodes
         self.__debug1("Generating weight nodes")
-        generate_weights(self._root, init_value=self._weight_init_value)
+        generate_weights(self._root, initializer=self._weight_initializer)
         if self.__is_debug1():
             self.__debug1("SPN graph has %d nodes and %d TF ops" % (
                 self._root.get_num_nodes(), self._root.get_tf_graph_size()))

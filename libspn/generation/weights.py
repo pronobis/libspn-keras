@@ -1,12 +1,5 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 import tensorflow as tf
-from libspn.graph.sum import Sum
+from libspn.graph.basesum import BaseSum
 from libspn.graph.algorithms import compute_graph_up
 
 
@@ -18,15 +11,16 @@ class WeightsGenerator:
     otherwise the number of weight values will be incorrect.
 
     Attributes:
-        init_value: Initial value of the weights. For possible values, see
-                    :meth:`~libspn.utils.broadcast_value`.
+        initializer: Initial value of the weights.
         trainable: See :class:`~libspn.Weights`.
+        log (bool): If "True", the weights are represented in log space.
     """
 
-    def __init__(self, init_value=1, trainable=True):
+    def __init__(self, initializer=tf.initializers.constant(1.0), trainable=True, log=False):
         self._weights = {}
-        self.init_value = init_value
+        self.initializer = initializer
         self.trainable = trainable
+        self._log = log
 
     @property
     def weights(self):
@@ -41,10 +35,11 @@ class WeightsGenerator:
             root: The root node of the SPN graph.
         """
         def gen(node, *input_out_sizes):
-            if isinstance(node, Sum):
+            if isinstance(node, BaseSum):
                 self._weights[node] = node.generate_weights(
-                    init_value=self.init_value, trainable=self.trainable,
-                    input_sizes=node._gather_input_sizes(*input_out_sizes))
+                    initializer=self.initializer, trainable=self.trainable,
+                    input_sizes=node._gather_input_sizes(*input_out_sizes),
+                    log=self._log)
             return node._compute_out_size(*input_out_sizes)
 
         with tf.name_scope("Weights"):
@@ -53,13 +48,13 @@ class WeightsGenerator:
             return compute_graph_up(root, val_fun=gen)
 
 
-def generate_weights(root, init_value=1, trainable=True):
+def generate_weights(root, initializer=tf.initializers.constant(1.0), trainable=True, log=False):
     """A helper function for quick generation of sum weights in the SPN graph.
 
     Args:
         root (Node): The root node of the SPN graph.
-        init_value: Initial value of the weights. For possible values, see
-                    :meth:`~libspn.utils.broadcast_value`.
+        init_value: Initial value of the weights.
         trainable: See :class:`~libspn.Weights`.
+        log (bool): If "True", the weights are represented in log space.
     """
-    WeightsGenerator(init_value=init_value, trainable=trainable).generate(root)
+    WeightsGenerator(initializer=initializer, trainable=trainable, log=log).generate(root)

@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from context import libspn as spn
 from test import TestCase
 import tensorflow as tf
@@ -516,7 +509,7 @@ class TestGraph(TestCase):
             with self.subTest(inputs=inpt, feed=feed):
                 n = spn.Concat(inpt)
                 op, = n._gather_input_tensors(n.inputs[0].node.get_value())
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out = sess.run(op, feed_dict=feed)
                 np.testing.assert_array_equal(out, np.array(true_output))
 

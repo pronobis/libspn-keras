@@ -1,13 +1,10 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
+import abc
 from abc import ABC, abstractmethod, abstractproperty
+from collections import namedtuple, OrderedDict
+
 import tensorflow as tf
-from libspn import utils
+import tensorflow.contrib.distributions as tfd
+from libspn import utils, conf
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
 from libspn.graph.algorithms import compute_graph_up, traverse_graph
@@ -143,6 +140,10 @@ class Input():
         """Returns ``True`` if the input is connected to a variable node."""
         return isinstance(self.node, VarNode)
 
+    @property
+    def is_distribution(self):
+        return isinstance(self.node, DistributionNode)
+
     def get_size(self, input_tensor):
         """Get the size of the input.
 
@@ -272,27 +273,28 @@ class Node(ABC):
                        skip_params=skip_params)
         return nodes
 
-    def get_num_nodes(self, skip_params=False):
+    def get_num_nodes(self, skip_params=False, node_type=None):
         """Get the number of nodes in the SPN graph for which this node is root.
-
         Args:
             skip_params (bool): If ``True`` don't count param nodes.
-
+            node_type: Type of node in the SPN graph to be counted. If 'None' count
+                       all node types.
         Returns:
             int: Number of nodes.
         """
+
         class Counter:
             """"Mutable int."""
 
             def __init__(self):
                 self.val = 0
 
-            def inc(self):
-                self.val += 1
+            def inc(self, node, *_):
+                if node_type is None or isinstance(node, node_type):
+                    self.val += 1
 
         c = Counter()
-        traverse_graph(self, fun=lambda node: c.inc(),
-                       skip_params=skip_params)
+        traverse_graph(self, fun=c.inc, skip_params=skip_params)
         return c.val
 
     def get_out_size(self):
@@ -306,6 +308,21 @@ class Node(ABC):
                                 (lambda node, *args:
                                  node._compute_out_size(*args)),
                                 (lambda node: node._const_out_size))
+
+    def get_depth(self):
+        """Get depth of the SPN.
+
+        Returns:
+            int: The depth of the SPN
+        """
+        def _increment(_, *args):
+            not_none = [a for a in args if a is not None]
+            return max(not_none) + 1 if len(not_none) else 0
+        return compute_graph_up(self, val_fun=_increment)
+
+    def disconnect_inputs(self):
+        """Disconnect inputs to this node"""
+        pass
 
     def get_scope(self):
         """Get the scope of each output value of this node.
@@ -442,7 +459,7 @@ class Node(ABC):
             otherwise ``None``.
         """
 
-    @abstractmethod
+    @utils.lru_cache
     def _compute_value(self, *input_tensors):
         """Assemble TF operations computing the marginal value of this node.
 
@@ -456,25 +473,11 @@ class Node(ABC):
             Tensor: A tensor of shape ``[None, out_size]``, where the first
             dimension corresponds to the batch size.
         """
+        return tf.exp(self._compute_log_value(*input_tensors))
 
     @abstractmethod
     def _compute_log_value(self, *input_tensors):
         """Assemble TF operations computing the marginal log value of this node.
-
-        To be re-implemented in sub-classes.
-
-        Args:
-            *input_tensors (Tensor): For each input, a tensor produced by
-                                     the input node.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-
-    @abstractmethod
-    def _compute_mpe_value(self, *input_tensors):
-        """Assemble TF operations computing the MPE value of this node.
 
         To be re-implemented in sub-classes.
 
@@ -521,6 +524,9 @@ class Node(ABC):
         """Enables sorting nodes."""
         return id(self) < id(other)
 
+    def __del__(self):
+        self.disconnect_inputs()
+
 
 class OpNode(Node):
     """An abstract class defining an operation node of the SPN graph.
@@ -537,8 +543,7 @@ class OpNode(Node):
                                        op generation.
     """
 
-    def __init__(self, inference_type=InferenceType.MARGINAL,
-                 name=None):
+    def __init__(self, inference_type=InferenceType.MARGINAL, name=None):
         super().__init__(inference_type, name)
 
     @abstractmethod
@@ -674,7 +679,7 @@ class OpNode(Node):
         with tf.name_scope("gather_input_tensors", values=input_tensors):
             return tuple(None if not i or it is None
                          else it if i.indices is None
-                         else utils.gather_cols(it, i.indices)
+                         else tf.gather(it, i.indices, axis=1)
                          for i, it in
                          zip(self.inputs, input_tensors))
 
@@ -704,26 +709,6 @@ class OpNode(Node):
                          for i, t in zip(self.inputs, tuples))
 
     @abstractmethod
-    def _compute_mpe_path(self, counts, *input_values):
-        """Assemble TF operations computing the MPE branch counts for each input
-        of the node.
-
-        To be re-implemented in sub-classes.
-
-        Args:
-            counts (Tensor): Branch counts for each output value of this node.
-            *input_values (Tensor): For each input, a tensor containing the value
-                                    or log value produced by the input node. Can
-                                    be ``None`` if the input is not connected.
-
-        Returns:
-            list of Tensor: For each input, branch counts to pass to the node
-            connected to the input. Each tensor is of shape ``[None, out_size]``,
-            where the first dimension corresponds to the batch size and the
-            second dimension is the size of the output of the input node.
-        """
-
-    @abstractmethod
     def _compute_log_mpe_path(self, counts, *input_values):
         """Assemble TF operations computing the MPE branch counts for each input
         of the node assuming that value is computed in log space.
@@ -742,6 +727,22 @@ class OpNode(Node):
             where the first dimension corresponds to the batch size and the
             second dimension is the size of the output of the input node.
         """
+
+    @utils.lru_cache
+    def _create_dropout_mask(self, keep_prob, shape, log=True, name="DropoutMask"):
+        """Creates a dropout mask with values drawn from a Bernoulli distribution with parameter
+        ``keep_prob``.
+
+        Args:
+            keep_prob (Tensor): A float ``Tensor`` indicating the probability of keeping an element
+                active.
+            shape (Tensor): A 1D ``Tensor`` specifying the shape of the
+
+        """
+        with tf.name_scope(name):
+            mask = tfd.Bernoulli(probs=keep_prob, dtype=conf.dtype, name="DropoutMaskBernoulli")\
+                .sample(sample_shape=shape)
+            return tf.log(mask) if log else mask
 
 
 class VarNode(Node):
@@ -841,37 +842,6 @@ class VarNode(Node):
             all output of this node.
         """
         return self._compute_scope()
-
-    @abstractmethod
-    def _compute_value(self):
-        """Assemble TF operations computing the marginal value of this node.
-
-        To be re-implemented in sub-classes.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-
-    def _compute_log_value(self):
-        """Assemble TF operations computing the marginal log value of this node.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-        return tf.log(self._compute_value())
-
-    def _compute_mpe_value(self):
-        """Assemble TF operations computing the MPE value of this node.
-
-        The MPE value is equal to marginal value for VarNodes.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-        return self._compute_value()
 
     def _compute_log_mpe_value(self):
         """Assemble TF operations computing the log MPE value of this node.
@@ -976,16 +946,6 @@ class ParamNode(Node):
         return None
 
     @abstractmethod
-    def _compute_value(self):
-        """Assemble TF operations computing the marginal value of this node.
-
-        To be re-implemented in sub-classes.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-
     def _compute_log_value(self):
         """Assemble TF operations computing the marginal log value of this node.
 
@@ -993,18 +953,6 @@ class ParamNode(Node):
             Tensor: A tensor of shape ``[None, out_size]``, where the first
             dimension corresponds to the batch size.
         """
-        return tf.log(self._compute_value())
-
-    def _compute_mpe_value(self):
-        """Assemble TF operations computing the MPE value of this node.
-
-        The MPE value is equal to marginal value for ParamNodes.
-
-        Returns:
-            Tensor: A tensor of shape ``[None, out_size]``, where the first
-            dimension corresponds to the batch size.
-        """
-        return self._compute_value()
 
     def _compute_log_mpe_value(self):
         """Assemble TF operations computing the log MPE value of this node.
@@ -1026,6 +974,20 @@ class ParamNode(Node):
 
         Args:
             counts (Tensor): Branch counts for each output value of this node.
+
+        Returns:
+            Update operation.
+        """
+
+    @abstractmethod
+    def _compute_hard_gd_update(self, grads):
+        """Assemble TF operations computing the hard GD update of the parameters
+        of the node.
+
+        To be re-implemented in sub-classes.
+
+        Args:
+            grads (Tensor): Gradients for each output value of this node.
 
         Returns:
             Update operation.

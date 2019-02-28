@@ -1,16 +1,10 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from itertools import chain, combinations
 import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode, Input
 from libspn.inference.type import InferenceType
 from libspn import utils
+from libspn import conf
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
 from libspn.utils.serialization import register_serializable
@@ -31,7 +25,7 @@ class Product(OpNode):
 
     def __init__(self, *values, name="Product"):
         self._values = []
-        super().__init__(InferenceType.MARGINAL, name)
+        super().__init__(inference_type=InferenceType.MARGINAL, name=name)
         self.set_values(*values)
 
     def serialize(self):
@@ -106,6 +100,7 @@ class Product(OpNode):
                 return None
         return self._compute_scope(*value_scopes)
 
+    @utils.lru_cache
     def _compute_value_common(self, *value_tensors):
         """Common actions when computing value."""
         # Check inputs
@@ -119,21 +114,31 @@ class Product(OpNode):
             values = value_tensors[0]
         return values
 
-    def _compute_value(self, *value_tensors):
-        values = self._compute_value_common(*value_tensors)
-        return tf.reduce_prod(values, 1, keep_dims=True)
-
+    @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
         values = self._compute_value_common(*value_tensors)
-        return tf.reduce_sum(values, 1, keep_dims=True)
 
-    def _compute_mpe_value(self, *value_tensors):
-        return self._compute_value(*value_tensors)
+        # Wrap the log value with its custom gradient
+        @tf.custom_gradient
+        def log_value(*value_tensors):
+            # Defines gradient for the log value
+            def gradient(gradients):
+                scattered_grads = self._compute_log_mpe_path(gradients, *value_tensors)
+                return [sg for sg in scattered_grads if sg is not None]
+
+            return tf.reduce_sum(values, 1, keepdims=True), gradient
+
+        if conf.custom_gradient:
+            return log_value(*value_tensors)
+        else:
+            return tf.reduce_sum(values, 1, keepdims=True)
 
     def _compute_log_mpe_value(self, *value_tensors):
         return self._compute_log_value(*value_tensors)
 
-    def _compute_mpe_path(self, counts, *value_values, add_random=False, use_unweighted=False):
+    @utils.lru_cache
+    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
+                          use_unweighted=False, sample=False, sample_prob=None):
         # Check inputs
         if not self._values:
             raise StructureError("%s is missing input values." % self)
@@ -152,5 +157,8 @@ class Product(OpNode):
         # the amount of operations.
         return self._scatter_to_input_tensors(*value_counts)
 
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False, use_unweighted=False):
-        return self._compute_mpe_path(counts, *value_values)
+    def _compute_log_gradient(self, gradients, *value_values):
+        return self._compute_log_mpe_path(gradients, *value_values)
+
+    def disconnect_inputs(self):
+        self._values = None

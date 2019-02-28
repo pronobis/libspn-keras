@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from context import libspn as spn
 from test import TestCase
 import tensorflow as tf
 import numpy as np
-
+import libspn as spn
 
 class TestGraphSum(TestCase):
 
@@ -22,10 +15,10 @@ class TestGraphSum(TestCase):
             with self.subTest(values=values, ivs=ivs, weights=weights,
                               feed=feed):
                 n = spn.Sum(*values, ivs=ivs)
-                n.generate_weights(weights)
+                n.generate_weights(tf.initializers.constant(weights))
                 op = n.get_value(spn.InferenceType.MARGINAL)
                 op_log = n.get_log_value(spn.InferenceType.MARGINAL)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     spn.initialize_weights(n).run()
                     out = sess.run(op, feed_dict=feed)
                     out_log = sess.run(tf.exp(op_log), feed_dict=feed)
@@ -182,10 +175,10 @@ class TestGraphSum(TestCase):
             with self.subTest(values=values, ivs=ivs, weights=weights,
                               feed=feed):
                 n = spn.Sum(*values, ivs=ivs)
-                n.generate_weights(weights)
+                n.generate_weights(tf.initializers.constant(weights))
                 op = n.get_value(spn.InferenceType.MPE)
                 op_log = n.get_log_value(spn.InferenceType.MPE)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     spn.initialize_weights(n).run()
                     out = sess.run(op, feed_dict=feed)
                     out_log = sess.run(tf.exp(op_log), feed_dict=feed)
@@ -428,19 +421,20 @@ class TestGraphSum(TestCase):
         self.assertTrue(s9.is_valid())
 
     def test_compute_mpe_path_noivs(self):
+        spn.conf.argmax_zero = True
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
         s = spn.Sum((v12, [0, 5]), v34, (v12, [3]), v5)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
-        op = s._compute_mpe_path(tf.identity(counts),
-                                 w.get_value(),
+        op = s._compute_log_mpe_path(tf.identity(counts),
+                                 w.get_log_value(),
                                  None,
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+                                 v12.get_log_value(),
+                                 v34.get_log_value(),
+                                 v12.get_log_value(),
+                                 v5.get_log_value())
         init = w.initialize()
         counts_feed = [[10],
                        [11],
@@ -459,7 +453,7 @@ class TestGraphSum(TestCase):
                    [1.2],
                    [0.9]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             # Skip the IVs op
             out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
@@ -468,7 +462,7 @@ class TestGraphSum(TestCase):
                                                        v5: v5_feed})
         # Weights
         np.testing.assert_array_almost_equal(
-            out[0], np.array([[10., 0., 0., 0., 0., 0.],
+            np.squeeze(out[0]), np.array([[10., 0., 0., 0., 0., 0.],
                               [0., 0., 11., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 12.],
                               [0., 0., 0., 0., 13., 0.]],
@@ -499,6 +493,7 @@ class TestGraphSum(TestCase):
                              dtype=np.float32))
 
     def test_compute_mpe_path_ivs(self):
+        spn.conf.argmax_zero = True
         v12 = spn.IVs(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
@@ -506,13 +501,13 @@ class TestGraphSum(TestCase):
         iv = s.generate_ivs()
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
-        op = s._compute_mpe_path(tf.identity(counts),
-                                 w.get_value(),
-                                 iv.get_value(),
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+        op = s._compute_log_mpe_path(tf.identity(counts),
+                                 w.get_log_value(),
+                                 iv.get_log_value(),
+                                 v12.get_log_value(),
+                                 v34.get_log_value(),
+                                 v12.get_log_value(),
+                                 v5.get_log_value())
         init = w.initialize()
         counts_feed = [[10],
                        [11],
@@ -548,7 +543,7 @@ class TestGraphSum(TestCase):
                    [0.9]]
         ivs_feed = [[-1], [-1], [-1], [-1], [1], [2], [3], [1]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             # Skip the IVs op
             out = sess.run(op, feed_dict={counts: counts_feed,
@@ -558,7 +553,7 @@ class TestGraphSum(TestCase):
                                           v5: v5_feed})
         # Weights
         np.testing.assert_array_almost_equal(
-            out[0], np.array([[10., 0., 0., 0., 0., 0.],
+            np.squeeze(out[0]), np.array([[10., 0., 0., 0., 0., 0.],
                               [0., 0., 11., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 12.],
                               [0., 0., 0., 0., 13., 0.],
@@ -618,6 +613,89 @@ class TestGraphSum(TestCase):
                               [0.]],
                              dtype=np.float32))
 
+    def test_compute_log_gradients(self):
+        v12 = spn.IVs(num_vars=2, num_vals=4)
+        v34 = spn.ContVars(num_vars=2)
+        v5 = spn.ContVars(num_vars=1)
+        s = spn.Sum((v12, [0, 5]), v34, (v12, [3]), v5)
+        iv = s.generate_ivs()
+        weights = np.random.rand(6)
+        w = s.generate_weights(tf.initializers.constant(weights))
+        gradients = tf.placeholder(tf.float32, shape=(None, 1))
+        op = s._compute_log_gradient(tf.identity(gradients),
+                                     w.get_log_value(),
+                                     iv.get_log_value(),
+                                     v12.get_log_value(),
+                                     v34.get_log_value(),
+                                     v12.get_log_value(),
+                                     v5.get_log_value())
+        init = w.initialize()
+        batch_size = 10
+        gradients_feed = np.random.rand(batch_size, 1)
+        v12_feed = np.random.randint(4, size=(batch_size, 2))
+        v34_feed = np.random.rand(batch_size, 2)
+        v5_feed = np.random.rand(batch_size, 1)
+        ivs_feed = np.random.randint(6, size=(batch_size, 1))
+
+        with self.test_session() as sess:
+            sess.run(init)
+            # Skip the IVs op
+            out = sess.run(op, feed_dict={gradients: gradients_feed,
+                                          iv: ivs_feed,
+                                          v12: v12_feed,
+                                          v34: v34_feed,
+                                          v5: v5_feed})
+
+        # Calculate true outputs
+        v12_inputs = np.hstack([np.eye(4)[v12_feed[:, 0]],
+                                np.eye(4)[v12_feed[:, 1]]])
+        input_values = np.hstack([np.expand_dims(v12_inputs[:, 0], axis=1),
+                                  np.expand_dims(v12_inputs[:, 5], axis=1),
+                                  v34_feed,
+                                  np.expand_dims(v12_inputs[:, 3], axis=1),
+                                  v5_feed])
+        weights_normalised = weights / np.sum(weights)
+        weights_log = np.log(weights_normalised)
+        with np.warnings.catch_warnings():
+            np.warnings.filterwarnings('ignore', r'divide by zero encountered in log')
+            inputs_log = np.log(input_values)
+        ivs_values = np.eye(6)[np.squeeze(ivs_feed, axis=1)]
+        with np.warnings.catch_warnings():
+            np.warnings.filterwarnings('ignore', r'divide by zero encountered in log')
+            ivs_log = np.log(ivs_values)
+        weighted_inputs = weights_log + (inputs_log + ivs_log)
+        weighted_inputs_exp = np.exp(weighted_inputs)
+        with np.warnings.catch_warnings():
+            np.warnings.filterwarnings('ignore', r'invalid value encountered in true_divide')
+            weights_gradients = gradients_feed * np.divide(weighted_inputs_exp,
+                                                           np.sum(weighted_inputs_exp,
+                                                                  axis=1, keepdims=True))
+        weights_gradients = np.where(
+            weighted_inputs_exp == 0, np.zeros_like(weights_gradients), weights_gradients)
+        output_gradients = np.split(weights_gradients, [2, 4, 5, 6], axis=1)
+        output_gradients_0 = np.zeros((batch_size, 8))
+        output_gradients_0[:, 0] = output_gradients[0][:, 0]
+        output_gradients_0[:, 5] = output_gradients[0][:, 1]
+        output_gradients[0] = output_gradients_0
+        output_gradients_2 = np.zeros((batch_size, 8))
+        output_gradients_2[:, 3] = output_gradients[2][:, 0]
+        output_gradients[2] = output_gradients_2
+
+        # Weights
+        np.testing.assert_array_almost_equal(
+            np.squeeze(out[0]), weights_gradients)
+        # IVs
+        np.testing.assert_array_almost_equal(
+           out[1], weights_gradients)
+        # Inputs
+        np.testing.assert_array_almost_equal(
+           out[2], output_gradients[0])
+        np.testing.assert_array_almost_equal(
+           out[3], output_gradients[1])
+        np.testing.assert_array_almost_equal(
+           out[4], output_gradients[2])
+        np.testing.assert_array_almost_equal(
+           out[5], output_gradients[3])
 
 if __name__ == '__main__':
     tf.test.main()

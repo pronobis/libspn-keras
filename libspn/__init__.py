@@ -1,10 +1,3 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 # Import public interface of the library
 
 # Graph
@@ -18,7 +11,11 @@ from libspn.graph.ivs import IVs
 from libspn.graph.contvars import ContVars
 from libspn.graph.concat import Concat
 from libspn.graph.sum import Sum
+from libspn.graph.parsums import ParSums
+from libspn.graph.sumslayer import SumsLayer
 from libspn.graph.product import Product
+from libspn.graph.permproducts import PermProducts
+from libspn.graph.productslayer import ProductsLayer
 from libspn.graph.weights import Weights
 from libspn.graph.weights import assign_weights
 from libspn.graph.weights import initialize_weights
@@ -29,9 +26,11 @@ from libspn.graph.loader import Loader, JSONLoader
 from libspn.graph.algorithms import compute_graph_up
 from libspn.graph.algorithms import compute_graph_up_down
 from libspn.graph.algorithms import traverse_graph
+from libspn.graph.distribution import GaussianLeaf
 
 # Generators
 from libspn.generation.dense import DenseSPNGenerator
+from libspn.generation.conversion import convert_to_layer_nodes
 from libspn.generation.weights import WeightsGenerator
 from libspn.generation.weights import generate_weights
 
@@ -41,8 +40,11 @@ from libspn.inference.value import Value
 from libspn.inference.value import LogValue
 from libspn.inference.mpe_path import MPEPath
 from libspn.inference.mpe_state import MPEState
+from libspn.inference.gradient import Gradient
 from libspn.learning.em import EMLearning
 from libspn.learning.gd import GDLearning
+from libspn.learning.type import LearningTaskType
+from libspn.learning.type import LearningMethodType
 
 # Data
 from libspn.data.dataset import Dataset
@@ -82,13 +84,9 @@ from libspn.log import INFO
 from libspn.log import DEBUG1
 from libspn.log import DEBUG2
 
-# Custom TF ops
-from libspn.ops import ops
-
 # Utils and config
 from libspn import conf
 from libspn import utils
-from libspn.utils import ValueType
 
 # App
 from libspn.app import App
@@ -96,22 +94,56 @@ from libspn.app import App
 # Exceptions
 from libspn.exceptions import StructureError
 
+from libspn.utils.serialization import register_serializable
+
+import tensorflow as tf
+
+
+def _tf_init_serialize(self):
+    return self.get_config()
+
+
+def _tf_init_deserialize(self, data):
+    self.__init__(**{k: v for k, v in data.items() if k != "__type__"})
+
+
+for initializer in [
+        tf.initializers.random_uniform,
+        tf.initializers.random_normal,
+        tf.initializers.constant,
+        tf.initializers.ones,
+        tf.initializers.glorot_normal,
+        tf.initializers.glorot_uniform,
+        tf.initializers.identity,
+        tf.initializers.orthogonal,
+        tf.initializers.truncated_normal,
+        tf.initializers.uniform_unit_scaling,
+        tf.initializers.variance_scaling,
+        tf.initializers.zeros]:
+    initializer.deserialize = _tf_init_deserialize
+    initializer.serialize = _tf_init_serialize
+    register_serializable(initializer)
+
 # All
 __all__ = [
     # Graph
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
-    'Concat', 'IVs', 'ContVars', 'Sum', 'Product',
+    'Concat', 'IVs', 'ContVars',
+    'Sum', 'ParSums', 'SumsLayer',
+    'Product', 'PermProducts', 'ProductsLayer',
+    'GaussianLeaf',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
     'compute_graph_up', 'compute_graph_up_down',
     'traverse_graph',
     # Generators
-    'DenseSPNGenerator', 'WeightsGenerator',
-    'generate_weights',
+    'DenseSPNGenerator', 'DenseSPNGenerator',
+    'WeightsGenerator', 'generate_weights', 'convert_to_layer_nodes',
     # Inference and learning
-    'InferenceType', 'Value', 'LogValue', 'MPEPath', 'MPEState',
-    'EMLearning', 'GDLearning',
+    'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient',
+    'MPEState', 'EMLearning', 'GDLearning', 'LearningTaskType',
+    'LearningMethodType',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
     'IntGridDataset', 'ImageFormat', 'ImageShape', 'ImageDatasetBase',
@@ -126,7 +158,7 @@ __all__ = [
     # Logging
     'config_logger', 'get_logger', 'WARNING', 'INFO', 'DEBUG1', 'DEBUG2',
     # Custom ops, utils and config
-    'ops', 'conf', 'utils', 'ValueType', 'App',
+    'conf', 'utils', 'App',
     # Exceptions
     'StructureError']
 

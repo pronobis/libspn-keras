@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from context import libspn as spn
 from test import TestCase
 import itertools
@@ -87,7 +80,7 @@ class TestDenseSPNGenerator(TestCase):
 
         # Generating random weights
         with tf.name_scope("Weights"):
-            spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM())
+            spn.generate_weights(root, tf.initializers.random_uniform(0.0, 1.0))
 
         # Generating weight initializers
         init = spn.initialize_weights(root)
@@ -100,7 +93,7 @@ class TestDenseSPNGenerator(TestCase):
         v_log = root.get_log_value()
 
         # Creating session
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initializing weights
             init.run()
             # Computing all values

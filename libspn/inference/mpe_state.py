@@ -1,15 +1,8 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 import tensorflow as tf
 from libspn.inference.mpe_path import MPEPath
 
 
-class MPEState():
+class MPEState:
     """Assembles TF operations computing MPE state for an SPN.
 
     Args:
@@ -23,9 +16,9 @@ class MPEState():
     def __init__(self, mpe_path=None, log=True, value_inference_type=None):
         # Create internal MPE path generator
         if mpe_path is None:
-            self._mpe_path = MPEPath(log=log,
-                                     value_inference_type=value_inference_type,
-                                     add_random=None, use_unweighted=False)
+            self._mpe_path = MPEPath(log=log, value_inference_type=value_inference_type,
+                                     add_random=None, use_unweighted=False,
+                                     dropconnect_keep_prob=None)
         else:
             self._mpe_path = mpe_path
 

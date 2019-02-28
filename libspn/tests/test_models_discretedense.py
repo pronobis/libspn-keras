@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from context import libspn as spn
 from test import TestCase
 import tensorflow as tf
@@ -30,7 +23,7 @@ class TestModelsDiscreteDense(TestCase):
         v_log = root.get_log_value()
 
         # Creating session
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             self.write_tf_graph(sess, self.sid(), self.cid())
             # Initializing weights
             init.run()
@@ -59,7 +52,7 @@ class TestModelsDiscreteDense(TestCase):
             num_mixtures=2,
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
-            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+            weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
         root = model.build(num_vars=6, num_vals=2)
         self.generic_model_test("1class",
                                 root, model.sample_ivs, None)
@@ -72,7 +65,7 @@ class TestModelsDiscreteDense(TestCase):
             num_mixtures=2,
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
-            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+            weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
         root = model.build(num_vars=6, num_vals=2)
         self.generic_model_test("3class",
                                 root, model.sample_ivs, model.class_ivs)
@@ -85,7 +78,7 @@ class TestModelsDiscreteDense(TestCase):
             num_mixtures=2,
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
-            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+            weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
         sample_ivs = spn.IVs(num_vars=6, num_vals=2)
         root = model.build(sample_ivs)
         self.generic_model_test("1class",
@@ -99,7 +92,7 @@ class TestModelsDiscreteDense(TestCase):
             num_mixtures=2,
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
-            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+            weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
         sample_ivs = spn.IVs(num_vars=6, num_vals=2)
         class_ivs = spn.IVs(num_vars=1, num_vals=3)
         root = model.build(sample_ivs, class_input=class_ivs)
@@ -114,13 +107,13 @@ class TestModelsDiscreteDense(TestCase):
             num_mixtures=2,
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
-            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+            weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
         model1.build(num_vars=6, num_vals=2)
         init1 = spn.initialize_weights(model1.root)
 
         feed_samples = np.array(list(itertools.product(range(2), repeat=6)))
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initialize
             init1.run()
 
@@ -132,7 +125,7 @@ class TestModelsDiscreteDense(TestCase):
         # Reset graph
         tf.reset_default_graph()
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Load
             model2 = spn.Model.load_from_json(path,
                                               load_param_vals=True,
@@ -159,7 +152,7 @@ class TestModelsDiscreteDense(TestCase):
             num_mixtures=2,
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
-            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+            weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
         model1.build(num_vars=6, num_vals=2)
         init1 = spn.initialize_weights(model1.root)
 
@@ -168,7 +161,7 @@ class TestModelsDiscreteDense(TestCase):
                                for _ in range(len(feed_samples))]).reshape(-1, 1)
         feed_samples = np.array(feed_samples * 3)
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initialize
             init1.run()
 
@@ -180,7 +173,7 @@ class TestModelsDiscreteDense(TestCase):
         # Reset graph
         tf.reset_default_graph()
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Load
             model2 = spn.Model.load_from_json(path,
                                               load_param_vals=True,
@@ -208,14 +201,14 @@ class TestModelsDiscreteDense(TestCase):
             num_mixtures=2,
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
-            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+            weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
         sample_ivs1 = spn.IVs(num_vars=6, num_vals=2)
         model1.build(sample_ivs1)
         init1 = spn.initialize_weights(model1.root)
 
         feed_samples = np.array(list(itertools.product(range(2), repeat=6)))
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initialize
             init1.run()
 
@@ -227,7 +220,7 @@ class TestModelsDiscreteDense(TestCase):
         # Reset graph
         tf.reset_default_graph()
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Load
             model2 = spn.Model.load_from_json(path,
                                               load_param_vals=True,
@@ -255,7 +248,7 @@ class TestModelsDiscreteDense(TestCase):
             num_mixtures=2,
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
-            weight_init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+            weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
         sample_ivs1 = spn.IVs(num_vars=6, num_vals=2)
         class_ivs1 = spn.IVs(num_vars=1, num_vals=3)
         model1.build(sample_ivs1, class_input=class_ivs1)
@@ -266,7 +259,7 @@ class TestModelsDiscreteDense(TestCase):
                                for _ in range(len(feed_samples))]).reshape(-1, 1)
         feed_samples = np.array(feed_samples * 3)
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initialize
             init1.run()
 
@@ -278,7 +271,7 @@ class TestModelsDiscreteDense(TestCase):
         # Reset graph
         tf.reset_default_graph()
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Load
             model2 = spn.Model.load_from_json(path,
                                               load_param_vals=True,
