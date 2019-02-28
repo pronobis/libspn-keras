@@ -8,7 +8,8 @@ is integrated with `TensorFlow <http://www.tensorflow.org>`_.
 What are SPNs?
 --------------
 
-Here we should add a few words about what SPNs are.
+Sum-Product Networks (SPNs) are a probabilistic deep architecture with solid theoretical foundations, which demonstrated state-of-the-art performance in several domains. Yet, surprisingly, there are no mature, general-purpose SPN implementations that would serve as a platform for the community of machine learning researchers centered around SPNs. LibSPN is a new general-purpose Python library, which aims to become such a platform. The library is designed to make it straightforward and effortless to apply various SPN architectures to large-scale datasets and problems. The library achieves scalability and efficiency, thanks to a tight coupling with TensorFlow, a framework already used by a large community of researchers and developers in multiple domains.
+
 
 Why LibSPN?
 -----------
