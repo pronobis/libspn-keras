@@ -75,14 +75,14 @@ setup(
         'Topic :: Scientific/Engineering :: Mathematics',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Software Development :: Libraries',
-        'License :: OSI Approved :: Apache Software License',
+        'License :: OSI Approved :: MIT License',
     ],
     keywords=('libspn spn deep-learning deep-learning-library '
               'machine-learning machine-learning-library tensorflow'),
     url='http://www.libspn.org',
     author='Andrzej Pronobis, Avinash Raganath, Jos van de Wolfshaar',
     author_email='a.pronobis@gmail.com',
-    license='Apache 2.0',
+    license='MIT',
 
     ################
     # Installation
