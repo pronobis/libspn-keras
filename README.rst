@@ -44,15 +44,11 @@ Features of LibSPN
   * Inputs to the network come from TensorFlow feeds or any TensorFlow tensors
 
 * 
-  Dynamic SPN graph data structure enabling easy modifications and learning of an existing SPN graph at run-time
-
-* 
   SPN structure generation and learning
 
 
   * Dense random SPN generator
   * Simple naive Bayes mixture model generator
-  * Learning algorithms are not yet implemented, but infrastructure for them exists
 
 * 
   Loading and saving of structure and weights of learned models
@@ -84,13 +80,12 @@ Features of LibSPN
 
 
   * Expectation Maximization
-  * Gradient Descent (bits still missing, but infrastructure exists)
+  * Gradient Descent
 
 * 
   Other
 
 
-  * SPN-specific TensorFlow operations implemented using C++ and CUDA
   * Generating random sub-sets of all partitions of a set using repeated sampling or enumeration
 
 Documentation
