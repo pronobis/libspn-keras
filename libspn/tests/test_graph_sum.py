@@ -30,9 +30,9 @@ class TestGraphSum(TestCase):
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=3, name="ContVars1")
-        v2 = spn.ContVars(num_vars=1, name="ContVars2")
-        ivs = spn.IVs(num_vars=1, num_vals=4)
+        v1 = spn.RawLeaf(num_vars=3, name="ContVars1")
+        v2 = spn.RawLeaf(num_vars=1, name="ContVars2")
+        ivs = spn.IndicatorLeaf(num_vars=1, num_vals=4)
 
         # Multiple inputs, multi-element batch
         test([v1, v2],
@@ -190,9 +190,9 @@ class TestGraphSum(TestCase):
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=3, name="ContVars1")
-        v2 = spn.ContVars(num_vars=1, name="ContVars2")
-        ivs = spn.IVs(num_vars=1, num_vals=4)
+        v1 = spn.RawLeaf(num_vars=3, name="ContVars1")
+        v2 = spn.RawLeaf(num_vars=1, name="ContVars2")
+        ivs = spn.IndicatorLeaf(num_vars=1, num_vals=4)
 
         # Multiple inputs, multi-element batch
         test([v1, v2],
@@ -325,8 +325,8 @@ class TestGraphSum(TestCase):
     def test_comput_scope(self):
         """Calculating scope of Sum"""
         # Create graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=2, name="V34")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
+        v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s1.generate_ivs()
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
@@ -387,9 +387,9 @@ class TestGraphSum(TestCase):
 
     def test_compute_valid(self):
         """Calculating validity of Sum"""
-        # Without IVs
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
+        # Without IndicatorLeaf
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
         s1 = spn.Sum((v12, [0, 1, 2, 3]))
         s2 = spn.Sum((v12, [0, 1, 2, 4]))
         s3 = spn.Sum((v12, [0, 1, 2, 3]), (v34, 0))
@@ -410,10 +410,10 @@ class TestGraphSum(TestCase):
         s6.generate_ivs()
         self.assertTrue(s6.is_valid())
         s7 = spn.Sum(p1, p2)
-        s7.set_ivs(spn.ContVars(num_vars=2))
+        s7.set_ivs(spn.RawLeaf(num_vars=2))
         self.assertFalse(s7.is_valid())
         s8 = spn.Sum(p1, p2)
-        s8.set_ivs(spn.IVs(num_vars=2, num_vals=2))
+        s8.set_ivs(spn.IndicatorLeaf(num_vars=2, num_vals=2))
         with self.assertRaises(spn.StructureError):
             s8.is_valid()
         s9 = spn.Sum(p1, p2)
@@ -422,9 +422,9 @@ class TestGraphSum(TestCase):
 
     def test_compute_mpe_path_noivs(self):
         spn.conf.argmax_zero = True
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.Sum((v12, [0, 5]), v34, (v12, [3]), v5)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
@@ -455,7 +455,7 @@ class TestGraphSum(TestCase):
 
         with self.test_session() as sess:
             sess.run(init)
-            # Skip the IVs op
+            # Skip the IndicatorLeaf op
             out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
                                                        v12: v12_feed,
                                                        v34: v34_feed,
@@ -494,9 +494,9 @@ class TestGraphSum(TestCase):
 
     def test_compute_mpe_path_ivs(self):
         spn.conf.argmax_zero = True
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.Sum((v12, [0, 5]), v34, (v12, [3]), v5)
         iv = s.generate_ivs()
         w = s.generate_weights()
@@ -545,7 +545,7 @@ class TestGraphSum(TestCase):
 
         with self.test_session() as sess:
             sess.run(init)
-            # Skip the IVs op
+            # Skip the IndicatorLeaf op
             out = sess.run(op, feed_dict={counts: counts_feed,
                                           iv: ivs_feed,
                                           v12: v12_feed,
@@ -614,9 +614,9 @@ class TestGraphSum(TestCase):
                              dtype=np.float32))
 
     def test_compute_log_gradients(self):
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.Sum((v12, [0, 5]), v34, (v12, [3]), v5)
         iv = s.generate_ivs()
         weights = np.random.rand(6)
@@ -639,7 +639,7 @@ class TestGraphSum(TestCase):
 
         with self.test_session() as sess:
             sess.run(init)
-            # Skip the IVs op
+            # Skip the IndicatorLeaf op
             out = sess.run(op, feed_dict={gradients: gradients_feed,
                                           iv: ivs_feed,
                                           v12: v12_feed,
@@ -684,7 +684,7 @@ class TestGraphSum(TestCase):
         # Weights
         np.testing.assert_array_almost_equal(
             np.squeeze(out[0]), weights_gradients)
-        # IVs
+        # IndicatorLeaf
         np.testing.assert_array_almost_equal(
            out[1], weights_gradients)
         # Inputs

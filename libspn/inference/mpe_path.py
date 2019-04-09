@@ -2,7 +2,7 @@ from types import MappingProxyType
 import tensorflow as tf
 from libspn.inference.value import Value, LogValue
 from libspn.graph.algorithms import compute_graph_up_down
-from libspn.graph.basesum import BaseSum
+from libspn.graph.op.basesum import BaseSum
 from libspn import utils
 
 

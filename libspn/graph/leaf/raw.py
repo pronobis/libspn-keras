@@ -7,7 +7,7 @@ from libspn.utils.serialization import register_serializable
 
 
 @register_serializable
-class ContVars(VarNode):
+class RawLeaf(VarNode):
     """A node representing a vector of continuous random variables.
 
     Args:

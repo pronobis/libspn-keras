@@ -256,7 +256,7 @@ class PerformanceTest:
         tf.reset_default_graph()
         with tf.device(device_name):
             # Create input ivs
-            inputs_pl = spn.IVs(num_vars=196, num_vals=2)
+            inputs_pl = spn.IndicatorLeaf(num_vars=196, num_vals=2)
             # Create dense SPN and generate TF graph for training
             start_time = time.time()
             # Generate SPN

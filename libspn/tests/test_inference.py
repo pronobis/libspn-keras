@@ -170,7 +170,7 @@ class TestInference(TestCase):
             out = sess.run(ivs_state, feed_dict={model.ivs: [[-1, -1]]})
             out_log = sess.run(ivs_state_log, feed_dict={model.ivs: [[-1, -1]]})
 
-        # For now we only compare the actual MPE state for input IVs -1
+        # For now we only compare the actual MPE state for input IndicatorLeaf -1
         np.testing.assert_array_equal(out.ravel(), model.true_mpe_state)
         np.testing.assert_array_equal(out_log.ravel(), model.true_mpe_state)
 

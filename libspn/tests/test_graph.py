@@ -368,7 +368,7 @@ class TestGraph(TestCase):
         self.assertEqual(len(spn.Scope("a", 1) | spn.Scope("b", 1)), 2)
 
     def test_gather_input_scopes(self):
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
         v34 = spn.ContVars(num_vars=2, name="V34")
         s1 = spn.Sum(v12, v12, v34, (v12, [7, 3, 1, 0]), (v34, 0), name="S1")
         scopes_v12 = v12._compute_scope()
@@ -385,7 +385,7 @@ class TestGraph(TestCase):
     def test_get_scope(self):
         """Computing the scope of nodes of the SPN graph"""
         # Create graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
         v34 = spn.ContVars(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
@@ -441,7 +441,7 @@ class TestGraph(TestCase):
     def test_is_valid_true(self):
         """Checking validity of the SPN"""
         # Create graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
         v34 = spn.ContVars(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
@@ -474,7 +474,7 @@ class TestGraph(TestCase):
     def test_is_valid_false(self):
         """Checking validity of the SPN"""
         # Create graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
         v34 = spn.ContVars(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")

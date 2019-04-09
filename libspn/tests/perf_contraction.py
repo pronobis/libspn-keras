@@ -198,7 +198,7 @@ class PerformanceTest:
 
         a = np.random.rand(self.num_a_rows, self.num_a_cols)
         b = np.random.rand(self.num_a_rows, self.num_b_rows, self.num_a_cols)
-        r = self._run_test('case2_3d (simulate multiplication with IVs)',
+        r = self._run_test('case2_3d (simulate multiplication with IndicatorLeaf)',
                            [Ops.reduction, Ops.matmul, Ops.reduction_by_matmul],
                            a, b)
         results.append(r)

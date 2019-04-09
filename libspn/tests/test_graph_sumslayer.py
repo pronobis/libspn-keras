@@ -63,7 +63,7 @@ def sumslayer_mpe_path_numpy(values, indices, weights, ivs, sums_sizes, inf_type
         input_c[:, winning_ind] = counts
         input_counts.append(input_c)
 
-    # The IVs counts is the same as the weight counts!
+    # The IndicatorLeaf counts is the same as the weight counts!
     ivs_counts = weight_counts
     return weight_counts, ivs_counts, input_counts
 
@@ -234,12 +234,12 @@ class TestNodesSumsLayer(tf.test.TestCase):
             factor = 1
             indices = [np.arange(size) for size in input_sizes]
         if not same_inputs:
-            input_nodes = [spn.ContVars(num_vars=size * factor) for size in input_sizes]
+            input_nodes = [spn.RawLeaf(num_vars=size * factor) for size in input_sizes]
             values = [np.random.rand(batch_size, size * factor) for size in input_sizes]
             input_tuples = [(node, ind.tolist()) for node, ind in zip(input_nodes, indices)]
             feed_dict = {node: val for node, val in zip(input_nodes, values)}
         else:
-            input_nodes = [spn.ContVars(num_vars=max(input_sizes) * factor)]
+            input_nodes = [spn.RawLeaf(num_vars=max(input_sizes) * factor)]
             values = [np.random.rand(batch_size, max(input_sizes) * factor)] * len(input_sizes)
             input_tuples = [(input_nodes[0], ind.tolist()) for ind in indices]
             feed_dict = {input_nodes[0]: values[0]}
@@ -257,8 +257,8 @@ class TestNodesSumsLayer(tf.test.TestCase):
     def test_compute_scope(self):
         """Calculating scope of Sums"""
         # Create a graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=3, name="V34")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
+        v34 = spn.RawLeaf(num_vars=3, name="V34")
 
         scopes_per_node = {
             v12: [spn.Scope(v12, 0), spn.Scope(v12, 0), spn.Scope(v12, 0), spn.Scope(v12, 0),
@@ -342,9 +342,9 @@ class TestNodesSumsLayer(tf.test.TestCase):
 
     def test_compute_valid(self):
         """Calculating validity of Sums"""
-        # Without IVs
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
+        # Without IndicatorLeaf
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
         s1 = spn.SumsLayer((v12, [0, 1, 2, 3]), (v12, [0, 1, 2, 3]),
                            (v12, [0, 1, 2, 3]), num_or_size_sums=3)
         self.assertTrue(s1.is_valid())
@@ -384,50 +384,50 @@ class TestNodesSumsLayer(tf.test.TestCase):
         self.assertTrue(s6.is_valid())
 
         s7 = spn.SumsLayer(p1, p2, num_or_size_sums=1)
-        s7.set_ivs(spn.ContVars(num_vars=2))
+        s7.set_ivs(spn.RawLeaf(num_vars=2))
         self.assertFalse(s7.is_valid())
 
         s7 = spn.SumsLayer(p1, p2, p3, num_or_size_sums=3)
-        s7.set_ivs(spn.ContVars(num_vars=3))
+        s7.set_ivs(spn.RawLeaf(num_vars=3))
         self.assertTrue(s7.is_valid())
 
         s7 = spn.SumsLayer(p1, p2, p3, num_or_size_sums=[2, 1])
-        s7.set_ivs(spn.ContVars(num_vars=3))
+        s7.set_ivs(spn.RawLeaf(num_vars=3))
         self.assertFalse(s7.is_valid())
 
         s8 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=2)
-        s8.set_ivs(spn.IVs(num_vars=3, num_vals=2))
+        s8.set_ivs(spn.IndicatorLeaf(num_vars=3, num_vals=2))
         with self.assertRaises(spn.StructureError):
             s8.is_valid()
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=[1, 3])
-        s9.set_ivs(spn.ContVars(num_vars=2))
+        s9.set_ivs(spn.RawLeaf(num_vars=2))
         with self.assertRaises(spn.StructureError):
             s9.is_valid()
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=[1, 3])
-        s9.set_ivs(spn.ContVars(num_vars=3))
+        s9.set_ivs(spn.RawLeaf(num_vars=3))
         with self.assertRaises(spn.StructureError):
             s9.is_valid()
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=2)
-        s9.set_ivs(spn.IVs(num_vars=1, num_vals=4))
+        s9.set_ivs(spn.IndicatorLeaf(num_vars=1, num_vals=4))
         self.assertTrue(s9.is_valid())
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=[1, 3])
-        s9.set_ivs(spn.IVs(num_vars=1, num_vals=4))
+        s9.set_ivs(spn.IndicatorLeaf(num_vars=1, num_vals=4))
         self.assertTrue(s9.is_valid())
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=[1, 3])
-        s9.set_ivs(spn.IVs(num_vars=2, num_vals=2))
+        s9.set_ivs(spn.IndicatorLeaf(num_vars=2, num_vals=2))
         self.assertFalse(s9.is_valid())
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=2)
-        s9.set_ivs(spn.IVs(num_vars=2, num_vals=2))
+        s9.set_ivs(spn.IndicatorLeaf(num_vars=2, num_vals=2))
         self.assertTrue(s9.is_valid())
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=[1, 2, 1])
-        s9.set_ivs(spn.IVs(num_vars=2, num_vals=2))
+        s9.set_ivs(spn.IndicatorLeaf(num_vars=2, num_vals=2))
         self.assertFalse(s9.is_valid())
 
         s10 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=2)
@@ -439,9 +439,9 @@ class TestNodesSumsLayer(tf.test.TestCase):
         self.assertFalse(s10.is_valid())
 
     def test_masked_weights(self):
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.SumsLayer((v12, [0, 5]), v34, (v12, [3]), v5, (v12, [0, 5]), v34,
                           (v12, [3]), v5, num_or_size_sums=[3, 1, 3, 4, 1])
         s.generate_weights(initializer=tf.initializers.random_uniform(0.0, 1.0))

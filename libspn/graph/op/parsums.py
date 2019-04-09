@@ -6,7 +6,7 @@
 # ------------------------------------------------------------------------
 
 from libspn.inference.type import InferenceType
-from libspn.graph.basesum import BaseSum
+from libspn.graph.op.basesum import BaseSum
 import libspn.utils as utils
 
 
@@ -21,7 +21,7 @@ class ParSums(BaseSum):
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
+        ivs (input_like): Input providing IndicatorLeaf of an explicit latent variable
             associated with this sum node. See :meth:`~libspn.Input.as_input`
             for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the node.

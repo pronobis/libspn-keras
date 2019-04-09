@@ -230,7 +230,7 @@ class PerformanceTest:
         device_name = '/gpu:0' if on_gpu else '/cpu:0'
 
         # Print
-        print2("--> %s: on_gpu=%s, inputs_shape=%s, indices=%s, inference=%s, log=%s, IVs=%s"
+        print2("--> %s: on_gpu=%s, inputs_shape=%s, indices=%s, inference=%s, log=%s, IndicatorLeaf=%s"
                % (op_name, on_gpu, inputs.shape, ("No" if sum_indices is None else "Yes"),
                   ("MPE" if inf_type == spn.InferenceType.MPE else "MARGINAL"), log,
                   ("No" if ivs is None else "Yes")), self.file)
@@ -258,15 +258,15 @@ class PerformanceTest:
 
             if ivs is not None:
                 if op_fun is Ops.sum:
-                    ivs_pl = [spn.IVs(num_vars=1, num_vals=s) for s in sum_sizes_np]
+                    ivs_pl = [spn.IndicatorLeaf(num_vars=1, num_vals=s) for s in sum_sizes_np]
                     ivs = ivs_per_sum
                 elif op_fun is Ops.par_sums:
-                    ivs_pl = [spn.IVs(num_vars=self.num_parallel, num_vals=len(ind))
+                    ivs_pl = [spn.IndicatorLeaf(num_vars=self.num_parallel, num_vals=len(ind))
                               for ind in sum_indices]
                     ivs = np.split(ivs, len(self.sum_sizes), axis=1)
                 else:
                     ivs = [ivs]
-                    ivs_pl = [spn.IVs(num_vars=len(sum_sizes_np), num_vals=max(sum_sizes))]
+                    ivs_pl = [spn.IndicatorLeaf(num_vars=len(sum_sizes_np), num_vals=max(sum_sizes))]
                 for iv_pl, iv in zip(ivs_pl, ivs):
                     feed_dict[iv_pl] = iv
             else:
@@ -345,7 +345,7 @@ class PerformanceTest:
             use_gpu = ([True] if not self.without_gpu else []) + \
                       ([False] if not self.without_cpu else [])
 
-            # Go through all combinations of devices and IVs
+            # Go through all combinations of devices and IndicatorLeaf
             for on_gpu in use_gpu:
                 (gpu_results if on_gpu else cpu_results).append(
                     self._run_op_test(op_fun, inp, sum_indices=ind, inf_type=inf_type, log=log,

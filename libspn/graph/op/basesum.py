@@ -1,6 +1,6 @@
 import abc
 from libspn.graph.node import OpNode, Input
-from libspn.graph.ivs import IVs
+from libspn.graph.leaf.indicator import IndicatorLeaf
 from libspn.graph.weights import Weights
 from libspn.graph.scope import Scope
 from libspn.inference.type import InferenceType
@@ -10,7 +10,7 @@ import libspn.utils as utils
 from libspn.log import get_logger
 from itertools import chain
 import tensorflow as tf
-import tensorflow.contrib.distributions as tfd
+from tensorflow_probability import distributions as tfd
 
 
 @utils.register_serializable
@@ -33,7 +33,7 @@ class BaseSum(OpNode, abc.ABC):
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
+        ivs (input_like): Input providing IndicatorLeafs of an explicit latent variable
             associated with this sum node. See :meth:`~libspn.Input.as_input`
             for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the node.
@@ -189,13 +189,13 @@ class BaseSum(OpNode, abc.ABC):
 
     @property
     def ivs(self):
-        """Input: IVs input."""
+        """Input: IndicatorLeafs input."""
         return self._ivs
 
     def set_ivs(self, ivs=None):
-        """Set the IVs input.
+        """Set the IndicatorLeafs input.
 
-        ivs (input_like): Input providing IVs of an explicit latent variable
+        ivs (input_like): Input providing IndicatorLeaf of an explicit latent variable
             associated with this sum node. See :meth:`~libspn.Input.as_input`
             for possible values. If set to ``None``, the input is disconnected.
         """
@@ -275,25 +275,25 @@ class BaseSum(OpNode, abc.ABC):
         return weights
 
     def generate_ivs(self, feed=None, name=None):
-        """Generate an IVs node matching this sum node and connect it to
+        """Generate an IndicatorLeaf node matching this sum node and connect it to
         this sum.
 
-        IVs should be generated once all inputs are added to this node,
-        otherwise the number of IVs will be incorrect.
+        IndicatorLeafs should be generated once all inputs are added to this node,
+        otherwise the number of IndicatorLeafs will be incorrect.
 
         Args:
-            feed (Tensor): See :class:`~libspn.IVs`.
-            name (str): Name of the IVs node. If ``None`` use the name of the
-                        sum + ``_IVs``.
+            feed (Tensor): See :class:`~libspn.IndicatorLeaf`.
+            name (str): Name of the IndicatorLeaf node. If ``None`` use the name of the
+                        sum + ``_IndicatorLeaf``.
 
         Return:
-            IVs: Generated IVs node.
+            IndicatorLeaf: Generated IndicatorLeaf node.
         """
         if not self._values:
             raise StructureError("%s is missing input values" % self)
         if name is None:
-            name = self._name + "_IVs"
-        ivs = IVs(feed=feed, num_vars=self._num_sums, num_vals=self._max_sum_size, name=name)
+            name = self._name + "_IndicatorLeaf"
+        ivs = IndicatorLeaf(feed=feed, num_vars=self._num_sums, num_vals=self._max_sum_size, name=name)
         self.set_ivs(ivs)
         return ivs
 
@@ -306,7 +306,7 @@ class BaseSum(OpNode, abc.ABC):
         Args:
             w_tensor (Tensor): A ``Tensor`` with the value of the weights of shape
                 ``[num_sums, max_sum_size]``
-            ivs_tensor (Tensor): A ``Tensor`` with the value of the IVs corresponding to this node
+            ivs_tensor (Tensor): A ``Tensor`` with the value of the IndicatorLeaf corresponding to this node
                 of shape ``[batch, num_sums * max_sum_size]``.
             input_tensors (tuple): A ``tuple`` of ``Tensors``s with the values of the children of
                 this node.
@@ -324,11 +324,11 @@ class BaseSum(OpNode, abc.ABC):
         if not self._weights:
             raise StructureError("%s is missing weights" % self)
 
-        # Prepare tensors for component-wise application of weights and IVs
+        # Prepare tensors for component-wise application of weights and IndicatorLeaf
         w_tensor, ivs_tensor, reducible = self._prepare_component_wise_processing(
             w_tensor, ivs_tensor, *input_tensors, zero_prob_val=-float('inf'))
 
-        # Apply latent IVs
+        # Apply latent IndicatorLeaf
         if self._ivs:
             reducible = utils.cwise_add(reducible, ivs_tensor)
 
@@ -341,7 +341,7 @@ class BaseSum(OpNode, abc.ABC):
             if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
                 if self._ivs:
                     self.logger.warn(
-                        "Using dropconnect and latent IVs simultaneously. "
+                        "Using dropconnect and latent IndicatorLeaf simultaneously. "
                         "This might result in zero probabilities throughout and unpredictable "
                         "behavior of learning. Therefore, dropconnect is turned off for node {}."
                             .format(self))
@@ -398,7 +398,7 @@ class BaseSum(OpNode, abc.ABC):
             w_tensor (Tensor): A ``Tensor`` of shape [num_sums, max_sum_size] with the value of
                                the weights corresponding to this node.
             ivs_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] with the
-                                 value of the IVs corresponding to this node.
+                                 value of the IndicatorLeaf corresponding to this node.
 `
         """
         return [w_tensor] + ([ivs_tensor] if self._ivs else []) + list(value_tensors)
@@ -442,7 +442,7 @@ class BaseSum(OpNode, abc.ABC):
             counts (Tensor): A ``Tensor`` that contains the accumulated counts of the parents
                              of this node.
             w_tensor (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
-            ivs_tensor (Tensor): A ``Tensor`` containing the (log-)value of the IVs.
+            ivs_tensor (Tensor): A ``Tensor`` containing the (log-)value of the IndicatorLeaf.
             input_tensors (list): A list of ``Tensor``s with outputs of the child nodes.
             log (bool): Whether the computation is in log-space or not
             sample (bool): Whether to sample the 'winner' of the max or not
@@ -451,7 +451,7 @@ class BaseSum(OpNode, abc.ABC):
                 (log-)normalized probability as given by ``reducible_tensor``.
         Returns:
             A ``list`` of ``tuple``s [(MPE counts, input tensor), ...] where the first corresponds
-            to the Weights of this node, the second corresponds to the IVs and the remaining
+            to the Weights of this node, the second corresponds to the IndicatorLeaf and the remaining
             tuples correspond to the nodes in ``self._values``.
         """
         sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
@@ -467,7 +467,7 @@ class BaseSum(OpNode, abc.ABC):
             max_counts = tf.reduce_sum(max_counts, axis=0, keepdims=False)
         return self._scatter_to_input_tensors(
             (max_counts, w_tensor),  # Weights
-            (max_counts_acc, ivs_tensor),  # IVs
+            (max_counts_acc, ivs_tensor),  # IndicatorLeaf
             *[(t, v) for t, v in zip(max_counts_split, input_tensors)])  # Values
 
     @utils.lru_cache
@@ -527,13 +527,13 @@ class BaseSum(OpNode, abc.ABC):
             w_tensor (Tensor): A ``Tensor`` of shape [num_sums, max_sum_size] that contains the
                                weights corresponding to this node.
             ivs_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] that
-                                 corresponds to the IVs of this node.
+                                 corresponds to the IndicatorLeaf of this node.
             value_tensors (tuple): A ``tuple`` of ``Tensor``s that correspond to the values of the
                                    children of this node.
             accumulate_weights_batch (bool): A ``bool`` that marks whether the weight gradients should be
                                      summed over the batch axis.
         Returns:
-            A ``tuple`` of gradients. Starts with weights, then IVs  and the remainder corresponds
+            A ``tuple`` of gradients. Starts with weights, then IndicatorLeaf  and the remainder corresponds
             to ``value_tensors``.
         """
 
@@ -566,12 +566,12 @@ class BaseSum(OpNode, abc.ABC):
 
         Args:
             weight_scopes (list): A list of ``Scope``s corresponding to the weights.
-            ivs_scopes (list): A list of ``Scope``s corresponding to the IVs.
+            ivs_scopes (list): A list of ``Scope``s corresponding to the IndicatorLeaf.
             value_scopes (tuple): A ``tuple`` of ``list``s of ``Scope``s corresponding to the
                                   scope lists of the children of this node.
 
         Returns:
-            A tuple of flat value scopes corresponding to this node's output. The IVs scopes and
+            A tuple of flat value scopes corresponding to this node's output. The IndicatorLeaf scopes and
             the value scopes.
         """
         if not self._values:
@@ -601,16 +601,16 @@ class BaseSum(OpNode, abc.ABC):
             return None
         flat_value_scopes, ivs_scopes_, *value_scopes_ = self._get_flat_value_scopes(
             weight_scopes, ivs_scopes, *value_scopes)
-        # IVs
+        # IndicatorLeaf
         if self._ivs:
-            # Verify number of IVs
+            # Verify number of IndicatorLeaf
             if len(ivs_scopes_) != len(flat_value_scopes) * self._num_sums:
-                raise StructureError("Number of IVs (%s) and values (%s) does "
+                raise StructureError("Number of IndicatorLeaf (%s) and values (%s) does "
                                      "not match for %s"
                                      % (len(ivs_scopes_),
                                         len(flat_value_scopes) * self._num_sums,
                                         self))
-            # Check if scope of all IVs is just one and the same variable
+            # Check if scope of all IndicatorLeaf is just one and the same variable
             if len(Scope.merge_scopes(ivs_scopes_)) > self._num_sums:
                 return None
         # Check sum for completeness wrt values
@@ -635,14 +635,14 @@ class BaseSum(OpNode, abc.ABC):
         Args:
             w_tensor (Tensor): A ``Tensor`` with the (log-)value of the weights of this node of
                                shape [num_sums, max_sum_size]
-            ivs_tensor (Tensor): A ``Tensor`` with the (log-)value of the 'latent' ``IVs``.
+            ivs_tensor (Tensor): A ``Tensor`` with the (log-)value of the 'latent' ``IndicatorLeaf``.
             input_tensors (tuple): A tuple of ``Tensor``s  holding the value of the children of this
                                    node.
             zero_prob_val (float): The value of zero probability. This is important to know if some
                                    parts of the computation should be left out for masking.
         Returns:
             A tuple of size 3 containing: a weight ``Tensor`` that can be broadcast across sums, an
-            IVs ``Tensor`` that can be applied component-wise to the sums and a ``Tensor`` that
+            IndicatorLeaf ``Tensor`` that can be applied component-wise to the sums and a ``Tensor`` that
             holds the unweighted values of the sum inputs of shape [batch, num_sums, max_sum_size].
         """
         w_tensor, ivs_tensor, *input_tensors = self._gather_input_tensors(
@@ -711,9 +711,9 @@ class BaseSum(OpNode, abc.ABC):
 
         # Return random index in case multiple values equal max
         x_max = tf.expand_dims(self._reduce_mpe_inference(x), self._reduce_axis)
-        x_eq_max = tf.to_float(tf.equal(x, x_max))
+        x_eq_max = tf.cast(tf.equal(x, x_max), tf.float32)
         if self._masked:
-            x_eq_max *= tf.expand_dims(tf.to_float(self._build_mask()), axis=self._batch_axis)
+            x_eq_max *= tf.expand_dims(tf.cast(self._build_mask(), tf.float32), axis=self._batch_axis)
         x_eq_max /= tf.reduce_sum(x_eq_max, axis=self._reduce_axis, keepdims=True)
 
         return tfd.Categorical(probs=x_eq_max, name="StochasticArgMax", dtype=tf.int64).sample()

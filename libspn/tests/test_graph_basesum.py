@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 class TestBaseSum(tf.test.TestCase):
 
     def test_dropconnect(self):
-        ivs = spn.IVs(num_vals=2, num_vars=4)
+        ivs = spn.IndicatorLeaf(num_vals=2, num_vars=4)
         s = spn.Sum(ivs, dropconnect_keep_prob=0.5)
         spn.generate_weights(s)
         init = spn.initialize_weights(s)

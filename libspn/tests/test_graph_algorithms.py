@@ -284,8 +284,8 @@ class TestGraphAlgorithms(TestCase):
                 return [None] * len(node.inputs)
 
         # Generate dense graph
-        v1 = spn.IVs(num_vars=3, num_vals=2, name="IVs1")
-        v2 = spn.IVs(num_vars=3, num_vals=2, name="IVs2")
+        v1 = spn.IndicatorLeaf(num_vars=3, num_vals=2, name="IndicatorLeaf1")
+        v2 = spn.IndicatorLeaf(num_vars=3, num_vals=2, name="IndicatorLeaf2")
 
         gen = spn.DenseSPNGenerator(num_decomps=2,
                                     num_subsets=3,

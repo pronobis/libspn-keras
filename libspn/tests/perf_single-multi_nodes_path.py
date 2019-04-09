@@ -188,7 +188,7 @@ class PerformanceTest:
         tf.reset_default_graph()
         with tf.device(device_name):
             # Create input
-            inputs_pl = spn.IVs(num_vars=self.num_input_vars,
+            inputs_pl = spn.IndicatorLeaf(num_vars=self.num_input_vars,
                                 num_vals=self.num_input_vals, name="iv_x")
             # Create networks, stacking one on top of the other, although each
             # network remains unconnected and independent of each other.

@@ -303,7 +303,7 @@ class TestNodesPermProducts(TestCase):
     def test_comput_scope(self):
         """Calculating scope of PermProducts"""
         # Create graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
         v34 = spn.ContVars(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s1.generate_ivs()
@@ -416,8 +416,8 @@ class TestNodesPermProducts(TestCase):
 
     def test_compute_valid(self):
         """Calculating validity of PermProducts"""
-        v12 = spn.IVs(num_vars=2, num_vals=3)
-        v345 = spn.IVs(num_vars=3, num_vals=3)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=3)
+        v345 = spn.IndicatorLeaf(num_vars=3, num_vals=3)
         v678 = spn.ContVars(num_vars=3)
         v910 = spn.ContVars(num_vars=2)
         p1 = spn.PermProducts((v12, [0, 1]), (v12, [4, 5]))

@@ -245,15 +245,15 @@ class PerformanceTest:
         with tf.device(device_name):
             # Create input
             inputs_pl = spn.ContVars(num_vars=input_size)
-            # Create IVs
+            # Create IndicatorLeaf
             if ivs is None:
                 ivs_pl = [None for _ in range(self.num_sums)]
             else:
                 if op_fun is Ops.sum:
-                    ivs_pl = [spn.IVs(num_vars=1, num_vals=input_size)
+                    ivs_pl = [spn.IndicatorLeaf(num_vars=1, num_vals=input_size)
                               for _ in range(self.num_sums)]
                 elif op_fun is Ops.par_sums or Ops.sums:
-                    ivs_pl = [spn.IVs(num_vars=self.num_sums, num_vals=input_size)]
+                    ivs_pl = [spn.IndicatorLeaf(num_vars=self.num_sums, num_vals=input_size)]
             # Create ops
             start_time = time.time()
             init_ops, ops = op_fun(inputs_pl, indices, ivs_pl, self.num_sums,
@@ -337,23 +337,23 @@ class PerformanceTest:
         gpu_results = []
         for op_fun, inp, ind, iv in zip(op_funs, inputs, indices, ivs):
             if not self.without_cpu:
-                cpu_results.append(  # Indices = No, IVs = No
+                cpu_results.append(  # Indices = No, IndicatorLeaf = No
                     self._run_op_test(op_fun, inp, indices=None, ivs=None,
                                       inf_type=inf_type, log=log, on_gpu=False))
-                cpu_results.append(  # Indices = Yes, IVs = No
+                cpu_results.append(  # Indices = Yes, IndicatorLeaf = No
                     self._run_op_test(op_fun, inp, indices=ind, ivs=None,
                                       inf_type=inf_type, log=log, on_gpu=False))
-                cpu_results.append(  # Indices = Yes, IVs = Yes
+                cpu_results.append(  # Indices = Yes, IndicatorLeaf = Yes
                     self._run_op_test(op_fun, inp, indices=ind, ivs=iv,
                                       inf_type=inf_type, log=log, on_gpu=False))
             if not self.without_gpu:
-                gpu_results.append(  # Indices = No, IVs = No
+                gpu_results.append(  # Indices = No, IndicatorLeaf = No
                     self._run_op_test(op_fun, inp, indices=None, ivs=None,
                                       inf_type=inf_type, log=log, on_gpu=True))
-                gpu_results.append(  # Indices = Yes, IVs = No
+                gpu_results.append(  # Indices = Yes, IndicatorLeaf = No
                     self._run_op_test(op_fun, inp, indices=ind, ivs=None,
                                       inf_type=inf_type, log=log, on_gpu=True))
-                gpu_results.append(  # Indices = Yes, IVs = Yes
+                gpu_results.append(  # Indices = Yes, IndicatorLeaf = Yes
                     self._run_op_test(op_fun, inp, indices=ind, ivs=iv,
                                       inf_type=inf_type, log=log, on_gpu=True))
         return TestResults(test_name, cpu_results, gpu_results)

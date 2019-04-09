@@ -8,7 +8,7 @@ import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.inference.type import InferenceType
 from libspn.graph.weights import Weights
-from libspn.graph.basesum import BaseSum
+from libspn.graph.op.basesum import BaseSum
 from libspn import utils
 from libspn.exceptions import StructureError
 from libspn import conf
@@ -34,7 +34,7 @@ class SumsLayer(BaseSum):
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
+        ivs (input_like): Input providing IndicatorLeaf of an explicit latent variable
             associated with this sum node. See :meth:`~libspn.Input.as_input`
             for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the node.
@@ -132,16 +132,16 @@ class SumsLayer(BaseSum):
         # Split the flat value scopes based on value input sizes
         split_indices = np.cumsum(self._sum_sizes)[:-1]
 
-        # IVs
+        # IndicatorLeaf
         if self._ivs:
-            # Verify number of IVs
+            # Verify number of IndicatorLeaf
             if len(ivs_scopes_) != len(flat_value_scopes):
-                raise StructureError("Number of IVs (%s) and values (%s) does "
+                raise StructureError("Number of IndicatorLeaf (%s) and values (%s) does "
                                      "not match for %s"
                                      % (len(ivs_scopes_), len(flat_value_scopes),
                                         self))
 
-            # Go over IVs involved for each sum. Scope size should be exactly one
+            # Go over IndicatorLeaf involved for each sum. Scope size should be exactly one
             for iv_scopes_for_sum in np.split(ivs_scopes_, split_indices):
                 if len(Scope.merge_scopes(iv_scopes_for_sum)) != 1:
                     return None

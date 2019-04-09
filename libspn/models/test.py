@@ -1,7 +1,7 @@
 from libspn.models.model import Model
-from libspn.graph.product import Product
-from libspn.graph.ivs import IVs
-from libspn.graph.sum import Sum
+from libspn.graph.op.product import Product
+from libspn.graph.leaf.indicator import IndicatorLeaf
+from libspn.graph.op.sum import Sum
 from libspn import conf
 from libspn import utils
 import numpy as np
@@ -30,7 +30,7 @@ class Poon11NaiveMixtureModel(Model):
 
     @property
     def ivs(self):
-        """IVs: The IVs with the input variables of the model."""
+        """IndicatorLeaf: The IndicatorLeaf with the input variables of the model."""
         return self._ivs
 
     @property
@@ -74,7 +74,7 @@ class Poon11NaiveMixtureModel(Model):
     @utils.docinherit(Model)
     def build(self):
         # Inputs
-        self._ivs = IVs(num_vars=2, num_vals=2, name="IVs")
+        self._ivs = IndicatorLeaf(num_vars=2, num_vals=2, name="IndicatorLeaf")
         # Input mixtures
         s11 = Sum((self._ivs, [0, 1]), name="Sum1.1")
         s11.generate_weights(tf.initializers.constant([0.4, 0.6]))

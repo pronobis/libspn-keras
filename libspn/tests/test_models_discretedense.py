@@ -79,7 +79,7 @@ class TestModelsDiscreteDense(TestCase):
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
             weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
-        sample_ivs = spn.IVs(num_vars=6, num_vals=2)
+        sample_ivs = spn.IndicatorLeaf(num_vars=6, num_vals=2)
         root = model.build(sample_ivs)
         self.generic_model_test("1class",
                                 root, sample_ivs, None)
@@ -93,8 +93,8 @@ class TestModelsDiscreteDense(TestCase):
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
             weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
-        sample_ivs = spn.IVs(num_vars=6, num_vals=2)
-        class_ivs = spn.IVs(num_vars=1, num_vals=3)
+        sample_ivs = spn.IndicatorLeaf(num_vars=6, num_vals=2)
+        class_ivs = spn.IndicatorLeaf(num_vars=1, num_vals=3)
         root = model.build(sample_ivs, class_input=class_ivs)
         self.generic_model_test("3class",
                                 root, sample_ivs, class_ivs)
@@ -202,7 +202,7 @@ class TestModelsDiscreteDense(TestCase):
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
             weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
-        sample_ivs1 = spn.IVs(num_vars=6, num_vals=2)
+        sample_ivs1 = spn.IndicatorLeaf(num_vars=6, num_vals=2)
         model1.build(sample_ivs1)
         init1 = spn.initialize_weights(model1.root)
 
@@ -249,8 +249,8 @@ class TestModelsDiscreteDense(TestCase):
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
             weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
-        sample_ivs1 = spn.IVs(num_vars=6, num_vals=2)
-        class_ivs1 = spn.IVs(num_vars=1, num_vals=3)
+        sample_ivs1 = spn.IndicatorLeaf(num_vars=6, num_vals=2)
+        class_ivs1 = spn.IndicatorLeaf(num_vars=1, num_vals=3)
         model1.build(sample_ivs1, class_input=class_ivs1)
         init1 = spn.initialize_weights(model1.root)
 

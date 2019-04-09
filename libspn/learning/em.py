@@ -1,10 +1,10 @@
 from collections import namedtuple
 import tensorflow as tf
 
-from libspn.graph.distribution import GaussianLeaf
 from libspn.inference.mpe_path import MPEPath
 from libspn.graph.algorithms import traverse_graph
 from libspn import conf
+from libspn.graph.leaf.location_scale import LocationScaleLeaf
 from libspn import utils
 
 
@@ -20,8 +20,8 @@ class EMLearning:
     """
 
     ParamNode = namedtuple("ParamNode", ["node", "name_scope", "accum"])
-    GaussianLeafNode = namedtuple(
-        "GaussianLeafNode", ["node", "name_scope", "accum", "sum_data", "sum_data_squared"])
+    LocationScaleLeafNode = namedtuple(
+        "LocationScaleLeafNode", ["node", "name_scope", "accum", "sum_data", "sum_data_squared"])
 
     def __init__(self, root, mpe_path=None, log=True, value_inference_type=None,
                  additive_smoothing=None, add_random=None, initial_accum_value=None,
@@ -163,7 +163,7 @@ class EMLearning:
                     param_node = EMLearning.ParamNode(node=node, accum=accum,
                                                       name_scope=scope)
                     self._param_nodes.append(param_node)
-            if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
+            if isinstance(node, LocationScaleLeaf) and (node.trainable_scale or node.trainable_loc):
                 with tf.name_scope(node.name) as scope:
                     if self._initial_accum_value is not None:
                         accum = tf.Variable(tf.ones_like(node.loc_variable, dtype=conf.dtype) *
@@ -183,7 +183,7 @@ class EMLearning:
                                             collections=['em_accumulators'])
                         sum_x2 = tf.Variable(tf.zeros_like(node.loc_variable), dtype=conf.dtype,
                                              collections=['em_accumulators'])
-                    gaussian_node = EMLearning.GaussianLeafNode(
+                    gaussian_node = EMLearning.LocationScaleLeafNode(
                         node=node, accum=accum, sum_data=sum_x, sum_data_squared=sum_x2,
                         name_scope=scope)
                     self._gaussian_leaf_nodes.append(gaussian_node)

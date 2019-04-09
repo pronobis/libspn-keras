@@ -1,11 +1,11 @@
 from libspn.models.model import Model
 from libspn.log import get_logger
-from libspn.graph.ivs import IVs
+from libspn.graph.leaf.indicator import IndicatorLeaf
 from libspn.generation.dense import DenseSPNGenerator
 from libspn.generation.weights import generate_weights
 from libspn.graph.node import Input
 from libspn.graph.serialization import serialize_graph, deserialize_graph
-from libspn.graph.sum import Sum
+from libspn.graph.op.sum import Sum
 from libspn import utils
 from libspn.utils.serialization import register_serializable
 import random
@@ -29,11 +29,11 @@ class DiscreteDenseModel(Model):
         num_decomps (int): Number of decompositions at each level of dense SPN.
         num_subsets (int): Number of variable sub-sets for each decomposition.
         num_mixtures (int): Number of mixtures (sums) for each variable subset.
-        input_dist (InputDist): Determines how IVs of the discrete variables for
+        input_dist (InputDist): Determines how IndicatorLeaf of the discrete variables for
                                 data samples are connected to the model.
         num_input_mixtures (int): Number of mixtures used representing each
                                   discrete data variable (mixing the data variable
-                                  IVs) when ``input_dist`` is set to ``MIXTURE``.
+                                  IndicatorLeaf) when ``input_dist`` is set to ``MIXTURE``.
                                   If set to ``None``, ``num_mixtures`` is used.
         weight_init_value: Initial value of the weights.
     """
@@ -139,12 +139,12 @@ class DiscreteDenseModel(Model):
 
     @property
     def sample_ivs(self):
-        """IVs: IVs with input data sample."""
+        """IndicatorLeaf: IndicatorLeaf with input data sample."""
         return self._sample_ivs
 
     @property
     def class_ivs(self):
-        """IVs: Class indicator variables."""
+        """IndicatorLeaf: Class indicator variables."""
         return self._class_ivs
 
     @property
@@ -162,13 +162,13 @@ class DiscreteDenseModel(Model):
         """Build the SPN graph of the model.
 
         The model can be built on top of any ``sample_inputs``. Otherwise, if no
-        sample inputs are provided, the model will internally crate a single IVs
+        sample inputs are provided, the model will internally crate a single IndicatorLeaf
         node to represent the input data samples. In such case, ``num_vars`` and
         ``num_vals`` must be specified.
 
         Similarly, if ``class_input`` is provided, it is used as a source of
         class indicators of the root sum node combining sub-SPNs modeling
-        particular classes. Otherwise, an internal IVs node is created for this
+        particular classes. Otherwise, an internal IndicatorLeaf node is created for this
         purpose.
 
         Args:
@@ -201,17 +201,17 @@ class DiscreteDenseModel(Model):
         else:
             self.__info("Building a 1-class discrete dense model")
 
-        # Create IVs if inputs not given
+        # Create IndicatorLeaf if inputs not given
         if not sample_inputs:
-            self._sample_ivs = IVs(num_vars=num_vars, num_vals=num_vals,
-                                   name="SampleIVs")
+            self._sample_ivs = IndicatorLeaf(num_vars=num_vars, num_vals=num_vals,
+                                             name="SampleIndicatorLeaf")
             self._sample_inputs = [Input(self._sample_ivs)]
         else:
             self._sample_inputs = tuple(Input.as_input(i) for i in sample_inputs)
         if self._num_classes > 1:
             if class_input is None:
-                self._class_ivs = IVs(num_vars=1, num_vals=self._num_classes,
-                                      name="ClassIVs")
+                self._class_ivs = IndicatorLeaf(num_vars=1, num_vals=self._num_classes,
+                                                name="ClassIndicatorLeaf")
                 self._class_input = Input(self._class_ivs)
             else:
                 self._class_input = Input.as_input(class_input)

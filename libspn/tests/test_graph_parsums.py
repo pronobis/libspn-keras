@@ -33,15 +33,15 @@ class TestNodesParSums(tf.test.TestCase):
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=2, name="ContVars1")
-        v2 = spn.ContVars(num_vars=2, name="ContVars2")
+        v1 = spn.RawLeaf(num_vars=2, name="ContVars1")
+        v2 = spn.RawLeaf(num_vars=2, name="ContVars2")
 
         # MULTIPLE PARALLEL-SUM NODES
         # ---------------------------
         num_sums = 2
 
         # Multiple inputs, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -122,7 +122,7 @@ class TestNodesParSums(tf.test.TestCase):
               [(0.11*0.2), (0.12*0.2)]])
 
         # Single input with 1 value, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -167,7 +167,7 @@ class TestNodesParSums(tf.test.TestCase):
               [(0.12*0.6), (0.11*0.2)]])
 
         # Multiple inputs, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -207,7 +207,7 @@ class TestNodesParSums(tf.test.TestCase):
              [[(0.4*0.3), (0.3*0.3)]])
 
         # Single input with 1 value, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -245,7 +245,7 @@ class TestNodesParSums(tf.test.TestCase):
         num_sums = 1
 
         # Multiple inputs, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -298,7 +298,7 @@ class TestNodesParSums(tf.test.TestCase):
               [(0.11*0.2)]])
 
         # Single input with 1 value, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -343,7 +343,7 @@ class TestNodesParSums(tf.test.TestCase):
               [0.12*0.6]])
 
         # Multiple inputs, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -372,7 +372,7 @@ class TestNodesParSums(tf.test.TestCase):
              [[0.3*0.3]])
 
         # Single input with 1 value, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -420,15 +420,15 @@ class TestNodesParSums(tf.test.TestCase):
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=2, name="ContVars1")
-        v2 = spn.ContVars(num_vars=2, name="ContVars2")
+        v1 = spn.RawLeaf(num_vars=2, name="ContVars1")
+        v2 = spn.RawLeaf(num_vars=2, name="ContVars2")
 
         # MULTIPLE PARALLEL-SUM NODES
         # ---------------------------
         num_sums = 2
 
         # Multiple inputs, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -481,7 +481,7 @@ class TestNodesParSums(tf.test.TestCase):
               [(0.11*0.2), (0.12*0.2)]])
 
         # Single input with 1 value, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -526,7 +526,7 @@ class TestNodesParSums(tf.test.TestCase):
               [(0.12*0.6), (0.11*0.2)]])
 
         # Multiple inputs, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -564,7 +564,7 @@ class TestNodesParSums(tf.test.TestCase):
              [[(0.4*0.3), (0.3*0.3)]])
 
         # Single input with 1 value, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -602,7 +602,7 @@ class TestNodesParSums(tf.test.TestCase):
         num_sums = 1
 
         # Multiple inputs, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -655,7 +655,7 @@ class TestNodesParSums(tf.test.TestCase):
               [(0.11*0.2)]])
 
         # Single input with 1 value, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -700,7 +700,7 @@ class TestNodesParSums(tf.test.TestCase):
               [0.11*0.4]])
 
         # Multiple inputs, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -729,7 +729,7 @@ class TestNodesParSums(tf.test.TestCase):
              [[0.3*0.3]])
 
         # Single input with 1 value, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        ivs = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -757,9 +757,9 @@ class TestNodesParSums(tf.test.TestCase):
     def test_comput_scope(self):
         """Calculating scope of ParSums"""
         # Create a graph
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        ivs_ps5 = spn.IVs(num_vars=3, num_vals=7)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        ivs_ps5 = spn.IndicatorLeaf(num_vars=3, num_vals=7)
         ps1 = spn.ParSums((v12, [0, 1, 2, 3]), num_sums=2, name="PS1")
         ps2 = spn.ParSums((v12, [2, 3, 6, 7]), num_sums=1, name="PS2")
         ps2.generate_ivs()
@@ -880,9 +880,9 @@ class TestNodesParSums(tf.test.TestCase):
 
     def test_compute_valid(self):
         """Calculating validity of ParSums"""
-        # Without IVs
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
+        # Without IndicatorLeaf
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
         s1 = spn.ParSums((v12, [0, 1, 2, 3]), num_sums=3)
         s2 = spn.ParSums((v12, [0, 1, 2, 4]), name="S2")
         s3 = spn.ParSums((v12, [0, 1, 2, 3]), (v34, 0), num_sums=2)
@@ -903,12 +903,12 @@ class TestNodesParSums(tf.test.TestCase):
         s6.generate_ivs()
         self.assertTrue(s6.is_valid())
         s7 = spn.ParSums(p1, p2, num_sums=1)
-        s7.set_ivs(spn.ContVars(num_vars=2))
+        s7.set_ivs(spn.RawLeaf(num_vars=2))
         self.assertFalse(s7.is_valid())
         s8 = spn.ParSums(p1, p2, num_sums=2)
-        s8.set_ivs(spn.IVs(num_vars=3, num_vals=2))
+        s8.set_ivs(spn.IndicatorLeaf(num_vars=3, num_vals=2))
         s9 = spn.ParSums(p1, p2, num_sums=2)
-        s9.set_ivs(spn.ContVars(num_vars=2))
+        s9.set_ivs(spn.RawLeaf(num_vars=2))
         with self.assertRaises(spn.StructureError):
             s8.is_valid()
             s9.is_valid()
@@ -919,9 +919,9 @@ class TestNodesParSums(tf.test.TestCase):
     def test_compute_mpe_path_noivs_single_sum(self):
         spn.conf.argmax_zero = True
 
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
@@ -952,7 +952,7 @@ class TestNodesParSums(tf.test.TestCase):
 
         with self.test_session() as sess:
             sess.run(init)
-            # Skip the IVs op
+            # Skip the IndicatorLeaf op
             out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
                                                        v12: v12_feed,
                                                        v34: v34_feed,
@@ -996,9 +996,9 @@ class TestNodesParSums(tf.test.TestCase):
     def test_compute_mpe_path_noivs_multi_sums(self):
         spn.conf.argmax_zero = True
 
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=2)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 2))
@@ -1029,7 +1029,7 @@ class TestNodesParSums(tf.test.TestCase):
 
         with self.test_session() as sess:
             sess.run(init)
-            # Skip the IVs op
+            # Skip the IndicatorLeaf op
             out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
                                                        v12: v12_feed,
                                                        v34: v34_feed,
@@ -1076,9 +1076,9 @@ class TestNodesParSums(tf.test.TestCase):
 
     def test_compute_mpe_path_ivs_single_sum(self):
         spn.conf.argmax_zero = True
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5)
         iv = s.generate_ivs()
         w = s.generate_weights()
@@ -1144,7 +1144,7 @@ class TestNodesParSums(tf.test.TestCase):
                                             [17., 0., 0., 0., 0., 0.]]],
                                  dtype=np.float32), [1, 0, 2]))
 
-        # IVs
+        # IndicatorLeaf
         self.assertAllClose(
             out[1], np.array([[10., 0., 0., 0., 0., 0.],
                               [0., 0., 11., 0., 0., 0.],
@@ -1202,9 +1202,9 @@ class TestNodesParSums(tf.test.TestCase):
 
     def test_compute_mpe_path_ivs_multi_sums(self):
         spn.conf.argmax_zero = True
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=2)
         iv = s.generate_ivs()
         w = s.generate_weights()
@@ -1285,7 +1285,7 @@ class TestNodesParSums(tf.test.TestCase):
                                             [27., 0., 0., 0., 0., 0.]]],
                                           dtype=np.float32), [1, 0, 2]))
 
-        # IVs
+        # IndicatorLeaf
         self.assertAllClose(
             out[1], np.array([[30., 0., 0., 0., 0., 0.],
                               [0., 0., 32., 0., 0., 0.],
@@ -1342,9 +1342,9 @@ class TestNodesParSums(tf.test.TestCase):
                              dtype=np.float32))
 
     def test_compute_log_gradients(self):
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         num_sums = 10
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=num_sums)
         iv = s.generate_ivs()
@@ -1368,7 +1368,7 @@ class TestNodesParSums(tf.test.TestCase):
 
         with self.test_session() as sess:
             sess.run(init)
-            # Skip the IVs op
+            # Skip the IndicatorLeaf op
             out = sess.run(op, feed_dict={gradients: gradients_feed,
                                           iv: ivs_feed,
                                           v12: v12_feed,
@@ -1419,7 +1419,7 @@ class TestNodesParSums(tf.test.TestCase):
         # Weights
         self.assertAllClose(
             out[0], weights_gradients)
-        # IVs
+        # IndicatorLeaf
         self.assertAllClose(
            out[1], np.sum(weights_gradients, axis=1))
         # Inputs

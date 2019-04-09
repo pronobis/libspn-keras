@@ -14,7 +14,7 @@ class TestDenseSPNGenerator(TestCase):
         gen = spn.DenseSPNGenerator(num_decomps=2,
                                     num_subsets=3,
                                     num_mixtures=2)
-        v1 = spn.IVs(num_vars=2, num_vals=4)
+        v1 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v2 = spn.ContVars(num_vars=3, name="ContVars1")
         v3 = spn.ContVars(num_vars=2, name="ContVars2")
         s1 = spn.Sum(v3)
@@ -24,11 +24,11 @@ class TestDenseSPNGenerator(TestCase):
                                                     spn.Input(s1, None),
                                                     spn.Input(n1, None)])
         # scope_dict:
-        # Scope({IVs(0x7f00cb4049b0):0}): {(IVs(0x7f00cb4049b0), 0),
-        #                                  (IVs(0x7f00cb4049b0), 2),
-        #                                  (IVs(0x7f00cb4049b0), 3)},
-        # Scope({IVs(0x7f00cb4049b0):1}): {(IVs(0x7f00cb4049b0), 7),
-        #                                  (IVs(0x7f00cb4049b0), 6)},
+        # Scope({IndicatorLeaf(0x7f00cb4049b0):0}): {(IndicatorLeaf(0x7f00cb4049b0), 0),
+        #                                  (IndicatorLeaf(0x7f00cb4049b0), 2),
+        #                                  (IndicatorLeaf(0x7f00cb4049b0), 3)},
+        # Scope({IndicatorLeaf(0x7f00cb4049b0):1}): {(IndicatorLeaf(0x7f00cb4049b0), 7),
+        #                                  (IndicatorLeaf(0x7f00cb4049b0), 6)},
         # Scope({ContVars1(0x7f00b7982ef0):1}): {(Concat(0x7f00cb404d68), 1),
         #                                        (ContVars1(0x7f00b7982ef0), 1)},
         # Scope({ContVars1(0x7f00b7982ef0):2}): {(Concat(0x7f00cb404d68), 2),
@@ -51,7 +51,7 @@ class TestDenseSPNGenerator(TestCase):
         gen = spn.DenseSPNGenerator(num_decomps=2,
                                     num_subsets=3,
                                     num_mixtures=2)
-        v1 = spn.IVs(num_vars=2, num_vals=4)
+        v1 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v2 = spn.ContVars(num_vars=3, name="ContVars1")
         v3 = spn.ContVars(num_vars=2, name="ContVars2")
         s1 = spn.Sum(v3, v2)
@@ -66,8 +66,8 @@ class TestDenseSPNGenerator(TestCase):
     def generic_dense_test(self, name, num_decomps, num_subsets, num_mixtures,
                            input_dist, num_input_mixtures):
         """A generic test for DenseSPNGenerator."""
-        v1 = spn.IVs(num_vars=3, num_vals=2, name="IVs1")
-        v2 = spn.IVs(num_vars=3, num_vals=2, name="IVs2")
+        v1 = spn.IndicatorLeaf(num_vars=3, num_vals=2, name="IndicatorLeaf1")
+        v2 = spn.IndicatorLeaf(num_vars=3, num_vals=2, name="IndicatorLeaf2")
 
         gen = spn.DenseSPNGenerator(num_decomps=num_decomps,
                                     num_subsets=num_subsets,

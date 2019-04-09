@@ -166,7 +166,7 @@ class TestNodesProductsLayer(TestCase):
     def test_comput_scope(self):
         """Calculating scope of ProductsLayer"""
         # Create graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
         v34 = spn.ContVars(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s1.generate_ivs()
@@ -258,8 +258,8 @@ class TestNodesProductsLayer(TestCase):
 
     def test_compute_valid(self):
         """Calculating validity of ProductsLayer"""
-        v12 = spn.IVs(num_vars=2, num_vals=3)
-        v345 = spn.IVs(num_vars=3, num_vals=3)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=3)
+        v345 = spn.IndicatorLeaf(num_vars=3, num_vals=3)
         v678 = spn.ContVars(num_vars=3)
         v910 = spn.ContVars(num_vars=2)
         p1 = spn.ProductsLayer((v12, [0, 3]), (v345, [1, 4, 7]), (v678, [0, 1, 2]),
@@ -358,12 +358,12 @@ class TestNodesProductsLayer(TestCase):
                     # biggest product modelled
                     num_vars = max(prod_input_sizes)
 
-                    # Randomly choose to create either an IVs or a ContVars node
+                    # Randomly choose to create either an IndicatorLeaf or a ContVars node
                     contvar = random.choice([True, False])
 
                     # Create an input node
                     input_var = spn.ContVars(num_vars=num_vars) if contvar else \
-                        spn.IVs(num_vars=num_vars, num_vals=num_vals)
+                        spn.IndicatorLeaf(num_vars=num_vars, num_vals=num_vals)
                     inputs = list(itertools.repeat(input_var, len(prod_input_sizes)))
 
                     # Generate random input-indices for each product modelled,
@@ -377,17 +377,17 @@ class TestNodesProductsLayer(TestCase):
                     true_outputs = [np.zeros((batch_size, num_vars if contvar else
                                     num_vars*num_vals)) for _ in prod_input_sizes]
                 else:
-                    # Create random (IVs or ContVar) inputs of random size each
+                    # Create random (IndicatorLeaf or ContVar) inputs of random size each
                     for i_size in input_sizes:
                         if indexed:
                             # Choose a random size for an input node
                             num_vars = np.random.randint(low=i_size, high=i_size+5)
                         else:
                             num_vars = i_size
-                        # Randomly choose to create either a IVs or a ContVar input
+                        # Randomly choose to create either a IndicatorLeaf or a ContVar input
                         if random.choice([True, False]):
-                            # Create an IVs input node
-                            inputs.append(spn.IVs(num_vars=num_vars,
+                            # Create an IndicatorLeaf input node
+                            inputs.append(spn.IndicatorLeaf(num_vars=num_vars,
                                                   num_vals=num_vals))
                             # Generate random indices for the created input
                             indices.append(random.sample(range(num_vars*num_vals),

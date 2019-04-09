@@ -19,7 +19,7 @@ class TestGaussianQuantile(TestCase):
         quantiles = [np.random.rand(32, 32) + i * 2 for i in range(4)]
         data = np.concatenate(quantiles, axis=0)
         np.random.shuffle(data)
-        gq = spn.GaussianLeaf(num_vars=32, num_components=4, learn_dist_params=False)
+        gq = spn.NormalLeaf(num_vars=32, num_components=4, learn_dist_params=False)
 
         values_per_quantile = gq._split_in_quantiles(data)
 
@@ -27,7 +27,7 @@ class TestGaussianQuantile(TestCase):
             self.assertAllClose(np.sort(q, axis=0), val)
 
     def test_compute_scope(self):
-        gl = spn.GaussianLeaf(num_vars=32, num_components=4)
+        gl = spn.NormalLeaf(num_vars=32, num_components=4)
         scope = gl._compute_scope()
         for b in range(0, len(scope), 4):
             [self.assertEqual(scope[b], scope[b + i]) for i in range(1, 4)]
@@ -38,7 +38,7 @@ class TestGaussianQuantile(TestCase):
         quantiles = [np.random.rand(32, 32) + i * 2 for i in range(4)]
         data = np.concatenate(quantiles, axis=0)
         np.random.shuffle(data)
-        gq = spn.GaussianLeaf(
+        gq = spn.NormalLeaf(
             num_vars=32, num_components=4, learn_dist_params=False, initialization_data=data,
             softplus_scale=softplus)
         true_vars = np.stack([np.var(q, axis=0) for q in quantiles], axis=-1)
@@ -57,7 +57,7 @@ class TestGaussianQuantile(TestCase):
         quantiles = [np.random.rand(N, 32) + i * 2 for i in range(4)]
         data = np.concatenate(quantiles, axis=0)
         np.random.shuffle(data)
-        gq = spn.GaussianLeaf(
+        gq = spn.NormalLeaf(
             num_vars=32, num_components=4, learn_dist_params=False, initialization_data=data,
             prior_alpha=prior_alpha, prior_beta=prior_beta, use_prior=True)
 
@@ -68,9 +68,9 @@ class TestGaussianQuantile(TestCase):
         self.assertAllClose(gq._scale_init, np.sqrt(true_vars))
 
     def test_sum_update_1(self):
-        child1 = spn.GaussianLeaf(num_vars=1, num_components=1, total_counts_init=3,
+        child1 = spn.NormalLeaf(num_vars=1, num_components=1, total_counts_init=3,
                                   loc_init=0.0, scale_init=1.0, learn_dist_params=True)
-        child2 = spn.GaussianLeaf(num_vars=1, num_components=1, total_counts_init=7,
+        child2 = spn.NormalLeaf(num_vars=1, num_components=1, total_counts_init=7,
                                   loc_init=1.0, scale_init=4.0, learn_dist_params=True)
         root = spn.Sum(child1, child2)
         root.generate_weights()
@@ -125,7 +125,7 @@ class TestGaussianQuantile(TestCase):
 
         with tf.Graph().as_default() as graph:
             # Set up SPN
-            gq = spn.GaussianLeaf(num_vars=num_vars, num_components=num_components,
+            gq = spn.NormalLeaf(num_vars=num_vars, num_components=num_components,
                                   initialization_data=data, total_counts_init=count_init,
                                   learn_dist_params=True, softplus_scale=softplus_scale)
 
@@ -273,9 +273,9 @@ class TestGaussianQuantile(TestCase):
                 sess.run(reset_accumulators)
 
                 data_per_component_op = graph.get_tensor_by_name(
-                    "EMLearning/GaussianLeaf/DataPerComponent:0")
+                    "EMLearning/NormalLeaf/DataPerComponent:0")
                 squared_data_per_component_op = graph.get_tensor_by_name(
-                    "EMLearning/GaussianLeaf/SquaredDataPerComponent:0")
+                    "EMLearning/NormalLeaf/SquaredDataPerComponent:0")
 
                 update_vals, data_per_component_out, squared_data_per_component_out = sess.run(
                     [accumulate_updates, data_per_component_op, squared_data_per_component_op], fd)
@@ -371,7 +371,7 @@ class TestGaussianQuantile(TestCase):
         batch_size = 2
         num_vars = 2
         num_components = 2
-        gl = spn.GaussianLeaf(num_vars=num_vars, num_components=num_components,
+        gl = spn.NormalLeaf(num_vars=num_vars, num_components=num_components,
                               loc_init=np.arange(num_vars * num_components).reshape(
                                   (num_vars, num_components)))
         init = gl.initialize()
@@ -405,7 +405,7 @@ class TestGaussianQuantile(TestCase):
         batch_size = 9
 
         mean_init = np.arange(num_vars*num_components).reshape(num_vars, num_components)
-        gl = spn.GaussianLeaf(
+        gl = spn.NormalLeaf(
             num_vars=num_vars, num_components=num_components, loc_init=mean_init,
             softplus_scale=softplus)
 
@@ -455,7 +455,7 @@ class TestGaussianQuantile(TestCase):
             [np.random.normal(a, size=BATCH_SIZE) + num_vars for a in range(num_vars)], axis=1)],
                               axis=0).astype(np.float32)
 
-        gq = spn.GaussianLeaf(num_vars=num_vars, num_components=2, learn_dist_params=False,
+        gq = spn.NormalLeaf(num_vars=num_vars, num_components=2, learn_dist_params=False,
                               initialization_data=data)
 
         value_op = gq._compute_value()
@@ -499,7 +499,7 @@ class TestGaussianQuantile(TestCase):
             [np.random.normal(a, size=BATCH_SIZE) + num_vars for a in range(num_vars)], axis=1)],
                               axis=0).astype(np.float32)
 
-        gq = spn.GaussianLeaf(num_vars=num_vars, num_components=2, initialization_data=data,
+        gq = spn.NormalLeaf(num_vars=num_vars, num_components=2, initialization_data=data,
                               learn_dist_params=False)
 
         batch_size = 3

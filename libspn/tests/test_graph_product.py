@@ -89,7 +89,7 @@ class TestGraphProduct(tf.test.TestCase):
     def test_comput_scope(self):
         """Calculating scope of Product"""
         # Create a graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
         v34 = spn.ContVars(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s1.generate_ivs()
@@ -151,7 +151,7 @@ class TestGraphProduct(tf.test.TestCase):
 
     def test_compute_valid(self):
         """Calculating validity of Product"""
-        v12 = spn.IVs(num_vars=2, num_vals=4)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         p1 = spn.Product((v12, [0, 5]))
         p2 = spn.Product((v12, [0, 3]))
@@ -165,7 +165,7 @@ class TestGraphProduct(tf.test.TestCase):
         self.assertFalse(p5.is_valid())
 
     def test_compute_log_mpe_path(self):
-        v12 = spn.IVs(num_vars=2, num_vals=4)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
         p = spn.Product((v12, [0, 5]), v34, (v12, [3]), v5)

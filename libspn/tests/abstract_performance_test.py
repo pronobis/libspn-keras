@@ -156,7 +156,7 @@ class SumConfigGenerator(ConfigGenerator):
         return {'ivs': self.ivs, **super().field_names()}
 
     def description(self, conf):
-        return super().description(conf) + "IVs={}".format(conf['ivs'])
+        return super().description(conf) + "IndicatorLeaf={}".format(conf['ivs'])
 
 
 def bool_field(a):

@@ -25,7 +25,7 @@ class TestGraphSaving(TestCase):
         # Load
         loader = spn.JSONLoader(path)
         root2 = loader.load()
-        ivs2 = loader.find_node('IVs')
+        ivs2 = loader.find_node('IndicatorLeaf')
         init2 = spn.initialize_weights(root2)
         val_mpe2 = root2.get_value(inference_type=spn.InferenceType.MPE)
         val_marginal2 = root2.get_value(inference_type=spn.InferenceType.MARGINAL)
@@ -60,7 +60,7 @@ class TestGraphSaving(TestCase):
         # Load
         loader = spn.JSONLoader(path)
         root2 = loader.load()
-        ivs2 = loader.find_node('SampleIVs')
+        ivs2 = loader.find_node('SampleIndicatorLeaf')
         init2 = spn.initialize_weights(root2)
         val_marginal2 = root2.get_value(inference_type=spn.InferenceType.MARGINAL)
 
@@ -93,7 +93,7 @@ class TestGraphSaving(TestCase):
             # Load
             loader = spn.JSONLoader(path)
             root2 = loader.load(load_param_vals=True)
-            ivs2 = loader.find_node('IVs')
+            ivs2 = loader.find_node('IndicatorLeaf')
             val_mpe2 = root2.get_value(inference_type=spn.InferenceType.MPE)
             val_marginal2 = root2.get_value(inference_type=spn.InferenceType.MARGINAL)
 
@@ -134,7 +134,7 @@ class TestGraphSaving(TestCase):
             # Load
             loader = spn.JSONLoader(path)
             root2 = loader.load(load_param_vals=True)
-            ivs2 = loader.find_node('SampleIVs')
+            ivs2 = loader.find_node('SampleIndicatorLeaf')
             val_marginal2 = root2.get_value(inference_type=spn.InferenceType.MARGINAL)
 
             # Check model after loading

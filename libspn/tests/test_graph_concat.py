@@ -100,7 +100,7 @@ class TestGraphConcat(TestCase):
              [[1.0, 3.0, 8.0]])
 
     def test_compute_mpe_path(self):
-        v12 = spn.IVs(num_vars=2, num_vals=4)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v34 = spn.ContVars(num_vars=2)
         v5 = spn.ContVars(num_vars=1)
         p = spn.Concat((v12, [0, 5]), v34, (v12, [3]), v5)
