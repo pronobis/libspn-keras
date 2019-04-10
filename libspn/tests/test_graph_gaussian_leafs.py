@@ -367,35 +367,6 @@ class TestGaussianQuantile(TestCase):
 
         self.assertGreater(lh_after, lh_before)
 
-    def test_compute_gradient(self):
-        batch_size = 2
-        num_vars = 2
-        num_components = 2
-        gl = spn.NormalLeaf(num_vars=num_vars, num_components=num_components,
-                              loc_init=np.arange(num_vars * num_components).reshape(
-                                  (num_vars, num_components)))
-        init = gl.initialize()
-
-        gl_out = gl._compute_log_value()
-
-        mu_grad_tf, var_grad_tf = tf.gradients(gl_out, [gl.loc_variable, gl.scale_variable])
-
-        # Gradient with respect to out, so gradient to propagate is just 1
-        incoming_grad = tf.ones((batch_size, num_vars * num_components))
-
-        mu_grad_spn, var_grad_spn = gl._compute_gradient(incoming_grad)
-
-        x = np.random.rand(batch_size, num_vars)
-
-        with self.test_session() as sess:
-            sess.run(init)
-            fd = {gl: x}
-            mu_grad_tf_out, var_grad_tf_out = sess.run([mu_grad_tf, var_grad_tf], feed_dict=fd)
-            mu_grad_spn_out, var_grad_spn_out = sess.run([mu_grad_spn, var_grad_spn], feed_dict=fd)
-
-        self.assertAllClose(mu_grad_tf_out, mu_grad_spn_out)
-        self.assertAllClose(var_grad_tf_out, var_grad_spn_out)
-
     @argsprod(
         [1], [2], [4], [spn.DenseSPNGenerator.InputDist.RAW,
                         spn.DenseSPNGenerator.InputDist.MIXTURE],

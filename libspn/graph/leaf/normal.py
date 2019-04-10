@@ -158,45 +158,6 @@ class NormalLeaf(LocationScaleLeaf):
         sum_data_squared = tf.reduce_sum(squared_data_per_component, axis=0)
         return {'accum': accum, "sum_data": sum_data, "sum_data_squared": sum_data_squared}
 
-    def _compute_gradient(self, incoming_grad):
-        """
-        Computes gradients for location and scales of the distributions propagated gradients via
-        chain rule. The incoming gradient is the summed gradient of the parents of this node.
-
-        Args:
-             incoming_grad (Tensor): A ``Tensor`` holding the summed gradient of the parents of this
-                                     node
-        Returns:
-            Tuple: A ``Tensor`` holding the gradient of the locations and a ``Tensor`` holding the
-                   gradient of the scales.
-        """
-        incoming_grad = tf.reshape(incoming_grad, (-1, self._num_vars, self._num_components))
-        # tiled_feed = self._tile_num_components(self._feed)
-        tiled_feed = self._preprocessed_feed()
-        mean = tf.expand_dims(self._loc_variable, 0)
-
-        # Compute the actual variance of the Gaussian without softplus
-        if self._softplus_scale:
-            scale = tf.nn.softplus(tf.expand_dims(self._scale_variable, 0))
-        else:
-            scale = tf.expand_dims(self._scale_variable, 0)
-        var = tf.square(scale)
-
-        # Compute the gradient
-        one_over_var = tf.reciprocal(var)
-        x_min_mu = tiled_feed - mean
-        mean_grad_out = one_over_var * x_min_mu
-
-        var_grad_out = tf.negative(0.5 * one_over_var * (1 - one_over_var * tf.square(x_min_mu)))
-        loc_grad = tf.reduce_sum(mean_grad_out * incoming_grad, axis=0)
-        var_grad = var_grad_out * incoming_grad
-
-        if self._softplus_scale:
-            scale_grad = 2 * var_grad * scale * tf.nn.sigmoid(self._scale_variable)
-        else:
-            scale_grad = 2 * var_grad * scale
-        return loc_grad, tf.reduce_sum(scale_grad, axis=0)
-
     def assign(self, accum, sum_data, sum_data_squared):
         """
         Assigns new values to variables based on accumulated tensors. It updates the distribution
