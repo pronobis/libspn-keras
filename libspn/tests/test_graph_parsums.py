@@ -33,8 +33,8 @@ class TestNodesParSums(tf.test.TestCase):
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.RawLeaf(num_vars=2, name="ContVars1")
-        v2 = spn.RawLeaf(num_vars=2, name="ContVars2")
+        v1 = spn.RawLeaf(num_vars=2, name="RawLeaf1")
+        v2 = spn.RawLeaf(num_vars=2, name="RawLeaf2")
 
         # MULTIPLE PARALLEL-SUM NODES
         # ---------------------------
@@ -420,8 +420,8 @@ class TestNodesParSums(tf.test.TestCase):
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.RawLeaf(num_vars=2, name="ContVars1")
-        v2 = spn.RawLeaf(num_vars=2, name="ContVars2")
+        v1 = spn.RawLeaf(num_vars=2, name="RawLeaf1")
+        v2 = spn.RawLeaf(num_vars=2, name="RawLeaf2")
 
         # MULTIPLE PARALLEL-SUM NODES
         # ---------------------------

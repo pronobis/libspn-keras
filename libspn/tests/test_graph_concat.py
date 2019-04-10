@@ -37,9 +37,9 @@ class TestGraphConcat(TestCase):
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=3)
-        v2 = spn.ContVars(num_vars=5)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=3)
+        v2 = spn.RawLeaf(num_vars=5)
+        v3 = spn.RawLeaf(num_vars=1)
 
         # Multiple inputs, indices specified
         test([(v1, [0, 2]),
@@ -101,8 +101,8 @@ class TestGraphConcat(TestCase):
 
     def test_compute_mpe_path(self):
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         p = spn.Concat((v12, [0, 5]), v34, (v12, [3]), v5)
         counts = tf.placeholder(tf.float32, shape=(None, 6))
         op = p._compute_log_mpe_path(tf.identity(counts),

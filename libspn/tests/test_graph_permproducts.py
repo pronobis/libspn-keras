@@ -37,9 +37,9 @@ class TestNodesPermProducts(TestCase):
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=3)
-        v2 = spn.ContVars(num_vars=3)
-        v3 = spn.ContVars(num_vars=3)
+        v1 = spn.RawLeaf(num_vars=3)
+        v2 = spn.RawLeaf(num_vars=3)
+        v3 = spn.RawLeaf(num_vars=3)
 
         # Multiple Product nodes - Common input Sizes
         # -------------------------------------------
@@ -304,7 +304,7 @@ class TestNodesPermProducts(TestCase):
         """Calculating scope of PermProducts"""
         # Create graph
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=2, name="V34")
+        v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s1.generate_ivs()
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
@@ -418,8 +418,8 @@ class TestNodesPermProducts(TestCase):
         """Calculating validity of PermProducts"""
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=3)
         v345 = spn.IndicatorLeaf(num_vars=3, num_vals=3)
-        v678 = spn.ContVars(num_vars=3)
-        v910 = spn.ContVars(num_vars=2)
+        v678 = spn.RawLeaf(num_vars=3)
+        v910 = spn.RawLeaf(num_vars=2)
         p1 = spn.PermProducts((v12, [0, 1]), (v12, [4, 5]))
         p2 = spn.PermProducts((v12, [3, 5]), (v345, [0, 1, 2]))
         p3 = spn.PermProducts((v345, [0, 1, 2]), (v345, [3, 4, 5]),
@@ -467,9 +467,9 @@ class TestNodesPermProducts(TestCase):
                         np.array(t, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=6)
-        v2 = spn.ContVars(num_vars=8)
-        v3 = spn.ContVars(num_vars=5)
+        v1 = spn.RawLeaf(num_vars=6)
+        v2 = spn.RawLeaf(num_vars=8)
+        v3 = spn.RawLeaf(num_vars=5)
 
         # Multiple Product nodes - Common input Sizes
         # -------------------------------------------

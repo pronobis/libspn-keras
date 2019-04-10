@@ -40,8 +40,8 @@ class TestNodesProductsLayer(TestCase):
                     # biggest product modelled
                     num_vars = max(prod_input_sizes)
 
-                    # Create a ContVars input node
-                    input_var = spn.ContVars(num_vars=num_vars)
+                    # Create a RawLeaf input node
+                    input_var = spn.RawLeaf(num_vars=num_vars)
                     inputs = list(itertools.repeat(input_var, len(prod_input_sizes)))
 
                     # Generate random input-indices for each product modelled,
@@ -60,8 +60,8 @@ class TestNodesProductsLayer(TestCase):
                         else:
                             num_vars = i_size
 
-                        # Create a ContVars input node
-                        inputs.append(spn.ContVars(num_vars=num_vars))
+                        # Create a RawLeaf input node
+                        inputs.append(spn.RawLeaf(num_vars=num_vars))
                         if indexed:
                             # Generate random indices for the created input
                             indices.append(random.sample(range(num_vars), k=i_size))
@@ -167,7 +167,7 @@ class TestNodesProductsLayer(TestCase):
         """Calculating scope of ProductsLayer"""
         # Create graph
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=2, name="V34")
+        v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s1.generate_ivs()
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
@@ -260,8 +260,8 @@ class TestNodesProductsLayer(TestCase):
         """Calculating validity of ProductsLayer"""
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=3)
         v345 = spn.IndicatorLeaf(num_vars=3, num_vals=3)
-        v678 = spn.ContVars(num_vars=3)
-        v910 = spn.ContVars(num_vars=2)
+        v678 = spn.RawLeaf(num_vars=3)
+        v910 = spn.RawLeaf(num_vars=2)
         p1 = spn.ProductsLayer((v12, [0, 3]), (v345, [1, 4, 7]), (v678, [0, 1, 2]),
                                (v910, [0]), (v910, 1), num_or_size_prods=1)
         p2 = spn.ProductsLayer((v12, [0, 3]), (v345, [1, 4, 7]),
@@ -358,11 +358,11 @@ class TestNodesProductsLayer(TestCase):
                     # biggest product modelled
                     num_vars = max(prod_input_sizes)
 
-                    # Randomly choose to create either an IndicatorLeaf or a ContVars node
+                    # Randomly choose to create either an IndicatorLeaf or a RawLeaf node
                     contvar = random.choice([True, False])
 
                     # Create an input node
-                    input_var = spn.ContVars(num_vars=num_vars) if contvar else \
+                    input_var = spn.RawLeaf(num_vars=num_vars) if contvar else \
                         spn.IndicatorLeaf(num_vars=num_vars, num_vals=num_vals)
                     inputs = list(itertools.repeat(input_var, len(prod_input_sizes)))
 
@@ -397,8 +397,8 @@ class TestNodesProductsLayer(TestCase):
                             true_outputs.append(np.zeros((batch_size,
                                                           num_vars*num_vals)))
                         else:
-                            # Create anContVars input node
-                            inputs.append(spn.ContVars(num_vars=num_vars))
+                            # Create anRawLeaf input node
+                            inputs.append(spn.RawLeaf(num_vars=num_vars))
                             # Generate random indices for the created input
                             indices.append(random.sample(range(num_vars), k=i_size))
                             # Create a Zeros matrix, with the same size as the

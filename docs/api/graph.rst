@@ -59,7 +59,7 @@ inherit from these classes.
 Variable Nodes
 --------------
 
-.. autoclass:: libspn.ContVars
+.. autoclass:: libspn.RawLeaf
 .. autoclass:: libspn.IndicatorLeaf
 .. autoclass:: libspn.NormalLeaf
 .. autoclass:: libspn.CauchyLeaf

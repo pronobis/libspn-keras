@@ -253,7 +253,7 @@ class PerformanceTest:
         # Set up the graph
         with tf.device(device_name):
             # Create input
-            inputs_pl = spn.ContVars(num_vars=input_size)
+            inputs_pl = spn.RawLeaf(num_vars=input_size)
             feed_dict = {inputs_pl: inputs}
 
             if ivs is not None:

@@ -37,8 +37,8 @@ class TestGraphProduct(tf.test.TestCase):
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=3)
-        v2 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=3)
+        v2 = spn.RawLeaf(num_vars=1)
 
         # Multiple inputs, multi-element batch
         test([v1, v2],
@@ -90,7 +90,7 @@ class TestGraphProduct(tf.test.TestCase):
         """Calculating scope of Product"""
         # Create a graph
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=2, name="V34")
+        v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s1.generate_ivs()
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
@@ -152,7 +152,7 @@ class TestGraphProduct(tf.test.TestCase):
     def test_compute_valid(self):
         """Calculating validity of Product"""
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
+        v34 = spn.RawLeaf(num_vars=2)
         p1 = spn.Product((v12, [0, 5]))
         p2 = spn.Product((v12, [0, 3]))
         p3 = spn.Product((v12, [0, 5]), v34)
@@ -166,8 +166,8 @@ class TestGraphProduct(tf.test.TestCase):
 
     def test_compute_log_mpe_path(self):
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         p = spn.Product((v12, [0, 5]), v34, (v12, [3]), v5)
         counts = tf.placeholder(tf.float32, shape=(None, 1))
         op = p._compute_log_mpe_path(tf.identity(counts),

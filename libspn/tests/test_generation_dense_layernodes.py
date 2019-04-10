@@ -22,8 +22,8 @@ class TestDenseSPNGenerator(TestCase):
                                               num_subsets=3,
                                               num_mixtures=2)
         v1 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
-        v2 = spn.ContVars(num_vars=3, name="ContVars1")
-        v3 = spn.ContVars(num_vars=2, name="ContVars2")
+        v2 = spn.RawLeaf(num_vars=3, name="RawLeaf1")
+        v3 = spn.RawLeaf(num_vars=2, name="RawLeaf2")
         s1 = spn.Sum(v3)
         n1 = spn.Concat(v2)
         out = gen._DenseSPNGenerator__generate_set([spn.Input(v1, [0, 3, 2, 6, 7]),
@@ -45,8 +45,8 @@ class TestDenseSPNGenerator(TestCase):
                                               num_subsets=3,
                                               num_mixtures=2)
         v1 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
-        v2 = spn.ContVars(num_vars=3, name="ContVars1")
-        v3 = spn.ContVars(num_vars=2, name="ContVars2")
+        v2 = spn.RawLeaf(num_vars=3, name="RawLeaf1")
+        v3 = spn.RawLeaf(num_vars=2, name="RawLeaf2")
         s1 = spn.Sum(v3, v2)
         n1 = spn.Concat(v2)
 

@@ -244,7 +244,7 @@ class PerformanceTest:
         tf.reset_default_graph()
         with tf.device(device_name):
             # Create input
-            inputs_pl = spn.ContVars(num_vars=input_size)
+            inputs_pl = spn.RawLeaf(num_vars=input_size)
             # Create IndicatorLeaf
             if ivs is None:
                 ivs_pl = [None for _ in range(self.num_sums)]

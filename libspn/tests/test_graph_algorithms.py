@@ -29,9 +29,9 @@ class TestGraphAlgorithms(TestCase):
                 return weight_val + sum(values) + 1
 
         # Generate graph
-        v1 = spn.ContVars(num_vars=1)
-        v2 = spn.ContVars(num_vars=1)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=1)
+        v2 = spn.RawLeaf(num_vars=1)
+        v3 = spn.RawLeaf(num_vars=1)
         s1 = spn.Sum(v1, v1, v2)  # v1 included twice
         s2 = spn.Sum(v1, v3)
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice
@@ -54,9 +54,9 @@ class TestGraphAlgorithms(TestCase):
         counter = [0]
 
         # Generate graph
-        v1 = spn.ContVars(num_vars=1)
-        v2 = spn.ContVars(num_vars=1)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=1)
+        v2 = spn.RawLeaf(num_vars=1)
+        v3 = spn.RawLeaf(num_vars=1)
         s1 = spn.Sum(v1, v1, v2)  # v1 included twice
         s2 = spn.Sum(v1, v3)
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice
@@ -105,9 +105,9 @@ class TestGraphAlgorithms(TestCase):
                 return 101
 
         # Generate graph
-        v1 = spn.ContVars(num_vars=1, name="v1")
-        v2 = spn.ContVars(num_vars=1, name="v2")
-        v3 = spn.ContVars(num_vars=1, name="v3")
+        v1 = spn.RawLeaf(num_vars=1, name="v1")
+        v2 = spn.RawLeaf(num_vars=1, name="v2")
+        v3 = spn.RawLeaf(num_vars=1, name="v3")
         s1 = spn.Sum(v1, v1, v2, name="s1")  # v1 included twice
         s2 = spn.Sum(v1, v3, name="s2")
         s3 = spn.Sum(v2, v3, v3, name="s3")  # v3 included twice
@@ -167,9 +167,9 @@ class TestGraphAlgorithms(TestCase):
             counter[0] += 1
 
         # Generate graph
-        v1 = spn.ContVars(num_vars=1)
-        v2 = spn.ContVars(num_vars=1)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=1)
+        v2 = spn.RawLeaf(num_vars=1)
+        v3 = spn.RawLeaf(num_vars=1)
         s1 = spn.Sum(v1, v1, v2)  # v1 included twice
         s2 = spn.Sum(v1, v3)
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice
@@ -209,9 +209,9 @@ class TestGraphAlgorithms(TestCase):
             counter[0] += 1
 
         # Generate graph
-        v1 = spn.ContVars(num_vars=1)
-        v2 = spn.ContVars(num_vars=1)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=1)
+        v2 = spn.RawLeaf(num_vars=1)
+        v3 = spn.RawLeaf(num_vars=1)
         s1 = spn.Sum(v1, v1, v2)  # v1 included twice
         s2 = spn.Sum(v1, v3)
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice
@@ -248,9 +248,9 @@ class TestGraphAlgorithms(TestCase):
                 return True
 
         # Generate graph
-        v1 = spn.ContVars(num_vars=1)
-        v2 = spn.ContVars(num_vars=1)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=1)
+        v2 = spn.RawLeaf(num_vars=1)
+        v3 = spn.RawLeaf(num_vars=1)
         s1 = spn.Sum(v1, v1, v2)  # v1 included twice
         s2 = spn.Sum(v1, v3)
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice

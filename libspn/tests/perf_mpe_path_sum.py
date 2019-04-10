@@ -83,7 +83,7 @@ class SumsLayerUnit(AbstractSumUnit):
 
     def _build_placeholders(self, inputs):
         total_inputs = sum([inp.shape[1] for inp in inputs.values])
-        return [spn.ContVars(num_vars=total_inputs)]
+        return [spn.RawLeaf(num_vars=total_inputs)]
 
     def _build_op(self, inputs, placeholders, conf):
         # TODO make sure the ivs are correct
@@ -136,7 +136,7 @@ class ParSumsUnit(AbstractSumUnit):
         super(ParSumsUnit, self).__init__(name, dtype)
 
     def _build_placeholders(self, inputs):
-        return [spn.ContVars(num_vars=inputs.values[0].shape[1])]
+        return [spn.RawLeaf(num_vars=inputs.values[0].shape[1])]
 
     def _build_op(self, inputs, placeholders, conf):
         """ Creates the graph using only ParSum nodes """
