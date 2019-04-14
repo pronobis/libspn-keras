@@ -373,7 +373,7 @@ class TestGraph(TestCase):
         s1 = spn.Sum(v12, v12, v34, (v12, [7, 3, 1, 0]), (v34, 0), name="S1")
         scopes_v12 = v12._compute_scope()
         scopes_v34 = v34._compute_scope()
-        # Note: weights/ivs are disconnected, so None should be output these
+        # Note: weights/latent_indicators are disconnected, so None should be output these
         scopes = s1._gather_input_scopes(None, None, None, scopes_v12, scopes_v34,
                                          scopes_v12, scopes_v34)
         self.assertTupleEqual(scopes,

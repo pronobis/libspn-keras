@@ -11,10 +11,10 @@ class TestGraphSum(TestCase):
     def test_compute_marginal_value(self):
         """Calculating marginal value of Sum"""
 
-        def test(values, ivs, weights, feed, output):
-            with self.subTest(values=values, ivs=ivs, weights=weights,
+        def test(values, latent_indicators, weights, feed, output):
+            with self.subTest(values=values, latent_indicators=latent_indicators, weights=weights,
                               feed=feed):
-                n = spn.Sum(*values, ivs=ivs)
+                n = spn.Sum(*values, latent_indicators=latent_indicators)
                 n.generate_weights(tf.initializers.constant(weights))
                 op = n.get_value(spn.InferenceType.MARGINAL)
                 op_log = n.get_log_value(spn.InferenceType.MARGINAL)
@@ -32,7 +32,7 @@ class TestGraphSum(TestCase):
         # Create inputs
         v1 = spn.RawLeaf(num_vars=3, name="RawLeaf1")
         v2 = spn.RawLeaf(num_vars=1, name="RawLeaf2")
-        ivs = spn.IndicatorLeaf(num_vars=1, num_vals=4)
+        latent_indicators = spn.IndicatorLeaf(num_vars=1, num_vals=4)
 
         # Multiple inputs, multi-element batch
         test([v1, v2],
@@ -54,24 +54,24 @@ class TestGraphSum(TestCase):
              [[0.1 * 0.1 + 0.3 * 0.5 + 0.7 * 0.4],
               [0.4 * 0.1 + 0.6 * 0.5 + 0.8 * 0.4]])
         test([v1, v2],
-             ivs,
+             latent_indicators,
              [0.1, 0.2, 0.4, 0.3],
              {v1: [[0.1, 0.2, 0.3],
                    [0.4, 0.5, 0.6]],
               v2: [[0.7],
                    [0.8]],
-              ivs: [[1],
+              latent_indicators: [[1],
                     [-1]]},
              [[0.2 * 0.2],
               [0.4 * 0.1 + 0.5 * 0.2 + 0.6 * 0.4 + 0.8 * 0.3]])
         test([(v1, [0, 2]), (v2, [0])],
-             (ivs, [0, 1, 2]),
+             (latent_indicators, [0, 1, 2]),
              [0.1, 0.5, 0.4],
              {v1: [[0.1, 0.2, 0.3],
                    [0.4, 0.5, 0.6]],
               v2: [[0.7],
                    [0.8]],
-              ivs: [[1],
+              latent_indicators: [[1],
                     [-1]]},
              [[0.3 * 0.5],
               [0.4 * 0.1 + 0.6 * 0.5 + 0.8 * 0.4]])
@@ -92,24 +92,24 @@ class TestGraphSum(TestCase):
              [[0.1 * 1.0],
               [0.2 * 1.0]])
         test([v2],
-             (ivs, 0),
+             (latent_indicators, 0),
              [0.5],
              {v2: [[0.1],
                    [0.2],
                    [0.3]],
-              ivs: [[0],
+              latent_indicators: [[0],
                     [-1],
                     [1]]},
              [[0.1 * 1.0],
               [0.2 * 1.0],
               [0.0]])
         test([(v1, [1])],
-             (ivs, 1),
+             (latent_indicators, 1),
              [0.5],
              {v1: [[0.01, 0.1, 0.03],
                    [0.02, 0.2, 0.04],
                    [0.03, 0.3, 0.05]],
-              ivs: [[0],
+              latent_indicators: [[0],
                     [-1],
                     [1]]},
              [[0.0],
@@ -130,18 +130,18 @@ class TestGraphSum(TestCase):
               v2: [[0.7]]},
              [[0.1 * 0.1 + 0.3 * 0.5 + 0.7 * 0.4]])
         test([v1, v2],
-             ivs,
+             latent_indicators,
              [0.1, 0.2, 0.4, 0.3],
              {v1: [[0.1, 0.2, 0.3]],
               v2: [[0.7]],
-              ivs: [[1]]},
+              latent_indicators: [[1]]},
              [[0.2 * 0.2]])
         test([(v1, [0, 2]), (v2, [0])],
-             (ivs, [1, 2, 3]),
+             (latent_indicators, [1, 2, 3]),
              [0.1, 0.5, 0.4],
              {v1: [[0.1, 0.2, 0.3]],
               v2: [[0.7]],
-              ivs: [[-1]]},
+              latent_indicators: [[-1]]},
              [[0.1 * 0.1 + 0.3 * 0.5 + 0.7 * 0.4]])
 
         # Single input with 1 value, single-element batch
@@ -156,25 +156,25 @@ class TestGraphSum(TestCase):
              {v1: [[0.01, 0.1, 0.03]]},
              [[0.1 * 1.0]])
         test([v2],
-             (ivs, [1]),
+             (latent_indicators, [1]),
              [0.5],
              {v2: [[0.1]],
-              ivs: [[-1]]},
+              latent_indicators: [[-1]]},
              [[0.1 * 1.0]])
         test([(v1, [1])],
-             (ivs, [1]),
+             (latent_indicators, [1]),
              [0.5],
              {v1: [[0.01, 0.1, 0.03]],
-              ivs: [[0]]},
+              latent_indicators: [[0]]},
              [[0.0]])
 
     def test_compute_mpe_value(self):
         """Calculating MPE value of Sum"""
 
-        def test(values, ivs, weights, feed, output):
-            with self.subTest(values=values, ivs=ivs, weights=weights,
+        def test(values, latent_indicators, weights, feed, output):
+            with self.subTest(values=values, latent_indicators=latent_indicators, weights=weights,
                               feed=feed):
-                n = spn.Sum(*values, ivs=ivs)
+                n = spn.Sum(*values, latent_indicators=latent_indicators)
                 n.generate_weights(tf.initializers.constant(weights))
                 op = n.get_value(spn.InferenceType.MPE)
                 op_log = n.get_log_value(spn.InferenceType.MPE)
@@ -192,7 +192,7 @@ class TestGraphSum(TestCase):
         # Create inputs
         v1 = spn.RawLeaf(num_vars=3, name="RawLeaf1")
         v2 = spn.RawLeaf(num_vars=1, name="RawLeaf2")
-        ivs = spn.IndicatorLeaf(num_vars=1, num_vals=4)
+        latent_indicators = spn.IndicatorLeaf(num_vars=1, num_vals=4)
 
         # Multiple inputs, multi-element batch
         test([v1, v2],
@@ -214,24 +214,24 @@ class TestGraphSum(TestCase):
              [[0.7 * 0.4],
               [0.8 * 0.4]])
         test([v1, v2],
-             ivs,
+             latent_indicators,
              [0.1, 0.2, 0.4, 0.3],
              {v1: [[0.1, 0.2, 0.3],
                    [0.4, 0.5, 0.6]],
               v2: [[0.7],
                    [0.8]],
-              ivs: [[2],
+              latent_indicators: [[2],
                     [-1]]},
              [[0.3 * 0.4],
               [0.8 * 0.3]])
         test([(v1, [0, 2]), (v2, [0])],
-             (ivs, [0, 1, 2]),
+             (latent_indicators, [0, 1, 2]),
              [0.1, 0.5, 0.4],
              {v1: [[0.1, 0.2, 0.3],
                    [0.4, 0.5, 0.6]],
               v2: [[0.7],
                    [0.8]],
-              ivs: [[1],
+              latent_indicators: [[1],
                     [-1]]},
              [[0.3 * 0.5],
               [0.8 * 0.4]])
@@ -252,20 +252,20 @@ class TestGraphSum(TestCase):
              [[0.1 * 1.0],
               [0.2 * 1.0]])
         test([v2],
-             (ivs, 0),
+             (latent_indicators, 0),
              [0.5],
              {v2: [[0.1],
                    [0.2]],
-              ivs: [[1],
+              latent_indicators: [[1],
                     [-1]]},
              [[0.0],
               [0.2 * 1.0]])
         test([(v1, [1])],
-             (ivs, 1),
+             (latent_indicators, 1),
              [0.5],
              {v1: [[0.01, 0.1, 0.03],
                    [0.02, 0.2, 0.04]],
-              ivs: [[1],
+              latent_indicators: [[1],
                     [-1]]},
              [[0.1 * 1.0],
               [0.2 * 1.0]])
@@ -284,18 +284,18 @@ class TestGraphSum(TestCase):
               v2: [[0.7]]},
              [[0.7 * 0.4]])
         test([v1, v2],
-             ivs,
+             latent_indicators,
              [0.1, 0.2, 0.4, 0.3],
              {v1: [[0.1, 0.2, 0.3]],
               v2: [[0.7]],
-              ivs: [[0]]},
+              latent_indicators: [[0]]},
              [[0.1 * 0.1]])
         test([(v1, [0, 2]), (v2, [0])],
-             (ivs, [1, 2, 3]),
+             (latent_indicators, [1, 2, 3]),
              [0.1, 0.5, 0.4],
              {v1: [[0.1, 0.2, 0.3]],
               v2: [[0.7]],
-              ivs: [[-1]]},
+              latent_indicators: [[-1]]},
              [[0.7 * 0.4]])
 
         # Single input with 1 value, single-element batch
@@ -310,16 +310,16 @@ class TestGraphSum(TestCase):
              {v1: [[0.01, 0.1, 0.03]]},
              [[0.1 * 1.0]])
         test([v2],
-             (ivs, [1]),
+             (latent_indicators, [1]),
              [0.5],
              {v2: [[0.1]],
-              ivs: [[-1]]},
+              latent_indicators: [[-1]]},
              [[0.1 * 1.0]])
         test([(v1, [1])],
-             (ivs, [1]),
+             (latent_indicators, [1]),
              [0.5],
              {v1: [[0.01, 0.1, 0.03]],
-              ivs: [[0]]},
+              latent_indicators: [[0]]},
              [[0.0]])
 
     def test_comput_scope(self):
@@ -328,7 +328,7 @@ class TestGraphSum(TestCase):
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
         v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
-        s1.generate_ivs()
+        s1.generate_latent_indicators()
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
         p1 = spn.Product((v12, [0, 7]), name="P1")
         p2 = spn.Product((v12, [3, 4]), name="P1")
@@ -340,7 +340,7 @@ class TestGraphSum(TestCase):
         s3 = spn.Sum(p4, n2, name="S3")
         p6 = spn.Product(s3, (n1, [2]), name="P6")
         s4 = spn.Sum(p5, p6, name="S4")
-        s4.generate_ivs()
+        s4.generate_latent_indicators()
         # Test
         self.assertListEqual(v12.get_scope(),
                              [spn.Scope(v12, 0), spn.Scope(v12, 0),
@@ -350,7 +350,7 @@ class TestGraphSum(TestCase):
         self.assertListEqual(v34.get_scope(),
                              [spn.Scope(v34, 0), spn.Scope(v34, 1)])
         self.assertListEqual(s1.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0)])
+                             [spn.Scope(v12, 0) | spn.Scope(s1.latent_indicators.node, 0)])
         self.assertListEqual(s2.get_scope(),
                              [spn.Scope(v12, 1)])
         self.assertListEqual(p1.get_scope(),
@@ -360,7 +360,7 @@ class TestGraphSum(TestCase):
         self.assertListEqual(p3.get_scope(),
                              [spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(n1.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 1),
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(n2.get_scope(),
@@ -368,22 +368,22 @@ class TestGraphSum(TestCase):
                               spn.Scope(v12, 0) | spn.Scope(v12, 1)])
         self.assertListEqual(p4.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0)])
         self.assertListEqual(p5.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(s3.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0)])
         self.assertListEqual(p6.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s1.ivs.node, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0)])
         self.assertListEqual(s4.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s1.ivs.node, 0) |
-                              spn.Scope(s4.ivs.node, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0) |
+                              spn.Scope(s4.latent_indicators.node, 0)])
 
     def test_compute_valid(self):
         """Calculating validity of Sum"""
@@ -407,20 +407,20 @@ class TestGraphSum(TestCase):
         self.assertFalse(s5.is_valid())
         # With IVS
         s6 = spn.Sum(p1, p2)
-        s6.generate_ivs()
+        s6.generate_latent_indicators()
         self.assertTrue(s6.is_valid())
         s7 = spn.Sum(p1, p2)
-        s7.set_ivs(spn.RawLeaf(num_vars=2))
+        s7.set_latent_indicators(spn.RawLeaf(num_vars=2))
         self.assertFalse(s7.is_valid())
         s8 = spn.Sum(p1, p2)
-        s8.set_ivs(spn.IndicatorLeaf(num_vars=2, num_vals=2))
+        s8.set_latent_indicators(spn.IndicatorLeaf(num_vars=2, num_vals=2))
         with self.assertRaises(spn.StructureError):
             s8.is_valid()
         s9 = spn.Sum(p1, p2)
-        s9.set_ivs((v12, [0, 3]))
+        s9.set_latent_indicators((v12, [0, 3]))
         self.assertTrue(s9.is_valid())
 
-    def test_compute_mpe_path_noivs(self):
+    def test_compute_mpe_path_nolatent_indicators(self):
         spn.conf.argmax_zero = True
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v34 = spn.RawLeaf(num_vars=2)
@@ -492,13 +492,13 @@ class TestGraphSum(TestCase):
                               [0.]],
                              dtype=np.float32))
 
-    def test_compute_mpe_path_ivs(self):
+    def test_compute_mpe_path_latent_indicators(self):
         spn.conf.argmax_zero = True
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v34 = spn.RawLeaf(num_vars=2)
         v5 = spn.RawLeaf(num_vars=1)
         s = spn.Sum((v12, [0, 5]), v34, (v12, [3]), v5)
-        iv = s.generate_ivs()
+        iv = s.generate_latent_indicators()
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
         op = s._compute_log_mpe_path(tf.identity(counts),
@@ -541,13 +541,13 @@ class TestGraphSum(TestCase):
                    [0.5],
                    [1.2],
                    [0.9]]
-        ivs_feed = [[-1], [-1], [-1], [-1], [1], [2], [3], [1]]
+        latent_indicators_feed = [[-1], [-1], [-1], [-1], [1], [2], [3], [1]]
 
         with self.test_session() as sess:
             sess.run(init)
             # Skip the IndicatorLeaf op
             out = sess.run(op, feed_dict={counts: counts_feed,
-                                          iv: ivs_feed,
+                                          iv: latent_indicators_feed,
                                           v12: v12_feed,
                                           v34: v34_feed,
                                           v5: v5_feed})
@@ -618,7 +618,7 @@ class TestGraphSum(TestCase):
         v34 = spn.RawLeaf(num_vars=2)
         v5 = spn.RawLeaf(num_vars=1)
         s = spn.Sum((v12, [0, 5]), v34, (v12, [3]), v5)
-        iv = s.generate_ivs()
+        iv = s.generate_latent_indicators()
         weights = np.random.rand(6)
         w = s.generate_weights(tf.initializers.constant(weights))
         gradients = tf.placeholder(tf.float32, shape=(None, 1))
@@ -635,13 +635,13 @@ class TestGraphSum(TestCase):
         v12_feed = np.random.randint(4, size=(batch_size, 2))
         v34_feed = np.random.rand(batch_size, 2)
         v5_feed = np.random.rand(batch_size, 1)
-        ivs_feed = np.random.randint(6, size=(batch_size, 1))
+        latent_indicators_feed = np.random.randint(6, size=(batch_size, 1))
 
         with self.test_session() as sess:
             sess.run(init)
             # Skip the IndicatorLeaf op
             out = sess.run(op, feed_dict={gradients: gradients_feed,
-                                          iv: ivs_feed,
+                                          iv: latent_indicators_feed,
                                           v12: v12_feed,
                                           v34: v34_feed,
                                           v5: v5_feed})
@@ -659,11 +659,11 @@ class TestGraphSum(TestCase):
         with np.warnings.catch_warnings():
             np.warnings.filterwarnings('ignore', r'divide by zero encountered in log')
             inputs_log = np.log(input_values)
-        ivs_values = np.eye(6)[np.squeeze(ivs_feed, axis=1)]
+        latent_indicators_values = np.eye(6)[np.squeeze(latent_indicators_feed, axis=1)]
         with np.warnings.catch_warnings():
             np.warnings.filterwarnings('ignore', r'divide by zero encountered in log')
-            ivs_log = np.log(ivs_values)
-        weighted_inputs = weights_log + (inputs_log + ivs_log)
+            latent_indicators_log = np.log(latent_indicators_values)
+        weighted_inputs = weights_log + (inputs_log + latent_indicators_log)
         weighted_inputs_exp = np.exp(weighted_inputs)
         with np.warnings.catch_warnings():
             np.warnings.filterwarnings('ignore', r'invalid value encountered in true_divide')

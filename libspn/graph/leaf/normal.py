@@ -31,7 +31,7 @@ class NormalLeaf(LocationScaleLeaf):
                                             an numpy.ndarray, must have shape
                                             ``[num_vars, num_components]``.
         scale_init (float): If a float and there's no ``initialization_data``, scales are
-                            initialized with ``variance_init``.
+            initialized with ``scale_init``.
         trainable_loc (bool): Whether to make the location ``Variable`` trainable.
         trainable_scale (bool): Whether to make the scale ``Variable`` trainable.
         use_prior (bool): Use prior when initializing variances from data.

@@ -58,7 +58,7 @@ class Ops:
         root1 = dense_gen.generate(inputs, root_name="root_1")
         root = spn.Sum(root0, root1, name="root")
         spn.generate_weights(root, init_value=weight_init_value)
-        latent = root.generate_ivs()
+        latent = root.generate_latent_indicators()
 
         # Add EM Learning
         additive_smoothing_var = tf.Variable(additive_smoothing, dtype=spn.conf.dtype)
@@ -99,7 +99,7 @@ class Ops:
                        for i in range(10)]
         root = spn.Sum(*class_roots, name="root")
         spn.generate_weights(root, init_value=weight_init_value)
-        latent = root.generate_ivs()
+        latent = root.generate_latent_indicators()
 
         # Add EM Learning
         additive_smoothing_var = tf.Variable(additive_smoothing, dtype=spn.conf.dtype)
@@ -255,7 +255,7 @@ class PerformanceTest:
         # Create graph
         tf.reset_default_graph()
         with tf.device(device_name):
-            # Create input ivs
+            # Create input latent_indicators
             inputs_pl = spn.IndicatorLeaf(num_vars=196, num_vals=2)
             # Create dense SPN and generate TF graph for training
             start_time = time.time()
@@ -273,7 +273,7 @@ class PerformanceTest:
 
             # Generate Testing Ops
             mpe_state_gen = spn.MPEState(log=log, value_inference_type=spn.InferenceType.MPE)
-            mpe_ivs, mpe_latent = mpe_state_gen.get_state(root, inputs_pl, latent)
+            mpe_latent_indicators, mpe_latent = mpe_state_gen.get_state(root, inputs_pl, latent)
             setup_time = time.time() - start_time
 
             if on_gpu:

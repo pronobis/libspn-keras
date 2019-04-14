@@ -92,7 +92,7 @@ class TestGraphProduct(tf.test.TestCase):
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
         v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
-        s1.generate_ivs()
+        s1.generate_latent_indicators()
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
         p1 = spn.Product((v12, [0, 7]), name="P1")
         p2 = spn.Product((v12, [3, 4]), name="P1")
@@ -104,7 +104,7 @@ class TestGraphProduct(tf.test.TestCase):
         s3 = spn.Sum(p4, n2, name="S3")
         p6 = spn.Product(s3, (n1, [2]), name="P6")
         s4 = spn.Sum(p5, p6, name="S4")
-        s4.generate_ivs()
+        s4.generate_latent_indicators()
         # Test
         self.assertListEqual(v12.get_scope(),
                              [spn.Scope(v12, 0), spn.Scope(v12, 0),
@@ -114,7 +114,7 @@ class TestGraphProduct(tf.test.TestCase):
         self.assertListEqual(v34.get_scope(),
                              [spn.Scope(v34, 0), spn.Scope(v34, 1)])
         self.assertListEqual(s1.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0)])
+                             [spn.Scope(v12, 0) | spn.Scope(s1.latent_indicators.node, 0)])
         self.assertListEqual(s2.get_scope(),
                              [spn.Scope(v12, 1)])
         self.assertListEqual(p1.get_scope(),
@@ -124,7 +124,7 @@ class TestGraphProduct(tf.test.TestCase):
         self.assertListEqual(p3.get_scope(),
                              [spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(n1.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 1),
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(n2.get_scope(),
@@ -132,22 +132,22 @@ class TestGraphProduct(tf.test.TestCase):
                               spn.Scope(v12, 0) | spn.Scope(v12, 1)])
         self.assertListEqual(p4.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0)])
         self.assertListEqual(p5.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(s3.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0)])
         self.assertListEqual(p6.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s1.ivs.node, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0)])
         self.assertListEqual(s4.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s1.ivs.node, 0) |
-                              spn.Scope(s4.ivs.node, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0) |
+                              spn.Scope(s4.latent_indicators.node, 0)])
 
     def test_compute_valid(self):
         """Calculating validity of Product"""

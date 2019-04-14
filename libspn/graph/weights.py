@@ -218,7 +218,7 @@ class Weights(ParamNode):
         self._variable = tf.Variable(
             init_val, dtype=conf.dtype,
             collections=[SPNGraphKeys.SPN_PARAMETERS, tf.GraphKeys.WEIGHTS,
-                         tf.GraphKeys.TRAINABLE_VARIABLES])
+                         tf.GraphKeys.TRAINABLE_VARIABLES, tf.GraphKeys.GLOBAL_VARIABLES])
 
     @utils.lru_cache
     def _compute_out_size(self):

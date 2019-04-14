@@ -25,7 +25,7 @@ class TestGraphSaving(TestCase):
         # Load
         loader = spn.JSONLoader(path)
         root2 = loader.load()
-        ivs2 = loader.find_node('IndicatorLeaf')
+        latent_indicators2 = loader.find_node('IndicatorLeaf')
         init2 = spn.initialize_weights(root2)
         val_mpe2 = root2.get_value(inference_type=spn.InferenceType.MPE)
         val_marginal2 = root2.get_value(inference_type=spn.InferenceType.MARGINAL)
@@ -34,8 +34,8 @@ class TestGraphSaving(TestCase):
         self.assertTrue(root2.is_valid())
         with self.test_session() as sess:
             init2.run()
-            out_marginal2 = sess.run(val_marginal2, feed_dict={ivs2: model.feed})
-            out_mpe2 = sess.run(val_mpe2, feed_dict={ivs2: model.feed})
+            out_marginal2 = sess.run(val_marginal2, feed_dict={latent_indicators2: model.feed})
+            out_mpe2 = sess.run(val_mpe2, feed_dict={latent_indicators2: model.feed})
         self.assertAlmostEqual(out_marginal2[np.all(model.feed >= 0, axis=1), :].sum(),
                                1.0, places=6)
         np.testing.assert_array_almost_equal(out_marginal2, model.true_values)
@@ -60,7 +60,7 @@ class TestGraphSaving(TestCase):
         # Load
         loader = spn.JSONLoader(path)
         root2 = loader.load()
-        ivs2 = loader.find_node('SampleIndicatorLeaf')
+        latent_indicators2 = loader.find_node('SampleIndicatorLeaf')
         init2 = spn.initialize_weights(root2)
         val_marginal2 = root2.get_value(inference_type=spn.InferenceType.MARGINAL)
 
@@ -68,7 +68,7 @@ class TestGraphSaving(TestCase):
         self.assertTrue(root2.is_valid())
         with self.test_session() as sess:
             init2.run()
-            out_marginal2 = sess.run(val_marginal2, feed_dict={ivs2: feed})
+            out_marginal2 = sess.run(val_marginal2, feed_dict={latent_indicators2: feed})
         self.assertAlmostEqual(out_marginal2.sum(), 1.0, places=6)
 
     def test_withparams_initfixed(self):
@@ -93,14 +93,14 @@ class TestGraphSaving(TestCase):
             # Load
             loader = spn.JSONLoader(path)
             root2 = loader.load(load_param_vals=True)
-            ivs2 = loader.find_node('IndicatorLeaf')
+            latent_indicators2 = loader.find_node('IndicatorLeaf')
             val_mpe2 = root2.get_value(inference_type=spn.InferenceType.MPE)
             val_marginal2 = root2.get_value(inference_type=spn.InferenceType.MARGINAL)
 
             # Check model after loading
             self.assertTrue(root2.is_valid())
-            out_marginal2 = sess.run(val_marginal2, feed_dict={ivs2: model.feed})
-            out_mpe2 = sess.run(val_mpe2, feed_dict={ivs2: model.feed})
+            out_marginal2 = sess.run(val_marginal2, feed_dict={latent_indicators2: model.feed})
+            out_mpe2 = sess.run(val_mpe2, feed_dict={latent_indicators2: model.feed})
             self.assertAlmostEqual(out_marginal2[np.all(model.feed >= 0, axis=1), :].sum(),
                                    1.0, places=6)
             np.testing.assert_array_almost_equal(out_marginal2, model.true_values)
@@ -134,12 +134,12 @@ class TestGraphSaving(TestCase):
             # Load
             loader = spn.JSONLoader(path)
             root2 = loader.load(load_param_vals=True)
-            ivs2 = loader.find_node('SampleIndicatorLeaf')
+            latent_indicators2 = loader.find_node('SampleIndicatorLeaf')
             val_marginal2 = root2.get_value(inference_type=spn.InferenceType.MARGINAL)
 
             # Check model after loading
             self.assertTrue(root2.is_valid())
-            out_marginal2 = sess.run(val_marginal2, feed_dict={ivs2: feed})
+            out_marginal2 = sess.run(val_marginal2, feed_dict={latent_indicators2: feed})
             self.assertAlmostEqual(out_marginal2.sum(), 1.0, places=6)
 
             # Writing graph

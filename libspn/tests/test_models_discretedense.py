@@ -11,7 +11,7 @@ import itertools
 
 class TestModelsDiscreteDense(TestCase):
 
-    def generic_model_test(self, name, root, sample_ivs, class_ivs):
+    def generic_model_test(self, name, root, sample_latent_indicators, class_latent_indicators):
         # Generating weight initializers
         init = spn.initialize_weights(root)
 
@@ -29,14 +29,14 @@ class TestModelsDiscreteDense(TestCase):
             init.run()
             # Computing all values
             feed_samples = list(itertools.product(range(2), repeat=6))
-            if class_ivs is not None:
-                feed_class = np.array([i for i in range(class_ivs.num_vals)
+            if class_latent_indicators is not None:
+                feed_class = np.array([i for i in range(class_latent_indicators.num_vals)
                                        for _ in range(len(feed_samples))]).reshape(-1, 1)
-                feed_samples = np.array(feed_samples * class_ivs.num_vals)
-                feed_dict = {sample_ivs: feed_samples, class_ivs: feed_class}
+                feed_samples = np.array(feed_samples * class_latent_indicators.num_vals)
+                feed_dict = {sample_latent_indicators: feed_samples, class_latent_indicators: feed_class}
             else:
                 feed_samples = np.array(feed_samples)
-                feed_dict = {sample_ivs: feed_samples}
+                feed_dict = {sample_latent_indicators: feed_samples}
             out = sess.run(v, feed_dict=feed_dict)
             out_log = sess.run(tf.exp(v_log), feed_dict=feed_dict)
 
@@ -44,7 +44,7 @@ class TestModelsDiscreteDense(TestCase):
             self.assertAlmostEqual(out.sum(), 1.0, places=6)
             self.assertAlmostEqual(out_log.sum(), 1.0, places=6)
 
-    def test_discretedense_1class_internalivs(self):
+    def test_discretedense_1class_internallatent_indicators(self):
         model = spn.DiscreteDenseModel(
             num_classes=1,
             num_decomps=2,
@@ -55,9 +55,9 @@ class TestModelsDiscreteDense(TestCase):
             weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
         root = model.build(num_vars=6, num_vals=2)
         self.generic_model_test("1class",
-                                root, model.sample_ivs, None)
+                                root, model.sample_latent_indicators, None)
 
-    def test_discretedense_3class_internalivs(self):
+    def test_discretedense_3class_internallatent_indicators(self):
         model = spn.DiscreteDenseModel(
             num_classes=3,
             num_decomps=2,
@@ -68,9 +68,9 @@ class TestModelsDiscreteDense(TestCase):
             weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
         root = model.build(num_vars=6, num_vals=2)
         self.generic_model_test("3class",
-                                root, model.sample_ivs, model.class_ivs)
+                                root, model.sample_latent_indicators, model.class_latent_indicators)
 
-    def test_discretedense_1class_externalivs(self):
+    def test_discretedense_1class_externallatent_indicators(self):
         model = spn.DiscreteDenseModel(
             num_classes=1,
             num_decomps=2,
@@ -79,12 +79,12 @@ class TestModelsDiscreteDense(TestCase):
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
             weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
-        sample_ivs = spn.IndicatorLeaf(num_vars=6, num_vals=2)
-        root = model.build(sample_ivs)
+        sample_latent_indicators = spn.IndicatorLeaf(num_vars=6, num_vals=2)
+        root = model.build(sample_latent_indicators)
         self.generic_model_test("1class",
-                                root, sample_ivs, None)
+                                root, sample_latent_indicators, None)
 
-    def test_discretedense_3class_externalivs(self):
+    def test_discretedense_3class_externallatent_indicators(self):
         model = spn.DiscreteDenseModel(
             num_classes=3,
             num_decomps=2,
@@ -93,13 +93,13 @@ class TestModelsDiscreteDense(TestCase):
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
             weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
-        sample_ivs = spn.IndicatorLeaf(num_vars=6, num_vals=2)
-        class_ivs = spn.IndicatorLeaf(num_vars=1, num_vals=3)
-        root = model.build(sample_ivs, class_input=class_ivs)
+        sample_latent_indicators = spn.IndicatorLeaf(num_vars=6, num_vals=2)
+        class_latent_indicators = spn.IndicatorLeaf(num_vars=1, num_vals=3)
+        root = model.build(sample_latent_indicators, class_input=class_latent_indicators)
         self.generic_model_test("3class",
-                                root, sample_ivs, class_ivs)
+                                root, sample_latent_indicators, class_latent_indicators)
 
-    def test_discretedense_saving_1class_internalivs(self):
+    def test_discretedense_saving_1class_internallatent_indicators(self):
         model1 = spn.DiscreteDenseModel(
             num_classes=1,
             num_decomps=2,
@@ -138,13 +138,13 @@ class TestModelsDiscreteDense(TestCase):
             # Check model after loading
             self.assertTrue(model2.root.is_valid())
             out_marginal2 = sess.run(val_marginal2,
-                                     feed_dict={model2.sample_ivs: feed_samples})
+                                     feed_dict={model2.sample_latent_indicators: feed_samples})
             self.assertAlmostEqual(out_marginal2.sum(), 1.0, places=6)
 
             # Writing graph
             self.write_tf_graph(sess, self.sid(), self.cid())
 
-    def test_discretedense_saving_3class_internalivs(self):
+    def test_discretedense_saving_3class_internallatent_indicators(self):
         model1 = spn.DiscreteDenseModel(
             num_classes=3,
             num_decomps=2,
@@ -186,14 +186,14 @@ class TestModelsDiscreteDense(TestCase):
             # Check model after loading
             self.assertTrue(model2.root.is_valid())
             out_marginal2 = sess.run(val_marginal2,
-                                     feed_dict={model2.sample_ivs: feed_samples,
-                                                model2.class_ivs: feed_class})
+                                     feed_dict={model2.sample_latent_indicators: feed_samples,
+                                                model2.class_latent_indicators: feed_class})
             self.assertAlmostEqual(out_marginal2.sum(), 1.0, places=6)
 
             # Writing graph
             self.write_tf_graph(sess, self.sid(), self.cid())
 
-    def test_discretedense_saving_1class_externalivs(self):
+    def test_discretedense_saving_1class_externallatent_indicators(self):
         model1 = spn.DiscreteDenseModel(
             num_classes=1,
             num_decomps=2,
@@ -202,8 +202,8 @@ class TestModelsDiscreteDense(TestCase):
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
             weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
-        sample_ivs1 = spn.IndicatorLeaf(num_vars=6, num_vals=2)
-        model1.build(sample_ivs1)
+        sample_latent_indicators1 = spn.IndicatorLeaf(num_vars=6, num_vals=2)
+        model1.build(sample_latent_indicators1)
         init1 = spn.initialize_weights(model1.root)
 
         feed_samples = np.array(list(itertools.product(range(2), repeat=6)))
@@ -240,7 +240,7 @@ class TestModelsDiscreteDense(TestCase):
             # Writing graph
             self.write_tf_graph(sess, self.sid(), self.cid())
 
-    def test_discretedense_saving_3class_externalivs(self):
+    def test_discretedense_saving_3class_externallatent_indicators(self):
         model1 = spn.DiscreteDenseModel(
             num_classes=3,
             num_decomps=2,
@@ -249,9 +249,9 @@ class TestModelsDiscreteDense(TestCase):
             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
             num_input_mixtures=None,
             weight_initializer=tf.initializers.random_uniform(0.0, 1.0))
-        sample_ivs1 = spn.IndicatorLeaf(num_vars=6, num_vals=2)
-        class_ivs1 = spn.IndicatorLeaf(num_vars=1, num_vals=3)
-        model1.build(sample_ivs1, class_input=class_ivs1)
+        sample_latent_indicators1 = spn.IndicatorLeaf(num_vars=6, num_vals=2)
+        class_latent_indicators1 = spn.IndicatorLeaf(num_vars=1, num_vals=3)
+        model1.build(sample_latent_indicators1, class_input=class_latent_indicators1)
         init1 = spn.initialize_weights(model1.root)
 
         feed_samples = list(itertools.product(range(2), repeat=6))

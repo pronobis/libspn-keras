@@ -306,7 +306,7 @@ class TestNodesPermProducts(TestCase):
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
         v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
-        s1.generate_ivs()
+        s1.generate_latent_indicators()
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
         p1 = spn.Product((v12, [0, 7]), name="P1")
         p2 = spn.Product((v12, [3, 4]), name="P2")
@@ -322,7 +322,7 @@ class TestNodesPermProducts(TestCase):
         n3 = spn.Concat((pp1, [0, 2, 3]), pp2, pp4, name="N3")
         s3 = spn.Sum((pp1, [0, 2, 4]), (pp1, [1, 3, 5]), pp2, pp3, (pp4, 0),
                      pp5, pp6, name="S3")
-        s3.generate_ivs()
+        s3.generate_latent_indicators()
         n4 = spn.Concat((pp3, [0, 1]), pp5, (pp6, 0), name="N4")
         pp7 = spn.PermProducts(n3, s3, n4, name="PP7")  # num_prods = 24
         pp8 = spn.PermProducts(n3, name="PP8")  # num_prods = 1
@@ -336,7 +336,7 @@ class TestNodesPermProducts(TestCase):
         self.assertListEqual(v34.get_scope(),
                              [spn.Scope(v34, 0), spn.Scope(v34, 1)])
         self.assertListEqual(s1.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0)])
+                             [spn.Scope(v12, 0) | spn.Scope(s1.latent_indicators.node, 0)])
         self.assertListEqual(s2.get_scope(),
                              [spn.Scope(v12, 1)])
         self.assertListEqual(p1.get_scope(),
@@ -346,7 +346,7 @@ class TestNodesPermProducts(TestCase):
         self.assertListEqual(p3.get_scope(),
                              [spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(n1.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 1),
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(n2.get_scope(),
@@ -354,9 +354,9 @@ class TestNodesPermProducts(TestCase):
                               spn.Scope(v12, 0) | spn.Scope(v12, 1)])
         self.assertListEqual(pp1.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
@@ -365,7 +365,7 @@ class TestNodesPermProducts(TestCase):
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(pp2.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1)])
         self.assertListEqual(pp3.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
@@ -381,19 +381,19 @@ class TestNodesPermProducts(TestCase):
                              [spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(n3.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(s3.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s1.ivs.node, 0) |
-                              spn.Scope(s3.ivs.node, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0) |
+                              spn.Scope(s3.latent_indicators.node, 0)])
         self.assertListEqual(n4.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1),
@@ -404,11 +404,11 @@ class TestNodesPermProducts(TestCase):
         self.assertListEqual(pp7.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s1.ivs.node, 0) |
-                              spn.Scope(s3.ivs.node, 0)] * 24)
+                              spn.Scope(s1.latent_indicators.node, 0) |
+                              spn.Scope(s3.latent_indicators.node, 0)] * 24)
         self.assertListEqual(pp8.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0) | spn.Scope(v34, 0) |
+                              spn.Scope(s1.latent_indicators.node, 0) | spn.Scope(v34, 0) |
                               spn.Scope(v34, 1)])
         self.assertListEqual(pp9.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |

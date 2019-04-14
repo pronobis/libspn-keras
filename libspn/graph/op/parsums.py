@@ -21,7 +21,7 @@ class ParSums(BaseSum):
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IndicatorLeaf of an explicit latent variable
+        latent_indicators (input_like): Input providing IndicatorLeaf of an explicit latent variable
             associated with this sum node. See :meth:`~libspn.Input.as_input`
             for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the node.
@@ -35,11 +35,11 @@ class ParSums(BaseSum):
                                        op generation.
     """
 
-    def __init__(self, *values, num_sums=1, weights=None, ivs=None,
-                 inference_type=InferenceType.MARGINAL, sample_prob=None, 
+    def __init__(self, *values, num_sums=1, weights=None, latent_indicators=None,
+                 inference_type=InferenceType.MARGINAL, sample_prob=None,
                  dropconnect_keep_prob=None, name="ParallelSums"):
-        super().__init__( 
-            *values, num_sums=num_sums, weights=weights, ivs=ivs,
-            inference_type=inference_type, sample_prob=sample_prob, 
+        super().__init__(
+            *values, num_sums=num_sums, weights=weights, latent_indicators=latent_indicators,
+            inference_type=inference_type, sample_prob=sample_prob,
             dropconnect_keep_prob=dropconnect_keep_prob,
             name=name)

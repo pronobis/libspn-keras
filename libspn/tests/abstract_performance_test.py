@@ -148,15 +148,15 @@ class ConfigGenerator:
 
 class SumConfigGenerator(ConfigGenerator):
 
-    def __init__(self, inference_types=None, log=None, ivs=None, gpu=None):
+    def __init__(self, inference_types=None, log=None, latent_indicators=None, gpu=None):
         super().__init__(inference_types=inference_types, log=log, gpu=gpu)
-        self.ivs = bool_field(ivs)
+        self.latent_indicators = bool_field(latent_indicators)
 
     def field_names(self):
-        return {'ivs': self.ivs, **super().field_names()}
+        return {'latent_indicators': self.latent_indicators, **super().field_names()}
 
     def description(self, conf):
-        return super().description(conf) + "IndicatorLeaf={}".format(conf['ivs'])
+        return super().description(conf) + "IndicatorLeaf={}".format(conf['latent_indicators'])
 
 
 def bool_field(a):

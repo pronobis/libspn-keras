@@ -15,7 +15,6 @@ from tensorflow_probability import distributions as tfd
 
 @utils.register_serializable
 class BaseSum(OpNode, abc.ABC):
-
     logger = get_logger()
     info = logger.info
 
@@ -33,7 +32,7 @@ class BaseSum(OpNode, abc.ABC):
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IndicatorLeafs of an explicit latent variable
+        latent_indicators (input_like): Input providing IndicatorLeafs of an explicit latent variable
             associated with this sum node. See :meth:`~libspn.Input.as_input`
             for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the node.
@@ -47,7 +46,7 @@ class BaseSum(OpNode, abc.ABC):
                                        op generation.
     """
 
-    def __init__(self, *values, num_sums, weights=None, ivs=None, sum_sizes=None,
+    def __init__(self, *values, num_sums, weights=None, latent_indicators=None, sum_sizes=None,
                  inference_type=InferenceType.MARGINAL, batch_axis=0, op_axis=1,
                  reduce_axis=2, masked=False, sample_prob=None,
                  dropconnect_keep_prob=None, name="Sum"):
@@ -55,7 +54,7 @@ class BaseSum(OpNode, abc.ABC):
 
         self.set_values(*values)
         self.set_weights(weights)
-        self.set_ivs(ivs)
+        self.set_latent_indicators(latent_indicators)
 
         # Initialize the number of sums and the sum sizes
         self._reset_sum_sizes(num_sums=num_sums, sum_sizes=sum_sizes)
@@ -84,7 +83,7 @@ class BaseSum(OpNode, abc.ABC):
             A list of sum sizes, where the i-th element corresponds to the size of the i-th sum.
         """
         input_sizes = self.get_input_sizes()
-        num_values = sum(input_sizes[2:])  # Skip ivs, weights
+        num_values = sum(input_sizes[2:])  # Skip latent_indicators, weights
         return num_sums * [num_values]
 
     def _build_mask(self):
@@ -102,8 +101,9 @@ class BaseSum(OpNode, abc.ABC):
         data['values'] = [(i.node.name, i.indices) for i in self._values]
         if self._weights:
             data['weights'] = (self._weights.node.name, self._weights.indices)
-        if self._ivs:
-            data['ivs'] = (self._ivs.node.name, self._ivs.indices)
+        if self._latent_indicators:
+            data['latent_indicators'] = (
+            self._latent_indicators.node.name, self._latent_indicators.indices)
         data['num_sums'] = self._num_sums
         data['sum_sizes'] = self._sum_sizes
         data['op_axis'] = self._op_axis
@@ -118,7 +118,7 @@ class BaseSum(OpNode, abc.ABC):
         super().deserialize(data)
         self.set_values()
         self.set_weights()
-        self.set_ivs()
+        self.set_latent_indicators()
         self._dropconnect_keep_prob = data['dropconnect_keep_prob']
         self._sample_prob = data['sample_prob']
         self._num_sums = data['num_sums']
@@ -129,7 +129,7 @@ class BaseSum(OpNode, abc.ABC):
         self._reduce_axis = data['reduce_axis']
 
     def disconnect_inputs(self):
-        self._ivs = self._weights = self._values = None
+        self._latent_indicators = self._weights = self._values = None
 
     @utils.docinherit(OpNode)
     def deserialize_inputs(self, data, nodes_by_name):
@@ -139,14 +139,15 @@ class BaseSum(OpNode, abc.ABC):
         weights = data.get('weights', None)
         if weights:
             self._weights = Input(nodes_by_name[weights[0]], weights[1])
-        ivs = data.get('ivs', None)
-        if ivs:
-            self._ivs = Input(nodes_by_name[ivs[0]], ivs[1])
+        latent_indicators = data.get('latent_indicators', None)
+        if latent_indicators:
+            self._latent_indicators = Input(nodes_by_name[latent_indicators[0]],
+                                            latent_indicators[1])
 
     @property
     @utils.docinherit(OpNode)
     def inputs(self):
-        return (self._weights, self._ivs) + self._values
+        return (self._weights, self._latent_indicators) + self._values
 
     @property
     def dropconnect_keep_prob(self):
@@ -188,18 +189,18 @@ class BaseSum(OpNode, abc.ABC):
         self._max_sum_size = max(self._sum_sizes) if self._sum_sizes else 0
 
     @property
-    def ivs(self):
+    def latent_indicators(self):
         """Input: IndicatorLeafs input."""
-        return self._ivs
+        return self._latent_indicators
 
-    def set_ivs(self, ivs=None):
+    def set_latent_indicators(self, latent_indicators=None):
         """Set the IndicatorLeafs input.
 
-        ivs (input_like): Input providing IndicatorLeaf of an explicit latent variable
+        latent_indicators (input_like): Input providing IndicatorLeaf of an explicit latent variable
             associated with this sum node. See :meth:`~libspn.Input.as_input`
             for possible values. If set to ``None``, the input is disconnected.
         """
-        self._ivs, = self._parse_inputs(ivs)
+        self._latent_indicators, = self._parse_inputs(latent_indicators)
 
     @property
     def values(self):
@@ -264,7 +265,7 @@ class BaseSum(OpNode, abc.ABC):
             name = self._name + "_Weights"
         # Count all input values
         if input_sizes:
-            num_values = sum(input_sizes[2:])  # Skip ivs, weights
+            num_values = sum(input_sizes[2:])  # Skip latent_indicators, weights
         else:
             num_values = max(self._sum_sizes)
         # Generate weights
@@ -274,7 +275,7 @@ class BaseSum(OpNode, abc.ABC):
         self.set_weights(weights)
         return weights
 
-    def generate_ivs(self, feed=None, name=None):
+    def generate_latent_indicators(self, feed=None, name=None):
         """Generate an IndicatorLeaf node matching this sum node and connect it to
         this sum.
 
@@ -293,20 +294,22 @@ class BaseSum(OpNode, abc.ABC):
             raise StructureError("%s is missing input values" % self)
         if name is None:
             name = self._name + "_IndicatorLeaf"
-        ivs = IndicatorLeaf(feed=feed, num_vars=self._num_sums, num_vals=self._max_sum_size, name=name)
-        self.set_ivs(ivs)
-        return ivs
+        latent_indicators = IndicatorLeaf(feed=feed, num_vars=self._num_sums,
+                                          num_vals=self._max_sum_size, name=name)
+        self.set_latent_indicators(latent_indicators)
+        return latent_indicators
 
     @utils.lru_cache
     def _compute_reducible(
-            self, w_tensor, ivs_tensor, *input_tensors, weighted=True, dropconnect_keep_prob=None):
+        self, w_tensor, latent_indicators_tensor, *input_tensors, weighted=True,
+        dropconnect_keep_prob=None):
         """Computes a reducible ``Tensor`` so that reducing it over the last axis can be used for
         marginal inference, MPE inference and MPE path computation.
 
         Args:
             w_tensor (Tensor): A ``Tensor`` with the value of the weights of shape
                 ``[num_sums, max_sum_size]``
-            ivs_tensor (Tensor): A ``Tensor`` with the value of the IndicatorLeaf corresponding to this node
+            latent_indicators_tensor (Tensor): A ``Tensor`` with the value of the IndicatorLeaf corresponding to this node
                 of shape ``[batch, num_sums * max_sum_size]``.
             input_tensors (tuple): A ``tuple`` of ``Tensors``s with the values of the children of
                 this node.
@@ -325,12 +328,12 @@ class BaseSum(OpNode, abc.ABC):
             raise StructureError("%s is missing weights" % self)
 
         # Prepare tensors for component-wise application of weights and IndicatorLeaf
-        w_tensor, ivs_tensor, reducible = self._prepare_component_wise_processing(
-            w_tensor, ivs_tensor, *input_tensors, zero_prob_val=-float('inf'))
+        w_tensor, latent_indicators_tensor, reducible = self._prepare_component_wise_processing(
+            w_tensor, latent_indicators_tensor, *input_tensors, zero_prob_val=-float('inf'))
 
         # Apply latent IndicatorLeaf
-        if self._ivs:
-            reducible = utils.cwise_add(reducible, ivs_tensor)
+        if self._latent_indicators:
+            reducible = utils.cwise_add(reducible, latent_indicators_tensor)
 
         # Apply weights
         if weighted:
@@ -339,7 +342,7 @@ class BaseSum(OpNode, abc.ABC):
                 dropconnect_keep_prob, self._dropconnect_keep_prob)
 
             if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
-                if self._ivs:
+                if self._latent_indicators:
                     self.logger.warn(
                         "Using dropconnect and latent IndicatorLeaf simultaneously. "
                         "This might result in zero probabilities throughout and unpredictable "
@@ -362,14 +365,15 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_value(self, w_tensor, ivs_tensor, *value_tensors, dropconnect_keep_prob=None):
+    def _compute_log_value(self, w_tensor, latent_indicators_tensor, *value_tensors,
+                           dropconnect_keep_prob=None):
 
         # Defines soft-gradient for the log value
         def custom_grad(grad):
             # Use the _compute_log_gradient method to compute the gradient w.r.t. to the
             # inputs of this node.
             scattered_grads = self._compute_log_gradient(
-                grad, w_tensor, ivs_tensor, *value_tensors,
+                grad, w_tensor, latent_indicators_tensor, *value_tensors,
                 accumulate_weights_batch=True, dropconnect_keep_prob=dropconnect_keep_prob)
 
             return [sg for sg in scattered_grads if sg is not None]
@@ -379,39 +383,40 @@ class BaseSum(OpNode, abc.ABC):
         def _log_value(*input_tensors):
             # First reduce over last axis
             val = self._reduce_marginal_inference_log(self._compute_reducible(
-                w_tensor, ivs_tensor, *value_tensors, weighted=True,
+                w_tensor, latent_indicators_tensor, *value_tensors, weighted=True,
                 dropconnect_keep_prob=dropconnect_keep_prob))
 
             return val, custom_grad
 
         # if conf.custom_gradient:
         #     return _log_value(*self._get_differentiable_inputs(
-        #         w_tensor, ivs_tensor, *value_tensors))
+        #         w_tensor, latent_indicators_tensor, *value_tensors))
         # else:
         return self._reduce_marginal_inference_log(self._compute_reducible(
-            w_tensor, ivs_tensor, *value_tensors, weighted=True))
+            w_tensor, latent_indicators_tensor, *value_tensors, weighted=True))
 
-    def _get_differentiable_inputs(self, w_tensor, ivs_tensor, *value_tensors):
+    def _get_differentiable_inputs(self, w_tensor, latent_indicators_tensor, *value_tensors):
         """Selects the tensors to include for a tf.custom_gradient when computing the log-value.
 
         Args:
             w_tensor (Tensor): A ``Tensor`` of shape [num_sums, max_sum_size] with the value of
                                the weights corresponding to this node.
-            ivs_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] with the
+            latent_indicators_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] with the
                                  value of the IndicatorLeaf corresponding to this node.
 `
         """
-        return [w_tensor] + ([ivs_tensor] if self._ivs else []) + list(value_tensors)
+        return [w_tensor] + ([latent_indicators_tensor] if self._latent_indicators else []) + list(
+            value_tensors)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *value_tensors,
+    def _compute_log_mpe_value(self, w_tensor, latent_indicators_tensor, *value_tensors,
                                dropconnect_keep_prob=None):
 
         # Defines hard-gradient for the log-mpe
         def custom_grad(grad):
             scattered_grads = self._compute_log_mpe_path(
-                grad, w_tensor, ivs_tensor, *value_tensors)
+                grad, w_tensor, latent_indicators_tensor, *value_tensors)
 
             return [sg for sg in scattered_grads if sg is not None]
 
@@ -419,22 +424,22 @@ class BaseSum(OpNode, abc.ABC):
         @tf.custom_gradient
         def _log_mpe_value(*input_tensors):
             val = self._reduce_mpe_inference_log(self._compute_reducible(
-                w_tensor, ivs_tensor, *value_tensors, weighted=True,
+                w_tensor, latent_indicators_tensor, *value_tensors, weighted=True,
                 dropconnect_keep_prob=dropconnect_keep_prob))
             return val, custom_grad
 
         if conf.custom_gradient:
             return _log_mpe_value(*self._get_differentiable_inputs(
-                w_tensor, ivs_tensor, *value_tensors))
+                w_tensor, latent_indicators_tensor, *value_tensors))
         else:
             return self._reduce_mpe_inference_log(self._compute_reducible(
-                w_tensor, ivs_tensor, *value_tensors, weighted=True,
+                w_tensor, latent_indicators_tensor, *value_tensors, weighted=True,
                 dropconnect_keep_prob=dropconnect_keep_prob))
 
     @utils.lru_cache
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
-            sample=False, sample_prob=None, accumulate_weights_batch=False):
+        self, reducible_tensor, counts, w_tensor, latent_indicators_tensor, *input_tensors,
+        sample=False, sample_prob=None, accumulate_weights_batch=False):
         """Common operations for computing the MPE path.
 
         Args:
@@ -442,7 +447,7 @@ class BaseSum(OpNode, abc.ABC):
             counts (Tensor): A ``Tensor`` that contains the accumulated counts of the parents
                              of this node.
             w_tensor (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
-            ivs_tensor (Tensor): A ``Tensor`` containing the (log-)value of the IndicatorLeaf.
+            latent_indicators_tensor (Tensor): A ``Tensor`` containing the (log-)value of the IndicatorLeaf.
             input_tensors (list): A list of ``Tensor``s with outputs of the child nodes.
             log (bool): Whether the computation is in log-space or not
             sample (bool): Whether to sample the 'winner' of the max or not
@@ -467,7 +472,7 @@ class BaseSum(OpNode, abc.ABC):
             max_counts = tf.reduce_sum(max_counts, axis=0, keepdims=False)
         return self._scatter_to_input_tensors(
             (max_counts, w_tensor),  # Weights
-            (max_counts_acc, ivs_tensor),  # IndicatorLeaf
+            (max_counts_acc, latent_indicators_tensor),  # IndicatorLeaf
             *[(t, v) for t, v in zip(max_counts_split, input_tensors)])  # Values
 
     @utils.lru_cache
@@ -496,13 +501,13 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_path(self, counts, w_tensor, ivs_tensor, *input_tensors,
+    def _compute_log_mpe_path(self, counts, w_tensor, latent_indicators_tensor, *input_tensors,
                               use_unweighted=False, add_random=None,
                               accumulate_weights_batch=False, sample=False, sample_prob=None,
                               dropconnect_keep_prob=None):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
         reducible = self._compute_reducible(
-            w_tensor, ivs_tensor, *input_tensors, weighted=weighted,
+            w_tensor, latent_indicators_tensor, *input_tensors, weighted=weighted,
             dropconnect_keep_prob=dropconnect_keep_prob)
         if not weighted and self._num_sums > 1 and reducible.shape[self._op_axis].value == 1:
             reducible = tf.tile(reducible, (1, self._num_sums, 1))
@@ -512,13 +517,14 @@ class BaseSum(OpNode, abc.ABC):
                 tf.shape(reducible), minval=0.0, maxval=add_random, dtype=conf.dtype)
 
         return self._compute_mpe_path_common(
-            reducible, counts, w_tensor, ivs_tensor, *input_tensors,
-            accumulate_weights_batch=accumulate_weights_batch, sample=sample, sample_prob=sample_prob)
+            reducible, counts, w_tensor, latent_indicators_tensor, *input_tensors,
+            accumulate_weights_batch=accumulate_weights_batch, sample=sample,
+            sample_prob=sample_prob)
 
     @utils.lru_cache
     def _compute_log_gradient(
-            self, gradients, w_tensor, ivs_tensor, *value_tensors,
-            accumulate_weights_batch=False, dropconnect_keep_prob=None):
+        self, gradients, w_tensor, latent_indicators_tensor, *value_tensors,
+        accumulate_weights_batch=False, dropconnect_keep_prob=None):
         """Computes gradient for log probabilities.
 
         Args:
@@ -526,7 +532,7 @@ class BaseSum(OpNode, abc.ABC):
                                 accumulated backpropagated gradient coming from this node's parents.
             w_tensor (Tensor): A ``Tensor`` of shape [num_sums, max_sum_size] that contains the
                                weights corresponding to this node.
-            ivs_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] that
+            latent_indicators_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] that
                                  corresponds to the IndicatorLeaf of this node.
             value_tensors (tuple): A ``tuple`` of ``Tensor``s that correspond to the values of the
                                    children of this node.
@@ -538,7 +544,7 @@ class BaseSum(OpNode, abc.ABC):
         """
 
         reducible = self._compute_reducible(
-            w_tensor, ivs_tensor, *value_tensors, weighted=True,
+            w_tensor, latent_indicators_tensor, *value_tensors, weighted=True,
             dropconnect_keep_prob=dropconnect_keep_prob)
 
         # Below exploits the memoization since _reduce_marginal_inference_log will
@@ -558,15 +564,15 @@ class BaseSum(OpNode, abc.ABC):
 
         return self._scatter_to_input_tensors(
             (w_grad, w_tensor),
-            (value_grad_acc, ivs_tensor),
+            (value_grad_acc, latent_indicators_tensor),
             *[(t, v) for t, v in zip(value_grad_split, value_tensors)])
 
-    def _get_flat_value_scopes(self, weight_scopes, ivs_scopes, *value_scopes):
+    def _get_flat_value_scopes(self, weight_scopes, latent_indicators_scopes, *value_scopes):
         """Get a flat representation of the value scopes per sum.
 
         Args:
             weight_scopes (list): A list of ``Scope``s corresponding to the weights.
-            ivs_scopes (list): A list of ``Scope``s corresponding to the IndicatorLeaf.
+            latent_indicators_scopes (list): A list of ``Scope``s corresponding to the IndicatorLeaf.
             value_scopes (tuple): A ``tuple`` of ``list``s of ``Scope``s corresponding to the
                                   scope lists of the children of this node.
 
@@ -576,42 +582,44 @@ class BaseSum(OpNode, abc.ABC):
         """
         if not self._values:
             raise StructureError("%s is missing input values" % self)
-        _, ivs_scopes, *value_scopes = self._gather_input_scopes(
-            weight_scopes, ivs_scopes, *value_scopes)
-        return list(chain.from_iterable(value_scopes)), ivs_scopes, value_scopes
+        _, latent_indicators_scopes, *value_scopes = self._gather_input_scopes(
+            weight_scopes, latent_indicators_scopes, *value_scopes)
+        return list(chain.from_iterable(value_scopes)), latent_indicators_scopes, value_scopes
 
     @utils.docinherit(OpNode)
-    def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):
-        flat_value_scopes, ivs_scopes, *value_scopes = self._get_flat_value_scopes(
-            weight_scopes, ivs_scopes, *value_scopes)
-        if self._ivs:
-            sublist_size = int(len(ivs_scopes) / self._num_sums)
-            # Divide gathered ivs scopes into sublists, one per modelled Sum node.
-            ivs_scopes_sublists = [ivs_scopes[i:i + sublist_size] for i in
-                                   range(0, len(ivs_scopes), sublist_size)]
-        return [Scope.merge_scopes(flat_value_scopes + ivs_scopes_sublists[i]
-                                   if self._ivs else flat_value_scopes)
+    def _compute_scope(self, weight_scopes, latent_indicators_scopes, *value_scopes):
+        flat_value_scopes, latent_indicators_scopes, *value_scopes = self._get_flat_value_scopes(
+            weight_scopes, latent_indicators_scopes, *value_scopes)
+        if self._latent_indicators:
+            sublist_size = int(len(latent_indicators_scopes) / self._num_sums)
+            # Divide gathered latent_indicators scopes into sublists, one per modelled Sum node.
+            latent_indicators_scopes_sublists = [latent_indicators_scopes[i:i + sublist_size] for i
+                                                 in
+                                                 range(0, len(latent_indicators_scopes),
+                                                       sublist_size)]
+        return [Scope.merge_scopes(flat_value_scopes + latent_indicators_scopes_sublists[i]
+                                   if self._latent_indicators else flat_value_scopes)
                 for i in range(self._num_sums)]
 
     @utils.docinherit(OpNode)
-    def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
+    def _compute_valid(self, weight_scopes, latent_indicators_scopes, *value_scopes):
         # If already invalid, return None
         if (any(s is None for s in value_scopes)
-                or (self._ivs and ivs_scopes is None)):
+            or (self._latent_indicators and latent_indicators_scopes is None)):
             return None
-        flat_value_scopes, ivs_scopes_, *value_scopes_ = self._get_flat_value_scopes(
-            weight_scopes, ivs_scopes, *value_scopes)
+        flat_value_scopes, latent_indicators_scopes_, *value_scopes_ = self._get_flat_value_scopes(
+            weight_scopes, latent_indicators_scopes, *value_scopes)
         # IndicatorLeaf
-        if self._ivs:
+        if self._latent_indicators:
             # Verify number of IndicatorLeaf
-            if len(ivs_scopes_) != len(flat_value_scopes) * self._num_sums:
+            if len(latent_indicators_scopes_) != len(flat_value_scopes) * self._num_sums:
                 raise StructureError("Number of IndicatorLeaf (%s) and values (%s) does "
                                      "not match for %s"
-                                     % (len(ivs_scopes_),
+                                     % (len(latent_indicators_scopes_),
                                         len(flat_value_scopes) * self._num_sums,
                                         self))
             # Check if scope of all IndicatorLeaf is just one and the same variable
-            if len(Scope.merge_scopes(ivs_scopes_)) > self._num_sums:
+            if len(Scope.merge_scopes(latent_indicators_scopes_)) > self._num_sums:
                 return None
         # Check sum for completeness wrt values
         first_scope = flat_value_scopes[0]
@@ -619,7 +627,7 @@ class BaseSum(OpNode, abc.ABC):
             self.info("%s is not complete with input value scopes %s", self, flat_value_scopes)
             return None
 
-        return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
+        return self._compute_scope(weight_scopes, latent_indicators_scopes, *value_scopes)
 
     @property
     @utils.docinherit(OpNode)
@@ -628,14 +636,14 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.lru_cache
     def _prepare_component_wise_processing(
-            self, w_tensor, ivs_tensor, *input_tensors, zero_prob_val=0.0):
+        self, w_tensor, latent_indicators_tensor, *input_tensors, zero_prob_val=0.0):
         """Gathers inputs and combines them so that the resulting tensor can be reduced over the
         last axis to compute the (weighted) sums.
 
         Args:
             w_tensor (Tensor): A ``Tensor`` with the (log-)value of the weights of this node of
                                shape [num_sums, max_sum_size]
-            ivs_tensor (Tensor): A ``Tensor`` with the (log-)value of the 'latent' ``IndicatorLeaf``.
+            latent_indicators_tensor (Tensor): A ``Tensor`` with the (log-)value of the 'latent' ``IndicatorLeaf``.
             input_tensors (tuple): A tuple of ``Tensor``s  holding the value of the children of this
                                    node.
             zero_prob_val (float): The value of zero probability. This is important to know if some
@@ -645,15 +653,16 @@ class BaseSum(OpNode, abc.ABC):
             IndicatorLeaf ``Tensor`` that can be applied component-wise to the sums and a ``Tensor`` that
             holds the unweighted values of the sum inputs of shape [batch, num_sums, max_sum_size].
         """
-        w_tensor, ivs_tensor, *input_tensors = self._gather_input_tensors(
-            w_tensor, ivs_tensor, *input_tensors)
+        w_tensor, latent_indicators_tensor, *input_tensors = self._gather_input_tensors(
+            w_tensor, latent_indicators_tensor, *input_tensors)
         input_tensors = [tf.expand_dims(t, axis=self._op_axis) if len(t.shape) == 2 else t for
                          t in input_tensors]
         w_tensor = tf.expand_dims(w_tensor, axis=self._batch_axis)
         reducible_inputs = tf.concat(input_tensors, axis=self._reduce_axis)
-        if ivs_tensor is not None:
-            ivs_tensor = tf.reshape(ivs_tensor, shape=(-1, self._num_sums, self._max_sum_size))
-        return w_tensor, ivs_tensor, reducible_inputs
+        if latent_indicators_tensor is not None:
+            latent_indicators_tensor = tf.reshape(latent_indicators_tensor,
+                                                  shape=(-1, self._num_sums, self._max_sum_size))
+        return w_tensor, latent_indicators_tensor, reducible_inputs
 
     @utils.lru_cache
     def _reduce_marginal_inference_log(self, x):
@@ -713,7 +722,8 @@ class BaseSum(OpNode, abc.ABC):
         x_max = tf.expand_dims(self._reduce_mpe_inference(x), self._reduce_axis)
         x_eq_max = tf.cast(tf.equal(x, x_max), tf.float32)
         if self._masked:
-            x_eq_max *= tf.expand_dims(tf.cast(self._build_mask(), tf.float32), axis=self._batch_axis)
+            x_eq_max *= tf.expand_dims(tf.cast(self._build_mask(), tf.float32),
+                                       axis=self._batch_axis)
         x_eq_max /= tf.reduce_sum(x_eq_max, axis=self._reduce_axis, keepdims=True)
 
         return tfd.Categorical(probs=x_eq_max, name="StochasticArgMax", dtype=tf.int64).sample()
@@ -731,6 +741,7 @@ class BaseSum(OpNode, abc.ABC):
         Returns:
             A ``Tensor`` reduced over the last axis.
         """
+
         # Categorical eventually uses non-log probabilities, so here we reuse as much as we can to
         # predetermine it
         def _sample():

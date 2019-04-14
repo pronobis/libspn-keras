@@ -75,7 +75,7 @@ class GDLearning:
         Returns:
             A tuple of grouped update Ops and a loss Op.
         """
-        if self._learning_task_type == LearningTaskType.SUPERVISED and self._root.ivs is None:
+        if self._learning_task_type == LearningTaskType.SUPERVISED and self._root.latent_indicators is None:
             raise StructureError(
                 "{}: the SPN rooted at {} does not have a latent IndicatorLeaf node, so cannot "
                 "setup conditional class probabilities.".format(self._name, self._root))
@@ -168,11 +168,11 @@ class GDLearning:
         """
         with tf.name_scope(name):
             if self._learning_task_type == LearningTaskType.UNSUPERVISED:
-                if self._root.ivs is not None:
+                if self._root.latent_indicators is not None:
                     likelihood = self._log_likelihood(dropconnect_keep_prob=dropconnect_keep_prob)
                 else:
                     likelihood = self._log_value.get_value(self._root)
-            elif self._root.ivs is None:
+            elif self._root.latent_indicators is None:
                 raise StructureError("Root should have IndicatorLeaf node when doing supervised "
                                      "learning")
             else:
