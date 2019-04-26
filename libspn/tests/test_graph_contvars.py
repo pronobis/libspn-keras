@@ -6,14 +6,14 @@ import tensorflow as tf
 import numpy as np
 
 
-class TestGraphContVars(TestCase):
+class TestGraphRawLeaf(TestCase):
 
     def test_contvars_value_feed_dict(self):
-        """Calculating value of ContVars based on inputs provided using feed_dict"""
+        """Calculating value of RawLeaf based on inputs provided using feed_dict"""
 
         def test(num_vars, value):
             with self.subTest(num_vars=num_vars, value=value):
-                n = spn.ContVars(num_vars=num_vars)
+                n = spn.RawLeaf(num_vars=num_vars)
                 op = n.get_value()
                 op_log = n.get_log_value()
                 with self.test_session() as sess:
@@ -35,12 +35,12 @@ class TestGraphContVars(TestCase):
                  [3, 4]])
 
     def test_contvars_value_tensor(self):
-        """Calculating value of ContVars based on inputs from a tensor"""
+        """Calculating value of RawLeaf based on inputs from a tensor"""
 
         def test(num_vars, value):
             with self.subTest(num_vars=num_vars, value=value):
                 p = tf.placeholder(spn.conf.dtype, [None, num_vars])
-                n = spn.ContVars(feed=p, num_vars=num_vars)
+                n = spn.RawLeaf(feed=p, num_vars=num_vars)
                 op = n.get_value()
                 op_log = n.get_log_value()
                 with self.test_session() as sess:

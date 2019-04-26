@@ -1,5 +1,5 @@
 import tensorflow as tf
-from libspn.graph.basesum import BaseSum
+from libspn.graph.op.basesum import BaseSum
 from libspn.graph.algorithms import compute_graph_up
 
 

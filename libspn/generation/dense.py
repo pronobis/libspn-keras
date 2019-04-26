@@ -2,10 +2,10 @@ from collections import deque
 from libspn import utils
 from libspn.generation.conversion import convert_to_layer_nodes
 from libspn.graph.node import Input
-from libspn.graph.sum import Sum
-from libspn.graph.parsums import ParSums
-from libspn.graph.product import Product
-from libspn.graph.permproducts import PermProducts
+from libspn.graph.op.sum import Sum
+from libspn.graph.op.parsums import ParSums
+from libspn.graph.op.product import Product
+from libspn.graph.op.permproducts import PermProducts
 from libspn.graph.concat import Concat
 from libspn.log import get_logger
 from libspn.exceptions import StructureError
@@ -23,7 +23,7 @@ class DenseSPNGenerator:
         num_subsets (int): Number of variable sub-sets for each decomposition.
         num_mixtures (int): Number of mixtures (sums) for each variable subset.
         input_dist (InputDist): Determines how inputs sharing the same scope
-                                (for instance IVs for different values of a
+                                (for instance IndicatorLeaf for different values of a
                                 random variable) should be included into the
                                 generated structure.
         num_input_mixtures (int): Number of mixtures used for combining all
@@ -44,7 +44,7 @@ class DenseSPNGenerator:
     __debug3 = __logger.debug3
 
     class InputDist(Enum):
-        """Determines how inputs sharing the same scope (for instance IVs for
+        """Determines how inputs sharing the same scope (for instance IndicatorLeaf for
         different values of a random variable) should be included into the
         generated structure."""
 

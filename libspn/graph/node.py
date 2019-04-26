@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from collections import namedtuple, OrderedDict
 
 import tensorflow as tf
-import tensorflow.contrib.distributions as tfd
+from tensorflow_probability import distributions as tfd
 from libspn import utils, conf
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError

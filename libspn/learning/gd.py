@@ -4,8 +4,8 @@ from libspn.graph.algorithms import traverse_graph
 from libspn.exceptions import StructureError
 from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
-from libspn.graph.distribution import GaussianLeaf
-from libspn.graph.sum import Sum
+from libspn.graph.leaf.normal import NormalLeaf
+from libspn.graph.op.sum import Sum
 from libspn.log import get_logger
 
 
@@ -19,9 +19,9 @@ class GDLearning:
         learning_task_type (LearningTaskType): Learning type used while learning.
         learning_method (LearningMethodType): Learning method type, can be either generative
             (LearningMethodType.GENERATIVE) or discriminative (LearningMethodType.DISCRIMINATIVE).
-        marginalizing_root (Sum, ParSums, SumsLayer): A sum node without IVs attached to it (or
-            IVs with a fixed no-evidence feed). If it is omitted here, the node will constructed
-            internally once needed.
+        marginalizing_root (Sum, ParSums, SumsLayer): A sum node without IndicatorLeafs attached to
+            it (or IndicatorLeafs with a fixed no-evidence feed). If it is omitted here, the node
+            will constructed internally once needed.
         name (str): The name given to this instance of GDLearning.
         l1_regularize_coeff (float or Tensor): The L1 regularization coefficient.
         l2_regularize_coeff (float or Tensor): The L2 regularization coefficient.
@@ -75,10 +75,10 @@ class GDLearning:
         Returns:
             A tuple of grouped update Ops and a loss Op.
         """
-        if self._learning_task_type == LearningTaskType.SUPERVISED and self._root.ivs is None:
+        if self._learning_task_type == LearningTaskType.SUPERVISED and self._root.latent_indicators is None:
             raise StructureError(
-                "{}: the SPN rooted at {} does not have a latent IVs node, so cannot setup "
-                "conditional class probabilities.".format(self._name, self._root))
+                "{}: the SPN rooted at {} does not have a latent IndicatorLeaf node, so cannot "
+                "setup conditional class probabilities.".format(self._name, self._root))
 
         # If a loss function is not provided, define the loss function based
         # on learning-type and learning-method
@@ -104,7 +104,7 @@ class GDLearning:
 
     def post_gradient_update(self, update_op):
         """Constructs post-parameter update ops such as normalization of weights and clipping of
-        scale parameters of GaussianLeaf nodes.
+        scale parameters of NormalLeaf nodes.
 
         Args:
             update_op (Tensor): A Tensor corresponding to the parameter update.
@@ -123,7 +123,7 @@ class GDLearning:
                     if node.is_param:
                         weight_norm_ops.append(node.normalize())
 
-                    if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
+                    if isinstance(node, NormalLeaf) and node.learn_distribution_parameters:
                         weight_norm_ops.append(tf.assign(node.scale_variable, tf.maximum(
                             node.scale_variable, node._min_stddev)))
 
@@ -168,19 +168,20 @@ class GDLearning:
         """
         with tf.name_scope(name):
             if self._learning_task_type == LearningTaskType.UNSUPERVISED:
-                if self._root.ivs is not None:
+                if self._root.latent_indicators is not None:
                     likelihood = self._log_likelihood(dropconnect_keep_prob=dropconnect_keep_prob)
                 else:
                     likelihood = self._log_value.get_value(self._root)
-            elif self._root.ivs is None:
-                raise StructureError("Root should have IVs node when doing supervised learning.")
+            elif self._root.latent_indicators is None:
+                raise StructureError("Root should have IndicatorLeaf node when doing supervised "
+                                     "learning")
             else:
                 likelihood = self._log_value.get_value(self._root)
             return -reduce_fn(likelihood)
 
     def _log_likelihood(self, learning_task_type=None, dropconnect_keep_prob=None):
-        """Computes log(p(X)) by creating a copy of the root node without IVs. Also turns off
-        dropconnect at the root if necessary.
+        """Computes log(p(X)) by creating a copy of the root node without latent IndicatorLeafs.
+        Also turns off dropconnect at the root if necessary.
 
         Returns:
             A Tensor of shape [batch, 1] corresponding to the log likelihood of the data.

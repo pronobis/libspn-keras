@@ -1,10 +1,10 @@
 from collections import namedtuple
 import tensorflow as tf
 
-from libspn.graph.distribution import GaussianLeaf
 from libspn.inference.mpe_path import MPEPath
 from libspn.graph.algorithms import traverse_graph
 from libspn import conf
+from libspn.graph.leaf.location_scale import LocationScaleLeaf
 from libspn import utils
 
 
@@ -20,11 +20,11 @@ class EMLearning:
     """
 
     ParamNode = namedtuple("ParamNode", ["node", "name_scope", "accum"])
-    GaussianLeafNode = namedtuple(
-        "GaussianLeafNode", ["node", "name_scope", "accum", "sum_data", "sum_data_squared"])
+    LocationScaleLeafNode = namedtuple(
+        "LocationScaleLeafNode", ["node", "name_scope", "accum", "sum_data", "sum_data_squared"])
 
     def __init__(self, root, mpe_path=None, log=True, value_inference_type=None,
-                 additive_smoothing=None, add_random=None, initial_accum_value=None,
+                 additive_smoothing=None, add_random=None, initial_accum_value=1.0,
                  use_unweighted=False, sample=False, sample_prob=None,
                  dropconnect_keep_prob=None):
         self._root = root
@@ -67,12 +67,12 @@ class EMLearning:
     def reset_accumulators(self):
         with tf.name_scope(self._name_scope):
             return tf.group(*(
-                    [pn.accum.initializer for pn in self._param_nodes] +
-                    [dn.accum.initializer for dn in self._gaussian_leaf_nodes] +
-                    [dn.sum_data.initializer for dn in self._gaussian_leaf_nodes] +
-                    [dn.sum_data_squared.initializer for dn in self._gaussian_leaf_nodes] +
-                    [dn.node._total_count_variable.initializer
-                     for dn in self._gaussian_leaf_nodes]),
+                [pn.accum.initializer for pn in self._param_nodes] +
+                [dn.accum.initializer for dn in self._loc_scale_leaf_nodes] +
+                [dn.sum_data.initializer for dn in self._loc_scale_leaf_nodes] +
+                [dn.sum_data_squared.initializer for dn in self._loc_scale_leaf_nodes] +
+                [dn.node._total_count_variable.initializer
+                 for dn in self._loc_scale_leaf_nodes]),
                             name="reset_accumulators")
 
     def init_accumulators(self):
@@ -101,7 +101,7 @@ class EMLearning:
                         self._mpe_path.counts[pn.node])
                     assign_ops.append(tf.assign_add(pn.accum, counts_summed_batch))
 
-            for dn in self._gaussian_leaf_nodes:
+            for dn in self._loc_scale_leaf_nodes:
                 with tf.name_scope(dn.name_scope):
                     counts = self._mpe_path.counts[dn.node]
                     update_value = dn.node._compute_hard_em_update(counts)
@@ -127,7 +127,7 @@ class EMLearning:
                     else:
                         assign_ops.append(pn.node.assign(accum))
 
-            for dn in self._gaussian_leaf_nodes:
+            for dn in self._loc_scale_leaf_nodes:
                 with tf.name_scope(dn.name_scope):
                     assign_ops.extend(dn.node.assign(dn.accum, dn.sum_data, dn.sum_data_squared))
 
@@ -163,7 +163,7 @@ class EMLearning:
                     param_node = EMLearning.ParamNode(node=node, accum=accum,
                                                       name_scope=scope)
                     self._param_nodes.append(param_node)
-            if isinstance(node, GaussianLeaf) and node.learn_distribution_parameters:
+            if isinstance(node, LocationScaleLeaf) and (node.trainable_scale or node.trainable_loc):
                 with tf.name_scope(node.name) as scope:
                     if self._initial_accum_value is not None:
                         accum = tf.Variable(tf.ones_like(node.loc_variable, dtype=conf.dtype) *
@@ -183,12 +183,12 @@ class EMLearning:
                                             collections=['em_accumulators'])
                         sum_x2 = tf.Variable(tf.zeros_like(node.loc_variable), dtype=conf.dtype,
                                              collections=['em_accumulators'])
-                    gaussian_node = EMLearning.GaussianLeafNode(
+                    loc_scale_node = EMLearning.LocationScaleLeafNode(
                         node=node, accum=accum, sum_data=sum_x, sum_data_squared=sum_x2,
                         name_scope=scope)
-                    self._gaussian_leaf_nodes.append(gaussian_node)
+                    self._loc_scale_leaf_nodes.append(loc_scale_node)
 
-        self._gaussian_leaf_nodes = []
+        self._loc_scale_leaf_nodes = []
         self._param_nodes = []
         with tf.name_scope(self._name_scope):
             traverse_graph(self._root, fun=fun)

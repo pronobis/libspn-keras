@@ -2,10 +2,11 @@ import tensorflow as tf
 from libspn.graph.node import ParamNode
 from libspn.graph.algorithms import traverse_graph
 from libspn import conf
-from libspn.graph.distribution import GaussianLeaf
+from libspn.graph.leaf.normal import NormalLeaf
 from libspn.utils.serialization import register_serializable
 from libspn import utils
 from libspn.exceptions import StructureError
+from libspn.utils.graphkeys import SPNGraphKeys
 
 
 @register_serializable
@@ -215,7 +216,9 @@ class Weights(ParamNode):
         if self._log:
             init_val = tf.log(init_val)
         self._variable = tf.Variable(
-            init_val, dtype=conf.dtype, collections=['spn_weights'])
+            init_val, dtype=conf.dtype,
+            collections=[SPNGraphKeys.SPN_PARAMETERS, tf.GraphKeys.WEIGHTS,
+                         tf.GraphKeys.TRAINABLE_VARIABLES, tf.GraphKeys.GLOBAL_VARIABLES])
 
     @utils.lru_cache
     def _compute_out_size(self):
@@ -274,7 +277,7 @@ def initialize_weights(root, name="InitializeWeights"):
     def initialize(node):
         if isinstance(node, Weights):
             initialize_ops.append(node.initialize())
-        if isinstance(node, GaussianLeaf):
+        if isinstance(node, NormalLeaf):
             initialize_ops.extend(node.initialize())
 
     with tf.name_scope(name):

@@ -21,9 +21,9 @@ class TestDenseSPNGenerator(TestCase):
         gen = spn.DenseSPNGenerator(num_decomps=2,
                                               num_subsets=3,
                                               num_mixtures=2)
-        v1 = spn.IVs(num_vars=2, num_vals=4)
-        v2 = spn.ContVars(num_vars=3, name="ContVars1")
-        v3 = spn.ContVars(num_vars=2, name="ContVars2")
+        v1 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v2 = spn.RawLeaf(num_vars=3, name="RawLeaf1")
+        v3 = spn.RawLeaf(num_vars=2, name="RawLeaf2")
         s1 = spn.Sum(v3)
         n1 = spn.Concat(v2)
         out = gen._DenseSPNGenerator__generate_set([spn.Input(v1, [0, 3, 2, 6, 7]),
@@ -44,9 +44,9 @@ class TestDenseSPNGenerator(TestCase):
         gen = spn.DenseSPNGenerator(num_decomps=2,
                                               num_subsets=3,
                                               num_mixtures=2)
-        v1 = spn.IVs(num_vars=2, num_vals=4)
-        v2 = spn.ContVars(num_vars=3, name="ContVars1")
-        v3 = spn.ContVars(num_vars=2, name="ContVars2")
+        v1 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v2 = spn.RawLeaf(num_vars=3, name="RawLeaf1")
+        v3 = spn.RawLeaf(num_vars=2, name="RawLeaf2")
         s1 = spn.Sum(v3, v2)
         n1 = spn.Concat(v2)
 
@@ -97,7 +97,7 @@ class TestDenseSPNGenerator(TestCase):
         printc("- log_weights: %s" % log_weights)
 
         # Inputs
-        inputs = [spn.IVs(num_vars=num_vars, num_vals=num_vals, name=("IVs_%d" % (i+1)))
+        inputs = [spn.IndicatorLeaf(num_vars=num_vars, num_vals=num_vals, name=("IndicatorLeaf_%d" % (i+1)))
                   for i in range(num_inputs)]
 
         gen = spn.DenseSPNGenerator(num_decomps=num_decomps,

@@ -8,7 +8,8 @@ is integrated with `TensorFlow <http://www.tensorflow.org>`_.
 What are SPNs?
 --------------
 
-Here we should add a few words about what SPNs are.
+Sum-Product Networks (SPNs) are a probabilistic deep architecture with solid theoretical foundations, which demonstrated state-of-the-art performance in several domains. Yet, surprisingly, there are no mature, general-purpose SPN implementations that would serve as a platform for the community of machine learning researchers centered around SPNs. LibSPN is a new general-purpose Python library, which aims to become such a platform. The library is designed to make it straightforward and effortless to apply various SPN architectures to large-scale datasets and problems. The library achieves scalability and efficiency, thanks to a tight coupling with TensorFlow, a framework already used by a large community of researchers and developers in multiple domains.
+
 
 Why LibSPN?
 -----------
@@ -43,15 +44,11 @@ Features of LibSPN
   * Inputs to the network come from TensorFlow feeds or any TensorFlow tensors
 
 * 
-  Dynamic SPN graph data structure enabling easy modifications and learning of an existing SPN graph at run-time
-
-* 
   SPN structure generation and learning
 
 
   * Dense random SPN generator
   * Simple naive Bayes mixture model generator
-  * Learning algorithms are not yet implemented, but infrastructure for them exists
 
 * 
   Loading and saving of structure and weights of learned models
@@ -83,13 +80,12 @@ Features of LibSPN
 
 
   * Expectation Maximization
-  * Gradient Descent (bits still missing, but infrastructure exists)
+  * Gradient Descent
 
 * 
   Other
 
 
-  * SPN-specific TensorFlow operations implemented using C++ and CUDA
   * Generating random sub-sets of all partitions of a set using repeated sampling or enumeration
 
 Documentation

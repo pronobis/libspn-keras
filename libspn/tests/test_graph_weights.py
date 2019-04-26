@@ -136,10 +136,10 @@ class TestGraphWeights(TestCase):
 
     def test_group_initialization(self):
         """Group initialization of weights nodes"""
-        v1 = spn.IVs(num_vars=1, num_vals=2)
-        v2 = spn.IVs(num_vars=1, num_vals=4)
-        v3 = spn.IVs(num_vars=1, num_vals=2)
-        v4 = spn.IVs(num_vars=1, num_vals=2)
+        v1 = spn.IndicatorLeaf(num_vars=1, num_vals=2)
+        v2 = spn.IndicatorLeaf(num_vars=1, num_vals=4)
+        v3 = spn.IndicatorLeaf(num_vars=1, num_vals=2)
+        v4 = spn.IndicatorLeaf(num_vars=1, num_vals=2)
         # Sum
         s1 = spn.Sum(v1)
         s1.generate_weights(tf.initializers.constant([0.2, 0.3]))
@@ -190,10 +190,10 @@ class TestGraphWeights(TestCase):
 
     # def test_group_assignment(self):
     #     """Group assignment of weights nodes"""
-    #     v1 = spn.IVs(num_vars=1, num_vals=2)
-    #     v2 = spn.IVs(num_vars=1, num_vals=4)
-    #     v3 = spn.IVs(num_vars=1, num_vals=2)
-    #     v4 = spn.IVs(num_vars=1, num_vals=2)
+    #     v1 = spn.IndicatorLeaf(num_vars=1, num_vals=2)
+    #     v2 = spn.IndicatorLeaf(num_vars=1, num_vals=4)
+    #     v3 = spn.IndicatorLeaf(num_vars=1, num_vals=2)
+    #     v4 = spn.IndicatorLeaf(num_vars=1, num_vals=2)
     #     # Sum
     #     s1 = spn.Sum(v1)
     #     s1.generate_weights(tf.initializers.constant([0.2, 0.3]))

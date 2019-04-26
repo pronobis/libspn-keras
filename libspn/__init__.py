@@ -7,15 +7,13 @@ from libspn.graph.node import Node
 from libspn.graph.node import OpNode
 from libspn.graph.node import VarNode
 from libspn.graph.node import ParamNode
-from libspn.graph.ivs import IVs
-from libspn.graph.contvars import ContVars
 from libspn.graph.concat import Concat
-from libspn.graph.sum import Sum
-from libspn.graph.parsums import ParSums
-from libspn.graph.sumslayer import SumsLayer
-from libspn.graph.product import Product
-from libspn.graph.permproducts import PermProducts
-from libspn.graph.productslayer import ProductsLayer
+from libspn.graph.op.sum import Sum
+from libspn.graph.op.parsums import ParSums
+from libspn.graph.op.sumslayer import SumsLayer
+from libspn.graph.op.product import Product
+from libspn.graph.op.permproducts import PermProducts
+from libspn.graph.op.productslayer import ProductsLayer
 from libspn.graph.weights import Weights
 from libspn.graph.weights import assign_weights
 from libspn.graph.weights import initialize_weights
@@ -26,7 +24,14 @@ from libspn.graph.loader import Loader, JSONLoader
 from libspn.graph.algorithms import compute_graph_up
 from libspn.graph.algorithms import compute_graph_up_down
 from libspn.graph.algorithms import traverse_graph
-from libspn.graph.distribution import GaussianLeaf
+from libspn.graph.leaf.normal import NormalLeaf
+from libspn.graph.leaf.cauchy import CauchyLeaf
+from libspn.graph.leaf.student_t import StudentTLeaf
+from libspn.graph.leaf.laplace import LaplaceLeaf
+from libspn.graph.leaf.indicator import IndicatorLeaf
+from libspn.graph.leaf.raw import RawLeaf
+from libspn.graph.leaf.multivariate_cauchy_diag import MultivariateCauchyDiagLeaf
+from libspn.graph.leaf.multivariate_normal_diag import MultivariateNormalDiagLeaf
 
 # Generators
 from libspn.generation.dense import DenseSPNGenerator
@@ -96,47 +101,27 @@ from libspn.exceptions import StructureError
 
 from libspn.utils.serialization import register_serializable
 
-import tensorflow as tf
+# Initilaizers
+from libspn.utils.initializers import Equidistant
 
+# Graphkeys
+from libspn.utils.graphkeys import SPNGraphKeys
 
-def _tf_init_serialize(self):
-    return self.get_config()
-
-
-def _tf_init_deserialize(self, data):
-    self.__init__(**{k: v for k, v in data.items() if k != "__type__"})
-
-
-for initializer in [
-        tf.initializers.random_uniform,
-        tf.initializers.random_normal,
-        tf.initializers.constant,
-        tf.initializers.ones,
-        tf.initializers.glorot_normal,
-        tf.initializers.glorot_uniform,
-        tf.initializers.identity,
-        tf.initializers.orthogonal,
-        tf.initializers.truncated_normal,
-        tf.initializers.uniform_unit_scaling,
-        tf.initializers.variance_scaling,
-        tf.initializers.zeros]:
-    initializer.deserialize = _tf_init_deserialize
-    initializer.serialize = _tf_init_serialize
-    register_serializable(initializer)
 
 # All
 __all__ = [
     # Graph
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
-    'Concat', 'IVs', 'ContVars',
+    'Concat', 'IndicatorLeaf', 'RawLeaf',
     'Sum', 'ParSums', 'SumsLayer',
     'Product', 'PermProducts', 'ProductsLayer',
-    'GaussianLeaf',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
     'compute_graph_up', 'compute_graph_up_down',
     'traverse_graph',
+    'StudentTLeaf', 'NormalLeaf', 'CauchyLeaf', 'LaplaceLeaf',
+    'MultivariateCauchyDiagLeaf', 'MultivariateNormalDiagLeaf'
     # Generators
     'DenseSPNGenerator', 'DenseSPNGenerator',
     'WeightsGenerator', 'generate_weights', 'convert_to_layer_nodes',
@@ -160,7 +145,11 @@ __all__ = [
     # Custom ops, utils and config
     'conf', 'utils', 'App',
     # Exceptions
-    'StructureError']
+    'StructureError',
+    # Initializers
+    'Equidistant',
+    # Graphkeys
+    'SPNGraphKeys']
 
 # Configure the logger to show INFO and WARNING by default
 config_logger(level=INFO)

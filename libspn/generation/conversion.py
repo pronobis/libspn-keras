@@ -4,12 +4,12 @@ from itertools import product, chain
 import numpy as np
 import tensorflow as tf
 
-from libspn.graph.sum import Sum
-from libspn.graph.sumslayer import SumsLayer
-from libspn.graph.parsums import ParSums
-from libspn.graph.productslayer import ProductsLayer
-from libspn.graph.product import Product
-from libspn.graph.permproducts import PermProducts
+from libspn.graph.op.sum import Sum
+from libspn.graph.op.sumslayer import SumsLayer
+from libspn.graph.op.parsums import ParSums
+from libspn.graph.op.productslayer import ProductsLayer
+from libspn.graph.op.product import Product
+from libspn.graph.op.permproducts import PermProducts
 from libspn.graph.concat import Concat
 from libspn.exceptions import StructureError
 from libspn.graph.algorithms import traverse_graph

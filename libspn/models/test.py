@@ -1,7 +1,7 @@
 from libspn.models.model import Model
-from libspn.graph.product import Product
-from libspn.graph.ivs import IVs
-from libspn.graph.sum import Sum
+from libspn.graph.op.product import Product
+from libspn.graph.leaf.indicator import IndicatorLeaf
+from libspn.graph.op.sum import Sum
 from libspn import conf
 from libspn import utils
 import numpy as np
@@ -18,7 +18,7 @@ class Poon11NaiveMixtureModel(Model):
 
     def __init__(self):
         super().__init__()
-        self._ivs = None
+        self._latent_indicators = None
 
     @utils.docinherit(Model)
     def serialize(save_param_vals=True, sess=None):
@@ -29,9 +29,9 @@ class Poon11NaiveMixtureModel(Model):
         raise NotImplementedError("Serialization not implemented")
 
     @property
-    def ivs(self):
-        """IVs: The IVs with the input variables of the model."""
-        return self._ivs
+    def latent_indicators(self):
+        """IndicatorLeaf: The IndicatorLeaf with the input variables of the model."""
+        return self._latent_indicators
 
     @property
     def true_mpe_state(self):
@@ -74,15 +74,15 @@ class Poon11NaiveMixtureModel(Model):
     @utils.docinherit(Model)
     def build(self):
         # Inputs
-        self._ivs = IVs(num_vars=2, num_vals=2, name="IVs")
+        self._latent_indicators = IndicatorLeaf(num_vars=2, num_vals=2, name="IndicatorLeaf")
         # Input mixtures
-        s11 = Sum((self._ivs, [0, 1]), name="Sum1.1")
+        s11 = Sum((self._latent_indicators, [0, 1]), name="Sum1.1")
         s11.generate_weights(tf.initializers.constant([0.4, 0.6]))
-        s12 = Sum((self._ivs, [0, 1]), name="Sum1.2")
+        s12 = Sum((self._latent_indicators, [0, 1]), name="Sum1.2")
         s12.generate_weights(tf.initializers.constant([0.1, 0.9]))
-        s21 = Sum((self._ivs, [2, 3]), name="Sum2.1")
+        s21 = Sum((self._latent_indicators, [2, 3]), name="Sum2.1")
         s21.generate_weights(tf.initializers.constant([0.7, 0.3]))
-        s22 = Sum((self._ivs, [2, 3]), name="Sum2.2")
+        s22 = Sum((self._latent_indicators, [2, 3]), name="Sum2.2")
         s22.generate_weights(tf.initializers.constant([0.8, 0.2]))
         # Components
         p1 = Product(s11, s21, name="Comp1")
