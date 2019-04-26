@@ -8,7 +8,10 @@ from libspn.utils.serialization import register_serializable
 
 @register_serializable
 class RawLeaf(VarNode):
-    """A node representing a vector of continuous random variables.
+    """A node representing a vector of continuous random variables as raw inputs. The inputs are
+    not transformed to probabilities, and should therefore be probabilities themselves if the
+    SPN has to compute a (log) PDF. It is mainly used for testing purposes and should generally
+    be avoided.
 
     Args:
         feed (Tensor): Tensor feeding this node or ``None``. If ``None``,

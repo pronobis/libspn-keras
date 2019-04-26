@@ -11,7 +11,8 @@ class IndicatorLeaf(VarNode):
     """A node representing multiple random variables in the form of indicator
     variables. Each random variable is assumed to take the same number of
     possible values ``[0, 1, ..., num_vals-1]``. If the value of the random
-    variable is negative (e.g. -1), all indicators will be set to 1.
+    variable is negative (e.g. -1), all indicators will be set to 1. For a
+    Bernoulli random variable, use ``num_vals=2``.
 
     Args:
         feed (Tensor): Tensor feeding this node or ``None``. If ``None``,

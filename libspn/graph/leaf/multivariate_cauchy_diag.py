@@ -1,10 +1,11 @@
 import tensorflow as tf
 from tensorflow.contrib.distributions.python.ops import distribution_util
 from tensorflow_probability import distributions as tfp, bijectors
-
 from libspn.graph.leaf.location_scale import LocationScaleLeaf
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class MultivariateCauchyDiagLeaf(LocationScaleLeaf):
 
     def __init__(self, feed=None, num_vars=1, num_components=2, dimensionality=2,

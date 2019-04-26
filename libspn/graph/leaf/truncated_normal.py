@@ -3,15 +3,19 @@ from tensorflow_probability.python import distributions as tfp
 
 from libspn.graph.leaf.location_scale import LocationScaleLeaf
 from libspn.utils.initializers import Equidistant
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class TruncatedNormalLeaf(LocationScaleLeaf):
 
     """A node representing uni-variate truncated normal distributions for continuous input
     variables. Each variable will have *k* components. Each component has its
     own location (mean) and scale (standard deviation). These parameters can be learned or fixed.
-    Lack of evidence must be provided explicitly through feeding_
-    :meth:`~libspn.TruncatedNormalLeaf.evidence`.
+
+    Lack of evidence must be provided explicitly through
+    feeding :py:attr:`~libspn.TruncatedNormalLeaf.evidence`. By default, evidence is set to ``True``
+    for all variables.
 
     Args:
         feed (Tensor): Tensor feeding this node or ``None``. If ``None``,

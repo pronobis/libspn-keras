@@ -7,14 +7,19 @@ from libspn.graph.node import Node
 from libspn.graph.leaf.continuous_base import _softplus_inverse_np
 from libspn.graph.leaf.location_scale import LocationScaleLeaf
 from libspn.utils.initializers import Equidistant
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class NormalLeaf(LocationScaleLeaf):
-    """A node representing multiple uni-variate Gaussian distributions for continuous input
-    variables. Each variable will have *k* Gaussian components. Each Gaussian component has its
-    own location (mean) and scale (standard deviation). These parameters can be learned or fixed.
-    Lack of evidence must be provided explicitly through feeding_
-    :meth:`~libspn.NormalLeaf.evidence`.
+    """A node representing multiple uni-variate Normal distributions for continuous input
+    variables. Each variable will have `num_components` normal components. Each Normal
+    component has its own location (mean) and scale (standard deviation). These parameters
+    can be learned or fixed.
+
+    Lack of evidence must be provided explicitly through
+    feeding :py:attr:`~libspn.NormalLeaf.evidence`. By default, evidence is set to ``True``
+    for all variables.
 
     Args:
         feed (Tensor): Tensor feeding this node or ``None``. If ``None``,

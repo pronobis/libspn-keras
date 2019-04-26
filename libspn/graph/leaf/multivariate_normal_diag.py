@@ -3,14 +3,19 @@ from tensorflow_probability import distributions as tfd
 from libspn import utils
 from libspn.graph.node import Node
 from libspn.graph.leaf.location_scale import LocationScaleLeaf
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class MultivariateNormalDiagLeaf(LocationScaleLeaf):
-    """A node representing multiple uni-variate Gaussian distributions for continuous input
-    variables. Each variable will have *k* Gaussian components. Each Gaussian component has its
-    own location (mean) and scale (standard deviation). These parameters can be learned or fixed.
-    Lack of evidence must be provided explicitly through feeding
-    :meth:`~libspn.NormalLeaf.evidence`.
+    """A node representing multiple multi-variate Normal distributions for continuous input
+    variables. Each variable will have ``num_components`` Normal components. Each Normal 
+    component has its own location (mean) and scale (standard deviation). These parameters can be 
+    learned or fixed.
+    
+    Lack of evidence must be provided explicitly through
+    feeding :py:attr:`~libspn.MultivariateNormalDiagLeaf.evidence`. By default, evidence is set 
+    to ``True`` for all variables.
 
     Args:
         feed (Tensor): Tensor feeding this node or ``None``. If ``None``,
@@ -24,8 +29,7 @@ class MultivariateNormalDiagLeaf(LocationScaleLeaf):
                                             ``[num_vars, num_components]``.
         scale_init (float): If a float and there's no ``initialization_data``, scales are
                             initialized with ``variance_init``.
-        min_stddev (float): Minimum value for standard devation. Used for avoiding numerical
-                            instabilities when computing (log) pdfs.
+        min_scale (float): Minimum value for scale. Used for avoiding numerical instabilities.
         evidence_indicator_feed (Tensor): Tensor feeding this node's evidence indicator. If
                                           ``None``, an internal placeholder with default value will
                                           be created.

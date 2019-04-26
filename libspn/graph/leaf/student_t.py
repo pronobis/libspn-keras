@@ -1,19 +1,22 @@
 import tensorflow as tf
 from tensorflow_probability import distributions as tfd
-
 from libspn import utils, conf
 from libspn.graph.node import Node
 from libspn.graph.leaf.location_scale import LocationScaleLeaf
 from libspn.utils.initializers import Equidistant
+from libspn.utils.serialization import register_serializable
 
 
+@register_serializable
 class StudentTLeaf(LocationScaleLeaf):
 
     """A node representing uni-variate Student-T distributions for continuous input
     variables. Each variable will have *k* components. Each component has its
     own location (mean) and scale (standard deviation). These parameters can be learned or fixed.
-    Lack of evidence must be provided explicitly through feeding_
-    :meth:`~libspn.StudentTLeaf.evidence`.
+
+    Lack of evidence must be provided explicitly through
+    feeding :py:attr:`~libspn.StudentTLeaf.evidence`. By default, evidence is set to ``True``
+    for all variables.
 
     Args:
         feed (Tensor): Tensor feeding this node or ``None``. If ``None``,

@@ -218,7 +218,7 @@ class ContinuousLeafBase(VarNode, abc.ABC):
             if self.dimensionality > 1 else self.evidence
         return tf.where(evidence, self.feed, mpe_state)
 
-    def impute_by_posterior_marginal(self, root, name="CompletionByPosteriorMarginal"):
+    def impute_by_posterior_marginal(self, root, name="ImputeByPosteriorMarginal"):
         """ Impute data by multiplying posterior marginals of components that are not part of the
         evidence. See also http://reasoning.cs.ucla.edu/fetch.php?id=36&type=bib (Darwiche, 2003).
 
