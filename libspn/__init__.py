@@ -7,22 +7,24 @@ from libspn.graph.node import Node
 from libspn.graph.node import OpNode
 from libspn.graph.node import VarNode
 from libspn.graph.node import ParamNode
-from libspn.graph.concat import Concat
+from libspn.graph.op.concat import Concat
 from libspn.graph.op.sum import Sum
 from libspn.graph.op.parsums import ParSums
 from libspn.graph.op.sumslayer import SumsLayer
 from libspn.graph.op.product import Product
 from libspn.graph.op.permproducts import PermProducts
 from libspn.graph.op.productslayer import ProductsLayer
-from libspn.graph.convsum import ConvSum
-from libspn.graph.localsum import LocalSum
-from libspn.graph.tensorsum import TensorSum
-from libspn.graph.tensorproduct import TensorProduct
-from libspn.graph.tensorrandomize import TensorRandomize
-from libspn.graph.tensor_merge_decomps import TensorMergeDecomps
-from libspn.graph.convprod2d import ConvProd2D, _ConvProdNaive
-from libspn.graph.convproddepthwise import ConvProdDepthWise
-from libspn.graph.spatialpermproducts import SpatialPermProducts
+from libspn.graph.op.convsum import ConvSum
+from libspn.graph.op.localsum import LocalSum
+from libspn.graph.op.block_sum import BlockSum
+from libspn.graph.op.block_permute_product import BlockPermuteProduct
+from libspn.graph.op.block_reduce_product import BlockReduceProduct
+from libspn.graph.op.block_random_decompositions import BlockRandomDecompositions
+from libspn.graph.op.block_merge_decomps import BlockMergeDecomps
+from libspn.graph.op.block_root_sum import BlockRootSum
+from libspn.graph.op.convprod2d import ConvProd2D, _ConvProdNaive
+from libspn.graph.op.convproddepthwise import ConvProdDepthWise
+from libspn.graph.op.spatialpermproducts import SpatialPermProducts
 from libspn.graph.stridedslice import StridedSlice2D
 from libspn.graph.weights import Weights
 from libspn.graph.weights import assign_weights
@@ -125,23 +127,22 @@ __all__ = [
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IndicatorLeaf', 'RawLeaf',
     'Sum', 'ParSums', 'SumsLayer',
-    'TensorSum', 'TensorProduct', 'TensorRandomize', 'TensorMergeDecomps',
+    'BlockSum', 'BlockPermuteProduct', 'BlockRandomDecompositions', 'BlockMergeDecomps', 'BlockRootSum',
     'Product', 'PermProducts', 'ProductsLayer',
-    'GaussianLeaf',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
     'compute_graph_up', 'compute_graph_up_down',
     'traverse_graph',
     'StudentTLeaf', 'NormalLeaf', 'CauchyLeaf', 'LaplaceLeaf',
-    'MultivariateCauchyDiagLeaf', 'MultivariateNormalDiagLeaf'
+    'MultivariateCauchyDiagLeaf',
     # Generators
     'DenseSPNGenerator',
     'WeightsGenerator', 'generate_weights',
     # Inference and learning
     'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient',
     'MPEState', 'EMLearning', 'GDLearning', 'LearningTaskType',
-    'LearningMethodType', 'GradientType', 'ExtendedBaumWelch'
+    'LearningMethodType',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
     'IntGridDataset', 'ImageFormat', 'ImageShape', 'ImageDatasetBase',

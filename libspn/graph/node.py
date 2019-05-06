@@ -999,7 +999,7 @@ class ParamNode(Node):
         """
 
 
-class TensorNode(OpNode, abc.ABC):
+class BlockNode(OpNode, abc.ABC):
 
     def __init__(self, num_decomps=None, num_scopes=None, inference_type=InferenceType.MARGINAL,
                  name="TensorNode", input_format="SDBN", output_format="SDBN"):
@@ -1040,6 +1040,6 @@ class TensorNode(OpNode, abc.ABC):
         """
         if len(values) > 1:
             raise NotImplementedError("Can only deal with single inputs")
-        if not isinstance(values[0], TensorNode):
+        if not isinstance(values[0], BlockNode):
             raise NotImplementedError("Inputs must be TensorNode")
         self._values = self._parse_inputs(*values)

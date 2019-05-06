@@ -1,7 +1,6 @@
-import abc
-from libspn.graph.node import OpNode, Input, TensorNode, Node
+from libspn.graph.node import OpNode, Input, BlockNode, Node
 from libspn.graph.leaf.indicator import IndicatorLeaf
-from libspn.graph.weights import Weights, TensorWeights
+from libspn.graph.weights import Weights, BlockWeights
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
 import libspn.utils as utils
@@ -12,7 +11,7 @@ import tensorflow as tf
 
 
 @utils.register_serializable
-class TensorSum(TensorNode):
+class BlockSum(BlockNode):
 
     logger = get_logger()
     info = logger.info
@@ -117,7 +116,7 @@ class TensorSum(TensorNode):
                 to ``None``, the input is disconnected.
         """
         weights, = self._parse_inputs(weights)
-        if weights and not isinstance(weights.node, (Weights, TensorWeights)):
+        if weights and not isinstance(weights.node, (Weights, BlockWeights)):
             raise StructureError("%s is not Weights" % weights.node)
         self._weights = weights
 
@@ -186,9 +185,9 @@ class TensorSum(TensorNode):
         """
         if len(values) > 1:
             raise NotImplementedError("Can only deal with single inputs")
-        if isinstance(values[0], Input) and not isinstance(values[0].node, TensorNode):
+        if isinstance(values[0], Input) and not isinstance(values[0].node, BlockNode):
             raise NotImplementedError("Inputs must be TensorNode")
-        elif isinstance(values[0], Node) and not isinstance(values[0], TensorNode):
+        elif isinstance(values[0], Node) and not isinstance(values[0], BlockNode):
             raise NotImplementedError("Inputs must be TensorNode")
         self._values = self._parse_inputs(*values)
 
@@ -233,7 +232,7 @@ class TensorSum(TensorNode):
         # Count all input values
         num_inputs = self.child.dim_nodes
         # Generate weights
-        weights = TensorWeights(
+        weights = BlockWeights(
             num_inputs=num_inputs, num_outputs=self._num_sums, num_decomps=self.dim_decomps,
             num_scopes=self.dim_scope, name=name, trainable=trainable, in_logspace=log,
             initializer=initializer)
@@ -266,33 +265,21 @@ class TensorSum(TensorNode):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):
-        # Reduce over last axis
-        raise NotImplementedError()
-
-    @utils.docinherit(OpNode)
-    @utils.lru_cache
-    def _compute_log_value(self, w_tensor, ivs_tensor, child_log_prob, dropconnect_keep_prob=None,
-                           with_ivs=True):
-        if ivs_tensor is None and dropconnect_keep_prob is not None and \
+    def _compute_log_value(self, w_log_prob, latent_indicator_log_prob, child_log_prob,
+                           dropconnect_keep_prob=None, with_ivs=True):
+        if latent_indicator_log_prob is None and dropconnect_keep_prob is not None and \
                 tensor_util.constant_value(dropconnect_keep_prob) != 1.0:
             mask = self._create_dropconnect_mask(dropconnect_keep_prob, to_be_masked=child_log_prob)
             child_log_prob += tf.log(mask)
 
-        return utils.logmatmul(self._compute_apply_ivs(child_log_prob, ivs_tensor), w_tensor)
-
-    @utils.docinherit(OpNode)
-    def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):
-        raise NotImplementedError()
+        return utils.logmatmul(
+            self._compute_apply_ivs(child_log_prob, latent_indicator_log_prob), w_log_prob)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
+    def _compute_log_mpe_value(self, w_tensor, ivs_tensor, child_log_prob, with_ivs=True,
                                dropconnect_keep_prob=None):
-        child = value_tensors[0]
-        if len(value_tensors) > 1:
-            raise NotImplementedError("Can only deal with a single input")
-        return tf.reduce_max(self._compute_weighted(child, w_tensor, ivs_tensor), axis=3)
+        return tf.reduce_max(self._compute_weighted(child_log_prob, w_tensor, ivs_tensor), axis=3)
 
     @utils.lru_cache
     def _compute_apply_ivs(self, child, ivs_tensor):
@@ -307,13 +294,7 @@ class TensorSum(TensorNode):
     @utils.lru_cache
     def _compute_weighted(self, child, w_tensor, ivs_tensor):
         child = self._compute_apply_ivs(child, ivs_tensor)
-        return tf.expand_dims(child, 4) + tf.expand_dims(w_tensor, 2)
-
-    @utils.lru_cache
-    def _compute_mpe_path(self, counts, w_tensor, ivs_tensor, child_log_prob,
-                          use_unweighted=False, add_random=None, sample=False, sample_prob=None,
-                          dropconnect_keep_prob=None):
-        raise NotImplementedError()
+        return tf.expand_dims(child, axis=4) + tf.expand_dims(w_tensor, axis=2)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache

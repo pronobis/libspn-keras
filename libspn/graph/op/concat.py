@@ -4,9 +4,6 @@ from libspn import utils
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
 from libspn.utils.serialization import register_serializable
-from libspn.graph.convsum import ConvSum
-from libspn.graph.localsum import LocalSum
-from libspn.graph.convprod2d import ConvProd2D, _ConvProdNaive
 import tensorflow as tf
 import numpy as np
 

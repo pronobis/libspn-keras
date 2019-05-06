@@ -246,7 +246,7 @@ class Weights(ParamNode):
 
 
 @register_serializable
-class TensorWeights(ParamNode):
+class BlockWeights(ParamNode):
     """A node containing a vector of weights of a sum node.
 
     Args:
@@ -447,7 +447,7 @@ def initialize_weights(root, name="InitializeWeights"):
     initialize_ops = []
 
     def initialize(node):
-        if isinstance(node, (Weights, TensorWeights, LocationScaleLeaf)):
+        if isinstance(node, (Weights, BlockWeights, LocationScaleLeaf)):
             initialize_ops.append(node.initialize())
 
     with tf.name_scope(name):

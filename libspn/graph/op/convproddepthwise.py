@@ -3,7 +3,7 @@ import libspn.utils as utils
 import tensorflow as tf
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
-from libspn.graph.convprod2d import ConvProd2D
+from libspn.graph.op.convprod2d import ConvProd2D
 from libspn import conf
 
 

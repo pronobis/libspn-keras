@@ -1,7 +1,7 @@
 import tensorflow as tf
 from libspn.tests.test import argsprod
 import libspn as spn
-from libspn.graph.convsum import ConvSum
+from libspn.graph.op.convsum import ConvSum
 import numpy as np
 import random
 

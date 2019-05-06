@@ -10,7 +10,7 @@ from libspn.graph.op.parsums import ParSums
 from libspn.graph.op.productslayer import ProductsLayer
 from libspn.graph.op.product import Product
 from libspn.graph.op.permproducts import PermProducts
-from libspn.graph.concat import Concat
+from libspn.graph.op.concat import Concat
 from libspn.exceptions import StructureError
 from libspn.graph.algorithms import traverse_graph
 

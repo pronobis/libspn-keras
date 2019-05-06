@@ -1,11 +1,9 @@
 from collections import defaultdict, OrderedDict
-from libspn.graph.convprod2d import ConvProd2D, _ConvProdNaive
-from libspn.graph.convproddepthwise import ConvProdDepthWise
-from libspn.graph.convsum import ConvSum
+from libspn.graph.op.convprod2d import ConvProd2D, _ConvProdNaive
+from libspn.graph.op.convproddepthwise import ConvProdDepthWise
+from libspn.graph.op.convsum import ConvSum
 from libspn.graph.stridedslice import StridedSlice2D
-from libspn.graph.localsum import LocalSum
-from libspn.graph.op.sum import Sum
-from libspn.graph.concat import Concat
+from libspn.graph.op.localsum import LocalSum
 from libspn.graph.op.sum import Sum
 import numpy as np
 from libspn.log import get_logger

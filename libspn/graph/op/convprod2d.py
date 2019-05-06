@@ -13,7 +13,7 @@ from libspn.exceptions import StructureError
 import numpy as np
 from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode
-from libspn.graph.spatialsum import SpatialSum
+from libspn.graph.op.spatialsum import SpatialSum
 from libspn import conf
 from libspn.graph.op.productslayer import ProductsLayer
 from libspn.log import get_logger

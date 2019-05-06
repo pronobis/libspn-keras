@@ -1,8 +1,10 @@
 import libspn as spn
-from libspn.graph.tensorrandomize import TensorRandomize
-from libspn.graph.tensorproduct import TensorProduct
-from libspn.graph.tensorsum import TensorSum
-from libspn.graph.tensor_merge_decomps import TensorMergeDecomps
+from libspn.graph.op.block_random_decompositions import BlockRandomDecompositions
+from libspn.graph.op.block_permute_product import BlockPermuteProduct
+from libspn.graph.op.block_reduce_product import BlockReduceProduct
+from libspn.graph.op.block_sum import BlockSum
+from libspn.graph.op.block_merge_decomps import BlockMergeDecomps
+from libspn.graph.op.block_root_sum import BlockRootSum
 import tensorflow as tf
 import numpy as np
 
@@ -13,17 +15,14 @@ class TestTensorRandomize(tf.test.TestCase):
         num_vars = 13
 
         iv = spn.IndicatorLeaf(num_vals=2, num_vars=num_vars)
-        randomize = TensorRandomize(iv, num_decomps=2)
-        factors = [4, 2, 2]
-
-        p0 = TensorProduct(randomize, num_subsets=4)
-        s0 = TensorSum(p0, num_sums=3)
-        p1 = TensorProduct(s0, num_subsets=2)
-        s1 = TensorSum(p1, num_sums=3)
-        p2 = TensorProduct(s1, num_subsets=2)
-        m = TensorMergeDecomps(p2, factor=2)
-        root = TensorSum(m, num_sums=1)
-        randomize.generate_permutations(factors=factors)
+        randomize = BlockRandomDecompositions(iv, num_decomps=2)
+        p0 = BlockPermuteProduct(randomize, num_subsets=4)
+        s0 = BlockSum(p0, num_sums=3)
+        p1 = BlockPermuteProduct(s0, num_subsets=2)
+        s1 = BlockSum(p1, num_sums=3)
+        p2 = BlockReduceProduct(s1, num_subsets=2)
+        m = BlockMergeDecomps(p2, factor=2)
+        root = BlockRootSum(m)
 
         latent = root.generate_latent_indicators(name="Latent")
         spn.generate_weights(root, initializer=tf.initializers.random_uniform())

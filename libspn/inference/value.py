@@ -1,7 +1,7 @@
 import tensorflow as tf
 from types import MappingProxyType
 from libspn.graph.algorithms import compute_graph_up
-from libspn.graph.spatialsum import SpatialSum
+from libspn.graph.op.spatialsum import SpatialSum
 from libspn.inference.type import InferenceType
 from libspn.graph.op.basesum import BaseSum
 

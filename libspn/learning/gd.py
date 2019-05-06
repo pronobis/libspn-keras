@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from libspn import TensorSum
+from libspn import BlockSum
 from libspn.graph.op.basesum import BaseSum
 
 from libspn.inference.value import LogValue
@@ -200,7 +200,7 @@ class GDLearning:
             marginalizing_root = self._marginalizing_root or Sum(
                 *self._root.values, weights=self._root.weights)
         else:
-            marginalizing_root = self._marginalizing_root or TensorSum(
+            marginalizing_root = self._marginalizing_root or BlockSum(
                 self._root.values[0], weights=self._root.weights, num_sums=1)
         learning_task_type = learning_task_type or self._learning_task_type
         dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob

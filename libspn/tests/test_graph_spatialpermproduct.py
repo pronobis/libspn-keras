@@ -1,10 +1,9 @@
-import libspn.graph.spatialpermproducts
+import libspn.graph.op.spatialpermproducts
 from libspn.tests.test import argsprod
 import tensorflow as tf
 import numpy as np
 import libspn as spn
 from libspn.log import get_logger
-import itertools
 
 from libspn.utils.math import pow2_combinations
 
@@ -18,7 +17,7 @@ class TestConvProd(tf.test.TestCase):
         iv1 = spn.IndicatorLeaf(num_vars=4, num_vals=2)
         spatial_dims = [2, 2]
 
-        spp = libspn.graph.spatialpermproducts.SpatialPermProducts(iv0, iv1, grid_dim_sizes=spatial_dims)
+        spp = libspn.graph.op.spatialpermproducts.SpatialPermProducts(iv0, iv1, grid_dim_sizes=spatial_dims)
         permutation_mat, _ = spp._generate_permutation_matrix()
         permutation_mat_target = [
             [1, 0, 1, 0],
@@ -34,7 +33,7 @@ class TestConvProd(tf.test.TestCase):
         batch_size = 7
         spatial_dims = [2, 2]
 
-        spp = libspn.graph.spatialpermproducts.SpatialPermProducts(iv0, iv1, grid_dim_sizes=spatial_dims)
+        spp = libspn.graph.op.spatialpermproducts.SpatialPermProducts(iv0, iv1, grid_dim_sizes=spatial_dims)
 
         indices = [[0, 0], [1, 0], [0, 1], [1, 1]]
 
@@ -63,7 +62,7 @@ class TestConvProd(tf.test.TestCase):
         num_values = 2
         num_vars = rows * cols
         ivs = [spn.IndicatorLeaf(num_vars=num_vars, num_vals=num_values) for _ in range(num_inputs)]
-        spp = libspn.graph.spatialpermproducts.SpatialPermProducts(*ivs, grid_dim_sizes=[rows, cols])
+        spp = libspn.graph.op.spatialpermproducts.SpatialPermProducts(*ivs, grid_dim_sizes=[rows, cols])
 
         local_sum = spn.LocalSum(spp, num_channels=1, grid_dim_sizes=[rows, cols])
         if rows == cols == 1:
@@ -92,7 +91,7 @@ class TestConvProd(tf.test.TestCase):
         batch_size = 7
         spatial_dims = [2, 2]
 
-        spp = libspn.graph.spatialpermproducts.SpatialPermProducts(iv0, iv1, grid_dim_sizes=spatial_dims)
+        spp = libspn.graph.op.spatialpermproducts.SpatialPermProducts(iv0, iv1, grid_dim_sizes=spatial_dims)
         concat_node = spn.Concat(spp)
 
         indices = [[0, 0], [1, 0], [0, 1], [1, 1]]
@@ -130,7 +129,7 @@ class TestConvProd(tf.test.TestCase):
                       for sc0, sc1 in zip(scopes_iv0, scopes_iv1)]
         target = np.repeat(out_scopes, repeats=4).tolist()
 
-        spp = libspn.graph.spatialpermproducts.SpatialPermProducts(iv0, iv1, grid_dim_sizes=spatial_dims)
+        spp = libspn.graph.op.spatialpermproducts.SpatialPermProducts(iv0, iv1, grid_dim_sizes=spatial_dims)
 
         self.assertAllEqual(spp.get_scope(), target)
 
@@ -138,7 +137,7 @@ class TestConvProd(tf.test.TestCase):
         iv0 = spn.IndicatorLeaf(num_vars=4, num_vals=2)
         iv1 = spn.IndicatorLeaf(num_vars=4, num_vals=2)
         spatial_dims = [2, 2]
-        spp = libspn.graph.spatialpermproducts.SpatialPermProducts(iv0, iv1, grid_dim_sizes=spatial_dims)
+        spp = libspn.graph.op.spatialpermproducts.SpatialPermProducts(iv0, iv1, grid_dim_sizes=spatial_dims)
         ls = spn.LocalSum(spp, num_channels=1, grid_dim_sizes=spatial_dims)
         root = spn.Product(ls)
         self.assertTrue(root.is_valid())
@@ -146,12 +145,12 @@ class TestConvProd(tf.test.TestCase):
         iv0 = spn.IndicatorLeaf(num_vars=4, num_vals=2)
         iv1 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         spatial_dims = [2, 2]
-        spp = libspn.graph.spatialpermproducts.SpatialPermProducts(iv0, iv1, grid_dim_sizes=spatial_dims)
+        spp = libspn.graph.op.spatialpermproducts.SpatialPermProducts(iv0, iv1, grid_dim_sizes=spatial_dims)
         ls = spn.LocalSum(spp, num_channels=1, grid_dim_sizes=spatial_dims)
         root = spn.Product(ls)
         self.assertFalse(root.is_valid())
 
         iv0 = spn.IndicatorLeaf(num_vars=4, num_vals=2)
-        spp = libspn.graph.spatialpermproducts.SpatialPermProducts(iv0, iv0, grid_dim_sizes=spatial_dims)
+        spp = libspn.graph.op.spatialpermproducts.SpatialPermProducts(iv0, iv0, grid_dim_sizes=spatial_dims)
         self.assertFalse(spp.is_valid())
 

@@ -1,18 +1,22 @@
-from libspn.graph.node import OpNode, Input, TensorNode
+from libspn.graph.node import OpNode, BlockNode
+from libspn.graph.leaf.indicator import IndicatorLeaf
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
 import libspn.utils as utils
 from libspn.log import get_logger
+from tensorflow.python.ops.array_grad import _GatherV2Grad
 import tensorflow as tf
+import numpy as np
 
 
 @utils.register_serializable
-class TensorMergeDecomps(TensorNode):
+class BlockRandomDecompositions(BlockNode):
 
     logger = get_logger()
     info = logger.info
 
-    """An abstract node representing sums in an SPN.
+    """A node that creates random decompositions of its leaf inputs by generating an arbitrary 
+    number of random orderings the inputs randomly and having singleton scopes in the output.
 
     Args:
         *values (input_like): Inputs providing input values to this node.
@@ -23,6 +27,9 @@ class TensorMergeDecomps(TensorNode):
         batch_axis (int): The index of the batch axis.
         op_axis (int): The index of the op axis that contains the individual sums being modeled.
         reduce_axis (int): The axis over which to perform summing (or max for MPE)
+        weights (input_like): Input providing weights node to this sum node.
+            See :meth:`~libspn.Input.as_input` for possible values. If set
+            to ``None``, the input is disconnected.
         name (str): Name of the node.
 
     Attributes:
@@ -33,13 +40,49 @@ class TensorMergeDecomps(TensorNode):
                                        used during the next inference/learning
                                        op generation.
     """
-    def __init__(self, *values, factor, inference_type=InferenceType.MARGINAL,
-                 name="TensorMergeDecomps", input_format="SDBN", output_format="SDBN"):
+
+    def __init__(self, *values, num_decomps, inference_type=InferenceType.MARGINAL,
+                 name="TensorRandomize", input_format="SDBN", output_format="BNN"):
         super().__init__(
             inference_type=inference_type, name=name, input_format=input_format,
-            output_format=output_format, num_scopes=1)
+            output_format=output_format, num_decomps=num_decomps)
         self.set_values(*values)
-        self._factor = factor
+        self._num_decomps = num_decomps
+        self._batch_axis = 2
+        self._decomp_axis = 1
+        self._scope_axis = 0
+        self._node_axis = 3
+        self._perms = None
+
+    def generate_permutations(self, factors):
+        if not factors:
+            raise StructureError("{}: factors needs to be a non-empty sequence.")
+        num_input_scopes = self._get_num_input_scopes()
+        factor_cumprod = np.cumprod(factors)
+        factor_prod = factor_cumprod[-1]
+        if factor_prod < num_input_scopes:
+            raise StructureError("{}: not enough factors to cover all variables ({} vs. {})."
+                                 .format(self, factor_prod, num_input_scopes))
+        for i, fc in enumerate(factor_cumprod[:-1]):
+            if fc >= num_input_scopes:
+                raise StructureError(
+                    "{}: too many factors, taking out the bottom {} products still "
+                    "results in {} factors while {} are needed.".format(
+                        self, len(factors) - i - 1, fc, num_input_scopes))
+
+        num_m1 = factor_prod - num_input_scopes
+        # e.g. num_m1 == 2 and factor_prod = 32. Then rate_m1 is 16, so once every 16 values
+        # we should leave a variable slot empty
+        rate_m1 = int(np.floor(factor_prod / num_m1))
+
+        # Now we generate the random index permutations
+        perms = [np.random.permutation(num_input_scopes).astype(int).tolist()
+                 for _ in range(self._num_decomps)]
+        for p in perms:
+            for i in range(num_m1):
+                p.insert(i * rate_m1, -1)
+        self._perms = perms = np.asarray(perms)
+        return perms
 
     def set_values(self, *values):
         self._values = self._parse_inputs(*values)
@@ -60,22 +103,17 @@ class TensorMergeDecomps(TensorNode):
             raise StructureError("{}: cannot get num outputs per decomp and scope since this "
                                  "node has no children.".format(self))
         child = self._values[0].node
-        return child.dim_nodes * self._factor
-
-    @property
-    def dim_decomps(self):
-        if not self._values:
-            raise StructureError("{}: cannot get num outputs per decomp and scope since this "
-                                 "node has no children.".format(self))
-        child = self._values[0].node
-        return child.dim_decomps // self._factor
+        try:
+            return child.num_components
+        except AttributeError as e:
+            return child.num_vals
 
     def _compute_out_size(self, *input_out_sizes):
         pass
 
     @property
     def dim_scope(self):
-        return 1
+        return self._perms.shape[1]
 
     @utils.docinherit(OpNode)
     def serialize(self):
@@ -118,18 +156,21 @@ class TensorMergeDecomps(TensorNode):
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_log_value(self, *value_tensors, with_ivs=True):
-        child = value_tensors[0]
-        child_node = self.values[0].node
-        if child_node.dim_scope != 1:
-            raise StructureError("Can only merge decompositions if scope axis is 1")
-        if child_node.dim_decomps % self._factor != 0:
-            raise StructureError("Number of decomps in child is not multiple of factor {} vs {} "
-                                 .format(child_node.dim_decomps, self._factor))
+        if self._perms is None:
+            raise StructureError("First need to determine permutations")
+        # [batch, scope, node]
+        dim_scope_in = self.values[0].node.num_vars
+        dim_nodes_in = self.values[0].node.num_vals if isinstance(
+            self.values[0].node, IndicatorLeaf) else self.values[0].node.num_components
+        zero_padded = tf.concat(
+            [tf.zeros([1, tf.shape(value_tensors[0])[0], dim_nodes_in]),
+             tf.transpose(tf.reshape(value_tensors[0], [-1, dim_scope_in, dim_nodes_in]),
+                          (1, 0, 2))], axis=0)
+        gather_indices = self._perms + 1
+        permuted = self._gather_op = tf.gather(zero_padded, np.transpose(gather_indices))
+        self._zero_padded_shape = tf.shape(zero_padded)
 
-        dim_decomps = child_node.dim_decomps // self._factor
-        child = tf.reshape(child, (child_node.dim_scope, dim_decomps, self._factor, -1, child_node.dim_nodes))
-
-        return tf.reshape(tf.transpose(child, [0, 1, 3, 4, 2]), [1, dim_decomps, -1, self.dim_nodes])
+        return permuted
 
     @utils.docinherit(OpNode)
     def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):
@@ -139,53 +180,54 @@ class TensorMergeDecomps(TensorNode):
     @utils.lru_cache
     def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
                                dropconnect_keep_prob=None):
-        raise self._compute_log_value(*value_tensors, with_ivs=with_ivs)
+        raise NotImplementedError()
 
     @utils.lru_cache
     def _compute_mpe_path_common(
-            self, reducible_logits, counts, w_logits, latent_indicator_logits, *input_logits,
-            log=True, sample=False, sample_prob=None, sum_weight_grads=False):
+            self, reducible_log_prob, counts, w_log_prob, latent_indicator_log_prob,
+            *child_log_probs, sample=False, sample_prob=None, sum_weight_grads=False):
         """Common operations for computing the MPE path.
 
         Args:
-            reducible_logits (Tensor): A (weighted) ``Tensor`` of (log-)values of this node.
+            reducible_log_prob (Tensor): A (weighted) ``Tensor`` of (log-)values of this node.
             counts (Tensor): A ``Tensor`` that contains the accumulated counts of the parents
                              of this node.
-            w_logits (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
-            latent_indicator_logits (Tensor): A ``Tensor`` containing the logits of the latent
-                indicator
-            input_logits (list): A list of ``Tensor``s with outputs of the child nodes.
+            w_log_prob (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
+            latent_indicator_log_prob (Tensor): A ``Tensor`` containing the log probability
+                of the latent indicators.
+            child_log_probs (list): A list of ``Tensor``s with outputs of the child nodes.
             log (bool): Whether the computation is in log-space or not
             sample (bool): Whether to sample the 'winner' of the max or not
             sample_prob (Tensor): A scalar ``Tensor`` indicating the probability of drawing
                 a sample. If a sample is drawn, the probability for each index is given by the
-                (log-)normalized probability as given by ``reducible_logits``.
+                (log-)normalized probability as given by ``reducible_log_prob``.
         Returns:
             A ``list`` of ``tuple``s [(MPE counts, input tensor), ...] where the first corresponds
-            to the Weights of this node, the second corresponds to the  and the remaining
-            tuples correspond to the nodes in ``self._values``.
+            to the Weights of this node, the second corresponds to the latent indicators and the
+            remaining tuples correspond to the nodes in ``self._values``.
         """
         raise NotImplementedError()
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_mpe_path(self, counts, *value_tensors, use_unweighted=False, with_ivs=True,
-                          add_random=None, sample=False, sample_prob=None,
-                          dropconnect_keep_prob=None):
-        child = self.values[0].node
-        counts = tf.reshape(counts, (self.dim_decomps, -1, child.dim_nodes, self._factor))
-        return tf.reshape(tf.transpose(counts, [0, 3, 1, 2]),
-                          (child.dim_scope, child.dim_decomps, -1, child.dim_nodes)),
+    def _compute_mpe_path(self, counts, *value_tensors,
+                          use_unweighted=False, with_ivs=True, add_random=None,
+                          sample=False, sample_prob=None, dropconnect_keep_prob=None):
+        raise NotImplementedError()
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_path(self, counts, *input_tensors, use_unweighted=False, with_ivs=True,
-                              add_random=None, sum_weight_grads=False, sample=False, sample_prob=None,
+    def _compute_log_mpe_path(self, counts, *input_tensors,
+                              use_unweighted=False, with_ivs=True, add_random=None,
+                              sum_weight_grads=False, sample=False, sample_prob=None,
                               dropconnect_keep_prob=None):
-        child = self.values[0].node
-        counts = tf.reshape(counts, (self.dim_decomps, -1, child.dim_nodes, self._factor))
-        return tf.reshape(tf.transpose(counts, [0, 3, 1, 2]),
-                          (child.dim_scope, child.dim_decomps, -1, child.dim_nodes)),
+        # counts is shape [scope, decomps, batch, nodes]
+        # will have to be transformed to [batch, scope * nodes]
+        grad = tf.reshape(_GatherV2Grad(self._gather_op._op, counts)[0], self._zero_padded_shape)
+        dim_scope_in = self.values[0].node.num_vars
+        _, counts_in = tf.split(grad, num_or_size_splits=[1, dim_scope_in], axis=0)
+        return tf.reshape(tf.transpose(counts_in, (1, 0, 2)),
+                          (-1, self.values[0].node._compute_out_size())),
 
     @utils.docinherit(OpNode)
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):

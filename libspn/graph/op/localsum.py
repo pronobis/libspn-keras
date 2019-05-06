@@ -10,7 +10,7 @@ from libspn.graph.op.basesum import BaseSum
 import libspn.utils as utils
 import tensorflow as tf
 import numpy as np
-from libspn.graph.spatialsum import SpatialSum
+from libspn.graph.op.spatialsum import SpatialSum
 
 
 @utils.register_serializable
