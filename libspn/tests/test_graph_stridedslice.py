@@ -1,4 +1,4 @@
-from libspn.graph.basesum import BaseSum
+from libspn.graph.op.basesum import BaseSum
 from libspn.tests.test import argsprod
 import tensorflow as tf
 import numpy as np
@@ -114,8 +114,8 @@ class TestConvProd(tf.test.TestCase):
     def test_compute_scope(self, row_b, row_e, col_b, col_e, stride_row, stride_col):
         ivs_rows, ivs_cols = 16, 16
         num_vars = ivs_rows * ivs_cols
-        ivs = spn.IVs(num_vars=num_vars, num_vals=2)
-        ivs2 = spn.IVs(num_vars=num_vars, num_vals=2)
+        ivs = spn.IndicatorLeaf(num_vars=num_vars, num_vals=2)
+        ivs2 = spn.IndicatorLeaf(num_vars=num_vars, num_vals=2)
 
         if row_e is None:
             if col_e is None:

@@ -15,10 +15,10 @@ class TestConvSPN(tf.test.TestCase):
         num_vars = rows * cols
         num_vals = 2
         spatial_dims = [rows, cols]
-        ivs = spn.IVs(num_vars=num_vars, num_vals=num_vals)
-        dense_generator = spn.DenseSPNGeneratorLayerNodes(
+        ivs = spn.IndicatorLeaf(num_vars=num_vars, num_vals=num_vals)
+        dense_generator = spn.DenseSPNGenerator(
             num_decomps=1, num_mixtures=4, num_subsets=2,
-            node_type=spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER)
+            node_type=spn.DenseSPNGenerator.NodeType.LAYER)
         convspn = ConvSPN()
         wicker_root = convspn.wicker_stack(
             ivs, stack_size=3, spatial_dims=spatial_dims, dense_generator=dense_generator,
@@ -52,10 +52,10 @@ class TestConvSPN(tf.test.TestCase):
         num_vars = rows * cols
         num_vals = 2
         spatial_dims = [rows, cols]
-        ivs = spn.IVs(num_vars=num_vars, num_vals=num_vals)
-        dense_generator = spn.DenseSPNGeneratorLayerNodes(
+        ivs = spn.IndicatorLeaf(num_vars=num_vars, num_vals=num_vals)
+        dense_generator = spn.DenseSPNGenerator(
             num_decomps=1, num_mixtures=4, num_subsets=2,
-            node_type=spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER)
+            node_type=spn.DenseSPNGenerator.NodeType.LAYER)
         convspn = ConvSPN()
         dense_heads = convspn.wicker_stack(
             ivs, stack_size=3, spatial_dims=spatial_dims, dense_generator=dense_generator,

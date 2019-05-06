@@ -1,18 +1,12 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
 from parameterized import parameterized
 import itertools
+import libspn as spn
 
 
 INPUT_SIZES = [[10], [1] * 10, [2] * 5, [5, 5], [1, 2, 3, 4], [4, 3, 2, 1], [2, 1, 2, 3, 1, 1]]
@@ -27,12 +21,12 @@ def arg_product(*args):
     return [tuple(elem) for elem in itertools.product(*args)]
 
 
-def sumslayer_mpe_path_numpy(values, indices, weights, ivs, sums_sizes, inf_type, root_weights,
+def sumslayer_mpe_path_numpy(values, indices, weights, latent_indicators, sums_sizes, inf_type, root_weights,
                              value_only=False):
     """ Computes the output of _compute_mpe_path with numpy """
     selected_values = [(val, ind) for val, ind in zip(values, indices)]
     inputs_to_reduce, iv_mask_per_sum, weights_per_sum = sumslayer_numpy_prepare_sums(
-        selected_values, ivs, sums_sizes, weights)
+        selected_values, latent_indicators, sums_sizes, weights)
 
     # Compute element-wise weighting
     weighted_sums = [x * np.reshape(w / np.sum(w), (1, -1)) * iv
@@ -69,12 +63,12 @@ def sumslayer_mpe_path_numpy(values, indices, weights, ivs, sums_sizes, inf_type
         input_c[:, winning_ind] = counts
         input_counts.append(input_c)
 
-    # The IVs counts is the same as the weight counts!
-    ivs_counts = weight_counts
-    return weight_counts, ivs_counts, input_counts
+    # The IndicatorLeaf counts is the same as the weight counts!
+    latent_indicators_counts = weight_counts
+    return weight_counts, latent_indicators_counts, input_counts
 
 
-def sumslayer_numpy_prepare_sums(inputs, ivs, sums_sizes, weights):
+def sumslayer_numpy_prepare_sums(inputs, latent_indicators, sums_sizes, weights):
     inputs_selected = []
     # Taking care of indices
     for x, indices in inputs:
@@ -87,52 +81,52 @@ def sumslayer_numpy_prepare_sums(inputs, ivs, sums_sizes, weights):
     inputs_concatenated = np.concatenate(inputs_selected, axis=1)
     inputs_to_reduce = np.split(inputs_concatenated, splits, axis=1)
     weights_per_sum = np.split(weights, splits)
-    iv_mask = build_iv_mask(inputs_selected, inputs_to_reduce, ivs, sums_sizes)
+    iv_mask = build_iv_mask(inputs_selected, inputs_to_reduce, latent_indicators, sums_sizes)
     iv_mask_per_sum = np.split(iv_mask, splits, axis=1)
 
     return inputs_to_reduce, iv_mask_per_sum, weights_per_sum
 
 
-def build_iv_mask(inputs_selected, inputs_to_reduce, ivs, sums_sizes):
+def build_iv_mask(inputs_selected, inputs_to_reduce, latent_indicators, sums_sizes):
     """
-    Creates concatenated IV matrix with boolean values that can be multiplied with the
+    Creates concatenated Indicator matrix with boolean values that can be multiplied with the
     reducible values for masking
     """
-    if not ivs:
-        ivs_ = np.concatenate([np.ones_like(x) for x in inputs_to_reduce], 1)
+    if not latent_indicators:
+        latent_indicators_ = np.concatenate([np.ones_like(x) for x in inputs_to_reduce], 1)
     else:
-        ivs_ = np.ones((inputs_selected[0].shape[0], sum(sums_sizes)))
-        for row in range(ivs_.shape[0]):
+        latent_indicators_ = np.ones((inputs_selected[0].shape[0], sum(sums_sizes)))
+        for row in range(latent_indicators_.shape[0]):
             offset = 0
-            for iv, s in zip(ivs, sums_sizes):
+            for iv, s in zip(latent_indicators, sums_sizes):
                 if 0 <= iv[row] < s:
-                    ivs_[row, offset:offset + s] = 0
-                    ivs_[row, offset + iv[row]] = 1
+                    latent_indicators_[row, offset:offset + s] = 0
+                    latent_indicators_[row, offset + iv[row]] = 1
                 offset += s
-    return ivs_
+    return latent_indicators_
 
 
 class TestNodesSumsLayer(tf.test.TestCase):
 
     @parameterized.expand(arg_product(
-        INPUT_SIZES, SUM_SIZES, BOOLEAN, BOOLEAN, BOOLEAN, INF_TYPES, BOOLEAN))
-    def test_sumslayer_value(self, input_sizes, sum_sizes, ivs, log, same_inputs, inf_type,
+        INPUT_SIZES, SUM_SIZES, BOOLEAN, [True], BOOLEAN, INF_TYPES, BOOLEAN))
+    def test_sumslayer_value(self, input_sizes, sum_sizes, latent_indicators, log, same_inputs, inf_type,
                              indices):
         batch_size = 32
         factor = 10
         # Construct the required inputs
-        feed_dict, indices, input_nodes, input_tuples, ivs, values, weights, root_weights = \
+        feed_dict, indices, input_nodes, input_tuples, latent_indicators, values, weights, root_weights = \
             self.sumslayer_prepare_common(
-                batch_size, factor, indices, input_sizes, ivs, same_inputs, sum_sizes)
+                batch_size, factor, indices, input_sizes, latent_indicators, same_inputs, sum_sizes)
 
         # Compute true output
         true_out = sumslayer_mpe_path_numpy(
-            values, indices, weights, None if not ivs else ivs, sum_sizes, inf_type, root_weights,
+            values, indices, weights, None if not latent_indicators else latent_indicators, sum_sizes, inf_type, root_weights,
             value_only=True)
 
         # Build graph
-        init, ivs_nodes, root, weight_node = self.build_sumslayer_common(
-            feed_dict, input_tuples, ivs, sum_sizes, weights, root_weights)
+        init, latent_indicators_nodes, root, weight_node = self.build_sumslayer_common(
+            feed_dict, input_tuples, latent_indicators, sum_sizes, weights, root_weights)
 
         # Get the desired op
         value_op = root.get_value(inf_type) if log else tf.exp(root.get_log_value(inf_type))
@@ -144,10 +138,12 @@ class TestNodesSumsLayer(tf.test.TestCase):
         self.assertAllClose(out, true_out)
 
     @parameterized.expand(arg_product(
-        INPUT_SIZES, SUM_SIZES, BOOLEAN, BOOLEAN, BOOLEAN, INF_TYPES,
+        INPUT_SIZES, SUM_SIZES, BOOLEAN, [True], BOOLEAN, INF_TYPES,
         ['gather', 'segmented'], BOOLEAN, BOOLEAN))
-    def test_sumslayer_mpe_path(self, input_sizes, sum_sizes, ivs, log, same_inputs, inf_type,
+    def test_sumslayer_mpe_path(self, input_sizes, sum_sizes, latent_indicators, log, same_inputs, inf_type,
                                 count_strategy, indices, use_unweighted):
+        spn.conf.argmax_zero = True
+
         # Set some defaults
         if (1 in sum_sizes or 1 in input_sizes or np.all(np.equal(sum_sizes, sum_sizes[0]))) \
                 and use_unweighted:
@@ -163,34 +159,34 @@ class TestNodesSumsLayer(tf.test.TestCase):
         factor = 10
         # Configure count strategy
         spn.conf.sumslayer_count_sum_strategy = count_strategy
-        feed_dict, indices, input_nodes, input_tuples, ivs, values, weights, root_weights = \
+        feed_dict, indices, input_nodes, input_tuples, latent_indicators, values, weights, root_weights = \
             self.sumslayer_prepare_common(
-                batch_size, factor, indices, input_sizes, ivs, same_inputs, sum_sizes)
+                batch_size, factor, indices, input_sizes, latent_indicators, same_inputs, sum_sizes)
 
         root_weights_np = np.ones_like(root_weights) if use_unweighted and log else root_weights
-        weight_counts, ivs_counts, value_counts = sumslayer_mpe_path_numpy(
-            values, indices, weights, None if not ivs else ivs, sum_sizes, inf_type,
+        weight_counts, latent_indicators_counts, value_counts = sumslayer_mpe_path_numpy(
+            values, indices, weights, None if not latent_indicators else latent_indicators, sum_sizes, inf_type,
             root_weights_np)
         # Build graph
-        init, ivs_nodes, root, weight_node = self.build_sumslayer_common(
-            feed_dict, input_tuples, ivs, sum_sizes, weights, root_weights)
+        init, latent_indicators_nodes, root, weight_node = self.build_sumslayer_common(
+            feed_dict, input_tuples, latent_indicators, sum_sizes, weights, root_weights)
 
         # Then build MPE path Ops
         mpe_path_gen = spn.MPEPath(
-            value_inference_type=inf_type, log=log, use_unweighted=use_unweighted)
+            value_inference_type=inf_type, log=True, use_unweighted=use_unweighted)
         mpe_path_gen.get_mpe_path(root)
-        path_op = [mpe_path_gen.counts[node] for node in [weight_node] + input_nodes + ivs_nodes]
+        path_op = [mpe_path_gen.counts[node] for node in [weight_node] + input_nodes + latent_indicators_nodes]
 
         # Run graph and do some post-processing
         with self.test_session() as sess:
             sess.run(init)
             out = sess.run(path_op, feed_dict=feed_dict)
-            if ivs:
-                ivs_counts_out = out[-1]
-                ivs_counts_out = np.split(ivs_counts_out, indices_or_sections=len(sum_sizes),
+            if latent_indicators:
+                latent_indicators_counts_out = out[-1]
+                latent_indicators_counts_out = np.split(latent_indicators_counts_out, indices_or_sections=len(sum_sizes),
                                           axis=1)
-                ivs_counts_out = [np.squeeze(iv, axis=1)[:, :size] for iv, size in
-                                  zip(ivs_counts_out, sum_sizes)]
+                latent_indicators_counts_out = [np.squeeze(iv, axis=1)[:, :size] for iv, size in
+                                  zip(latent_indicators_counts_out, sum_sizes)]
                 out = out[:-1]
             weight_counts_out, *input_counts_out = out
             weight_counts_out = np.split(weight_counts_out, indices_or_sections=len(sum_sizes),
@@ -205,27 +201,31 @@ class TestNodesSumsLayer(tf.test.TestCase):
          zip(input_counts_out, value_counts)]
         [self.assertAllClose(w_out, w_out_truth) for w_out, w_out_truth in
          zip(weight_counts_out, weight_counts)]
-        if ivs:
+        if latent_indicators:
             [self.assertAllClose(iv_out, iv_true_out) for iv_out, iv_true_out in
-             zip(ivs_counts_out, ivs_counts)]
+             zip(latent_indicators_counts_out, latent_indicators_counts)]
 
-    def build_sumslayer_common(self, feed_dict, input_tuples, ivs, sum_sizes, weights,
+    def build_sumslayer_common(self, feed_dict, input_tuples, latent_indicators, sum_sizes, weights,
                                root_weights):
         sumslayer = spn.SumsLayer(*input_tuples, num_or_size_sums=sum_sizes)
-        if ivs:
-            ivs_nodes = [sumslayer.generate_ivs()]
-            feed_dict[ivs_nodes[0]] = np.stack(ivs, axis=1)
+        if latent_indicators:
+            latent_indicators_nodes = [sumslayer.generate_latent_indicators()]
+            feed_dict[latent_indicators_nodes[0]] = np.stack(latent_indicators, axis=1)
         else:
-            ivs_nodes = []
-        weight_node = sumslayer.generate_weights(init_value=weights)
+            latent_indicators_nodes = []
+        mask = sumslayer._build_mask()
+        weights_padded = np.zeros(mask.size)
+        weights_padded[mask.ravel()] = weights
+        weight_node = sumslayer.generate_weights(
+            initializer=tf.initializers.constant(weights_padded))
         # Connect a single sum to group outcomes
         root = spn.SumsLayer(sumslayer, num_or_size_sums=1)
-        root.generate_weights(init_value=root_weights)
+        root.generate_weights(initializer=tf.initializers.constant(root_weights))
         init = spn.initialize_weights(root)
-        return init, ivs_nodes, root, weight_node
+        return init, latent_indicators_nodes, root, weight_node
 
     @staticmethod
-    def sumslayer_prepare_common(batch_size, factor, indices, input_sizes, ivs, same_inputs,
+    def sumslayer_prepare_common(batch_size, factor, indices, input_sizes, latent_indicators, same_inputs,
                                  sum_sizes):
         if indices:
             indices = [np.random.choice(list(range(size * factor)), size=size, replace=False)
@@ -234,22 +234,22 @@ class TestNodesSumsLayer(tf.test.TestCase):
             factor = 1
             indices = [np.arange(size) for size in input_sizes]
         if not same_inputs:
-            input_nodes = [spn.ContVars(num_vars=size * factor) for size in input_sizes]
+            input_nodes = [spn.RawLeaf(num_vars=size * factor) for size in input_sizes]
             values = [np.random.rand(batch_size, size * factor) for size in input_sizes]
             input_tuples = [(node, ind.tolist()) for node, ind in zip(input_nodes, indices)]
             feed_dict = {node: val for node, val in zip(input_nodes, values)}
         else:
-            input_nodes = [spn.ContVars(num_vars=max(input_sizes) * factor)]
+            input_nodes = [spn.RawLeaf(num_vars=max(input_sizes) * factor)]
             values = [np.random.rand(batch_size, max(input_sizes) * factor)] * len(input_sizes)
             input_tuples = [(input_nodes[0], ind.tolist()) for ind in indices]
             feed_dict = {input_nodes[0]: values[0]}
         if 1 in sum_sizes:
-            ivs = False
-        if ivs:
-            ivs = [np.random.randint(size, size=batch_size) for size in sum_sizes]
+            latent_indicators = False
+        if latent_indicators:
+            latent_indicators = [np.random.randint(size, size=batch_size) for size in sum_sizes]
         weights = np.random.rand(sum(sum_sizes))
         root_weights = np.random.rand(len(sum_sizes))
-        return feed_dict, indices, input_nodes, input_tuples, ivs, values, weights, root_weights
+        return feed_dict, indices, input_nodes, input_tuples, latent_indicators, values, weights, root_weights
 
     def tearDown(self):
         tf.reset_default_graph()
@@ -257,8 +257,8 @@ class TestNodesSumsLayer(tf.test.TestCase):
     def test_compute_scope(self):
         """Calculating scope of Sums"""
         # Create a graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=3, name="V34")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
+        v34 = spn.RawLeaf(num_vars=3, name="V34")
 
         scopes_per_node = {
             v12: [spn.Scope(v12, 0), spn.Scope(v12, 0), spn.Scope(v12, 0), spn.Scope(v12, 0),
@@ -266,7 +266,7 @@ class TestNodesSumsLayer(tf.test.TestCase):
             v34: [spn.Scope(v34, 0), spn.Scope(v34, 1), spn.Scope(v34, 2)]
         }
 
-        def generate_scopes_from_inputs(node, inputs, num_or_size_sums, ivs=False):
+        def generate_scopes_from_inputs(node, inputs, num_or_size_sums, latent_indicators=False):
             # Create a flat list of scopes, where the scope elements of a single input
             # node are subsequent in the list
             flat_scopes = []
@@ -294,17 +294,17 @@ class TestNodesSumsLayer(tf.test.TestCase):
                 for j in range(1, s):
                     scope |= flat_scopes[j + offset]
                 offset += s
-                if ivs:
-                    scope |= spn.Scope(node.ivs.node, i)
+                if latent_indicators:
+                    scope |= spn.Scope(node.latent_indicators.node, i)
                 new_scope.append(scope)
             scopes_per_node[node] = new_scope
 
-        def sums_layer_and_test(inputs, num_or_size_sums, name, ivs=False):
+        def sums_layer_and_test(inputs, num_or_size_sums, name, latent_indicators=False):
             """ Create a sums layer, generate its correct scope and test """
             sums_layer = spn.SumsLayer(*inputs, num_or_size_sums=num_or_size_sums, name=name)
-            if ivs:
-                sums_layer.generate_ivs()
-            generate_scopes_from_inputs(sums_layer, inputs, num_or_size_sums, ivs=ivs)
+            if latent_indicators:
+                sums_layer.generate_latent_indicators()
+            generate_scopes_from_inputs(sums_layer, inputs, num_or_size_sums, latent_indicators=latent_indicators)
             self.assertListEqual(sums_layer.get_scope(), scopes_per_node[sums_layer])
             return sums_layer
 
@@ -326,13 +326,13 @@ class TestNodesSumsLayer(tf.test.TestCase):
             return concat
 
         ss1 = sums_layer_and_test(
-            [(v12, [0, 1, 2, 3]), (v12, [1, 2, 5, 6]), (v12, [4, 5, 6, 7])], 3, "Ss1", ivs=True)
+            [(v12, [0, 1, 2, 3]), (v12, [1, 2, 5, 6]), (v12, [4, 5, 6, 7])], 3, "Ss1", latent_indicators=True)
 
         ss2 = sums_layer_and_test([(v12, [6, 7]), (v34, 0)], num_or_size_sums=[1, 2], name="Ss2")
         ss3 = sums_layer_and_test([(v12, [3, 7]), (v34, 1), (v12, [4, 5, 6]), v34],
                                   num_or_size_sums=[1, 2, 2, 2, 2], name="Ss3")
 
-        s1 = sums_layer_and_test([(v34, [1, 2])], num_or_size_sums=1, name="S1", ivs=True)
+        s1 = sums_layer_and_test([(v34, [1, 2])], num_or_size_sums=1, name="S1", latent_indicators=True)
         concat_layer_and_test([(ss1, [0, 2]), (ss2, 0)], name="N1")
         concat_layer_and_test([(ss1, 1), ss3, s1], name="N2")
         n = concat_layer_and_test([(ss1, 0), ss2, (ss3, [0, 1]), s1], name="N3")
@@ -342,9 +342,9 @@ class TestNodesSumsLayer(tf.test.TestCase):
 
     def test_compute_valid(self):
         """Calculating validity of Sums"""
-        # Without IVs
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
+        # Without IndicatorLeaf
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
         s1 = spn.SumsLayer((v12, [0, 1, 2, 3]), (v12, [0, 1, 2, 3]),
                            (v12, [0, 1, 2, 3]), num_or_size_sums=3)
         self.assertTrue(s1.is_valid())
@@ -380,71 +380,71 @@ class TestNodesSumsLayer(tf.test.TestCase):
         self.assertTrue(s8.is_valid())
         # With IVS
         s6 = spn.SumsLayer(p1, p2, p1, p2, p1, p2, num_or_size_sums=3)
-        s6.generate_ivs()
+        s6.generate_latent_indicators()
         self.assertTrue(s6.is_valid())
 
         s7 = spn.SumsLayer(p1, p2, num_or_size_sums=1)
-        s7.set_ivs(spn.ContVars(num_vars=2))
+        s7.set_latent_indicators(spn.RawLeaf(num_vars=2))
         self.assertFalse(s7.is_valid())
 
         s7 = spn.SumsLayer(p1, p2, p3, num_or_size_sums=3)
-        s7.set_ivs(spn.ContVars(num_vars=3))
+        s7.set_latent_indicators(spn.RawLeaf(num_vars=3))
         self.assertTrue(s7.is_valid())
 
         s7 = spn.SumsLayer(p1, p2, p3, num_or_size_sums=[2, 1])
-        s7.set_ivs(spn.ContVars(num_vars=3))
+        s7.set_latent_indicators(spn.RawLeaf(num_vars=3))
         self.assertFalse(s7.is_valid())
 
         s8 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=2)
-        s8.set_ivs(spn.IVs(num_vars=3, num_vals=2))
+        s8.set_latent_indicators(spn.IndicatorLeaf(num_vars=3, num_vals=2))
         with self.assertRaises(spn.StructureError):
             s8.is_valid()
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=[1, 3])
-        s9.set_ivs(spn.ContVars(num_vars=2))
+        s9.set_latent_indicators(spn.RawLeaf(num_vars=2))
         with self.assertRaises(spn.StructureError):
             s9.is_valid()
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=[1, 3])
-        s9.set_ivs(spn.ContVars(num_vars=3))
+        s9.set_latent_indicators(spn.RawLeaf(num_vars=3))
         with self.assertRaises(spn.StructureError):
             s9.is_valid()
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=2)
-        s9.set_ivs(spn.IVs(num_vars=1, num_vals=4))
+        s9.set_latent_indicators(spn.IndicatorLeaf(num_vars=1, num_vals=4))
         self.assertTrue(s9.is_valid())
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=[1, 3])
-        s9.set_ivs(spn.IVs(num_vars=1, num_vals=4))
+        s9.set_latent_indicators(spn.IndicatorLeaf(num_vars=1, num_vals=4))
         self.assertTrue(s9.is_valid())
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=[1, 3])
-        s9.set_ivs(spn.IVs(num_vars=2, num_vals=2))
+        s9.set_latent_indicators(spn.IndicatorLeaf(num_vars=2, num_vals=2))
         self.assertFalse(s9.is_valid())
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=2)
-        s9.set_ivs(spn.IVs(num_vars=2, num_vals=2))
+        s9.set_latent_indicators(spn.IndicatorLeaf(num_vars=2, num_vals=2))
         self.assertTrue(s9.is_valid())
 
         s9 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=[1, 2, 1])
-        s9.set_ivs(spn.IVs(num_vars=2, num_vals=2))
+        s9.set_latent_indicators(spn.IndicatorLeaf(num_vars=2, num_vals=2))
         self.assertFalse(s9.is_valid())
 
         s10 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=2)
-        s10.set_ivs((v12, [0, 3, 5, 7]))
+        s10.set_latent_indicators((v12, [0, 3, 5, 7]))
         self.assertTrue(s10.is_valid())
 
         s10 = spn.SumsLayer(p1, p2, p1, p2, num_or_size_sums=[1, 2, 1])
-        s10.set_ivs((v12, [0, 3, 5, 7]))
+        s10.set_latent_indicators((v12, [0, 3, 5, 7]))
         self.assertFalse(s10.is_valid())
 
     def test_masked_weights(self):
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.SumsLayer((v12, [0, 5]), v34, (v12, [3]), v5, (v12, [0, 5]), v34,
                           (v12, [3]), v5, num_or_size_sums=[3, 1, 3, 4, 1])
-        s.generate_weights(init_value=spn.ValueType.RANDOM_UNIFORM())
+        s.generate_weights(initializer=tf.initializers.random_uniform(0.0, 1.0))
         with self.test_session() as sess:
             sess.run(s.weights.node.initialize())
             weights = sess.run(s.weights.node.variable)

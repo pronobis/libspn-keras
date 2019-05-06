@@ -1,12 +1,5 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from libspn.inference.type import InferenceType
-from libspn.graph.basesum import BaseSum
+from libspn.graph.op.basesum import BaseSum
 import libspn.utils as utils
 import tensorflow as tf
 from libspn.exceptions import StructureError
@@ -28,12 +21,6 @@ class SpatialSum(BaseSum, abc.ABC):
         *values (input_like): Inputs providing input values to this container.
             See :meth:`~libspn.Input.as_input` for possible values.
         num_sums (int): Number of Sum ops modelled by this container.
-        weights (input_like): Input providing weights container to this sum container.
-            See :meth:`~libspn.Input.as_input` for possible values. If set
-            to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
-            associated with this sum container. See :meth:`~libspn.Input.as_input`
-            for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the container.
 
     Attributes:
@@ -206,7 +193,7 @@ class SpatialSum(BaseSum, abc.ABC):
         dropconnect_keep_prob = utils.maybe_first(
             self._dropconnect_keep_prob, dropconnect_keep_prob)
         if matmul_or_conv and ivs_tensor is not None:
-            self.logger.warn("Cannot use matmul when using IVs, setting matmul=False")
+            self.logger.warn("Cannot use matmul when using latent indicators, setting matmul=False")
             matmul_or_conv = False
         else:
             matmul_or_conv = conf.dropout_mode != 'pairwise' \
@@ -297,34 +284,31 @@ class SpatialSum(BaseSum, abc.ABC):
     @utils.lru_cache
     @utils.docinherit(BaseSum)
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors, log=True,
+            self, reducible_log_prob, counts, w_log_prob, latent_indicator_log_prob, *child_log_prob,
             sample=False, sample_prob=None, accumulate_weights_batch=False, use_unweighted=False):
         """Common operations for computing the MPE path.
 
         Args:
-            reducible_tensor (Tensor): A (weighted) ``Tensor`` of (log-)values of this container.
+            reducible_log_prob (Tensor): A (weighted) ``Tensor`` of (log-)values of this container.
             counts (Tensor): A ``Tensor`` that contains the accumulated counts of the parents
                              of this container.
-            w_tensor (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
-            ivs_tensor (Tensor): A ``Tensor`` containing the (log-)value of the IVs.
-            input_tensors (list): A list of ``Tensor``s with outputs of the child nodes.
+            w_log_prob (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
+            latent_indicator_log_prob (Tensor): A ``Tensor`` containing the logit of the
+                latent indicators.
+            child_log_prob (list): A list of ``Tensor``s with outputs of the child nodes.
 
         Returns:
             A ``list`` of ``tuple``s [(MPE counts, input tensor), ...] where the first corresponds
-            to the Weights of this container, the second corresponds to the IVs and the remaining
-            tuples correspond to the nodes in ``self._values``.
+            to the Weights of this container, the second corresponds to the latent indicators and
+            the remaining tuples correspond to the nodes in ``self._values``.
         """
         sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
         num_samples = self._tile_unweighted_size if use_unweighted else 1
         if sample:
-            if log:
-                max_indices = self._reduce_sample_log(
-                    reducible_tensor, sample_prob=sample_prob, num_samples=num_samples)
-            else:
-                max_indices = self._reduce_sample(
-                    reducible_tensor, sample_prob=sample_prob, num_samples=num_samples)
+            max_indices = self._reduce_sample_log(
+                reducible_log_prob, sample_prob=sample_prob, num_samples=num_samples)
         else:
-            max_indices = self._reduce_argmax(reducible_tensor, num_samples=num_samples)
+            max_indices = self._reduce_argmax(reducible_log_prob, num_samples=num_samples)
         max_indices = tf.reshape(max_indices, (-1, self._compute_out_size()))
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
@@ -333,9 +317,9 @@ class SpatialSum(BaseSum, abc.ABC):
         if accumulate_weights_batch:
             weight_counts = tf.reduce_sum(weight_counts, axis=0, keepdims=False)
         return self._scatter_to_input_tensors(
-            (weight_counts, w_tensor),  # Weights
-            (max_counts, ivs_tensor),  # IVs
-            *[(t, v) for t, v in zip(input_counts, input_tensors)])  # Values
+            (weight_counts, w_log_prob),  # Weights
+            (max_counts, latent_indicator_log_prob),  # Latent indicators
+            *[(t, v) for t, v in zip(input_counts, child_log_prob)])  # Values
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
@@ -376,30 +360,6 @@ class SpatialSum(BaseSum, abc.ABC):
             self, gradients, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
             accumulate_weights_batch=False, dropconnect_keep_prob=None):
         raise NotImplementedError("{}: No log-gradient implementation available.".format(self))
-        # reducible = self._compute_reducible(
-        #     w_tensor, ivs_tensor, *value_tensors, log=True, weighted=True,
-        #     dropconnect_keep_prob=dropconnect_keep_prob)
-        #
-        # # Below exploits the memoization since _reduce_marginal_inference_log will
-        # # always use keepdims=False, thus yielding the same tensor. One might otherwise
-        # # be tempted to use keepdims=True and omit expand_dims here...
-        # log_sum = tf.expand_dims(
-        #     self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
-        #
-        # # A number - (-inf) is undefined. In fact, the gradient in those cases should be zero
-        # log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
-        # w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(reducible - log_sum)
-        #
-        # if accumulate_weights_batch:
-        #     w_grad = tf.reduce_sum(w_grad, axis=0, keepdims=False)
-        #
-        # if accumulate_weights_batch:
-        #     weight_counts = tf.reduce_sum(weight_counts, axis=0, keepdims=False)
-        # return self._scatter_to_input_tensors(
-        #     (weight_counts, w_tensor),  # Weights
-        #     (max_counts, ivs_tensor),  # IVs
-        #     *[(t, v) for t, v in zip(input_counts, input_tensors)])  # Values
-
 
     @utils.docinherit(OpNode)
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes, check_valid=False):
@@ -414,8 +374,8 @@ class SpatialSum(BaseSum, abc.ABC):
                     return None
 
         if self._ivs:
-            raise NotImplementedError("{}: no support for computing scope when node has latent IVs."
-                                      .format(self))
+            raise NotImplementedError("{}: no support for computing scope when node has latent "
+                                      "indicators.".format(self))
         return list(map(Scope.merge_scopes, value_scopes_concat.repeat(self._num_channels).reshape(
             (-1, self._max_sum_size))))
 

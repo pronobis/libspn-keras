@@ -6,7 +6,7 @@
 # ------------------------------------------------------------------------
 
 from libspn.inference.type import InferenceType
-from libspn.graph.basesum import BaseSum
+from libspn.graph.op.basesum import BaseSum
 import libspn.utils as utils
 import tensorflow as tf
 import numpy as np
@@ -24,9 +24,6 @@ class ConvSum(SpatialSum):
         weights (input_like): Input providing weights container to this sum container.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
-            associated with this sum container. See :meth:`~libspn.Input.as_input`
-            for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the container.
 
     Attributes:

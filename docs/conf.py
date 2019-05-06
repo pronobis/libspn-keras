@@ -59,8 +59,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'LibSPN'
-copyright = '2016-2017, Andrzej Pronobis'
-author = 'Andrzej Pronobis'
+copyright = '2016-2019, Andrzej Pronobis; 2016-2019 Avinash Raganath; 2018-2019, Jos van de Wolfshaar'
+author = 'Andrzej Pronobis, Avinash Raganath, Jos van de Wolfshaar'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -250,7 +250,7 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     ('index', 'libspn', 'LibSPN Documentation',
-     ['Andrzej Pronobis'], 1)
+     ['Andrzej Pronobis', 'Avinash Raganath', 'Jos van de Wolfshaar'], 1)
 ]
 
 # If true, show URL addresses after external links.

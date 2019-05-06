@@ -1,54 +1,47 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
+import libspn as spn
 
-
-class TestNodesParSums(unittest.TestCase):
+class TestNodesParSums(tf.test.TestCase):
 
     def tearDown(self):
         tf.reset_default_graph()
 
     def test_compute_marginal_value(self):
         """Calculating marginal value of Sum."""
-        def test(values, num_sums, ivs, weights, feed, output):
-            with self.subTest(values=values, num_sums=num_sums, ivs=ivs,
+        def test(values, num_sums, latent_indicators, weights, feed, output):
+            with self.subTest(values=values, num_sums=num_sums, latent_indicators=latent_indicators,
                               weights=weights, feed=feed):
-                n = spn.ParSums(*values, num_sums=num_sums, ivs=ivs)
-                n.generate_weights(weights)
+                n = spn.ParSums(*values, num_sums=num_sums, latent_indicators=latent_indicators)
+                n.generate_weights(tf.initializers.constant(weights))
                 op = n.get_value(spn.InferenceType.MARGINAL)
                 op_log = n.get_log_value(spn.InferenceType.MARGINAL)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     spn.initialize_weights(n).run()
                     out = sess.run(op, feed_dict=feed)
                     out_log = sess.run(tf.exp(op_log), feed_dict=feed)
 
-                np.testing.assert_array_almost_equal(
+                self.assertAllClose(
                     out,
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
-                np.testing.assert_array_almost_equal(
+                self.assertAllClose(
                     out_log,
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=2, name="ContVars1")
-        v2 = spn.ContVars(num_vars=2, name="ContVars2")
+        v1 = spn.RawLeaf(num_vars=2, name="RawLeaf1")
+        v2 = spn.RawLeaf(num_vars=2, name="RawLeaf2")
 
         # MULTIPLE PARALLEL-SUM NODES
         # ---------------------------
         num_sums = 2
 
         # Multiple inputs, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -76,13 +69,13 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3, 0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[-1, -1],
+              latent_indicators: [[-1, -1],
                     [-1, -1]]},
              [[(0.1*0.2 + 0.2*0.2 + 0.3*0.3 + 0.4*0.3),
                (0.1*0.1 + 0.2*0.2 + 0.3*0.3 + 0.4*0.4)],
@@ -91,45 +84,45 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3, 0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[-1, 2],
+              latent_indicators: [[-1, 2],
                     [1, -1]]},
              [[(0.1*0.2 + 0.2*0.2 + 0.3*0.3 + 0.4*0.3), (0.3*0.3)],
               [(0.12*0.2), (0.11*0.1 + 0.12*0.2 + 0.13*0.3 + 0.14*0.4)]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3, 0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[3, 2],
+              latent_indicators: [[3, 2],
                     [0, 1]]},
              [[(0.4*0.3), (0.3*0.3)],
               [(0.11*0.2), (0.12*0.2)]])
 
         test([(v1, [0, 1]), (v2, [1, 0])],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3, 0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[3, 2],
+              latent_indicators: [[3, 2],
                     [0, 1]]},
              [[(0.3*0.3), (0.4*0.3)],
               [(0.11*0.2), (0.12*0.2)]])
 
         # Single input with 1 value, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -142,39 +135,39 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6, 0.2, 0.8],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
-             ivs: [[-1, -1],
+             latent_indicators: [[-1, -1],
                    [-1, -1]]},
              [[(0.1*0.4 + 0.2*0.6), (0.1*0.2 + 0.2*0.8)],
               [(0.11*0.4 + 0.12*0.6), (0.11*0.2 + 0.12*0.8)]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6, 0.2, 0.8],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
-             ivs: [[1, -1],
+             latent_indicators: [[1, -1],
                    [-1, 0]]},
              [[(0.2*0.6), (0.1*0.2 + 0.2*0.8)],
               [(0.11*0.4 + 0.12*0.6), (0.11*0.2)]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6, 0.2, 0.8],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
-             ivs: [[0, 1],
+             latent_indicators: [[0, 1],
                    [1, 0]]},
              [[(0.1*0.4), (0.2*0.8)],
               [(0.12*0.6), (0.11*0.2)]])
 
         # Multiple inputs, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -187,34 +180,34 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3, 0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2]],
               v2: [[0.3, 0.4]],
-              ivs: [[-1, -1]]},
+              latent_indicators: [[-1, -1]]},
              [[(0.1*0.2 + 0.2*0.2 + 0.3*0.3 + 0.4*0.3),
                (0.1*0.1 + 0.2*0.2 + 0.3*0.3 + 0.4*0.4)]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3, 0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2]],
               v2: [[0.3, 0.4]],
-              ivs: [[2, -1]]},
+              latent_indicators: [[2, -1]]},
              [[(0.3*0.3), (0.1*0.1 + 0.2*0.2 + 0.3*0.3 + 0.4*0.4)]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3, 0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2]],
               v2: [[0.3, 0.4]],
-              ivs: [[3, 2]]},
+              latent_indicators: [[3, 2]]},
              [[(0.4*0.3), (0.3*0.3)]])
 
         # Single input with 1 value, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -225,26 +218,26 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6, 0.2, 0.8],
              {v1: [[0.1, 0.2]],
-             ivs: [[-1, -1]]},
+             latent_indicators: [[-1, -1]]},
              [[(0.1*0.4 + 0.2*0.6), (0.1*0.2 + 0.2*0.8)]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6, 0.2, 0.8],
              {v1: [[0.1, 0.2]],
-             ivs: [[1, -1]]},
+             latent_indicators: [[1, -1]]},
              [[(0.2*0.6), (0.1*0.2 + 0.2*0.8)]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6, 0.2, 0.8],
              {v1: [[0.1, 0.2]],
-             ivs: [[0, 1]]},
+             latent_indicators: [[0, 1]]},
              [[(0.1*0.4), (0.2*0.8)]])
 
         # SINGLE PARALLEL-SUM NODE
@@ -252,7 +245,7 @@ class TestNodesParSums(unittest.TestCase):
         num_sums = 1
 
         # Multiple inputs, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -267,45 +260,45 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[-1],
+              latent_indicators: [[-1],
                     [-1]]},
              [[(0.1*0.2 + 0.2*0.2 + 0.3*0.3 + 0.4*0.3)],
               [(0.11*0.2 + 0.12*0.2 + 0.13*0.3 + 0.14*0.3)]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[-1],
+              latent_indicators: [[-1],
                     [3]]},
              [[(0.1*0.2 + 0.2*0.2 + 0.3*0.3 + 0.4*0.3)],
               [(0.14*0.3)]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[3],
+              latent_indicators: [[3],
                     [0]]},
              [[(0.4*0.3)],
               [(0.11*0.2)]])
 
         # Single input with 1 value, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -318,39 +311,39 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
-             ivs: [[-1],
+             latent_indicators: [[-1],
                    [-1]]},
              [[0.1*0.4 + 0.2*0.6],
               [0.11*0.4 + 0.12*0.6]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
-             ivs: [[1],
+             latent_indicators: [[1],
                    [-1]]},
              [[0.2*0.6],
               [0.11*0.4 + 0.12*0.6]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
-             ivs: [[0],
+             latent_indicators: [[0],
                    [1]]},
              [[0.1*0.4],
               [0.12*0.6]])
 
         # Multiple inputs, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -362,24 +355,24 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3],
              {v1: [[0.1, 0.2]],
               v2: [[0.3, 0.4]],
-              ivs: [[-1]]},
+              latent_indicators: [[-1]]},
              [[0.1*0.2 + 0.2*0.2 + 0.3*0.3 + 0.4*0.3]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2]],
               v2: [[0.3, 0.4]],
-              ivs: [[2]]},
+              latent_indicators: [[2]]},
              [[0.3*0.3]])
 
         # Single input with 1 value, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -390,52 +383,52 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.8],
              {v1: [[0.1, 0.2]],
-             ivs: [[-1]]},
+             latent_indicators: [[-1]]},
              [[0.1*0.2 + 0.2*0.8]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.8],
              {v1: [[0.1, 0.2]],
-             ivs: [[1]]},
+             latent_indicators: [[1]]},
              [[0.2*0.8]])
 
     def test_compute_mpe_value(self):
         """Calculating MPE value of ParSums."""
-        spn.conf.argmax_zero = True
-        def test(values, num_sums, ivs, weights, feed, output):
-            with self.subTest(values=values, num_sums=num_sums, ivs=ivs,
+        
+        def test(values, num_sums, latent_indicators, weights, feed, output):
+            with self.subTest(values=values, num_sums=num_sums, latent_indicators=latent_indicators,
                               weights=weights, feed=feed):
-                n = spn.ParSums(*values, num_sums=num_sums, ivs=ivs)
-                n.generate_weights(weights)
+                n = spn.ParSums(*values, num_sums=num_sums, latent_indicators=latent_indicators)
+                n.generate_weights(tf.initializers.constant(weights))
                 op = n.get_value(spn.InferenceType.MPE)
                 op_log = n.get_log_value(spn.InferenceType.MPE)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     spn.initialize_weights(n).run()
                     out = sess.run(op, feed_dict=feed)
                     out_log = sess.run(tf.exp(op_log), feed_dict=feed)
 
-                np.testing.assert_array_almost_equal(
+                self.assertAllClose(
                     out,
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
-                np.testing.assert_array_almost_equal(
+                self.assertAllClose(
                     out_log,
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=2, name="ContVars1")
-        v2 = spn.ContVars(num_vars=2, name="ContVars2")
+        v1 = spn.RawLeaf(num_vars=2, name="RawLeaf1")
+        v2 = spn.RawLeaf(num_vars=2, name="RawLeaf2")
 
         # MULTIPLE PARALLEL-SUM NODES
         # ---------------------------
         num_sums = 2
 
         # Multiple inputs, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -450,45 +443,45 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.3, 0.3, 0.2, 0.2, 0.4, 0.3, 0.2, 0.1],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[-1, -1],
+              latent_indicators: [[-1, -1],
                     [-1, -1]]},
              [[(0.4*0.2), (0.3*0.2)],
               [(0.12*0.3), (0.11*0.4)]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3, 0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[-1, 2],
+              latent_indicators: [[-1, 2],
                     [1, -1]]},
              [[(0.4*0.3), (0.3*0.3)],
               [(0.12*0.2), (0.14*0.4)]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3, 0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[3, 2],
+              latent_indicators: [[3, 2],
                     [0, 1]]},
              [[(0.4*0.3), (0.3*0.3)],
               [(0.11*0.2), (0.12*0.2)]])
 
         # Single input with 1 value, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -501,39 +494,39 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.6, 0.4, 0.2, 0.8],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
-             ivs: [[-1, -1],
+             latent_indicators: [[-1, -1],
                    [-1, -1]]},
              [[(0.2*0.4), (0.2*0.8)],
               [(0.11*0.6), (0.12*0.8)]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6, 0.2, 0.8],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
-             ivs: [[1, -1],
+             latent_indicators: [[1, -1],
                    [-1, 0]]},
              [[(0.2*0.6), (0.2*0.8)],
               [(0.12*0.6), (0.11*0.2)]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6, 0.2, 0.8],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
-             ivs: [[0, 1],
+             latent_indicators: [[0, 1],
                    [1, 0]]},
              [[(0.1*0.4), (0.2*0.8)],
               [(0.12*0.6), (0.11*0.2)]])
 
         # Multiple inputs, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -545,33 +538,33 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.3, 0.3, 0.2, 0.2, 0.4, 0.3, 0.2, 0.1],
              {v1: [[0.1, 0.2]],
               v2: [[0.3, 0.4]],
-              ivs: [[-1, -1]]},
+              latent_indicators: [[-1, -1]]},
              [[(0.4*0.2), (0.2*0.3)]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3, 0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2]],
               v2: [[0.3, 0.4]],
-              ivs: [[2, -1]]},
+              latent_indicators: [[2, -1]]},
              [[(0.3*0.3), (0.4*0.4)]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3, 0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2]],
               v2: [[0.3, 0.4]],
-              ivs: [[3, 2]]},
+              latent_indicators: [[3, 2]]},
              [[(0.4*0.3), (0.3*0.3)]])
 
         # Single input with 1 value, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -582,26 +575,26 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6, 0.8, 0.2],
              {v1: [[0.1, 0.2]],
-             ivs: [[-1, -1]]},
+             latent_indicators: [[-1, -1]]},
              [[(0.2*0.6), (0.1*0.8)]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6, 0.2, 0.8],
              {v1: [[0.1, 0.2]],
-             ivs: [[0, -1]]},
+             latent_indicators: [[0, -1]]},
              [[(0.1*0.4), (0.2*0.8)]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.6, 0.4, 0.8, 0.2],
              {v1: [[0.1, 0.2]],
-             ivs: [[1, 0]]},
+             latent_indicators: [[1, 0]]},
              [[(0.2*0.4), (0.1*0.8)]])
 
         # SINGLE PARALLEL-SUM NODE
@@ -609,7 +602,7 @@ class TestNodesParSums(unittest.TestCase):
         num_sums = 1
 
         # Multiple inputs, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -624,45 +617,45 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.3, 0.2, 0.1],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[-1],
+              latent_indicators: [[-1],
                     [-1]]},
              [[(0.3*0.2)],
               [(0.11*0.4)]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[-1],
+              latent_indicators: [[-1],
                     [3]]},
              [[(0.4*0.3)],
               [(0.14*0.3)]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.2, 0.3, 0.3],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
               v2: [[0.3, 0.4],
                    [0.13, 0.14]],
-              ivs: [[3],
+              latent_indicators: [[3],
                     [0]]},
              [[(0.4*0.3)],
               [(0.11*0.2)]])
 
         # Single input with 1 value, multi-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -675,39 +668,39 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.6, 0.4],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
-             ivs: [[-1],
+             latent_indicators: [[-1],
                    [-1]]},
              [[0.2*0.4],
               [0.11*0.6]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
-             ivs: [[0],
+             latent_indicators: [[0],
                    [-1]]},
              [[0.1*0.4],
               [0.12*0.6]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.6],
              {v1: [[0.1, 0.2],
                    [0.11, 0.12]],
-             ivs: [[1],
+             latent_indicators: [[1],
                    [0]]},
              [[0.2*0.6],
               [0.11*0.4]])
 
         # Multiple inputs, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=4)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=4)
 
         test([v1, v2],
              num_sums,
@@ -719,24 +712,24 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.4, 0.3, 0.2, 0.1],
              {v1: [[0.1, 0.2]],
               v2: [[0.3, 0.4]],
-              ivs: [[-1]]},
+              latent_indicators: [[-1]]},
              [[0.2*0.3]])
 
         test([v1, v2],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.1, 0.2, 0.3, 0.4],
              {v1: [[0.1, 0.2]],
               v2: [[0.3, 0.4]],
-              ivs: [[2]]},
+              latent_indicators: [[2]]},
              [[0.3*0.3]])
 
         # Single input with 1 value, single-element batch
-        ivs = spn.IVs(num_vars=num_sums, num_vals=2)
+        latent_indicators = spn.IndicatorLeaf(num_vars=num_sums, num_vals=2)
 
         test([v1],
              num_sums,
@@ -747,45 +740,45 @@ class TestNodesParSums(unittest.TestCase):
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.6, 0.4],
              {v1: [[0.1, 0.2]],
-             ivs: [[-1]]},
+             latent_indicators: [[-1]]},
              [[0.2*0.4]])
 
         test([v1],
              num_sums,
-             ivs,
+             latent_indicators,
              [0.2, 0.8],
              {v1: [[0.1, 0.2]],
-             ivs: [[0]]},
+             latent_indicators: [[0]]},
              [[0.1*0.2]])
 
     def test_comput_scope(self):
         """Calculating scope of ParSums"""
         # Create a graph
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        ivs_ps5 = spn.IVs(num_vars=3, num_vals=7)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        latent_indicators_ps5 = spn.IndicatorLeaf(num_vars=3, num_vals=7)
         ps1 = spn.ParSums((v12, [0, 1, 2, 3]), num_sums=2, name="PS1")
         ps2 = spn.ParSums((v12, [2, 3, 6, 7]), num_sums=1, name="PS2")
-        ps2.generate_ivs()
+        ps2.generate_latent_indicators()
         ps3 = spn.ParSums((v12, [4, 6]), (v34, 0), num_sums=3, name="PS3")
-        ps3.generate_ivs()
+        ps3.generate_latent_indicators()
         ps4 = spn.ParSums(v34, num_sums=2, name="PS4")
         n1 = spn.Concat(ps1, ps2, (ps3, [0, 2]), name="N1")
         n2 = spn.Concat((ps3, 1), (ps4, 1), name="N2")
         p1 = spn.Product((ps1, 1), ps3, name="P1")
         p2 = spn.Product((ps2, 0), (ps3, 2), name="P2")
         s1 = spn.Sum((ps3, [0, 2]), ps4, name="S1")
-        s1.generate_ivs()
+        s1.generate_latent_indicators()
         p3 = spn.Product(ps3, name="P3")
         n3 = spn.Concat(ps4, name="N3")
-        ps5 = spn.ParSums(n1, (n2, 0), p1, ivs=ivs_ps5, num_sums=3, name="PS5")
+        ps5 = spn.ParSums(n1, (n2, 0), p1, latent_indicators=latent_indicators_ps5, num_sums=3, name="PS5")
         ps6 = spn.ParSums(p2, name="PS6")
         ps7 = spn.ParSums(p2, s1, p3, (n3, 1), num_sums=2, name="PS7")
         s2 = spn.Sum(ps5, ps6, ps7, name="S2")
-        s2.generate_ivs()
+        s2.generate_latent_indicators()
         # Test
         self.assertListEqual(v12.get_scope(),
                              [spn.Scope(v12, 0), spn.Scope(v12, 0),
@@ -798,98 +791,98 @@ class TestNodesParSums(unittest.TestCase):
                              [spn.Scope(v12, 0), spn.Scope(v12, 0)])
         self.assertListEqual(ps2.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(ps2.ivs.node, 0)])
+                              spn.Scope(ps2.latent_indicators.node, 0)])
         self.assertListEqual(ps3.get_scope(),
                              [spn.Scope(v12, 1) | spn.Scope(v34, 0) |
-                              spn.Scope(ps3.ivs.node, 0),
+                              spn.Scope(ps3.latent_indicators.node, 0),
                               spn.Scope(v12, 1) | spn.Scope(v34, 0) |
-                              spn.Scope(ps3.ivs.node, 1),
+                              spn.Scope(ps3.latent_indicators.node, 1),
                               spn.Scope(v12, 1) | spn.Scope(v34, 0) |
-                              spn.Scope(ps3.ivs.node, 2)])
+                              spn.Scope(ps3.latent_indicators.node, 2)])
         self.assertListEqual(ps4.get_scope(),
                              [spn.Scope(v34, 0) | spn.Scope(v34, 1)] * 2)
         self.assertListEqual(n1.get_scope(),
                              [spn.Scope(v12, 0), spn.Scope(v12, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(ps2.ivs.node, 0),
+                              spn.Scope(ps2.latent_indicators.node, 0),
                               spn.Scope(v12, 1) | spn.Scope(v34, 0) |
-                              spn.Scope(ps3.ivs.node, 0),
+                              spn.Scope(ps3.latent_indicators.node, 0),
                               spn.Scope(v12, 1) | spn.Scope(v34, 0) |
-                              spn.Scope(ps3.ivs.node, 2)])
+                              spn.Scope(ps3.latent_indicators.node, 2)])
         self.assertListEqual(n2.get_scope(),
                              [spn.Scope(v12, 1) | spn.Scope(v34, 0) |
-                              spn.Scope(ps3.ivs.node, 1),
+                              spn.Scope(ps3.latent_indicators.node, 1),
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(p1.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(v34, 0) | spn.Scope(ps3.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 1) |
-                              spn.Scope(ps3.ivs.node, 2)])
+                              spn.Scope(v34, 0) | spn.Scope(ps3.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 1) |
+                              spn.Scope(ps3.latent_indicators.node, 2)])
         self.assertListEqual(p2.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(v34, 0) | spn.Scope(ps2.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 2)])
+                              spn.Scope(v34, 0) | spn.Scope(ps2.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 2)])
         self.assertListEqual(s1.get_scope(),
                              [spn.Scope(v12, 1) | spn.Scope(v34, 0) |
-                              spn.Scope(v34, 1) | spn.Scope(ps3.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 2) |
-                              spn.Scope(s1.ivs.node, 0)])
+                              spn.Scope(v34, 1) | spn.Scope(ps3.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 2) |
+                              spn.Scope(s1.latent_indicators.node, 0)])
         self.assertListEqual(p3.get_scope(),
                              [spn.Scope(v12, 1) | spn.Scope(v34, 0) |
-                              spn.Scope(ps3.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 1) |
-                              spn.Scope(ps3.ivs.node, 2)])
+                              spn.Scope(ps3.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 1) |
+                              spn.Scope(ps3.latent_indicators.node, 2)])
         self.assertListEqual(n3.get_scope(),
                              [spn.Scope(v34, 0) | spn.Scope(v34, 1)] * 2)
         self.assertListEqual(ps5.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(v34, 0) | spn.Scope(ps2.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 1) |
-                              spn.Scope(ps3.ivs.node, 2) |
-                              spn.Scope(ps5.ivs.node, 0),
+                              spn.Scope(v34, 0) | spn.Scope(ps2.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 1) |
+                              spn.Scope(ps3.latent_indicators.node, 2) |
+                              spn.Scope(ps5.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(v34, 0) | spn.Scope(ps2.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 1) |
-                              spn.Scope(ps3.ivs.node, 2) |
-                              spn.Scope(ps5.ivs.node, 1),
+                              spn.Scope(v34, 0) | spn.Scope(ps2.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 1) |
+                              spn.Scope(ps3.latent_indicators.node, 2) |
+                              spn.Scope(ps5.latent_indicators.node, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(v34, 0) | spn.Scope(ps2.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 1) |
-                              spn.Scope(ps3.ivs.node, 2) |
-                              spn.Scope(ps5.ivs.node, 2)])
+                              spn.Scope(v34, 0) | spn.Scope(ps2.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 1) |
+                              spn.Scope(ps3.latent_indicators.node, 2) |
+                              spn.Scope(ps5.latent_indicators.node, 2)])
         self.assertListEqual(ps6.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(v34, 0) | spn.Scope(ps2.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 2)])
+                              spn.Scope(v34, 0) | spn.Scope(ps2.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 2)])
         self.assertListEqual(ps7.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(ps2.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 1) |
-                              spn.Scope(ps3.ivs.node, 2) |
-                              spn.Scope(s1.ivs.node, 0)] * 2)
+                              spn.Scope(ps2.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 1) |
+                              spn.Scope(ps3.latent_indicators.node, 2) |
+                              spn.Scope(s1.latent_indicators.node, 0)] * 2)
         self.assertListEqual(s2.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(ps2.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 0) |
-                              spn.Scope(ps3.ivs.node, 1) |
-                              spn.Scope(ps3.ivs.node, 2) |
-                              spn.Scope(s1.ivs.node, 0) |
-                              spn.Scope(ps5.ivs.node, 0) |
-                              spn.Scope(ps5.ivs.node, 1) |
-                              spn.Scope(ps5.ivs.node, 2) |
-                              spn.Scope(s2.ivs.node, 0)])
+                              spn.Scope(ps2.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 0) |
+                              spn.Scope(ps3.latent_indicators.node, 1) |
+                              spn.Scope(ps3.latent_indicators.node, 2) |
+                              spn.Scope(s1.latent_indicators.node, 0) |
+                              spn.Scope(ps5.latent_indicators.node, 0) |
+                              spn.Scope(ps5.latent_indicators.node, 1) |
+                              spn.Scope(ps5.latent_indicators.node, 2) |
+                              spn.Scope(s2.latent_indicators.node, 0)])
 
     def test_compute_valid(self):
         """Calculating validity of ParSums"""
-        # Without IVs
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
+        # Without IndicatorLeaf
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
         s1 = spn.ParSums((v12, [0, 1, 2, 3]), num_sums=3)
         s2 = spn.ParSums((v12, [0, 1, 2, 4]), name="S2")
         s3 = spn.ParSums((v12, [0, 1, 2, 3]), (v34, 0), num_sums=2)
@@ -907,31 +900,32 @@ class TestNodesParSums(unittest.TestCase):
         self.assertFalse(s5.is_valid())
         # With IVS
         s6 = spn.ParSums(p1, p2, num_sums=3)
-        s6.generate_ivs()
+        s6.generate_latent_indicators()
         self.assertTrue(s6.is_valid())
         s7 = spn.ParSums(p1, p2, num_sums=1)
-        s7.set_ivs(spn.ContVars(num_vars=2))
+        s7.set_latent_indicators(spn.RawLeaf(num_vars=2))
         self.assertFalse(s7.is_valid())
         s8 = spn.ParSums(p1, p2, num_sums=2)
-        s8.set_ivs(spn.IVs(num_vars=3, num_vals=2))
+        s8.set_latent_indicators(spn.IndicatorLeaf(num_vars=3, num_vals=2))
         s9 = spn.ParSums(p1, p2, num_sums=2)
-        s9.set_ivs(spn.ContVars(num_vars=2))
+        s9.set_latent_indicators(spn.RawLeaf(num_vars=2))
         with self.assertRaises(spn.StructureError):
             s8.is_valid()
             s9.is_valid()
         s10 = spn.ParSums(p1, p2, num_sums=2)
-        s10.set_ivs((v12, [0, 3, 5, 7]))
+        s10.set_latent_indicators((v12, [0, 3, 5, 7]))
         self.assertTrue(s10.is_valid())
 
-    def test_compute_mpe_path_noivs_single_sum(self):
+    def test_compute_mpe_path_nolatent_indicators_single_sum(self):
         spn.conf.argmax_zero = True
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
-        op = s._compute_mpe_path(tf.identity(counts),
+        op = s._compute_log_mpe_path(tf.identity(counts),
                                  w.get_value(),
                                  None,
                                  v12.get_value(),
@@ -956,64 +950,65 @@ class TestNodesParSums(unittest.TestCase):
                    [1.2],
                    [0.9]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
-            # Skip the IVs op
+            # Skip the IndicatorLeaf op
             out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
                                                        v12: v12_feed,
                                                        v34: v34_feed,
                                                        v5: v5_feed})
         # Weights
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
                                             [0., 0., 11., 0., 0., 0.],
                                             [0., 0., 0., 0., 0., 12.],
                                             [0., 0., 0., 0., 13., 0.]]],
                                  dtype=np.float32), [1, 0, 2]))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[1], np.array([[10., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[2], np.array([[0., 0.],
                               [11., 0.],
                               [0., 0.],
                               [0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[3], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 13., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[4], np.array([[0.],
                               [0.],
                               [12.],
                               [0.]],
                              dtype=np.float32))
 
-    def test_compute_mpe_path_noivs_multi_sums(self):
+    def test_compute_mpe_path_nolatent_indicators_multi_sums(self):
         spn.conf.argmax_zero = True
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=2)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 2))
-        op = s._compute_mpe_path(tf.identity(counts),
-                                 w.get_value(),
+        op = s._compute_log_mpe_path(tf.identity(counts),
+                                 w.get_log_value(),
                                  None,
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+                                 v12.get_log_value(),
+                                 v34.get_log_value(),
+                                 v12.get_log_value(),
+                                 v5.get_log_value())
         init = w.initialize()
         counts_feed = [[10, 20],
                        [11, 21],
@@ -1032,15 +1027,15 @@ class TestNodesParSums(unittest.TestCase):
                    [1.2],
                    [0.9]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
-            # Skip the IVs op
+            # Skip the IndicatorLeaf op
             out = sess.run(op[:1] + op[2:], feed_dict={counts: counts_feed,
                                                        v12: v12_feed,
                                                        v34: v34_feed,
                                                        v5: v5_feed})
         # Weights
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
                                             [0., 0., 11., 0., 0., 0.],
                                             [0., 0., 0., 0., 0., 12.],
@@ -1051,50 +1046,50 @@ class TestNodesParSums(unittest.TestCase):
                                             [0., 0., 0., 0., 23., 0.]]],
                                  dtype=np.float32), [1, 0, 2]))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[1], np.array([[30., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[2], np.array([[0., 0.],
                               [32., 0.],
                               [0., 0.],
                               [0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[3], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 36., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[4], np.array([[0.],
                               [0.],
                               [34.],
                               [0.]],
                              dtype=np.float32))
 
-    def test_compute_mpe_path_ivs_single_sum(self):
+    def test_compute_mpe_path_latent_indicators_single_sum(self):
         spn.conf.argmax_zero = True
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5)
-        iv = s.generate_ivs()
+        iv = s.generate_latent_indicators()
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
-        op = s._compute_mpe_path(tf.identity(counts),
-                                 w.get_value(),
-                                 iv.get_value(),
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+        op = s._compute_log_mpe_path(tf.identity(counts),
+                                 w.get_log_value(),
+                                 iv.get_log_value(),
+                                 v12.get_log_value(),
+                                 v34.get_log_value(),
+                                 v12.get_log_value(),
+                                 v5.get_log_value())
         init = w.initialize()
         counts_feed = [[10],
                        [11],
@@ -1128,17 +1123,17 @@ class TestNodesParSums(unittest.TestCase):
                    [0.5],
                    [1.2],
                    [0.9]]
-        ivs_feed = [[-1], [-1], [-1], [-1], [1], [2], [3], [1]]
+        latent_indicators_feed = [[-1], [-1], [-1], [-1], [1], [2], [3], [1]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             out = sess.run(op, feed_dict={counts: counts_feed,
-                                          iv: ivs_feed,
+                                          iv: latent_indicators_feed,
                                           v12: v12_feed,
                                           v34: v34_feed,
                                           v5: v5_feed})
         # Weights
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
                                             [0., 0., 11., 0., 0., 0.],
                                             [0., 0., 0., 0., 0., 12.],
@@ -1149,8 +1144,8 @@ class TestNodesParSums(unittest.TestCase):
                                             [17., 0., 0., 0., 0., 0.]]],
                                  dtype=np.float32), [1, 0, 2]))
 
-        # IVs
-        np.testing.assert_array_almost_equal(
+        # IndicatorLeaf
+        self.assertAllClose(
             out[1], np.array([[10., 0., 0., 0., 0., 0.],
                               [0., 0., 11., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 12.],
@@ -1161,7 +1156,7 @@ class TestNodesParSums(unittest.TestCase):
                               [17., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[2], np.array([[10., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
@@ -1172,7 +1167,7 @@ class TestNodesParSums(unittest.TestCase):
                               [17., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[3], np.array([[0., 0.],
                               [11., 0.],
                               [0., 0.],
@@ -1183,7 +1178,7 @@ class TestNodesParSums(unittest.TestCase):
                               [0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[4], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
@@ -1194,7 +1189,7 @@ class TestNodesParSums(unittest.TestCase):
                               [0., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[5], np.array([[0.],
                               [0.],
                               [12.],
@@ -1205,22 +1200,22 @@ class TestNodesParSums(unittest.TestCase):
                               [0.]],
                              dtype=np.float32))
 
-    def test_compute_mpe_path_ivs_multi_sums(self):
+    def test_compute_mpe_path_latent_indicators_multi_sums(self):
         spn.conf.argmax_zero = True
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=2)
-        iv = s.generate_ivs()
+        iv = s.generate_latent_indicators()
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 2))
-        op = s._compute_mpe_path(tf.identity(counts),
-                                 w.get_value(),
-                                 iv.get_value(),
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+        op = s._compute_log_mpe_path(tf.identity(counts),
+                                 w.get_log_value(),
+                                 iv.get_log_value(),
+                                 v12.get_log_value(),
+                                 v34.get_log_value(),
+                                 v12.get_log_value(),
+                                 v5.get_log_value())
         init = w.initialize()
         counts_feed = [[10, 20],
                        [11, 21],
@@ -1238,7 +1233,7 @@ class TestNodesParSums(unittest.TestCase):
                     [1, 1],
                     [0, 0],
                     [3, 3]]
-        v34_feed = [[0.1, 0.2],
+        v34_feed = [[0.1, 0.2],  # 0.2 
                     [1.2, 0.2],
                     [0.1, 0.2],
                     [0.9, 0.8],
@@ -1254,7 +1249,7 @@ class TestNodesParSums(unittest.TestCase):
                    [0.5],
                    [1.2],
                    [0.9]]
-        ivs_feed = [[-1, -1],
+        latent_indicators_feed = [[-1, -1],
                     [-1, -1],
                     [-1, -1],
                     [-1, -1],
@@ -1263,15 +1258,15 @@ class TestNodesParSums(unittest.TestCase):
                     [3, 3],
                     [1, 1]]
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
             out = sess.run(op, feed_dict={counts: counts_feed,
-                                          iv: ivs_feed,
+                                          iv: latent_indicators_feed,
                                           v12: v12_feed,
                                           v34: v34_feed,
                                           v5: v5_feed})
         # Weights
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[0], np.transpose(np.array([[[10., 0., 0., 0., 0., 0.],
                                             [0., 0., 11., 0., 0., 0.],
                                             [0., 0., 0., 0., 0., 12.],
@@ -1290,8 +1285,8 @@ class TestNodesParSums(unittest.TestCase):
                                             [27., 0., 0., 0., 0., 0.]]],
                                           dtype=np.float32), [1, 0, 2]))
 
-        # IVs
-        np.testing.assert_array_almost_equal(
+        # IndicatorLeaf
+        self.assertAllClose(
             out[1], np.array([[30., 0., 0., 0., 0., 0.],
                               [0., 0., 32., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 34.],
@@ -1302,7 +1297,7 @@ class TestNodesParSums(unittest.TestCase):
                               [44., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[2], np.array([[30., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
@@ -1313,7 +1308,7 @@ class TestNodesParSums(unittest.TestCase):
                               [44., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[3], np.array([[0., 0.],
                               [32., 0.],
                               [0., 0.],
@@ -1324,7 +1319,7 @@ class TestNodesParSums(unittest.TestCase):
                               [0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[4], np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
                               [0., 0., 0., 0., 0., 0., 0., 0.],
@@ -1335,7 +1330,7 @@ class TestNodesParSums(unittest.TestCase):
                               [0., 0., 0., 0., 0., 0., 0., 0.]],
                              dtype=np.float32))
 
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[5], np.array([[0.],
                               [0.],
                               [34.],
@@ -1347,14 +1342,14 @@ class TestNodesParSums(unittest.TestCase):
                              dtype=np.float32))
 
     def test_compute_log_gradients(self):
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         num_sums = 10
         s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=num_sums)
-        iv = s.generate_ivs()
+        iv = s.generate_latent_indicators()
         weights = np.random.rand(num_sums, 6)
-        w = s.generate_weights(weights)
+        w = s.generate_weights(tf.initializers.constant(weights))
         gradients = tf.placeholder(tf.float32, shape=(None, num_sums))
         op = s._compute_log_gradient(tf.identity(gradients),
                                      w.get_log_value(),
@@ -1369,13 +1364,13 @@ class TestNodesParSums(unittest.TestCase):
         v12_feed = np.random.randint(4, size=(batch_size, 2))
         v34_feed = np.random.rand(batch_size, 2)
         v5_feed = np.random.rand(batch_size, 1)
-        ivs_feed = np.random.randint(6, size=(batch_size, num_sums))
+        latent_indicators_feed = np.random.randint(6, size=(batch_size, num_sums))
 
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             sess.run(init)
-            # Skip the IVs op
+            # Skip the IndicatorLeaf op
             out = sess.run(op, feed_dict={gradients: gradients_feed,
-                                          iv: ivs_feed,
+                                          iv: latent_indicators_feed,
                                           v12: v12_feed,
                                           v34: v34_feed,
                                           v5: v5_feed})
@@ -1394,12 +1389,12 @@ class TestNodesParSums(unittest.TestCase):
         with np.warnings.catch_warnings():
             np.warnings.filterwarnings('ignore', r'divide by zero encountered in log')
             inputs_log = np.log(input_values)
-        ivs_values = np.eye(6)[ivs_feed]
+        latent_indicators_values = np.eye(6)[latent_indicators_feed]
         with np.warnings.catch_warnings():
             np.warnings.filterwarnings('ignore', r'divide by zero encountered in log')
-            ivs_log = np.log(ivs_values)
-        # if with_ivs:
-        weighted_inputs = np.expand_dims(inputs_log, axis=1) + (ivs_log + weights_log)
+            latent_indicators_log = np.log(latent_indicators_values)
+        # if with_latent_indicators:
+        weighted_inputs = np.expand_dims(inputs_log, axis=1) + (latent_indicators_log + weights_log)
         # else:
         #     weighted_inputs = np.expand_dims(inputs_log, axis=1) + weights_log
         weighted_inputs_exp = np.exp(weighted_inputs)
@@ -1422,19 +1417,19 @@ class TestNodesParSums(unittest.TestCase):
         output_gradients[2] = output_gradients_2
 
         # Weights
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
             out[0], weights_gradients)
-        # IVs
-        np.testing.assert_array_almost_equal(
+        # IndicatorLeaf
+        self.assertAllClose(
            out[1], np.sum(weights_gradients, axis=1))
         # Inputs
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
            out[2], output_gradients[0])
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
            out[3], output_gradients[1])
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
            out[4], output_gradients[2])
-        np.testing.assert_array_almost_equal(
+        self.assertAllClose(
            out[5], output_gradients[3])
 
 

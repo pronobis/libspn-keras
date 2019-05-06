@@ -1,18 +1,8 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
-from collections import namedtuple, OrderedDict
 import tensorflow as tf
 from libspn.inference.mpe_path import MPEPath
 from libspn.inference.value import LogValue
-from libspn.graph.algorithms import traverse_graph
-from libspn.graph.basesum import BaseSum
 from libspn.graph.weights import Weights
-from libspn.graph.distribution import NormalLeaf
+from libspn.graph.leaf.location_scale import LocationScaleLeaf
 
 
 class ExtendedBaumWelch:
@@ -52,8 +42,7 @@ class ExtendedBaumWelch:
                 (n, n.variable, log_w) for n, log_w in self._val_gen.values.items()
                 if isinstance(n, Weights)
             ])
-            cont_vars = [n for n in self._val_gen.values.keys()
-                         if isinstance(n, NormalLeaf)]
+            cont_vars = [n for n in self._val_gen.values.keys() if isinstance(n, LocationScaleLeaf)]
             num_w = len(weight_vars)
 
             w_and_d_grads = tf.gradients(

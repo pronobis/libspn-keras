@@ -1,6 +1,6 @@
 import abc
 from libspn.graph.node import OpNode, Input, TensorNode
-from libspn.graph.ivs import IVs
+from libspn.graph.leaf.indicator import IndicatorLeaf
 from libspn.graph.weights import Weights, TensorWeights
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
@@ -33,9 +33,6 @@ class TensorRandomize(TensorNode):
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
-            associated with this sum node. See :meth:`~libspn.Input.as_input`
-            for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the node.
 
     Attributes:
@@ -166,8 +163,8 @@ class TensorRandomize(TensorNode):
             raise StructureError("First need to determine permutations")
         # [batch, scope, node]
         dim_scope_in = self.values[0].node.num_vars
-        dim_nodes_in = self.values[0].node.num_vals if isinstance(self.values[0].node, IVs) \
-            else self.values[0].node.num_components
+        dim_nodes_in = self.values[0].node.num_vals if isinstance(
+            self.values[0].node, IndicatorLeaf) else self.values[0].node.num_components
         zero_padded = tf.concat(
             [tf.zeros([1, tf.shape(value_tensors[0])[0], dim_nodes_in]),
              tf.transpose(tf.reshape(value_tensors[0], [-1, dim_scope_in, dim_nodes_in]),
@@ -190,26 +187,27 @@ class TensorRandomize(TensorNode):
 
     @utils.lru_cache
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
-            log=True, sample=False, sample_prob=None, sum_weight_grads=False):
+            self, reducible_log_prob, counts, w_log_prob, latent_indicator_log_prob,
+            *child_log_probs, sample=False, sample_prob=None, sum_weight_grads=False):
         """Common operations for computing the MPE path.
 
         Args:
-            reducible_tensor (Tensor): A (weighted) ``Tensor`` of (log-)values of this node.
+            reducible_log_prob (Tensor): A (weighted) ``Tensor`` of (log-)values of this node.
             counts (Tensor): A ``Tensor`` that contains the accumulated counts of the parents
                              of this node.
-            w_tensor (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
-            ivs_tensor (Tensor): A ``Tensor`` containing the (log-)value of the IVs.
-            input_tensors (list): A list of ``Tensor``s with outputs of the child nodes.
+            w_log_prob (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
+            latent_indicator_log_prob (Tensor): A ``Tensor`` containing the log probability
+                of the latent indicators.
+            child_log_probs (list): A list of ``Tensor``s with outputs of the child nodes.
             log (bool): Whether the computation is in log-space or not
             sample (bool): Whether to sample the 'winner' of the max or not
             sample_prob (Tensor): A scalar ``Tensor`` indicating the probability of drawing
                 a sample. If a sample is drawn, the probability for each index is given by the
-                (log-)normalized probability as given by ``reducible_tensor``.
+                (log-)normalized probability as given by ``reducible_log_prob``.
         Returns:
             A ``list`` of ``tuple``s [(MPE counts, input tensor), ...] where the first corresponds
-            to the Weights of this node, the second corresponds to the IVs and the remaining
-            tuples correspond to the nodes in ``self._values``.
+            to the Weights of this node, the second corresponds to the latent indicators and the
+            remaining tuples correspond to the nodes in ``self._values``.
         """
         raise NotImplementedError()
 

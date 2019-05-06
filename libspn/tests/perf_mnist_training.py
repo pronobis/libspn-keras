@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
@@ -47,16 +40,16 @@ class Ops:
         min_additive_smoothing = 1
 
         # Weight initialization
-        weight_init_value = spn.ValueType.RANDOM_UNIFORM(10, 11)
+        weight_init_value = tf.initializers.random_uniform(10, 11)
 
         # Generate SPN structure
-        dense_gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
+        dense_gen = spn.DenseSPNGenerator(num_decomps=num_decomps,
                                                     num_subsets=num_subsets,
                                                     num_mixtures=num_mixtures,
-                                                    input_dist=(spn.DenseSPNGeneratorLayerNodes.
+                                                    input_dist=(spn.DenseSPNGenerator.
                                                                 InputDist.RAW if input_dist is
                                                                 "RAW" else spn.
-                                                                DenseSPNGeneratorLayerNodes.
+                                                                DenseSPNGenerator.
                                                                 InputDist.MIXTURE),
                                                     num_input_mixtures=num_input_mixtures,
                                                     balanced=balanced,
@@ -65,7 +58,7 @@ class Ops:
         root1 = dense_gen.generate(inputs, root_name="root_1")
         root = spn.Sum(root0, root1, name="root")
         spn.generate_weights(root, init_value=weight_init_value)
-        latent = root.generate_ivs()
+        latent = root.generate_latent_indicators()
 
         # Add EM Learning
         additive_smoothing_var = tf.Variable(additive_smoothing, dtype=spn.conf.dtype)
@@ -84,20 +77,20 @@ class Ops:
         initial_accum_value = 20
 
         # Weight initialization
-        weight_init_value = spn.ValueType.RANDOM_UNIFORM(0, 1)
+        weight_init_value = tf.initializers.random_uniform(0, 1)
 
         # Add random values before max
         add_random = None
         use_unweighted = True
 
         # Generate SPN structure
-        dense_gen = spn.DenseSPNGeneratorLayerNodes(num_decomps=num_decomps,
+        dense_gen = spn.DenseSPNGenerator(num_decomps=num_decomps,
                                                     num_subsets=num_subsets,
                                                     num_mixtures=num_mixtures,
-                                                    input_dist=(spn.DenseSPNGeneratorLayerNodes.
+                                                    input_dist=(spn.DenseSPNGenerator.
                                                                 InputDist.RAW if input_dist is
                                                                 "RAW" else spn.
-                                                                DenseSPNGeneratorLayerNodes.
+                                                                DenseSPNGenerator.
                                                                 InputDist.MIXTURE),
                                                     num_input_mixtures=num_input_mixtures,
                                                     balanced=balanced,
@@ -106,7 +99,7 @@ class Ops:
                        for i in range(10)]
         root = spn.Sum(*class_roots, name="root")
         spn.generate_weights(root, init_value=weight_init_value)
-        latent = root.generate_ivs()
+        latent = root.generate_latent_indicators()
 
         # Add EM Learning
         additive_smoothing_var = tf.Variable(additive_smoothing, dtype=spn.conf.dtype)
@@ -253,8 +246,8 @@ class PerformanceTest:
         # Print
         print2("--> %s: on_gpu=%s, input_dist=%s, inference=%s, node_type=%s, log=%s"
                % (op_name, on_gpu, input_dist, ("MPE" if inf_type == spn.InferenceType.MPE
-                  else "MARGINAL"), ("SINGLE" if node_type == spn.DenseSPNGeneratorLayerNodes.
-                  NodeType.SINGLE else "BLOCK" if node_type == spn.DenseSPNGeneratorLayerNodes.
+                  else "MARGINAL"), ("SINGLE" if node_type == spn.DenseSPNGenerator.
+                  NodeType.SINGLE else "BLOCK" if node_type == spn.DenseSPNGenerator.
                   NodeType.BLOCK else "LAYER"), log), self.file)
 
         train_set, train_labels, test_set, test_labels = self._data_set(op_fun)
@@ -262,8 +255,8 @@ class PerformanceTest:
         # Create graph
         tf.reset_default_graph()
         with tf.device(device_name):
-            # Create input ivs
-            inputs_pl = spn.IVs(num_vars=196, num_vals=2)
+            # Create input latent_indicators
+            inputs_pl = spn.IndicatorLeaf(num_vars=196, num_vals=2)
             # Create dense SPN and generate TF graph for training
             start_time = time.time()
             # Generate SPN
@@ -280,7 +273,7 @@ class PerformanceTest:
 
             # Generate Testing Ops
             mpe_state_gen = spn.MPEState(log=log, value_inference_type=spn.InferenceType.MPE)
-            mpe_ivs, mpe_latent = mpe_state_gen.get_state(root, inputs_pl, latent)
+            mpe_latent_indicators, mpe_latent = mpe_state_gen.get_state(root, inputs_pl, latent)
             setup_time = time.time() - start_time
 
             if on_gpu:
@@ -360,9 +353,9 @@ class PerformanceTest:
                 file_name += ("_GPU_" if on_gpu else "_CPU_")
                 file_name += input_dist  # "RAW" or "MIXTURE"
                 file_name += ("_ SINGLE" if node_type ==
-                              spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE else
+                              spn.DenseSPNGenerator.NodeType.SINGLE else
                               "_BLOCK" if node_type ==
-                              spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK else
+                              spn.DenseSPNGenerator.NodeType.BLOCK else
                               "_LAYER")
                 file_name += ("_MPE-LOG" if log else "_MPE") if inf_type == \
                     spn.InferenceType.MPE else ("_MARGINAL-LOG" if log else
@@ -386,8 +379,8 @@ class PerformanceTest:
 
         # Return stats
         return OpTestResult(op_name, on_gpu, ("SINGLE" if node_type == spn.
-                            DenseSPNGeneratorLayerNodes.NodeType.SINGLE else "BLOCK"
-                            if node_type == spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK
+                            DenseSPNGenerator.NodeType.SINGLE else "BLOCK"
+                            if node_type == spn.DenseSPNGenerator.NodeType.BLOCK
                             else "LAYER"), spn_size, tf_size, memory_used, input_dist,
                             setup_time, weights_init_time, run_times, test_accuracy)
 
@@ -424,17 +417,17 @@ class PerformanceTest:
 
         r = self._run_test('InferenceType: MARGINAL-LOG',
                            [Ops.mnist_01, Ops.mnist_all],
-                           [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
-                            spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-                            spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
+                           [spn.DenseSPNGenerator.NodeType.SINGLE,
+                            spn.DenseSPNGenerator.NodeType.BLOCK,
+                            spn.DenseSPNGenerator.NodeType.LAYER],
                            inf_type=spn.InferenceType.MARGINAL, log=True)
         results.append(r)
 
         r = self._run_test('InferenceType: MPE-LOG',
                            [Ops.mnist_01, Ops.mnist_all],
-                           [spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
-                            spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-                            spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
+                           [spn.DenseSPNGenerator.NodeType.SINGLE,
+                            spn.DenseSPNGenerator.NodeType.BLOCK,
+                            spn.DenseSPNGenerator.NodeType.LAYER],
                            inf_type=spn.InferenceType.MPE, log=True)
         results.append(r)
 

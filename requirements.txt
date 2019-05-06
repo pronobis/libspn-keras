@@ -2,6 +2,7 @@ numpy
 scipy
 matplotlib
 tensorflow
+tensorflow-probability
 recommonmark
 sphinx
 sphinxcontrib-napoleon
@@ -10,3 +11,4 @@ nose2
 python3-tk
 pillow
 pyyaml
+tqdm

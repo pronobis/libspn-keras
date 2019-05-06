@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 import tensorflow as tf
 import numpy as np
 import time
@@ -205,7 +198,7 @@ class PerformanceTest:
 
         a = np.random.rand(self.num_a_rows, self.num_a_cols)
         b = np.random.rand(self.num_a_rows, self.num_b_rows, self.num_a_cols)
-        r = self._run_test('case2_3d (simulate multiplication with IVs)',
+        r = self._run_test('case2_3d (simulate multiplication with IndicatorLeaf)',
                            [Ops.reduction, Ops.matmul, Ops.reduction_by_matmul],
                            a, b)
         results.append(r)

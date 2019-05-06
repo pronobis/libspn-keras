@@ -1,4 +1,4 @@
-from libspn.graph.basesum import BaseSum
+from libspn.graph.op.basesum import BaseSum
 from libspn.tests.test import argsprod
 import tensorflow as tf
 import numpy as np

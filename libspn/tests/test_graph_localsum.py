@@ -14,7 +14,7 @@ class TestBaseSum(tf.test.TestCase):
         num_vals = 4
         batch_size = 256
         num_vars = grid_dims[0] * grid_dims[1]
-        ivs = spn.IVs(num_vars=num_vars, num_vals=num_vals)
+        ivs = spn.IndicatorLeaf(num_vars=num_vars, num_vals=num_vals)
         num_sums = 32
         weights = spn.Weights(
             num_weights=num_vals, num_sums=num_sums * num_vars,

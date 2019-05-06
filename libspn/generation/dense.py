@@ -1,19 +1,25 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from collections import deque
 from libspn import utils
+from libspn.graph.convprod2d import ConvProd2D
 from libspn.graph.node import Input
-from libspn.graph.sum import Sum
-from libspn.graph.product import Product
+from libspn.graph.op.sum import Sum
+from libspn.graph.stridedslice import StridedSlice2D
+from libspn.graph.op.parsums import ParSums
+from libspn.graph.op.sumslayer import SumsLayer
+from libspn.graph.op.product import Product
+from libspn.graph.op.permproducts import PermProducts
+from libspn.graph.op.productslayer import ProductsLayer
+from libspn.graph.concat import Concat
+from libspn.graph.convsum import ConvSum
+from libspn.graph.localsum import LocalSum
+from libspn.graph.algorithms import traverse_graph
 from libspn.log import get_logger
 from libspn.exceptions import StructureError
 from libspn.utils.enum import Enum
+from collections import OrderedDict, defaultdict
+from itertools import chain, product
 import tensorflow as tf
+import numpy as np
 import random
 
 
@@ -26,7 +32,7 @@ class DenseSPNGenerator:
         num_subsets (int): Number of variable sub-sets for each decomposition.
         num_mixtures (int): Number of mixtures (sums) for each variable subset.
         input_dist (InputDist): Determines how inputs sharing the same scope
-                                (for instance IVs for different values of a
+                                (for instance IndicatorLeaf for different values of a
                                 random variable) should be included into the
                                 generated structure.
         num_input_mixtures (int): Number of mixtures used for combining all
@@ -35,6 +41,10 @@ class DenseSPNGenerator:
                                   ``num_mixtures`` is used.
         balanced (bool): Use only balanced decompositions, into subsets of
                          similar cardinality (differing by max 1).
+        node_type (NodeType): Determines the type of op-node - single (Sum, Product),
+                              block (ParSums, PermProducts) or layer (SumsLayer,
+                              ProductsLayer) - to be used in the generated structure.
+
     """
 
     __logger = get_logger()
@@ -43,7 +53,7 @@ class DenseSPNGenerator:
     __debug3 = __logger.debug3
 
     class InputDist(Enum):
-        """Determines how inputs sharing the same scope (for instance IVs for
+        """Determines how inputs sharing the same scope (for instance IndicatorLeaf for
         different values of a random variable) should be included into the
         generated structure."""
 
@@ -57,6 +67,15 @@ class DenseSPNGenerator:
         sharing a scope, effectively creating ``input_num_mixtures``
         distributions over the scope. These mixtures are then used as inputs
         to product nodes for singleton variable subsets."""
+
+    class NodeType(Enum):
+        """Determines the type of op-node - single (Sum, Product), block (ParSums,
+        PermProducts) or layer (SumsLayer, ProductsLayer) - to be used in the
+        generated structure."""
+
+        SINGLE = 0
+        BLOCK = 1
+        LAYER = 2
 
     class SubsetInfo:
         """Stores information about a single subset to be decomposed.
@@ -77,7 +96,7 @@ class DenseSPNGenerator:
 
     def __init__(self, num_decomps, num_subsets, num_mixtures,
                  input_dist=InputDist.MIXTURE, num_input_mixtures=None,
-                 balanced=True):
+                 balanced=True, node_type=NodeType.LAYER):
         # Args
         if not isinstance(num_decomps, int) or num_decomps < 1:
             raise ValueError("num_decomps must be a positive integer")
@@ -99,6 +118,7 @@ class DenseSPNGenerator:
         self.num_mixtures = num_mixtures
         self.input_dist = input_dist
         self.balanced = balanced
+        self.node_type = node_type
         if num_input_mixtures is None:
             self.num_input_mixtures = num_mixtures
         else:
@@ -137,8 +157,8 @@ class DenseSPNGenerator:
         # Subsets left to process
         subsets = deque()
         subsets.append(DenseSPNGenerator.SubsetInfo(level=1,
-                                                    subset=input_set,
-                                                    parents=[root]))
+                                                              subset=input_set,
+                                                              parents=[root]))
 
         # Process subsets layer by layer
         self.__decomp_id = 1  # Id number of a decomposition, for info only
@@ -152,7 +172,9 @@ class DenseSPNGenerator:
                 for s in new_subsets:
                     subsets.append(s)
 
-        return root
+        # If NodeType is LAYER, convert the generated graph with LayerNodes
+        return (self.convert_to_layer_nodes(root) if self.node_type ==
+                DenseSPNGenerator.NodeType.LAYER else root)
 
     def __generate_set(self, inputs):
         """Generate a set of inputs to the generated SPN grouped by scope.
@@ -209,6 +231,29 @@ class DenseSPNGenerator:
             list of SubsetInfo: Info about each new generated subset, which
             requires further decomposition.
         """
+
+        def subsubset_to_inputs_list(subsubset):
+            """Convert sub-subsets into a list of tuples, where each
+               tuple contains an input and a list of indices
+            """
+            subsubset_list = list(next(iter(subsubset)))
+            # Create a list of unique inputs from sub-subsets list
+            unique_inputs = list(set(s_subset[0]
+                                 for s_subset in subsubset_list))
+            # For each unique input, collect all associated indices
+            # into a single list, then create a list of tuples,
+            # where each tuple contains an unique input and it's
+            # list of indices
+            inputs_list = []
+            for unique_inp in unique_inputs:
+                indices_list = []
+                for s_subset in subsubset_list:
+                    if s_subset[0] == unique_inp:
+                        indices_list.append(s_subset[1])
+                inputs_list.append(tuple((unique_inp, indices_list)))
+
+            return inputs_list
+
         # Get subset partitions
         self.__debug3("Decomposing subset:\n%s", subset_info.subset)
         num_elems = len(subset_info.subset)
@@ -233,35 +278,77 @@ class DenseSPNGenerator:
             sums_id = 1
             prod_inputs = []
             for subsubset in part:
-                if len(subsubset) > 1:  # Decomposable further
-                    # Add mixtures
-                    with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
-                        sums = [Sum(name="Sum%s" % (i + 1))
-                                for i in range(self.num_mixtures)]
-                        sums_id += 1
-                    # Register the mixtures as inputs of products
-                    prod_inputs.append([(s, 0) for s in sums])
-                    # Generate subsubset info
-                    subsubset_infos.append(DenseSPNGenerator.SubsetInfo(
-                        level=subset_info.level + 1, subset=subsubset,
-                        parents=sums))
-                else:  # Non-decomposable
-                    if self.input_dist == DenseSPNGenerator.InputDist.RAW:
-                        # Register the content of subset as inputs to products
-                        prod_inputs.append(next(iter(subsubset)))
-                    elif self.input_dist == DenseSPNGenerator.InputDist.MIXTURE:
+                if self.node_type == DenseSPNGenerator.NodeType.SINGLE:
+                    # Use single-nodes
+                    if len(subsubset) > 1:  # Decomposable further
                         # Add mixtures
                         with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
                             sums = [Sum(name="Sum%s" % (i + 1))
-                                    for i in range(self.num_input_mixtures)]
+                                    for i in range(self.num_mixtures)]
                             sums_id += 1
                         # Register the mixtures as inputs of products
                         prod_inputs.append([(s, 0) for s in sums])
-                        # Connect inputs to mixtures
-                        for s in sums:
-                            s.add_values(*(list(next(iter(subsubset)))))
+                        # Generate subsubset info
+                        subsubset_infos.append(DenseSPNGenerator.SubsetInfo(
+                            level=subset_info.level + 1, subset=subsubset,
+                            parents=sums))
+                    else:  # Non-decomposable
+                        if self.input_dist == DenseSPNGenerator.InputDist.RAW:
+                            # Register the content of subset as inputs to products
+                            prod_inputs.append(next(iter(subsubset)))
+                        elif self.input_dist == DenseSPNGenerator.InputDist.MIXTURE:
+                            # Add mixtures
+                            with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
+                                sums = [Sum(name="Sum%s" % (i + 1))
+                                        for i in range(self.num_input_mixtures)]
+                                sums_id += 1
+                            # Register the mixtures as inputs of products
+                            prod_inputs.append([(s, 0) for s in sums])
+                            # Create an inputs list
+                            inputs_list = subsubset_to_inputs_list(subsubset)
+                            # Connect inputs to mixtures
+                            for s in sums:
+                                s.add_values(*inputs_list)
+                else:  # Use multi-nodes
+                    if len(subsubset) > 1:  # Decomposable further
+                        # Add mixtures
+                        with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
+                            sums = ParSums(num_sums=self.num_mixtures,
+                                           name="ParallelSums%s.%s" %
+                                           (self.__decomp_id, sums_id))
+                            sums_id += 1
+                        # Register the mixtures as inputs of PermProds
+                        prod_inputs.append(sums)
+                        # Generate subsubset info
+                        subsubset_infos.append(DenseSPNGenerator.SubsetInfo(
+                                               level=subset_info.level + 1,
+                                               subset=subsubset, parents=[sums]))
+                    else:  # Non-decomposable
+                        if self.input_dist == DenseSPNGenerator.InputDist.RAW:
+                            # Create an inputs list
+                            inputs_list = subsubset_to_inputs_list(subsubset)
+                            if len(inputs_list) > 1:
+                                inputs_list = [Concat(*inputs_list)]
+                            # Register the content of subset as inputs to PermProds
+                            [prod_inputs.append(inp) for inp in inputs_list]
+                        elif self.input_dist == DenseSPNGenerator.InputDist.MIXTURE:
+                            # Create an inputs list
+                            inputs_list = subsubset_to_inputs_list(subsubset)
+                            # Add mixtures
+                            with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
+                                sums = ParSums(*inputs_list,
+                                               num_sums=self.num_input_mixtures,
+                                               name="ParallelSums%s.%s" %
+                                               (self.__decomp_id, sums_id))
+                                sums_id += 1
+                            # Register the mixtures as inputs of PermProds
+                            prod_inputs.append(sums)
             # Add product nodes
-            products = self.__add_products(prod_inputs)
+            if self.node_type == DenseSPNGenerator.NodeType.SINGLE:
+                products = self.__add_products(prod_inputs)
+            else:
+                products = ([PermProducts(*prod_inputs, name="PermProducts%s" % self.__decomp_id)]
+                            if len(prod_inputs) > 1 else prod_inputs)
             # Connect products to each parent Sum
             for p in subset_info.parents:
                 p.add_values(*products)
@@ -287,10 +374,14 @@ class DenseSPNGenerator:
         product_num = 1
         with tf.name_scope("Products%s" % self.__decomp_id):
             while cont:
-                # Add a product node
-                products.append(Product(*[pi[s] for (pi, s) in
-                                          zip(prod_inputs, selected)],
-                                        name="Product%s" % product_num))
+                if len(prod_inputs) > 1:
+                    # Add a product node
+                    products.append(Product(*[pi[s] for (pi, s) in
+                                              zip(prod_inputs, selected)],
+                                            name="Product%s" % product_num))
+                else:
+                    products.append(*[pi[s] for (pi, s) in
+                                      zip(prod_inputs, selected)])
                 product_num += 1
                 # Increment selected
                 cont = False
@@ -302,3 +393,189 @@ class DenseSPNGenerator:
                         cont = True
                         break
         return products
+
+    def convert_to_layer_nodes(self, root):
+        """
+        At each level in the SPN rooted in the 'root' node, model all the nodes
+        as a single layer-node.
+
+        Args:
+            root (Node): The root of the SPN graph.
+
+        Returns:
+            root (Node): The root of the SPN graph, with each layer modelled as a
+                         single layer-node.
+        """
+
+        parents = defaultdict(list)
+        depths = defaultdict(list)
+        node_to_depth = OrderedDict()
+        node_to_depth[root] = 1
+
+        def get_parents(node):
+            # Add to Parents dict
+            if node.is_op:
+                for i in node.inputs:
+                    if (i and  # Input not empty
+                            not(i.is_param or i.is_var or
+                                isinstance(i.node, (SumsLayer, ProductsLayer, ConvSum,
+                                                    ConvProd2D, Concat, LocalSum,
+                                                    StridedSlice2D)))):
+                        parents[i.node].append(node)
+                        node_to_depth[i.node] = node_to_depth[node] + 1
+
+        def permute_inputs(input_values, input_sizes):
+            # For a given list of inputs and their corresponding sizes, create a
+            # nested-list of (input, index) pairs.
+            # E.g: input_values = [(A, [2, 5]), (B, None)]
+            #      input_sizes = [2, 3]
+            #      inputs = [[('A', 2), ('A', 5)],
+            #                [('B', 0), ('B', 1), ('B', 2)]]
+            inputs = [list(product([inp.node], inp.indices)) if inp and inp.indices
+                      else list(product([inp.node], list(range(inp_size)))) for
+                      inp, inp_size in zip(input_values, input_sizes)]
+
+            # For a given nested-list of (input, index) pairs, permute over the inputs
+            # E.g: permuted_inputs = [('A', 2), ('B', 0),
+            #                         ('A', 2), ('B', 1),
+            #                         ('A', 2), ('B', 2),
+            #                         ('A', 5), ('B', 0),
+            #                         ('A', 5), ('B', 1),
+            #                         ('A', 5), ('B', 2)]
+            permuted_inputs = list(product(*[inps for inps in inputs]))
+            return list(chain(*permuted_inputs))
+
+        # Create a parents dictionary of the SPN graph
+        traverse_graph(root, fun=get_parents, skip_params=True)
+
+        # Create a depth dictionary of the SPN graph
+        for key, value in node_to_depth.items():
+            depths[value].append(key)
+        spn_depth = len(depths)
+
+        # Iterate through each depth of the SPN, starting from the deepest layer,
+        # moving up to the root node
+        for depth in range(spn_depth, 1, -1):
+            if isinstance(depths[depth][0], (Sum, ParSums)):  # A Sums Layer
+                # Create a default SumsLayer node
+                with tf.name_scope("Layer%s" % depth):
+                    sums_layer = SumsLayer(name="SumsLayer-%s.%s" % (depth, 1))
+                # Initialize a counter for keeping track of number of sums
+                # modelled in the layer node
+                layer_num_sums = 0
+                # Initialize an empty list for storing sum-input-sizes of sums
+                # modelled in the layer node
+                num_or_size_sums = []
+                # Iterate through each node at the current depth of the SPN
+                for node in depths[depth]:
+                    # TODO: To be replaced with node.num_sums once AbstractSums
+                    # class is introduced
+                    # No. of sums modelled by the current node
+                    node_num_sums = (1 if isinstance(node, Sum) else node.num_sums)
+                    # Add Input values of the current node to the SumsLayer node
+                    sums_layer.add_values(*node.values * node_num_sums)
+                    # Add sum-input-size, of each sum modelled in the current node,
+                    # to the list
+                    num_or_size_sums += [sum(node.get_input_sizes()[2:])] * node_num_sums
+                    # Visit each parent of the current node
+                    for parent in parents[node]:
+                        try:
+                            # 'Values' in case parent is an Op node
+                            values = list(parent.values)
+                        except AttributeError:
+                            # 'Inputs' in case parent is a Concat node
+                            values = list(parent.inputs)
+                        # Iterate through each input value of the current parent node
+                        for i, value in enumerate(values):
+                            # If the value is the current node
+                            if value.node == node:
+                                # Check if it has indices
+                                if value.indices is not None:
+                                    # If so, then just add the num-sums of the
+                                    # layer-op as offset
+                                    indices = (np.asarray(value.indices) +
+                                               layer_num_sums).tolist()
+                                else:
+                                    # If not, then create a list accrodingly
+                                    indices = list(range(layer_num_sums,
+                                                         (layer_num_sums +
+                                                          node_num_sums)))
+                                # Replace previous (node) Input value in the
+                                # current parent node, with the new layer-node value
+                                values[i] = (sums_layer, indices)
+                                break  # Once child-node found, don't have to search further
+                        # Reset values of the current parent node, by including
+                        # the new child (Layer-node)
+                        try:
+                            # set 'values' in case parent is an Op node
+                            parent.set_values(*values)
+                        except AttributeError:
+                            # set 'inputs' in case parent is a Concat node
+                            parent.set_inputs(*values)
+                    # Increment num-sums-counter of the layer-node
+                    layer_num_sums += node_num_sums
+                # After all nodes at a certain depth are modelled into a Layer-node,
+                # set num-sums parameter accordingly
+                sums_layer.set_sum_sizes(num_or_size_sums)
+            elif isinstance(depths[depth][0], (Product, PermProducts)):  # A Products Layer
+                with tf.name_scope("Layer%s" % depth):
+                    prods_layer = ProductsLayer(name="ProductsLayer-%s.%s" % (depth, 1))
+                # Initialize a counter for keeping track of number of prods
+                # modelled in the layer node
+                layer_num_prods = 0
+                # Initialize an empty list for storing prod-input-sizes of prods
+                # modelled in the layer node
+                num_or_size_prods = []
+                # Iterate through each node at the current depth of the SPN
+                for node in depths[depth]:
+                    # Get input values and sizes of the product node
+                    input_values = list(node.values)
+                    input_sizes = list(node.get_input_sizes())
+                    if isinstance(node, PermProducts):
+                        # Permute over input-values to model permuted products
+                        input_values = permute_inputs(input_values, input_sizes)
+                        node_num_prods = node.num_prods
+                        prod_input_size = len(input_values) // node_num_prods
+                    elif isinstance(node, Product):
+                        node_num_prods = 1
+                        prod_input_size = int(sum(input_sizes))
+
+                    # Add Input values of the current node to the ProductsLayer node
+                    prods_layer.add_values(*input_values)
+                    # Add prod-input-size, of each product modelled in the current
+                    # node, to the list
+                    num_or_size_prods += [prod_input_size] * node_num_prods
+                    # Visit each parent of the current node
+                    for parent in parents[node]:
+                        values = list(parent.values)
+                        # Iterate through each input value of the current parent node
+                        for i, value in enumerate(values):
+                            # If the value is the current node
+                            if value.node == node:
+                                # Check if it has indices
+                                if value.indices is not None:
+                                    # If so, then just add the num-prods of the
+                                    # layer-op as offset
+                                    indices = value.indices + layer_num_prods
+                                else:
+                                    # If not, then create a list accrodingly
+                                    indices = list(range(layer_num_prods,
+                                                         (layer_num_prods +
+                                                          node_num_prods)))
+                                # Replace previous (node) Input value in the
+                                # current parent node, with the new layer-node value
+                                values[i] = (prods_layer, indices)
+                        # Reset values of the current parent node, by including
+                        # the new child (Layer-node)
+                        parent.set_values(*values)
+                    # Increment num-prods-counter of the layer node
+                    layer_num_prods += node_num_prods
+                # After all nodes at a certain depth are modelled into a Layer-node,
+                # set num-prods parameter accordingly
+                prods_layer.set_prod_sizes(num_or_size_prods)
+            elif isinstance(depths[depth][0], (SumsLayer, ProductsLayer, Concat)):  # A Concat node
+                pass
+            else:
+                raise StructureError("Unknown node-type: {}".format(depths[depth][0]))
+
+        return root

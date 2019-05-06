@@ -1,8 +1,8 @@
 from libspn.graph.localsum import LocalSum
 from libspn.graph.convprod2d import ConvProd2D
 from libspn.graph.convproddepthwise import ConvProdDepthWise
-from libspn.graph.parsums import ParSums
-from libspn.graph.sum import Sum
+from libspn.graph.op.parsums import ParSums
+from libspn.graph.op.sum import Sum
 import numpy as np
 
 

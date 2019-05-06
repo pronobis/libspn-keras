@@ -9,15 +9,10 @@ Math
 
 Various LibSPN math functions.
 
-.. autoclass:: libspn.ValueType
-.. autofunction:: libspn.utils.gather_cols
+.. autofunction:: libspn.utils.gather_cols_3d
 .. autofunction:: libspn.utils.scatter_cols
-.. autofunction:: libspn.utils.broadcast_value
-.. autofunction:: libspn.utils.normalize_tensor
-.. autofunction:: libspn.utils.reduce_log_sum
-.. autofunction:: libspn.utils.concat_maybe
-.. autofunction:: libspn.utils.split_maybe
-
+.. autofunction:: libspn.utils.scatter_values
+.. autofunction:: libspn.utils.cwise_add
 
 Set Partitions
 --------------

@@ -1,53 +1,11 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 """LibSPN math functions."""
 
 import tensorflow as tf
 import numpy as np
 import collections
+from libspn import utils as utils
 from libspn import conf
-from libspn.ops import ops
-from libspn.utils.serialization import register_serializable
 from tensorflow.python.framework import ops as tfops
-from tensorflow.python.ops import array_ops
-from libspn.utils.lrucache import lru_cache
-
-
-class ValueType:
-
-    """A class specifying various types of values that be passed to the SPN
-    graph."""
-
-    @register_serializable
-    class RANDOM_UNIFORM:
-
-        """A random value from a uniform distribution.
-
-        Attributes:
-            min_val: The lower bound of the range of random values.
-            max_val: The upper bound of the range of random values.
-        """
-
-        def __init__(self, min_val=0, max_val=1):
-            self.min_val = min_val
-            self.max_val = max_val
-
-        def __repr__(self):
-            return ("ValueType.RANDOM_UNIFORM(min_val=%s, max_val=%s)" %
-                    (self.min_val, self.max_val))
-
-        def serialize(self):
-            return {'min_val': self.min_val,
-                    'max_val': self.max_val}
-
-        def deserialize(self, data):
-            self.min_val = data['min_val']
-            self.max_val = data['max_val']
 
 
 def one_hot_conv2d(input, filter, strides=(1, 1), dilations=(1, 1), padding="VALID",
@@ -86,17 +44,17 @@ def one_hot_conv2d_backprop(input, filter, grad, strides=(1, 1), dilations=(1, 1
 
 @tfops.RegisterGradient("OneHotConv2D")
 def _OneHotConv2DGrad(op, grad):
-  dilations = op.get_attr("dilations")
-  strides = op.get_attr("strides")
-  return [
-      ops.one_hot_conv2d_backprop(
-          op.inputs[0],
-          op.inputs[1],
-          grad,
-          dilations=dilations,
-          strides=strides),
-      None
-  ]
+    dilations = op.get_attr("dilations")
+    strides = op.get_attr("strides")
+    return [
+        ops.one_hot_conv2d_backprop(
+            op.inputs[0],
+            op.inputs[1],
+            grad,
+            dilations=dilations,
+            strides=strides),
+        None
+    ]
 
 
 def logtensordot(a, b, axes, name=None):
@@ -122,7 +80,6 @@ def logtensordot(a, b, axes, name=None):
 
 
 def logmatmul(a, b, transpose_a=False, transpose_b=False, name=None):
-    
     with tf.name_scope(name, "logmatmul", [a, b]):
         # Number of outer dimensions
         num_outer_a = len(a.shape) - 2
@@ -164,17 +121,17 @@ def logconv_1x1(input, filter, name=None):
             tf.stop_gradient(tf.reduce_max(filter, axis=-2, keepdims=True)))
         input_max = replace_infs_with_zeros(
             tf.stop_gradient(tf.reduce_max(input, axis=-1, keepdims=True)))
-        
+
         filter -= filter_max
         input -= input_max
 
         out = tf.log(tf.nn.convolution(
             input=tf.exp(input), filter=tf.exp(filter), padding="SAME"))
         out += filter_max + input_max
-    
+
     return out
-        
-        
+
+
 def replace_infs_with_zeros(x):
     return tf.where(tf.is_inf(x), tf.zeros_like(x), x)
 
@@ -202,80 +159,14 @@ def pow2_combinations(n):
         np.arange(rows).reshape(rows, 1), pow2), 0)
 
 
-@lru_cache
+@utils.lru_cache
 def transpose_channel_last_to_first(t):
     return tf.transpose(t, (0, 3, 1, 2))
 
 
-@lru_cache
+@utils.lru_cache
 def transpose_channel_first_to_last(t):
     return tf.transpose(t, (0, 2, 3, 1))
-
-
-def gather_cols(params, indices, name=None):
-    """Gather columns of a 2D tensor or values of a 1D tensor.
-
-    Args:
-        params (Tensor): A 1D or 2D tensor.
-        indices (array_like): A 1D integer array.
-        name (str): A name for the operation (optional).
-
-    Returns:
-        Tensor: Has the same dtype and number of dimensions and type as ``params``.
-    """
-    with tf.name_scope(name, "gather_cols", [params, indices]):
-        params = tf.convert_to_tensor(params, name="params")
-        indices = np.asarray(indices)
-        # Check params
-        param_shape = params.get_shape()
-        param_dims = param_shape.ndims
-        if param_dims == 1:
-            param_size = param_shape[0].value
-        elif param_dims == 2:
-            param_size = param_shape[1].value
-        else:
-            raise ValueError("'params' must be 1D or 2D")
-        # We need the size defined for optimizations
-        if param_size is None:
-            raise RuntimeError("The indexed dimension of 'params' is not specified")
-        # Check indices
-        if indices.ndim != 1:
-            raise ValueError("'indices' must be 1D")
-        if indices.size < 1:
-            raise ValueError("'indices' cannot be empty")
-        if not np.issubdtype(indices.dtype, np.integer):
-            raise ValueError("'indices' must be integer, not %s"
-                             % indices.dtype)
-        if np.any((indices < 0) | (indices >= param_size)):
-            raise ValueError("'indices' must fit the the indexed dimension")
-        # Define op
-        if param_size == 1:
-            if indices.size == 1:
-                # Single column tensor with a single indices, which should include
-                # it, so just forward tensor
-                return params
-            else:
-                # Single column tensor with multiple indices - case of tiling
-                return tf.tile(params, ([indices.size] if param_dims == 1
-                                        else [1, indices.size]))
-        elif indices.size == param_size and np.all(np.ediff1d(indices) == 1):
-            # Indices index all params in the original order, pass through
-            return params
-        elif indices.size == 1:
-            # Gathering a single column
-            if param_dims == 1:
-                # Gather is faster than custom for 1D.
-                # It is as fast as slice for int64, and generates smaller graph
-                return tf.gather(params, indices)
-            else:
-                return tf.slice(params, [0, indices[0]], [-1, 1])
-        else:
-            # Gathering multiple columns from multi-column tensor
-            if param_dims == 1:
-                # Gather is faster than custom for 1D.
-                return tf.gather(params, indices)
-            else:
-                return tf.gather(params, indices, axis=1)
 
 
 def gather_cols_3d(params, indices, pad_elem=0, name=None):
@@ -337,7 +228,7 @@ def gather_cols_3d(params, indices, pad_elem=0, name=None):
                 return_tensor = params
             else:
                 # If not, then just pass it to gather_cols() function
-                return_tensor = gather_cols(params, indices[0])
+                return_tensor = tf.gather(params, indices[0], axis=-1)
 
             if ind_2D:
                 # Indices is 2D, so insert an extra dimension to the output
@@ -365,31 +256,28 @@ def gather_cols_3d(params, indices, pad_elem=0, name=None):
                     return tf.reshape(tf.tile(params, [1, indices_rows]),
                                       (-1, indices_rows, indices_cols))
             else:
-                if conf.custom_gather_cols_3d:
-                    return ops.gather_cols_3d(params, indices, padding, pad_elem)
-                else:
-                    pad_elem = np.array(pad_elem).astype(tf.DType(params.dtype).as_numpy_dtype)
-                    if param_dims == 1:
-                        axis = 0
-                        if padding:
-                            augmented = tf.concat([[tf.constant(pad_elem, dtype=params.dtype)],
-                                                   params], axis=axis)
-                            gathered = tf.gather(augmented, indices=indices.ravel() + 1, axis=axis)
-                        else:
-                            gathered = tf.gather(params, indices=indices.ravel(), axis=axis)
-                        return tf.reshape(gathered, indices.shape)
-                    # else:
-                    axis = 1
+                pad_elem = np.array(pad_elem).astype(tf.DType(params.dtype).as_numpy_dtype)
+                if param_dims == 1:
+                    axis = 0
                     if padding:
-                        augmented = tf.concat([
-                            tf.fill((tf.shape(params)[0], 1), value=tf.constant(
-                                pad_elem, dtype=params.dtype)),
-                            params
-                        ], axis=axis)
+                        augmented = tf.concat([[tf.constant(pad_elem, dtype=params.dtype)],
+                                               params], axis=axis)
                         gathered = tf.gather(augmented, indices=indices.ravel() + 1, axis=axis)
                     else:
                         gathered = tf.gather(params, indices=indices.ravel(), axis=axis)
-                    return tf.reshape(gathered, (-1,) + indices.shape)
+                    return tf.reshape(gathered, indices.shape)
+                # else:
+                axis = 1
+                if padding:
+                    augmented = tf.concat([
+                        tf.fill((tf.shape(params)[0], 1), value=tf.constant(
+                            pad_elem, dtype=params.dtype)),
+                        params
+                    ], axis=axis)
+                    gathered = tf.gather(augmented, indices=indices.ravel() + 1, axis=axis)
+                else:
+                    gathered = tf.gather(params, indices=indices.ravel(), axis=axis)
+                return tf.reshape(gathered, (-1,) + indices.shape)
 
 
 def scatter_cols(params, indices, num_out_cols, name=None):
@@ -468,32 +356,20 @@ def scatter_cols(params, indices, num_out_cols, name=None):
         else:
             # Scatter a multi-column tensor to a multi-column tensor
             if param_dims == 1:
-                if conf.custom_scatter_cols:
-                    return ops.scatter_cols(
-                        params, indices,
-                        pad_elem=tf.constant(0, dtype=params.dtype),
-                        num_out_col=num_out_cols)
-                else:
-                    with_zeros = tf.concat(values=([0], params), axis=0)
-                    gather_indices = np.zeros(num_out_cols, dtype=int)
-                    gather_indices[indices] = np.arange(indices.size) + 1
-                    return gather_cols(with_zeros, gather_indices)
+                with_zeros = tf.concat(values=([0], params), axis=0)
+                gather_indices = np.zeros(num_out_cols, dtype=int)
+                gather_indices[indices] = np.arange(indices.size) + 1
+                return tf.gather(with_zeros, gather_indices, axis=0)
             else:
-                if conf.custom_scatter_cols:
-                    return ops.scatter_cols(
-                        params, indices,
-                        pad_elem=tf.constant(0, dtype=params.dtype),
-                        num_out_col=num_out_cols)
-                else:
-                    zero_col = tf.zeros((tf.shape(params)[0], 1),
-                                        dtype=params.dtype)
-                    with_zeros = tf.concat(values=(zero_col, params), axis=1)
-                    gather_indices = np.zeros(num_out_cols, dtype=int)
-                    gather_indices[indices] = np.arange(indices.size) + 1
-                    return gather_cols(with_zeros, gather_indices)
+                zero_col = tf.zeros((tf.shape(params)[0], 1),
+                                    dtype=params.dtype)
+                with_zeros = tf.concat(values=(zero_col, params), axis=1)
+                gather_indices = np.zeros(num_out_cols, dtype=int)
+                gather_indices[indices] = np.arange(indices.size) + 1
+                return tf.gather(with_zeros, gather_indices, axis=1)
 
 
-@lru_cache
+@utils.lru_cache
 def multinomial_sample(logits, num_samples, name="MultinomialSample"):
     with tf.name_scope(name):
         shape = tf.shape(logits)
@@ -503,7 +379,7 @@ def multinomial_sample(logits, num_samples, name="MultinomialSample"):
         return tf.reshape(sample, tf.concat([shape[:-1], [num_samples]], axis=0))
 
 
-@lru_cache
+@utils.lru_cache
 def argmax_breaking_ties(x, num_samples=1, keepdims=False, name="ArgMaxBreakingTies", axis=-1):
     with tf.name_scope(name):
         axis = (axis + len(x.shape)) % len(x.shape)
@@ -594,204 +470,31 @@ def scatter_values(params, indices, num_out_cols, name=None):
             # and forward the tensor.
             return tf.expand_dims(params, axis=-1)
         else:
-            if conf.custom_scatter_values:
-                return ops.scatter_values(params, indices,
-                                          num_out_cols=num_out_cols)
-            else:  # OneHot
-                if param_dims == 1:
-                    return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
-                           * tf.expand_dims(params, axis=1)
-                else:
-                    return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
-                           * tf.expand_dims(params, axis=2)
-
-
-def broadcast_value(value, shape, dtype, name=None):
-    """Broadcast the given value to the given shape and dtype. If ``value`` is
-    one of the members of :class:`~libspn.ValueType`, the requested value will
-    be generated and placed in every element of a tensor of the requested shape
-    and dtype. If ``value`` is a 0-D tensor or a Python value, it will be
-    broadcasted to the requested shape and converted to the requested dtype.
-    Otherwise, the value is used as is.
-
-    Args:
-        value: The input value.
-        shape: The shape of the output.
-        dtype: The type of the output.
-
-    Return:
-        Tensor: A tensor containing the broadcasted and converted value.
-    """
-    with tf.name_scope(name, "broadcast_value", [value]):
-        # Recognize ValueTypes
-        if isinstance(value, ValueType.RANDOM_UNIFORM):
-            return tf.random_uniform(shape=shape,
-                                     minval=value.min_val,
-                                     maxval=value.max_val,
-                                     dtype=dtype)
-
-        # Broadcast tensors and scalars
-        tensor = tf.convert_to_tensor(value, dtype=dtype)
-        if tensor.get_shape() == tuple():
-            return tf.fill(dims=shape, value=tensor)
-
-        # Return original input if we cannot broadcast
-        return tensor
-
-
-def normalize_tensor(tensor, name=None):
-    """Normalize the tensor so that all elements sum to 1.
-
-    Args:
-        tensor (Tensor): Input tensor.
-
-    Returns:
-        Tensor: Normalized tensor.
-    """
-    with tf.name_scope(name, "normalize_tensor", [tensor]):
-        tensor = tf.convert_to_tensor(tensor)
-        s = tf.reduce_sum(tensor)
-        return tf.truediv(tensor, s)
-
-
-def normalize_tensor_2D(tensor, num_weights=1, num_sums=1, name=None):
-    """Reshape weight vector to a 2D tensor, and normalize such each row sums to 1.
-
-    Args:
-        tensor (Tensor): Input tensor.
-
-    Returns:
-        Tensor: Normalized tensor.
-    """
-    with tf.name_scope(name, "normalize_tensor_2D", [tensor]):
-        tensor = tf.convert_to_tensor(tensor)
-        tensor = tf.reshape(tensor, [num_sums, num_weights])
-        s = tf.reduce_sum(tensor, axis=1, keepdims=True)
-        return tf.truediv(tensor, s)
-
-
-def normalize_log_tensor_2D(tensor, num_weights=1, num_sums=1, name=None):
-    """Reshape weight vector to a 2D tensor, and normalize such each row sums to 1.
-
-    Args:
-        tensor (Tensor): Input tensor.
-
-    Returns:
-        Tensor: Normalized tensor.
-    """
-    with tf.name_scope(name, "normalize_log_tensor_2D", [tensor]):
-        tensor = tf.convert_to_tensor(tensor)
-        tensor = tf.reshape(tensor, [num_sums, num_weights])
-        log_sum = reduce_log_sum(tensor)
-        # Normalize assuming that log_sum does not contain -inf
-        normalized_log_tensor = tf.subtract(tensor, log_sum)
-        return normalized_log_tensor
-
-
-def reduce_log_sum(log_input, name=None):
-    """Calculate log of a sum of elements of a tensor containing log values
-    row-wise.
-
-    Args:
-        log_input (Tensor): Tensor containing log values.
-
-    Returns:
-        Tensor: The reduced tensor of shape ``(None, 1)``, where the first
-        dimension corresponds to the first dimension of ``log_input``.
-    """
-    with tf.name_scope(name, "reduce_log_sum", [log_input]):
-        log_max = tf.reduce_max(log_input, 1, keepdims=True)
-        # Compute the value assuming at least one input is not -inf
-        log_rebased = tf.subtract(log_input, log_max)
-        out_normal = log_max + tf.log(tf.reduce_sum(tf.exp(log_rebased),
-                                                    1, keepdims=True))
-        # Check if all input values in a row are -inf (all non-log inputs are 0)
-        # and produce output for that case
-        # We use float('inf') for compatibility with Python<3.5
-        # For Python>=3.5 we can use math.inf instead
-        all_zero = tf.equal(log_max,
-                            tf.constant(-float('inf'), dtype=log_input.dtype))
-        out_zeros = tf.fill(tf.shape(out_normal),
-                            tf.constant(-float('inf'), dtype=log_input.dtype))
-        # Choose the output for each row
-        return tf.where(all_zero, out_zeros, out_normal)
-
-
-# log(x + y) = log(x) + log(1 + exp(log(y) - log(x)))
-def reduce_log_sum_3D(log_input, transpose=True, name=None):
-    """Calculate log of a sum of elements of a 3D tensor containing log values
-    row-wise, with each slice representing a single sum node.
-
-    Args:
-        log_input (Tensor): Tensor containing log values.
-
-    Returns:
-        Tensor: The reduced tensor of shape ``(None, num_sums)``, where the first
-         and the second dimensions corresponds to the second and first  dimensions
-         of ``log_input``.
-    """
-    with tf.name_scope(name, "reduce_log_sum_3D", [log_input]):
-        # log(x)
-        log_max = tf.reduce_max(log_input, axis=-1, keepdims=True)
-        # Compute the value assuming at least one input is not -inf
-        # r = log(y) - log(x)
-        log_rebased = tf.subtract(log_input, log_max)
-        # log(x) + log(1 + exp(r))???
-        out_normal = log_max + tf.log(tf.reduce_sum(tf.exp(log_rebased),
-                                                    axis=-1, keepdims=True))
-        # Check if all input values in a row are -inf (all non-log inputs are 0)
-        # and produce output for that case
-        all_zero = tf.equal(log_max,
-                            tf.constant(-float('inf'), dtype=log_input.dtype))
-        out_zeros = tf.fill(tf.shape(out_normal),
-                            tf.constant(-float('inf'), dtype=log_input.dtype))
-        # Choose the output for each row
-        if transpose:
-            return tf.transpose(tf.squeeze(tf.where(all_zero, out_zeros,
-                                                    out_normal), -1))
-        else:
-            return tf.squeeze(tf.where(all_zero, out_zeros, out_normal), -1)
-
-
-def concat_maybe(values, axis, name='concat'):
-    """Concatenate ``values`` if there is more than one value. Oherwise, just
-    forward value as is.
-
-    Args:
-        values (list of Tensor): Values to concatenate
-
-    Returns:
-        Tensor: Concatenated values.
-    """
-    if len(values) > 1:
-        return tf.concat(values=values, axis=axis, name=name)
-    else:
-        return values[0]
-
-
-def split_maybe(value, split_sizes, axis, name='split'):
-    """Split ``value`` into multiple tensors of sizes given by ``split_sizes``.
-    ``split_sizes`` must sum to the size of ``split_dim``. If only one split_size
-    is given, the function does nothing and just forwards the value as the only
-    split.
-
-    Args:
-        value (Tensor): The tensor to split.
-        split_sizes (list of int): Sizes of each split.
-        axis (int): The dimensions along which to split.
-
-    Returns:
-        list of Tensor: List of resulting tensors.
-    """
-    if len(split_sizes) > 1:
-        return tf.split(value=value, num_or_size_splits=split_sizes,
-                        axis=axis, name=name)
-    else:
-        return [value]
+            if param_dims == 1:
+                return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
+                       * tf.expand_dims(params, axis=1)
+            else:
+                return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
+                       * tf.expand_dims(params, axis=2)
 
 
 def print_tensor(*tensors):
     return tf.Print(tensors[0], tensors)
+
+
+@utils.lru_cache
+def cwise_add(a, b):
+    """Component-wise addition of two tensors. Added explicitly for readability elsewhere and
+    for straightforward memoization.
+
+    Args:
+        a (Tensor): Left-hand side.
+        b (Tensor): Right-hand side.
+
+    Returns:
+        A component wise addition of ``a`` and ``b``.
+    """
+    return a + b
 
 
 def non_batch_dim_prod(t):

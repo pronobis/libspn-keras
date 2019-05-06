@@ -18,9 +18,12 @@ import os
 
 LearningType = spn.LearningMethodType
 
-from libspn.graph.distribution import CauchyLeaf, LaplaceLeaf, NormalLeaf, StudentTLeaf, \
-    TruncatedNormalLeaf, MultivariateNormalDiagLeaf, MultivariateCauchyDiagLeaf, \
-    BetaLocationPrecisionLeaf
+from libspn.graph.leaf.normal import NormalLeaf
+from libspn.graph.leaf.multivariate_normal_diag import MultivariateNormalDiagLeaf
+from libspn.graph.leaf.multivariate_cauchy_diag import MultivariateCauchyDiagLeaf
+from libspn.graph.leaf.laplace import LaplaceLeaf
+from libspn.graph.leaf.truncated_normal import TruncatedNormalLeaf
+from libspn.graph.leaf.student_t import StudentTLeaf
 
 logger = get_logger()
 
@@ -250,7 +253,7 @@ def initialize_graph(init_weights, reporter, sess):
 def build_spn(args, num_dims, num_vars, train_x, train_y):
     softplus_scale = args.learning_algo != 'em'
     if args.discrete:
-        in_var = spn.IVs(num_vars=num_vars, num_vals=2, name="IVs")
+        in_var = spn.IndicatorLeaf(num_vars=num_vars, num_vals=2, name="IndicatorLeaf")
     else:
         if num_dims == 1:
             if args.dist == "beta":
@@ -344,14 +347,14 @@ def setup_learning(args, in_var, root):
     mpe_state = spn.MPEState(value_inference_type=inference_type, matmul_or_conv=True)
     if args.supervised:
         # Root is provided with labels, p(x,y)
-        labels_node = root.generate_ivs(name="LabelsIVs")
+        labels_node = root.generate_latent_indicators(name="LabelIndicators")
 
         # Marginalized root, so without filling in labels, so p(x) = \sum_y p(x,y)
         root_marginalized = spn.Sum(*root.values, name="RootMarginalized", weights=root.weights,
                                     dropconnect_keep_prob=1.0)
         # A dummy node to get MPE state
         labels_no_evidence_node = root_marginalized.generate_ivs(
-            name="LabesNoEvidenceIVs", feed=-tf.ones([tf.shape(in_var.feed)[0], 1], dtype=tf.int32))
+            name="LabesNoEvidenceIndicators", feed=-tf.ones([tf.shape(in_var.feed)[0], 1], dtype=tf.int32))
 
         # Get prediction from dummy node
         with tf.name_scope("Prediction"):
@@ -385,7 +388,7 @@ def setup_learning(args, in_var, root):
     if args.learning_algo == "em":
         em_learning = spn.EMLearning(
             root, value_inference_type=inference_type,
-            initial_accum_value=args.initial_accum_value, sample=args.sample_path,
+            initial_accum_value=args.initial_accum_value, sample_winner=args.sample_path,
             sample_prob=args.sample_prob, use_unweighted=args.use_unweighted)
         accumulate = em_learning.accumulate_updates()
         with tf.control_dependencies([accumulate]):

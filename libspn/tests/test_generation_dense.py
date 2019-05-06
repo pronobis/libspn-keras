@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from context import libspn as spn
 from test import TestCase
 import itertools
@@ -21,9 +14,9 @@ class TestDenseSPNGenerator(TestCase):
         gen = spn.DenseSPNGenerator(num_decomps=2,
                                     num_subsets=3,
                                     num_mixtures=2)
-        v1 = spn.IVs(num_vars=2, num_vals=4)
-        v2 = spn.ContVars(num_vars=3, name="ContVars1")
-        v3 = spn.ContVars(num_vars=2, name="ContVars2")
+        v1 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v2 = spn.RawLeaf(num_vars=3, name="RawLeaf1")
+        v3 = spn.RawLeaf(num_vars=2, name="RawLeaf2")
         s1 = spn.Sum(v3)
         n1 = spn.Concat(v2)
         out = gen._DenseSPNGenerator__generate_set([spn.Input(v1, [0, 3, 2, 6, 7]),
@@ -31,17 +24,17 @@ class TestDenseSPNGenerator(TestCase):
                                                     spn.Input(s1, None),
                                                     spn.Input(n1, None)])
         # scope_dict:
-        # Scope({IVs(0x7f00cb4049b0):0}): {(IVs(0x7f00cb4049b0), 0),
-        #                                  (IVs(0x7f00cb4049b0), 2),
-        #                                  (IVs(0x7f00cb4049b0), 3)},
-        # Scope({IVs(0x7f00cb4049b0):1}): {(IVs(0x7f00cb4049b0), 7),
-        #                                  (IVs(0x7f00cb4049b0), 6)},
-        # Scope({ContVars1(0x7f00b7982ef0):1}): {(Concat(0x7f00cb404d68), 1),
-        #                                        (ContVars1(0x7f00b7982ef0), 1)},
-        # Scope({ContVars1(0x7f00b7982ef0):2}): {(Concat(0x7f00cb404d68), 2),
-        #                                        (ContVars1(0x7f00b7982ef0), 2)},
-        # Scope({ContVars1(0x7f00b7982ef0):0}): {(Concat(0x7f00cb404d68), 0)},
-        # Scope({ContVars2(0x7f00cb391eb8):0, ContVars2(0x7f00cb391eb8):1}): {
+        # Scope({IndicatorLeaf(0x7f00cb4049b0):0}): {(IndicatorLeaf(0x7f00cb4049b0), 0),
+        #                                  (IndicatorLeaf(0x7f00cb4049b0), 2),
+        #                                  (IndicatorLeaf(0x7f00cb4049b0), 3)},
+        # Scope({IndicatorLeaf(0x7f00cb4049b0):1}): {(IndicatorLeaf(0x7f00cb4049b0), 7),
+        #                                  (IndicatorLeaf(0x7f00cb4049b0), 6)},
+        # Scope({RawLeaf1(0x7f00b7982ef0):1}): {(Concat(0x7f00cb404d68), 1),
+        #                                        (RawLeaf1(0x7f00b7982ef0), 1)},
+        # Scope({RawLeaf1(0x7f00b7982ef0):2}): {(Concat(0x7f00cb404d68), 2),
+        #                                        (RawLeaf1(0x7f00b7982ef0), 2)},
+        # Scope({RawLeaf1(0x7f00b7982ef0):0}): {(Concat(0x7f00cb404d68), 0)},
+        # Scope({RawLeaf2(0x7f00cb391eb8):0, RawLeaf2(0x7f00cb391eb8):1}): {
         #                                         (Sum(0x7f00cb404a90), 0)}}
 
         # Since order is undetermined, we check items
@@ -58,9 +51,9 @@ class TestDenseSPNGenerator(TestCase):
         gen = spn.DenseSPNGenerator(num_decomps=2,
                                     num_subsets=3,
                                     num_mixtures=2)
-        v1 = spn.IVs(num_vars=2, num_vals=4)
-        v2 = spn.ContVars(num_vars=3, name="ContVars1")
-        v3 = spn.ContVars(num_vars=2, name="ContVars2")
+        v1 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v2 = spn.RawLeaf(num_vars=3, name="RawLeaf1")
+        v3 = spn.RawLeaf(num_vars=2, name="RawLeaf2")
         s1 = spn.Sum(v3, v2)
         n1 = spn.Concat(v2)
 
@@ -73,8 +66,8 @@ class TestDenseSPNGenerator(TestCase):
     def generic_dense_test(self, name, num_decomps, num_subsets, num_mixtures,
                            input_dist, num_input_mixtures):
         """A generic test for DenseSPNGenerator."""
-        v1 = spn.IVs(num_vars=3, num_vals=2, name="IVs1")
-        v2 = spn.IVs(num_vars=3, num_vals=2, name="IVs2")
+        v1 = spn.IndicatorLeaf(num_vars=3, num_vals=2, name="IndicatorLeaf1")
+        v2 = spn.IndicatorLeaf(num_vars=3, num_vals=2, name="IndicatorLeaf2")
 
         gen = spn.DenseSPNGenerator(num_decomps=num_decomps,
                                     num_subsets=num_subsets,
@@ -87,7 +80,7 @@ class TestDenseSPNGenerator(TestCase):
 
         # Generating random weights
         with tf.name_scope("Weights"):
-            spn.generate_weights(root, spn.ValueType.RANDOM_UNIFORM())
+            spn.generate_weights(root, tf.initializers.random_uniform(0.0, 1.0))
 
         # Generating weight initializers
         init = spn.initialize_weights(root)
@@ -100,7 +93,7 @@ class TestDenseSPNGenerator(TestCase):
         v_log = root.get_log_value()
 
         # Creating session
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             # Initializing weights
             init.run()
             # Computing all values

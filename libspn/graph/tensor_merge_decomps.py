@@ -23,12 +23,6 @@ class TensorMergeDecomps(TensorNode):
         batch_axis (int): The index of the batch axis.
         op_axis (int): The index of the op axis that contains the individual sums being modeled.
         reduce_axis (int): The axis over which to perform summing (or max for MPE)
-        weights (input_like): Input providing weights node to this sum node.
-            See :meth:`~libspn.Input.as_input` for possible values. If set
-            to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
-            associated with this sum node. See :meth:`~libspn.Input.as_input`
-            for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the node.
 
     Attributes:
@@ -149,25 +143,26 @@ class TensorMergeDecomps(TensorNode):
 
     @utils.lru_cache
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
+            self, reducible_logits, counts, w_logits, latent_indicator_logits, *input_logits,
             log=True, sample=False, sample_prob=None, sum_weight_grads=False):
         """Common operations for computing the MPE path.
 
         Args:
-            reducible_tensor (Tensor): A (weighted) ``Tensor`` of (log-)values of this node.
+            reducible_logits (Tensor): A (weighted) ``Tensor`` of (log-)values of this node.
             counts (Tensor): A ``Tensor`` that contains the accumulated counts of the parents
                              of this node.
-            w_tensor (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
-            ivs_tensor (Tensor): A ``Tensor`` containing the (log-)value of the IVs.
-            input_tensors (list): A list of ``Tensor``s with outputs of the child nodes.
+            w_logits (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
+            latent_indicator_logits (Tensor): A ``Tensor`` containing the logits of the latent
+                indicator
+            input_logits (list): A list of ``Tensor``s with outputs of the child nodes.
             log (bool): Whether the computation is in log-space or not
             sample (bool): Whether to sample the 'winner' of the max or not
             sample_prob (Tensor): A scalar ``Tensor`` indicating the probability of drawing
                 a sample. If a sample is drawn, the probability for each index is given by the
-                (log-)normalized probability as given by ``reducible_tensor``.
+                (log-)normalized probability as given by ``reducible_logits``.
         Returns:
             A ``list`` of ``tuple``s [(MPE counts, input tensor), ...] where the first corresponds
-            to the Weights of this node, the second corresponds to the IVs and the remaining
+            to the Weights of this node, the second corresponds to the  and the remaining
             tuples correspond to the nodes in ``self._values``.
         """
         raise NotImplementedError()

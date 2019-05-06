@@ -1,15 +1,9 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from types import MappingProxyType
 import tensorflow as tf
 from libspn.inference.value import Value, LogValue
 from libspn.graph.algorithms import compute_graph_up_down
-from libspn.graph.basesum import BaseSum
+from libspn.graph.op.basesum import BaseSum
+from libspn import utils
 
 
 class MPEPath:
@@ -27,9 +21,8 @@ class MPEPath:
     """
 
     def __init__(self, value=None, value_inference_type=None, log=True, add_random=None,
-                 use_unweighted=False, sample=False, sample_prob=None,
-                 dropconnect_keep_prob=None, matmul_or_conv=False, dropprod_keep_prob=None,
-                 noise=None, batch_noise=None):
+                 use_unweighted=False, sample=False, sample_prob=None, matmul_or_conv=False,
+                 dropconnect_keep_prob=None):
         self._true_counts = {}
         self._actual_counts = {}
         self._log = log
@@ -38,20 +31,9 @@ class MPEPath:
         self._sample = sample
         self._sample_prob = sample_prob
         # Create internal value generator
-        if value is None:
-            if log:
-                self._value = LogValue(
-                    value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob,
-                    dropprod_keep_prob=dropprod_keep_prob, noise=noise,
-                    matmul_or_conv=matmul_or_conv, batch_noise=batch_noise)
-            else:
-                self._value = Value(
-                    value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob,
-                    dropprod_keep_prob=dropprod_keep_prob, noise=noise,
-                    matmul_or_conv=matmul_or_conv, batch_noise=batch_noise)
-        else:
-            self._value = value
-            self._log = value.log()
+        self._value = value or LogValue(
+            value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob,
+            matmul_or_conv=matmul_or_conv)
 
     @property
     def value(self):
@@ -84,13 +66,7 @@ class MPEPath:
             root (Node): The root node of the SPN graph.
         """
         def down_fun(node, parent_vals):
-            # Sum up all parent vals
-            parent_vals = [pv for pv in parent_vals if pv is not None]
-            if len(parent_vals) > 1:
-                summed = tf.add_n(parent_vals, name=node.name + "_add")
-            else:
-                summed = parent_vals[0]
-            self._true_counts[node] = summed
+            self._true_counts[node] = summed = self._accumulate_parents(*parent_vals)
             basesum_kwargs = dict(
                 add_random=self._add_random, use_unweighted=self._use_unweighted,
                 sample=self._sample, sample_prob=self._sample_prob)
@@ -98,14 +74,9 @@ class MPEPath:
                 kwargs = basesum_kwargs if isinstance(node, BaseSum) else dict()
                 # Compute for inputs
                 with tf.name_scope(node.name):
-                    if self._log:
-                        return node._compute_log_mpe_path(
-                            summed, *[self._value.values[i.node] if i else None
-                                      for i in node.inputs], **kwargs)
-                    else:
-                        return node._compute_mpe_path(
-                            summed, *[self._value.values[i.node] if i else None
-                                      for i in node.inputs], **kwargs)
+                    return node._compute_log_mpe_path(
+                        summed, *[self._value.values[i.node] if i else None
+                                  for i in node.inputs], **kwargs)
 
         # Generate values if not yet generated
         if not self._value.values:
@@ -113,11 +84,22 @@ class MPEPath:
 
         with tf.name_scope("TrueMPEPath"):
             # Compute the tensor to feed to the root node
-            graph_input = tf.ones_like(self._value.values[root])
+            graph_input = self._graph_input(self._value.values[root])
 
             # Traverse the graph computing counts
             self._true_counts = {}
             compute_graph_up_down(root, down_fun=down_fun, graph_input=graph_input)
+
+    @staticmethod
+    @utils.lru_cache
+    def _accumulate_parents(*parent_vals):
+        # Sum up all parent vals
+        return tf.add_n([pv for pv in parent_vals if pv is not None], name="AccumulateParents")
+
+    @staticmethod
+    @utils.lru_cache
+    def _graph_input(root_value):
+        return tf.ones_like(root_value)
 
     def get_mpe_path_actual(self, root):
         """Assemble TF operations computing the actual branch counts for the MPE
@@ -127,13 +109,7 @@ class MPEPath:
             root (Node): The root node of the SPN graph.
         """
         def down_fun(node, parent_vals):
-            # Sum up all parent vals
-            parent_vals = [pv for pv in parent_vals if pv is not None]
-            if len(parent_vals) > 1:
-                summed = tf.add_n(parent_vals, name=node.name + "_add")
-            else:
-                summed = parent_vals[0]
-            self._actual_counts[node] = summed
+            self._actual_counts[node] = summed = self._accumulate_parents(*parent_vals)
             basesum_kwargs = dict(
                 add_random=self._add_random, use_unweighted=self._use_unweighted,
                 sample=self._sample, sample_prob=self._sample_prob)
@@ -141,21 +117,16 @@ class MPEPath:
                 # Compute for inputs
                 kwargs = basesum_kwargs if isinstance(node, BaseSum) else dict()
                 with tf.name_scope(node.name):
-                    if self._log:
-                        return node._compute_log_mpe_path(
-                            summed, *[self._value.values[i.node] if i else None
-                                      for i in node.inputs], **kwargs)
-                    else:
-                        return node._compute_mpe_path(
-                            summed, *[self._value.values[i.node] if i else None
-                                      for i in node.inputs], **kwargs)
+                    return node._compute_log_mpe_path(
+                        summed, *[self._value.values[i.node] if i else None
+                                  for i in node.inputs], **kwargs)
 
         # Generate values if not yet generated
         if not self._value.values:
             self._value.get_value(root)
 
         with tf.name_scope("ActualMPEPath"):
-            graph_input = tf.ones_like(self._value.values[root])
+            graph_input = self._graph_input(self._value.values[root] )
 
             # Traverse the graph computing counts
             self._actual_counts = {}

@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from context import libspn as spn
 from test import TestCase
 import tensorflow as tf
@@ -25,7 +18,7 @@ class TestGraphConcat(TestCase):
                 op_log = n.get_log_value(spn.InferenceType.MARGINAL)
                 op_mpe = n.get_value(spn.InferenceType.MPE)
                 op_log_mpe = n.get_log_value(spn.InferenceType.MPE)
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     out = sess.run(op, feed_dict=feed)
                     out_log = sess.run(tf.exp(op_log), feed_dict=feed)
                     out_mpe = sess.run(op_mpe, feed_dict=feed)
@@ -44,9 +37,9 @@ class TestGraphConcat(TestCase):
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=3)
-        v2 = spn.ContVars(num_vars=5)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=3)
+        v2 = spn.RawLeaf(num_vars=5)
+        v3 = spn.RawLeaf(num_vars=1)
 
         # Multiple inputs, indices specified
         test([(v1, [0, 2]),
@@ -107,18 +100,18 @@ class TestGraphConcat(TestCase):
              [[1.0, 3.0, 8.0]])
 
     def test_compute_mpe_path(self):
-        v12 = spn.IVs(num_vars=2, num_vals=4)
-        v34 = spn.ContVars(num_vars=2)
-        v5 = spn.ContVars(num_vars=1)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
+        v34 = spn.RawLeaf(num_vars=2)
+        v5 = spn.RawLeaf(num_vars=1)
         p = spn.Concat((v12, [0, 5]), v34, (v12, [3]), v5)
         counts = tf.placeholder(tf.float32, shape=(None, 6))
-        op = p._compute_mpe_path(tf.identity(counts),
-                                 v12.get_value(),
-                                 v34.get_value(),
-                                 v12.get_value(),
-                                 v5.get_value())
+        op = p._compute_log_mpe_path(tf.identity(counts),
+                                     v12.get_value(),
+                                     v34.get_value(),
+                                     v12.get_value(),
+                                     v5.get_value())
         feed = np.r_[:18].reshape(-1, 6)
-        with tf.Session() as sess:
+        with self.test_session() as sess:
             out = sess.run(op, feed_dict={counts: feed})
         np.testing.assert_array_almost_equal(
             out[0], np.array([[0., 0., 0., 0., 0., 1., 0., 0.],

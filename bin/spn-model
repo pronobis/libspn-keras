@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import libspn as spn
+import tensorflow as tf
 from enum import Enum
 
 
@@ -353,8 +354,8 @@ class SpnModel(spn.App):
         # Decode weight_init_value
         if args.build.weight_init == WeightInit.ONE:
             weight_init_value = 1
-        elif args.build.weight_init == WeightInit.RANDOM:
-            weight_init_value = spn.ValueType.RANDOM_UNIFORM(0, 1)
+        else:
+            weight_init_value = tf.initializers.random_uniform(0, 1)
 
         # Build model
         if args.build.model == Model.DISCRETE_DENSE:
@@ -365,7 +366,7 @@ class SpnModel(spn.App):
                 num_mixtures=args.build.dense_mixtures,
                 input_dist=args.build.dense_input_dist,
                 num_input_mixtures=args.build.dense_input_mixtures,
-                weight_init_value=weight_init_value)
+                weight_initializer=weight_init_value)
             self.model.build(num_vars=self.train_set.num_vars,
                              num_vals=self.train_set.num_vals,
                              seed=args.build.dense_seed)

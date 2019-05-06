@@ -1,10 +1,3 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from itertools import chain
 from libspn.graph.node import OpNode, Input
 from libspn import utils
@@ -106,85 +99,42 @@ class Concat(OpNode):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_value(self, *input_tensors):
+    def _compute_log_value(self, *input_tensors):
         # Check inputs
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
-        # Concatenate inputs
+
         input_tensors = self._gather_input_tensors(*input_tensors)
         input_shapes = self._gather_input_shapes()
         reshaped_tensors = [tf.reshape(t, (-1,) + s) for t, s in zip(input_tensors, input_shapes)]
-        out = utils.concat_maybe(reshaped_tensors, axis=self._axis)
+        out = tf.concat(reshaped_tensors, axis=self._axis)
         if self.is_spatial:
             out = tf.reshape(out, (-1, int(np.prod(self.output_shape_spatial))))
         return out
 
     @property
-    def output_shape_spatial(self):
-        if self._axis != 3:
-            raise AttributeError("Requested spatial output shape of a Concat node that is "
-                                 "not spatial.")
-        shapes = self._gather_input_shapes()
-        concat_axis_sum = sum(s[self._axis - 1] for s in shapes)
-        return shapes[0][:self._axis-1] + (concat_axis_sum,)
-
-    def _gather_input_shapes(self):
-        shapes = []
-        for inp in self.inputs:
-            if isinstance(inp.node, (ConvProd2D, _ConvProdNaive, ConvSum, LocalSum)):
-                shapes.append(inp.node.output_shape_spatial)
-            else:
-                shapes.append((inp.node.get_out_size(),))
-
-        if any(len(shapes[0]) != len(s) for s in shapes):
-            raise StructureError("All shapes must be of same dimension, now have: {}".format(
-                [len(s) for s in shapes]
-            ))
-        if any(shapes[0][:self._axis - 1] != s[:self._axis - 1] for s in shapes):
-            raise StructureError("All non-concatenation axes must be identical.")
-        return shapes
-
-    def _num_channels_per_input(self):
-        if not self.is_spatial:
-            raise AttributeError("Requested number of channels per input while this Concat node "
-                                 "is not spatial.")
-        shapes = self._gather_input_shapes()
-        return [s[self._axis - 1] for s in shapes]
-
-    @utils.docinherit(OpNode)
-    def _compute_log_value(self, *input_tensors):
-        return self._compute_value(*input_tensors)
-
-    @utils.docinherit(OpNode)
-    def _compute_mpe_value(self, *input_tensors):
-        return self._compute_value(*input_tensors)
-
-    @utils.docinherit(OpNode)
-    def _compute_log_mpe_value(self, *input_tensors):
-        return self._compute_value(*input_tensors)
-
-    @property
     def is_spatial(self):
         return self._axis == 3
 
-    def _compute_mpe_path(self, counts, *input_values, add_random=False,
-                          use_unweighted=False):
+    @utils.docinherit(OpNode)
+    def _compute_log_mpe_value(self, *input_tensors):
+        return self._compute_log_value(*input_tensors)
+
+    @utils.lru_cache
+    def _compute_log_mpe_path(self, counts, *input_values, add_random=False,
+                              use_unweighted=False):
         # Check inputs
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
         # Split counts for each input
         input_sizes = self.get_input_sizes(*input_values)
-        # input_shapes = self._gather_input_shapes()
+
         if self.is_spatial:
             input_shapes = self._gather_input_shapes()
             counts = tf.reshape(counts, (-1,) + self.output_shape_spatial)
             split = utils.split_maybe(counts, self._num_channels_per_input(), axis=self._axis)
             split = [tf.reshape(t, (-1, int(np.prod(s)))) for t, s in zip(split, input_shapes)]
         else:
-            split = utils.split_maybe(counts, input_sizes, 1)
+            split = tf.split(counts, input_sizes, axis=1)
         return self._scatter_to_input_tensors(*[(t, v) for t, v in
                                                 zip(split, input_values)])
-
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                              use_unweighted=False):
-        return self._compute_mpe_path(counts, *value_values)

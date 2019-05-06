@@ -1,13 +1,4 @@
-#!/usr/bin/env python3
-
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
-from context import libspn as spn
+import libspn as spn
 from libspn.graph.tensorrandomize import TensorRandomize
 from libspn.graph.tensorproduct import TensorProduct
 from libspn.graph.tensorsum import TensorSum
@@ -21,7 +12,7 @@ class TestTensorRandomize(tf.test.TestCase):
     def test_small_spn(self):
         num_vars = 13
 
-        iv = spn.IVs(num_vals=2, num_vars=num_vars)
+        iv = spn.IndicatorLeaf(num_vals=2, num_vars=num_vars)
         randomize = TensorRandomize(iv, num_decomps=2)
         factors = [4, 2, 2]
 
@@ -34,8 +25,8 @@ class TestTensorRandomize(tf.test.TestCase):
         root = TensorSum(m, num_sums=1)
         randomize.generate_permutations(factors=factors)
 
-        latent = root.generate_ivs(name="Latent")
-        spn.generate_weights(root, init_value=spn.ValueType.RANDOM_UNIFORM(0, 1))
+        latent = root.generate_latent_indicators(name="Latent")
+        spn.generate_weights(root, initializer=tf.initializers.random_uniform())
 
         valgen = spn.LogValue()
         val = valgen.get_value(root)

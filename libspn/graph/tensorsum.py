@@ -1,6 +1,6 @@
 import abc
 from libspn.graph.node import OpNode, Input, TensorNode, Node
-from libspn.graph.ivs import IVs
+from libspn.graph.leaf.indicator import IndicatorLeaf
 from libspn.graph.weights import Weights, TensorWeights
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
@@ -31,9 +31,6 @@ class TensorSum(TensorNode):
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
-            associated with this sum node. See :meth:`~libspn.Input.as_input`
-            for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the node.
 
     Attributes:
@@ -56,7 +53,7 @@ class TensorSum(TensorNode):
                          input_format=input_format, output_format=output_format)
         self.set_values(child)
         self.set_weights(weights)
-        self.set_ivs(latent_ivs)
+        self.set_latent_indicator(latent_ivs)
 
         # Set the sampling probability and sampling type
         self._sample_prob = sample_prob
@@ -97,7 +94,7 @@ class TensorSum(TensorNode):
     @property
     @utils.docinherit(OpNode)
     def inputs(self):
-        return (self._weights, self._ivs) + self._values
+        return (self._weights, self._latent_indicator) + self._values
 
     @property
     def dropconnect_keep_prob(self):
@@ -151,18 +148,18 @@ class TensorSum(TensorNode):
             return out
 
     @property
-    def ivs(self):
-        """Input: IVs input."""
-        return self._ivs
+    def latent_indicators(self):
+        """Input: IndicatorLeaf input."""
+        return self._latent_indicator
 
-    def set_ivs(self, ivs=None):
-        """Set the IVs input.
+    def set_latent_indicator(self, latent_indicator=None):
+        """Set the latent indicator input.
 
-        ivs (input_like): Input providing IVs of an explicit latent variable
+        latent_indicator (input_like): Input providing indicators of an explicit latent variable
             associated with this sum node. See :meth:`~libspn.Input.as_input`
             for possible values. If set to ``None``, the input is disconnected.
         """
-        self._ivs, = self._parse_inputs(ivs)
+        self._latent_indicator, = self._parse_inputs(latent_indicator)
 
     @property
     def values(self):
@@ -205,7 +202,8 @@ class TensorSum(TensorNode):
         self._values += self._parse_inputs(*values)
         self._reset_sum_sizes()
 
-    def generate_weights(self, init_value=1, trainable=True, log=False, name=None, input_sizes=None):
+    def generate_weights(self, initializer=tf.initializers.constant(1.0),
+                         trainable=True, log=False, name=None, input_sizes=None):
         """Generate a weights node matching this sum node and connect it to
         this sum.
 
@@ -238,31 +236,33 @@ class TensorSum(TensorNode):
         weights = TensorWeights(
             num_inputs=num_inputs, num_outputs=self._num_sums, num_decomps=self.dim_decomps,
             num_scopes=self.dim_scope, name=name, trainable=trainable, in_logspace=log,
-            init_value=init_value)
+            initializer=initializer)
         self.set_weights(weights)
         return weights
 
-    def generate_ivs(self, feed=None, name=None):
-        """Generate an IVs node matching this sum node and connect it to
+    def generate_latent_indicators(self, feed=None, name=None):
+        """Generate an IndicatorLeaf node matching this sum node and connect it to
         this sum.
 
-        IVs should be generated once all inputs are added to this node,
-        otherwise the number of IVs will be incorrect.
+        IndicatorLeaf should be generated once all inputs are added to this node,
+        otherwise the number of IndicatorLeaf variables will be incorrect.
 
         Args:
-            feed (Tensor): See :class:`~libspn.IVs`.
-            name (str): Name of the IVs node. If ``None`` use the name of the
-                        sum + ``_IVs``.
+            feed (Tensor): See :class:`~libspn.IndicatorLeaf`.
+            name (str): Name of the latent indicator node. If ``None`` use the name of the
+                sum + ``_LatentIndicator``.
 
         Return:
-            IVs: Generated IVs node.
+            Latent indicators: Generated IndicatorLeaf node.
         """
         if self.dim_scope != 1 or self.dim_decomps != 1:
             raise NotImplementedError("{}: scope dim and decomposition dim must be 1 to "
-                                      "apply IVs".format(self))
-        ivs_node = IVs(feed=feed, num_vars=1, num_vals=self.child.dim_nodes, name=name)
-        self.set_ivs(ivs_node)
-        return ivs_node
+                                      "apply latent indicators".format(self))
+        latent_indicator = IndicatorLeaf(
+            feed=feed, num_vars=1, num_vals=self.child.dim_nodes,
+            name=name or self._name + "_LatentIndicator")
+        self.set_latent_indicator(latent_indicator)
+        return latent_indicator
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
@@ -299,7 +299,7 @@ class TensorSum(TensorNode):
         if ivs_tensor is not None:
             if self.dim_scope != 1 or self.dim_decomps != 1:
                 raise NotImplementedError("{}: scope dim and decomposition dim must be 1 to "
-                                          "apply IVs".format(self))
+                                          "apply ltent indicators".format(self))
             # [batch, nodes_input]
             return child + tf.reshape(ivs_tensor, (1, 1, -1, self.child.dim_nodes))
         return child
@@ -334,24 +334,24 @@ class TensorSum(TensorNode):
         ivs_counts = tf.reshape(input_counts, (-1, self._num_sums))
         return weight_counts, ivs_counts, input_counts
 
-    def _get_flat_value_scopes(self, weight_scopes, ivs_scopes, *value_scopes):
+    def _get_flat_value_scopes(self, weight_scopes, latent_indicator_scopes, *value_scopes):
         """Get a flat representation of the value scopes per sum.
 
         Args:
             weight_scopes (list): A list of ``Scope``s corresponding to the weights.
-            ivs_scopes (list): A list of ``Scope``s corresponding to the IVs.
+            latent_indicator_scopes (list): A list of ``Scope``s corresponding to the latent indicators.
             value_scopes (tuple): A ``tuple`` of ``list``s of ``Scope``s corresponding to the
                                   scope lists of the children of this node.
 
         Returns:
-            A tuple of flat value scopes corresponding to this node's output. The IVs scopes and
-            the value scopes.
+            A tuple of flat value scopes corresponding to this node's output. The latent indicator
+            scopes and the value scopes.
         """
         if not self._values:
             raise StructureError("%s is missing input values" % self)
-        _, ivs_scopes, *value_scopes = self._gather_input_scopes(
-            weight_scopes, ivs_scopes, *value_scopes)
-        return list(chain.from_iterable(value_scopes)), ivs_scopes, value_scopes
+        _, latent_indicator_scopes, *value_scopes = self._gather_input_scopes(
+            weight_scopes, latent_indicator_scopes, *value_scopes)
+        return list(chain.from_iterable(value_scopes)), latent_indicator_scopes, value_scopes
 
     @utils.docinherit(OpNode)
     def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):

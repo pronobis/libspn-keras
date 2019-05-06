@@ -7,61 +7,30 @@ from unittest.mock import MagicMock
 
 class TestBaseSum(tf.test.TestCase):
 
-    def test_dropconnect_sumslayer(self):
-        ivs0 = spn.IVs(num_vals=2, num_vars=2)
-        ivs1 = spn.IVs(num_vals=2, num_vars=1)
-
-        probs = tf.constant(np.log(np.random.rand(4096, 2, 4)), dtype=tf.float32)
-
-        s = spn.SumsLayer(ivs0, ivs1, num_or_size_sums=[4, 2])
-
-        dropconnect_mask = s._create_dropconnect_mask(
-            keep_prob=0.1, shape=tf.shape(probs))
-
-        self.assertAllEqual(s._build_mask(), [[1, 1, 1, 1],
-                                              [1, 1, 0, 0]])
-        with self.test_session() as sess:
-            mask_out = sess.run(dropconnect_mask)
-
-        masked_part = mask_out[:, 1, 2:]
-        self.assertAllEqual(
-            masked_part.astype(np.int32), np.zeros_like(masked_part, dtype=np.int32))
-        self.assertAllEqual(
-            masked_part.astype(np.int32), np.zeros_like(masked_part, dtype=np.int32))
-        self.assertAllGreater(np.sum(mask_out, axis=-1), 0)
-
-        non_masked_part = mask_out[:, 0, 2:]
-        self.assertGreater(np.sum(non_masked_part), 0)
-
-    @argsprod([False, True])
-    def test_dropconnect(self, log):
-        spn.conf.dropout_mode = "pairwise"
-        ivs = spn.IVs(num_vals=2, num_vars=4)
-        s = spn.Sum(ivs, dropconnect_keep_prob=0.5)
+    def test_dropconnect(self):
+        latent_indicators = spn.IndicatorLeaf(num_vals=2, num_vars=4)
+        s = spn.Sum(latent_indicators, dropconnect_keep_prob=0.5)
         spn.generate_weights(s)
         init = spn.initialize_weights(s)
 
         mask = [
             [0., 1., 0., 1., 1., 1., 0., 1.],
-            [0., 1., 0., 1., 1., 1., 0., 1.]
+            [1., 0., 0., 0., 0., 0., 1., 0.]
         ]
-        s._create_dropconnect_mask = MagicMock(
-            return_value=tf.cast(tf.expand_dims(mask, 1), tf.bool))
+        s._create_dropout_mask = MagicMock(
+            return_value=tf.expand_dims(tf.log(mask), 1))
 
-        if log:
-            val_op = tf.exp(s.get_log_value())
-        else:
-            val_op = s.get_value()
+        val_op = tf.exp(s.get_log_value())
 
-        feed = [[-1, -1, -1, -1],
-                [0, 1, -1, 0]]
+        mask = tf.constant(mask, dtype=tf.float32)
+        truth = tf.reduce_mean(mask, axis=-1, keepdims=True)
 
         with self.test_session() as sess:
             sess.run(init)
-            dropconnect_out = sess.run(val_op, feed_dict={ivs: feed})
+            dropconnect_out, truth_out = sess.run(
+                [val_op, truth], feed_dict={latent_indicators: -np.ones((2, 4), dtype=np.int32)})
 
-        truth = [[np.mean(mask)], [3/8]]
-        self.assertAllClose(dropconnect_out, truth)
+        self.assertAllClose(dropconnect_out, truth_out)
 
     @argsprod([False, True])
     def test_stochastic_argmax(self, argmax_zero):
@@ -90,8 +59,8 @@ class TestBaseSum(tf.test.TestCase):
             [self.assertLess(hist_second[i], N / 2 + N / 6) for i in [0, 3]]
             [self.assertGreater(hist_second[i], N / 2 - N / 6) for i in [0, 3]]
 
-    @argsprod([0.2, 0.5, 0.8, 1.0], [False, True])
-    def test_sampling(self, sample_prob, log):
+    @argsprod([0.2, 0.5, 0.8, 1.0])
+    def test_sampling(self, sample_prob):
         N = 100000
         x = tf.expand_dims(
             tf.constant(
@@ -104,10 +73,7 @@ class TestBaseSum(tf.test.TestCase):
         N_sampled = N * sample_prob
         N_argmax = N - N_sampled
 
-        if log:
-            sample_op = tf.squeeze(s._reduce_sample_log(tf.log(x), sample_prob=sample_prob))
-        else:
-            sample_op = tf.squeeze(s._reduce_sample(x, sample_prob=sample_prob))
+        sample_op = tf.squeeze(s._reduce_sample_log(tf.log(x), sample_prob=sample_prob))
 
         with self.test_session() as sess:
             sample_out = sess.run(sample_op)

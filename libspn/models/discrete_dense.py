@@ -1,19 +1,11 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from libspn.models.model import Model
 from libspn.log import get_logger
-from libspn.graph.ivs import IVs
+from libspn.graph.leaf.indicator import IndicatorLeaf
 from libspn.generation.dense import DenseSPNGenerator
-from libspn.utils.math import ValueType
 from libspn.generation.weights import generate_weights
 from libspn.graph.node import Input
 from libspn.graph.serialization import serialize_graph, deserialize_graph
-from libspn.graph.sum import Sum
+from libspn.graph.op.sum import Sum
 from libspn import utils
 from libspn.utils.serialization import register_serializable
 import random
@@ -37,14 +29,13 @@ class DiscreteDenseModel(Model):
         num_decomps (int): Number of decompositions at each level of dense SPN.
         num_subsets (int): Number of variable sub-sets for each decomposition.
         num_mixtures (int): Number of mixtures (sums) for each variable subset.
-        input_dist (InputDist): Determines how IVs of the discrete variables for
+        input_dist (InputDist): Determines how IndicatorLeaf of the discrete variables for
                                 data samples are connected to the model.
         num_input_mixtures (int): Number of mixtures used representing each
                                   discrete data variable (mixing the data variable
-                                  IVs) when ``input_dist`` is set to ``MIXTURE``.
+                                  IndicatorLeaf) when ``input_dist`` is set to ``MIXTURE``.
                                   If set to ``None``, ``num_mixtures`` is used.
-        weight_init_value: Initial value of the weights. For possible values,
-                           see :meth:`~libspn.utils.broadcast_value`.
+        weight_init_value: Initial value of the weights.
     """
 
     __logger = get_logger()
@@ -58,7 +49,7 @@ class DiscreteDenseModel(Model):
                  num_decomps, num_subsets, num_mixtures,
                  input_dist=DenseSPNGenerator.InputDist.MIXTURE,
                  num_input_mixtures=None,
-                 weight_init_value=ValueType.RANDOM_UNIFORM(0, 1)):
+                 weight_initializer=tf.initializers.random_uniform(0.0, 1.0)):
         super().__init__()
         if not isinstance(num_classes, int):
             raise ValueError("num_classes must be an integer")
@@ -68,9 +59,9 @@ class DiscreteDenseModel(Model):
         self._num_mixtures = num_mixtures
         self._input_dist = input_dist
         self._num_input_mixtures = num_input_mixtures
-        self._weight_init_value = weight_init_value
-        self._class_ivs = None
-        self._sample_ivs = None
+        self._weight_initializer = weight_initializer
+        self._class_latent_indicators = None
+        self._sample_latent_indicators = None
         self._class_input = None
         self._sample_inputs = None
 
@@ -82,7 +73,7 @@ class DiscreteDenseModel(Model):
                 ("num_mixtures=" + str(self._num_mixtures)) + ", " +
                 ("input_dist=" + str(self._input_dist)) + ", " +
                 ("num_input_mixtures=" + str(self._num_input_mixtures)) + ", " +
-                ("weight_init_value=" + str(self._weight_init_value))
+                ("weight_init_value=" + str(self._weight_initializer))
                 + ")")
 
     @utils.docinherit(Model)
@@ -92,12 +83,12 @@ class DiscreteDenseModel(Model):
                                sess=sess)
         # Add model specific information
         # Inputs
-        if self._sample_ivs is not None:
-            data['sample_ivs'] = self._sample_ivs.name
+        if self._sample_latent_indicators is not None:
+            data['sample_latent_indicators'] = self._sample_latent_indicators.name
         data['sample_inputs'] = [(i.node.name, i.indices)
                                  for i in self._sample_inputs]
-        if self._class_ivs is not None:
-            data['class_ivs'] = self._class_ivs.name
+        if self._class_latent_indicators is not None:
+            data['class_latent_indicators'] = self._class_latent_indicators.name
         if self._class_input:
             data['class_input'] = (self._class_input.node.name,
                                    self._class_input.indices)
@@ -108,7 +99,7 @@ class DiscreteDenseModel(Model):
         data['num_mixtures'] = self._num_mixtures
         data['input_dist'] = self._input_dist
         data['num_input_mixtures'] = self._num_input_mixtures
-        data['weight_init_value'] = self._weight_init_value
+        data['weight_init_value'] = self._weight_initializer
         return data
 
     @utils.docinherit(Model)
@@ -120,18 +111,18 @@ class DiscreteDenseModel(Model):
                                        nodes_by_name=nodes_by_name)
         # Model specific information
         # Inputs
-        sample_ivs = data.get('sample_ivs', None)
-        if sample_ivs:
-            self._sample_ivs = nodes_by_name[sample_ivs]
+        sample_latent_indicators = data.get('sample_latent_indicators', None)
+        if sample_latent_indicators:
+            self._sample_latent_indicators = nodes_by_name[sample_latent_indicators]
         else:
-            self._sample_ivs = None
+            self._sample_latent_indicators = None
         self._sample_inputs = tuple(Input(nodes_by_name[nn], i)
                                     for nn, i in data['sample_inputs'])
-        class_ivs = data.get('class_ivs', None)
-        if class_ivs:
-            self._class_ivs = nodes_by_name[class_ivs]
+        class_latent_indicators = data.get('class_latent_indicators', None)
+        if class_latent_indicators:
+            self._class_latent_indicators = nodes_by_name[class_latent_indicators]
         else:
-            self._class_ivs = None
+            self._class_latent_indicators = None
         class_input = data.get('class_input', None)
         if class_input:
             self._class_input = Input(nodes_by_name[class_input[0]], class_input[1])
@@ -144,17 +135,17 @@ class DiscreteDenseModel(Model):
         self._num_mixtures = data['num_mixtures']
         self._input_dist = data['input_dist']
         self._num_input_mixtures = data['num_input_mixtures']
-        self._weight_init_value = data['weight_init_value']
+        self._weight_initializer = data['weight_init_value']
 
     @property
-    def sample_ivs(self):
-        """IVs: IVs with input data sample."""
-        return self._sample_ivs
+    def sample_latent_indicators(self):
+        """IndicatorLeaf: IndicatorLeaf with input data sample."""
+        return self._sample_latent_indicators
 
     @property
-    def class_ivs(self):
-        """IVs: Class indicator variables."""
-        return self._class_ivs
+    def class_latent_indicators(self):
+        """IndicatorLeaf: Class indicator variables."""
+        return self._class_latent_indicators
 
     @property
     def sample_inputs(self):
@@ -171,13 +162,13 @@ class DiscreteDenseModel(Model):
         """Build the SPN graph of the model.
 
         The model can be built on top of any ``sample_inputs``. Otherwise, if no
-        sample inputs are provided, the model will internally crate a single IVs
+        sample inputs are provided, the model will internally crate a single IndicatorLeaf
         node to represent the input data samples. In such case, ``num_vars`` and
         ``num_vals`` must be specified.
 
         Similarly, if ``class_input`` is provided, it is used as a source of
         class indicators of the root sum node combining sub-SPNs modeling
-        particular classes. Otherwise, an internal IVs node is created for this
+        particular classes. Otherwise, an internal IndicatorLeaf node is created for this
         purpose.
 
         Args:
@@ -210,18 +201,18 @@ class DiscreteDenseModel(Model):
         else:
             self.__info("Building a 1-class discrete dense model")
 
-        # Create IVs if inputs not given
+        # Create IndicatorLeaf if inputs not given
         if not sample_inputs:
-            self._sample_ivs = IVs(num_vars=num_vars, num_vals=num_vals,
-                                   name="SampleIVs")
-            self._sample_inputs = [Input(self._sample_ivs)]
+            self._sample_latent_indicators = IndicatorLeaf(num_vars=num_vars, num_vals=num_vals,
+                                             name="SampleIndicatorLeaf")
+            self._sample_inputs = [Input(self._sample_latent_indicators)]
         else:
             self._sample_inputs = tuple(Input.as_input(i) for i in sample_inputs)
         if self._num_classes > 1:
             if class_input is None:
-                self._class_ivs = IVs(num_vars=1, num_vals=self._num_classes,
-                                      name="ClassIVs")
-                self._class_input = Input(self._class_ivs)
+                self._class_latent_indicators = IndicatorLeaf(num_vars=1, num_vals=self._num_classes,
+                                                name="ClassIndicatorLeaf")
+                self._class_input = Input(self._class_latent_indicators)
             else:
                 self._class_input = Input.as_input(class_input)
 
@@ -251,14 +242,14 @@ class DiscreteDenseModel(Model):
                                   (c, sub_root.get_num_nodes()))
                 sub_spns.append(sub_root)
             # Create root
-            self._root = Sum(*sub_spns, ivs=self._class_input, name="Root")
+            self._root = Sum(*sub_spns, latent_indicators=self._class_input, name="Root")
 
         if self.__is_debug1():
             self.__debug1("SPN graph has %d nodes" % self._root.get_num_nodes())
 
         # Generate weight nodes
         self.__debug1("Generating weight nodes")
-        generate_weights(self._root, init_value=self._weight_init_value)
+        generate_weights(self._root, initializer=self._weight_initializer)
         if self.__is_debug1():
             self.__debug1("SPN graph has %d nodes and %d TF ops" % (
                 self._root.get_num_nodes(), self._root.get_tf_graph_size()))

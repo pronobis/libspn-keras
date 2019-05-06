@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
@@ -41,16 +34,16 @@ def print2(str, file):
 
 class Ops:
 
-    def sum(inputs, indices, ivs, num_sums, inf_type, log=False, output=None):
+    def sum(inputs, indices, latent_indicators, num_sums, inf_type, log=False, output=None):
         if indices is None:
             inputs = [inputs for _ in range(num_sums)]
         else:
             inputs = [(inputs, ind) for ind in indices]
 
-        # Generate 'num_sums' Sum nodes, connecting each to inputs and ivs
+        # Generate 'num_sums' Sum nodes, connecting each to inputs and latent_indicators
         s = []
-        for inp, iv in zip(inputs, ivs):
-            s = s + [spn.Sum(inp, ivs=iv)]
+        for inp, iv in zip(inputs, latent_indicators):
+            s = s + [spn.Sum(inp, latent_indicators=iv)]
             # Generate weights for each Sum node
             s[-1].generate_weights()
 
@@ -65,15 +58,15 @@ class Ops:
 
         return spn.initialize_weights(root), value_op
 
-    def sums(inputs, indices, ivs, num_sums, inf_type, log=True, output=None):
+    def sums(inputs, indices, latent_indicators, num_sums, inf_type, log=True, output=None):
         if indices is None:
             inputs = [inputs for _ in range(num_sums)]
         else:
             inputs = [(inputs, ind) for ind in indices]
 
         # Generate a single Sums node, modeling 'num_sums' sum nodes within,
-        # connecting it to inputs and ivs
-        s = spn.Sums(*inputs, num_sums=num_sums, ivs=ivs[0])
+        # connecting it to inputs and latent_indicators
+        s = spn.Sums(*inputs, num_sums=num_sums, latent_indicators=latent_indicators[0])
         # Generate weights of the Sums node
         s.generate_weights()
 
@@ -92,13 +85,13 @@ class Ops:
 class OpTestResult:
     """Result of a single test of a single op."""
 
-    def __init__(self, op_name, on_gpu, graph_size, indices, ivs, setup_time,
+    def __init__(self, op_name, on_gpu, graph_size, indices, latent_indicators, setup_time,
                  weights_init_time, run_times, output_correct):
         self.op_name = op_name
         self.on_gpu = on_gpu
         self.graph_size = graph_size
         self.indices = indices
-        self.ivs = ivs
+        self.latent_indicators = latent_indicators
         self.setup_time = setup_time
         self.weights_init_time = weights_init_time
         self.run_times = run_times
@@ -116,14 +109,14 @@ class TestResults:
     def print(self, file):
         def get_header(dev):
             return ("%3s %11s %5s %5s %5s %11s %15s %15s %14s %10s" %
-                    (dev, 'op', 'size', 'indices', 'ivs', 'setup_time',
+                    (dev, 'op', 'size', 'indices', 'latent_indicators', 'setup_time',
                      'weights_init_time', 'first_run_time', 'rest_run_time',
                      'correct'))
 
         def get_res(res):
             """Helper function printing a single result."""
             return ("%15s %5d %5s %7s %11.2f %15.2f %15.2f %14.2f %10s" %
-                    (res.op_name, res.graph_size, res.indices, res.ivs,
+                    (res.op_name, res.graph_size, res.indices, res.latent_indicators,
                      res.setup_time * 1000, res.weights_init_time * 1000,
                      res.run_times[0] * 1000,
                      np.mean(res.run_times[1:]) * 1000,
@@ -136,11 +129,11 @@ class TestResults:
         print1(get_header("CPU"), file)
         for res in sorted(self.cpu_results, key=lambda x: len(x.op_name)):
             print1(get_res(res), file, (red if res.indices is "No" else green if
-                   res.ivs is "No" else magenta))
+            res.latent_indicators is "No" else magenta))
         print1(get_header("GPU"), file)
         for res in sorted(self.gpu_results, key=lambda x: len(x.op_name)):
             print1(get_res(res), file, (red if res.indices is "No" else green if
-                   res.ivs is "No" else magenta))
+            res.latent_indicators is "No" else magenta))
 
 
 class PerformanceTest:
@@ -169,7 +162,7 @@ class PerformanceTest:
         print1("- num_runs=%s" % num_runs, file)
         print1("", file=file)
 
-    def _true_output(self, op_fun, inputs, indices, ivs=None, inf_type=None):
+    def _true_output(self, op_fun, inputs, indices, latent_indicators=None, inf_type=None):
         if indices is not None:
             indices = list(itertools.chain.from_iterable(indices))
             inputs = inputs[:, indices]
@@ -192,22 +185,22 @@ class PerformanceTest:
         weight = 1.0 / input_size
         root_weight = 1.0 / self.num_sums
 
-        if ivs is not None:
+        if latent_indicators is not None:
             if op_fun is Ops.sum:
-                ivs_slice = ivs
+                latent_indicators_slice = latent_indicators
             elif op_fun is Ops.sums:
-                ivs_slice = np.split(ivs, self.num_sums, axis=1)[0]
+                latent_indicators_slice = np.split(latent_indicators, self.num_sums, axis=1)[0]
 
         # Compute true output with numpy
-        if ivs is None:
+        if latent_indicators is None:
             return np_op(np.transpose(np_op((inputs_array * weight), axis=-1))
                          * root_weight, axis=-1, keepdims=True)
         else:
-            ivs_oh = np.eye(input_size)[np.squeeze(ivs_slice)]
-            return np_op(np.transpose(np_op((inputs_array * ivs_oh * weight),
+            latent_indicators_oh = np.eye(input_size)[np.squeeze(latent_indicators_slice)]
+            return np_op(np.transpose(np_op((inputs_array * latent_indicators_oh * weight),
                          axis=-1)) * root_weight, axis=-1, keepdims=True)
 
-    def _run_op_test(self, op_fun, inputs, indices=None, ivs=None,
+    def _run_op_test(self, op_fun, inputs, indices=None, latent_indicators=None,
                      inf_type=spn.InferenceType.MARGINAL, log=False, on_gpu=True):
         """Run a single test for a single op."""
         # Preparations
@@ -215,39 +208,39 @@ class PerformanceTest:
         device_name = '/gpu:0' if on_gpu else '/cpu:0'
 
         # Print
-        print2("--> %s: on_gpu=%s, inputs_shape=%s, indices=%s, ivs=%s, inference=%s, log=%s"
+        print2("--> %s: on_gpu=%s, inputs_shape=%s, indices=%s, latent_indicators=%s, inference=%s, log=%s"
                % (op_name, on_gpu, inputs.shape, ("No" if indices is None else "Yes"),
-                  ("No" if ivs is None else "Yes"), ("MPE" if inf_type ==
+                  ("No" if latent_indicators is None else "Yes"), ("MPE" if inf_type ==
                   spn.InferenceType.MPE else "MARGINAL"), log), self.file)
 
         input_size = inputs.shape[1]
 
         # Compute true output
-        true_out = self._true_output(op_fun, inputs, indices, ivs, inf_type)
+        true_out = self._true_output(op_fun, inputs, indices, latent_indicators, inf_type)
 
         # Create graph
         tf.reset_default_graph()
         with tf.device(device_name):
             # Create input
-            inputs_pl = spn.ContVars(num_vars=input_size)
-            # Create IVs
-            if ivs is None:
-                ivs_pl = [None for _ in range(self.num_sums)]
+            inputs_pl = spn.RawLeaf(num_vars=input_size)
+            # Create IndicatorLeaf
+            if latent_indicators is None:
+                latent_indicators_pl = [None for _ in range(self.num_sums)]
             else:
                 if op_fun is Ops.sum:
-                    ivs_pl = [spn.IVs(num_vars=1, num_vals=input_size)
+                    latent_indicators_pl = [spn.IndicatorLeaf(num_vars=1, num_vals=input_size)
                               for _ in range(self.num_sums)]
                 elif op_fun is Ops.sums:
-                    ivs_pl = [spn.IVs(num_vars=self.num_sums, num_vals=input_size)]
+                    latent_indicators_pl = [spn.IndicatorLeaf(num_vars=self.num_sums, num_vals=input_size)]
             # Create ops
             start_time = time.time()
-            init_ops, ops = op_fun(inputs_pl, indices, ivs_pl, self.num_sums,
+            init_ops, ops = op_fun(inputs_pl, indices, latent_indicators_pl, self.num_sums,
                                    inf_type, log)
             for _ in range(self.num_ops - 1):
                 # The tuple ensures that the next op waits for the output
                 # of the previous op, effectively stacking the ops
                 # but using the original input every time
-                init_ops, ops = op_fun(inputs_pl, indices, ivs_pl, self.num_sums,
+                init_ops, ops = op_fun(inputs_pl, indices, latent_indicators_pl, self.num_sums,
                                        inf_type, log, tf.tuple([ops])[0])
             setup_time = time.time() - start_time
         # Get num of graph ops
@@ -265,9 +258,9 @@ class PerformanceTest:
             run_times = []
             # Create feed dictionary
             feed = {inputs_pl: inputs}
-            if ivs is not None:
-                for iv_pl in ivs_pl:
-                    feed[iv_pl] = ivs
+            if latent_indicators is not None:
+                for iv_pl in latent_indicators_pl:
+                    feed[iv_pl] = latent_indicators
             for n in range(self.num_runs):
                 # Run
                 start_time = time.time()
@@ -302,7 +295,7 @@ class PerformanceTest:
                                                 "_MARGINAL")
                 if indices is not None:
                     file_name += "_Indices"
-                if ivs is not None:
+                if latent_indicators is not None:
                     file_name += "_IVS"
 
                 with open('%s/timeline_value_%s.json' % (self.profiles_dir,
@@ -312,33 +305,33 @@ class PerformanceTest:
         # Return stats
         return OpTestResult(op_name, on_gpu, graph_size, ("No" if indices is
                                                           None else "Yes"),
-                            ("No" if ivs is None else "Yes"), setup_time,
+                            ("No" if latent_indicators is None else "Yes"), setup_time,
                             weights_init_time, run_times, output_correct)
 
-    def _run_test(self, test_name, op_funs, inputs, indices, ivs, inf_type, log):
+    def _run_test(self, test_name, op_funs, inputs, indices, latent_indicators, inf_type, log):
         """Run a single test for multiple ops and devices."""
         cpu_results = []
         gpu_results = []
-        for op_fun, inp, ind, iv in zip(op_funs, inputs, indices, ivs):
+        for op_fun, inp, ind, iv in zip(op_funs, inputs, indices, latent_indicators):
             if not self.without_cpu:
-                cpu_results.append(  # Indices = No, IVs = No
-                    self._run_op_test(op_fun, inp, indices=None, ivs=None,
+                cpu_results.append(  # Indices = No, IndicatorLeaf = No
+                    self._run_op_test(op_fun, inp, indices=None, latent_indicators=None,
                                       inf_type=inf_type, log=log, on_gpu=False))
-                cpu_results.append(  # Indices = Yes, IVs = No
-                    self._run_op_test(op_fun, inp, indices=ind, ivs=None,
+                cpu_results.append(  # Indices = Yes, IndicatorLeaf = No
+                    self._run_op_test(op_fun, inp, indices=ind, latent_indicators=None,
                                       inf_type=inf_type, log=log, on_gpu=False))
-                cpu_results.append(  # Indices = Yes, IVs = Yes
-                    self._run_op_test(op_fun, inp, indices=ind, ivs=iv,
+                cpu_results.append(  # Indices = Yes, IndicatorLeaf = Yes
+                    self._run_op_test(op_fun, inp, indices=ind, latent_indicators=iv,
                                       inf_type=inf_type, log=log, on_gpu=False))
             if not self.without_gpu:
-                gpu_results.append(  # Indices = No, IVs = No
-                    self._run_op_test(op_fun, inp, indices=None, ivs=None,
+                gpu_results.append(  # Indices = No, IndicatorLeaf = No
+                    self._run_op_test(op_fun, inp, indices=None, latent_indicators=None,
                                       inf_type=inf_type, log=log, on_gpu=True))
-                gpu_results.append(  # Indices = Yes, IVs = No
-                    self._run_op_test(op_fun, inp, indices=ind, ivs=None,
+                gpu_results.append(  # Indices = Yes, IndicatorLeaf = No
+                    self._run_op_test(op_fun, inp, indices=ind, latent_indicators=None,
                                       inf_type=inf_type, log=log, on_gpu=True))
-                gpu_results.append(  # Indices = Yes, IVs = Yes
-                    self._run_op_test(op_fun, inp, indices=ind, ivs=iv,
+                gpu_results.append(  # Indices = Yes, IndicatorLeaf = Yes
+                    self._run_op_test(op_fun, inp, indices=ind, latent_indicators=iv,
                                       inf_type=inf_type, log=log, on_gpu=True))
         return TestResults(test_name, cpu_results, gpu_results)
 
@@ -351,20 +344,20 @@ class PerformanceTest:
         sum_inputs = np.random.rand(self.num_input_rows, self.num_input_cols)
         sum_indices = [random.sample(range(self.num_input_cols), self.num_input_cols)
                        for _ in range(self.num_sums)]
-        sum_ivs = np.expand_dims(np.random.randint(self.num_input_cols,
+        sum_latent_indicators = np.expand_dims(np.random.randint(self.num_input_cols,
                                                    size=self.num_input_rows), axis=1)
 
         # Sums
         sums_inputs = sum_inputs
         sums_indices = sum_indices
-        sums_ivs = np.tile(np.expand_dims(np.random.randint(self.num_input_cols,
+        sums_latent_indicators = np.tile(np.expand_dims(np.random.randint(self.num_input_cols,
                            size=self.num_input_rows), axis=1), (1, self.num_sums))
 
         r = self._run_test('InferenceType: MARGINAL',
                            [Ops.sum, Ops.sums],
                            [sum_inputs, sums_inputs],
                            [sum_indices, sums_indices],
-                           [sum_ivs, sums_ivs],
+                           [sum_latent_indicators, sums_latent_indicators],
                            inf_type=spn.InferenceType.MARGINAL, log=False)
         results.append(r)
 
@@ -372,7 +365,7 @@ class PerformanceTest:
                            [Ops.sum, Ops.sums],
                            [sum_inputs, sums_inputs],
                            [sum_indices, sums_indices],
-                           [sum_ivs, sums_ivs],
+                           [sum_latent_indicators, sums_latent_indicators],
                            inf_type=spn.InferenceType.MARGINAL, log=True)
         results.append(r)
 
@@ -380,7 +373,7 @@ class PerformanceTest:
                            [Ops.sum, Ops.sums],
                            [sum_inputs, sums_inputs],
                            [sum_indices, sums_indices],
-                           [sum_ivs, sums_ivs],
+                           [sum_latent_indicators, sums_latent_indicators],
                            inf_type=spn.InferenceType.MPE, log=False)
         results.append(r)
 
@@ -388,7 +381,7 @@ class PerformanceTest:
                            [Ops.sum, Ops.sums],
                            [sum_inputs, sums_inputs],
                            [sum_indices, sums_indices],
-                           [sum_ivs, sums_ivs],
+                           [sum_latent_indicators, sums_latent_indicators],
                            inf_type=spn.InferenceType.MPE, log=True)
         results.append(r)
 

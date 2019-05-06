@@ -16,7 +16,7 @@ class TestBaseSum(tf.test.TestCase):
         num_vals = 4
         batch_size = 128
         num_vars = grid_dims[0] * grid_dims[1]
-        ivs = spn.IVs(num_vars=num_vars, num_vals=num_vals)
+        ivs = spn.IndicatorLeaf(num_vars=num_vars, num_vals=num_vals)
         num_sums = 32
         weights = spn.Weights(
             num_weights=num_vals, num_sums=num_sums, init_value=spn.ValueType.RANDOM_UNIFORM(),
@@ -31,10 +31,10 @@ class TestBaseSum(tf.test.TestCase):
 
         convsum = spn.ConvSum(ivs, num_channels=num_sums, weights=weights, grid_dim_sizes=grid_dims)
 
-        dense_gen = spn.DenseSPNGeneratorLayerNodes(
+        dense_gen = spn.DenseSPNGenerator(
             num_decomps=1, num_mixtures=2, num_subsets=2,
-            input_dist=spn.DenseSPNGeneratorLayerNodes.InputDist.RAW,
-            node_type=spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK)
+            input_dist=spn.DenseSPNGenerator.InputDist.RAW,
+            node_type=spn.DenseSPNGenerator.NodeType.BLOCK)
 
         rnd = random.Random(1234)
         rnd_state = rnd.getstate()
@@ -108,7 +108,7 @@ class TestBaseSum(tf.test.TestCase):
         self.assertAllClose(weight_counts_conv_out, weight_counts_parsum_out)
 
     def test_compute_value(self):
-        ivs = spn.IVs(num_vals=2, num_vars=2 * 2)
+        ivs = spn.IndicatorLeaf(num_vals=2, num_vars=2 * 2)
         values = [[0, 1, 1, 0],
                   [-1, -1, -1, 0]]
         weights = spn.Weights(init_value=[[0.2, 0.8],
@@ -127,7 +127,7 @@ class TestBaseSum(tf.test.TestCase):
                                   [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.6]])
 
     def test_compute_mpe_path(self):
-        ivs = spn.IVs(num_vals=2, num_vars=2 * 2)
+        ivs = spn.IndicatorLeaf(num_vals=2, num_vars=2 * 2)
         values = [[0, 1, 1, 0],
                   [-1, -1, -1, 0]]
         weights = spn.Weights(init_value=[[0.2, 0.8],
@@ -163,7 +163,7 @@ class TestBaseSum(tf.test.TestCase):
         self.assertAllClose(ivs_counts_truth, ivs_counts_out)
 
     def test_compute_scope(self):
-        ivs = spn.IVs(num_vals=2, num_vars=2 * 2)
+        ivs = spn.IndicatorLeaf(num_vals=2, num_vars=2 * 2)
         weights = spn.Weights(init_value=[[0.2, 0.8],
                                           [0.6, 0.4]], num_sums=2, num_weights=2)
         s = ConvSum(ivs, grid_dim_sizes=[2, 2], num_channels=2, weights=weights)
@@ -179,7 +179,7 @@ class TestBaseSum(tf.test.TestCase):
     def test_compute_value_conv(self):
         batch_size = 8
         grid_size = 16
-        ivs = spn.IVs(num_vals=2, num_vars=grid_size ** 2)
+        ivs = spn.IndicatorLeaf(num_vals=2, num_vars=grid_size ** 2)
         convsum = ConvSum(ivs, grid_dim_sizes=[grid_size, grid_size], num_channels=4)
         weights = convsum.generate_weights(spn.ValueType.RANDOM_UNIFORM(0.0, 1.0))
         values = np.random.randint(2, size=batch_size * grid_size ** 2).reshape((batch_size, -1))
@@ -205,12 +205,12 @@ class TestBaseSum(tf.test.TestCase):
 
     @argsprod([2, 3])
     def test_compute_value_sum(self, grid_size):
-        ivs = spn.IVs(num_vals=2, num_vars=grid_size ** 2)
+        ivs = spn.IndicatorLeaf(num_vals=2, num_vars=grid_size ** 2)
         convsum = ConvSum(ivs, grid_dim_sizes=[grid_size, grid_size], num_channels=4)
         convsum2 = ConvSum(ivs, grid_dim_sizes=[grid_size, grid_size], num_channels=4)
-        dense_generator = spn.DenseSPNGeneratorLayerNodes(
+        dense_generator = spn.DenseSPNGenerator(
             num_mixtures=4, num_subsets=4, num_decomps=1, 
-            input_dist=spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE)
+            input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE)
         root = dense_generator.generate(convsum, convsum2)
         spn.generate_weights(root, init_value=spn.ValueType.RANDOM_UNIFORM())
         init = spn.initialize_weights(root)
@@ -232,14 +232,14 @@ class TestBaseSum(tf.test.TestCase):
 
     # @argsprod([2], ['single'])
     # def test_compute_value_simple(self, grid_size, dense_gen_type):
-    #     ivs = spn.IVs(num_vals=2, num_vars=grid_size ** 2)
+    #     ivs = spn.IndicatorLeaf(num_vals=2, num_vars=grid_size ** 2)
     #     sums = [spn.Sum((ivs, [0 + 2*i, 1 + 2*i]), name="Var{}_S{}".format(i, j))
     #             for j in range(2) for i in range(grid_size ** 2)]
     #
     #     if dense_gen_type == 'layer':
-    #         dense_generator = spn.DenseSPNGeneratorLayerNodes(
+    #         dense_generator = spn.DenseSPNGenerator(
     #             num_mixtures=4, num_subsets=4, num_decomps=1,
-    #             input_dist=spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE)
+    #             input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE)
     #     else:
     #         dense_generator = spn.DenseSPNGenerator(
     #             num_mixtures=4, num_subsets=4, num_decomps=1,

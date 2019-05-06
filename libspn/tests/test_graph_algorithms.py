@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 from context import libspn as spn
 from test import TestCase
 import tensorflow as tf
@@ -36,9 +29,9 @@ class TestGraphAlgorithms(TestCase):
                 return weight_val + sum(values) + 1
 
         # Generate graph
-        v1 = spn.ContVars(num_vars=1)
-        v2 = spn.ContVars(num_vars=1)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=1)
+        v2 = spn.RawLeaf(num_vars=1)
+        v3 = spn.RawLeaf(num_vars=1)
         s1 = spn.Sum(v1, v1, v2)  # v1 included twice
         s2 = spn.Sum(v1, v3)
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice
@@ -61,9 +54,9 @@ class TestGraphAlgorithms(TestCase):
         counter = [0]
 
         # Generate graph
-        v1 = spn.ContVars(num_vars=1)
-        v2 = spn.ContVars(num_vars=1)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=1)
+        v2 = spn.RawLeaf(num_vars=1)
+        v3 = spn.RawLeaf(num_vars=1)
         s1 = spn.Sum(v1, v1, v2)  # v1 included twice
         s2 = spn.Sum(v1, v3)
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice
@@ -112,9 +105,9 @@ class TestGraphAlgorithms(TestCase):
                 return 101
 
         # Generate graph
-        v1 = spn.ContVars(num_vars=1, name="v1")
-        v2 = spn.ContVars(num_vars=1, name="v2")
-        v3 = spn.ContVars(num_vars=1, name="v3")
+        v1 = spn.RawLeaf(num_vars=1, name="v1")
+        v2 = spn.RawLeaf(num_vars=1, name="v2")
+        v3 = spn.RawLeaf(num_vars=1, name="v3")
         s1 = spn.Sum(v1, v1, v2, name="s1")  # v1 included twice
         s2 = spn.Sum(v1, v3, name="s2")
         s3 = spn.Sum(v2, v3, v3, name="s3")  # v3 included twice
@@ -174,9 +167,9 @@ class TestGraphAlgorithms(TestCase):
             counter[0] += 1
 
         # Generate graph
-        v1 = spn.ContVars(num_vars=1)
-        v2 = spn.ContVars(num_vars=1)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=1)
+        v2 = spn.RawLeaf(num_vars=1)
+        v3 = spn.RawLeaf(num_vars=1)
         s1 = spn.Sum(v1, v1, v2)  # v1 included twice
         s2 = spn.Sum(v1, v3)
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice
@@ -216,9 +209,9 @@ class TestGraphAlgorithms(TestCase):
             counter[0] += 1
 
         # Generate graph
-        v1 = spn.ContVars(num_vars=1)
-        v2 = spn.ContVars(num_vars=1)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=1)
+        v2 = spn.RawLeaf(num_vars=1)
+        v3 = spn.RawLeaf(num_vars=1)
         s1 = spn.Sum(v1, v1, v2)  # v1 included twice
         s2 = spn.Sum(v1, v3)
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice
@@ -255,9 +248,9 @@ class TestGraphAlgorithms(TestCase):
                 return True
 
         # Generate graph
-        v1 = spn.ContVars(num_vars=1)
-        v2 = spn.ContVars(num_vars=1)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=1)
+        v2 = spn.RawLeaf(num_vars=1)
+        v3 = spn.RawLeaf(num_vars=1)
         s1 = spn.Sum(v1, v1, v2)  # v1 included twice
         s2 = spn.Sum(v1, v3)
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice
@@ -291,8 +284,8 @@ class TestGraphAlgorithms(TestCase):
                 return [None] * len(node.inputs)
 
         # Generate dense graph
-        v1 = spn.IVs(num_vars=3, num_vals=2, name="IVs1")
-        v2 = spn.IVs(num_vars=3, num_vals=2, name="IVs2")
+        v1 = spn.IndicatorLeaf(num_vars=3, num_vals=2, name="IndicatorLeaf1")
+        v2 = spn.IndicatorLeaf(num_vars=3, num_vals=2, name="IndicatorLeaf2")
 
         gen = spn.DenseSPNGenerator(num_decomps=2,
                                     num_subsets=3,

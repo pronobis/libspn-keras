@@ -59,15 +59,26 @@ inherit from these classes.
 Variable Nodes
 --------------
 
-.. autoclass:: libspn.ContVars
-.. autoclass:: libspn.IVs
+.. autoclass:: libspn.RawLeaf
+.. autoclass:: libspn.IndicatorLeaf
+.. autoclass:: libspn.NormalLeaf
+.. autoclass:: libspn.CauchyLeaf
+.. autoclass:: libspn.LaplaceLeaf
+.. autoclass:: libspn.TruncatedNormalLeaf
+.. autoclass:: libspn.StudentTLeaf
+.. autoclass:: libspn.MultivariateNormalDiagLeaf
+.. autoclass:: libspn.MultivariateCauchyDiagLeaf
 
 
 Operation Nodes
 ---------------
 
 .. autoclass:: libspn.Sum
+.. autoclass:: libspn.ParSums
+.. autoclass:: libspn.SumsLayer
 .. autoclass:: libspn.Product
+.. autoclass:: libspn.PermProducts
+.. autoclass:: libspn.ProductsLayer
 .. autoclass:: libspn.Concat
 
 

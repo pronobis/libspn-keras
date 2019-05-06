@@ -1,6 +1,6 @@
 import abc
 from libspn.graph.node import OpNode, Input, TensorNode
-from libspn.graph.ivs import IVs
+from libspn.graph.leaf.indicator import IndicatorLeaf
 from libspn.graph.weights import Weights, TensorWeights
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
@@ -28,12 +28,6 @@ class TensorProduct(TensorNode):
         batch_axis (int): The index of the batch axis.
         op_axis (int): The index of the op axis that contains the individual sums being modeled.
         reduce_axis (int): The axis over which to perform summing (or max for MPE)
-        weights (input_like): Input providing weights node to this sum node.
-            See :meth:`~libspn.Input.as_input` for possible values. If set
-            to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
-            associated with this sum node. See :meth:`~libspn.Input.as_input`
-            for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the node.
 
     Attributes:

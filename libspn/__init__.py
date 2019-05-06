@@ -1,10 +1,3 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 # Import public interface of the library
 
 # Graph
@@ -14,21 +7,19 @@ from libspn.graph.node import Node
 from libspn.graph.node import OpNode
 from libspn.graph.node import VarNode
 from libspn.graph.node import ParamNode
-from libspn.graph.ivs import IVs
-from libspn.graph.contvars import ContVars
 from libspn.graph.concat import Concat
-from libspn.graph.sum import Sum
-from libspn.graph.parsums import ParSums
-from libspn.graph.sumslayer import SumsLayer
+from libspn.graph.op.sum import Sum
+from libspn.graph.op.parsums import ParSums
+from libspn.graph.op.sumslayer import SumsLayer
+from libspn.graph.op.product import Product
+from libspn.graph.op.permproducts import PermProducts
+from libspn.graph.op.productslayer import ProductsLayer
 from libspn.graph.convsum import ConvSum
 from libspn.graph.localsum import LocalSum
 from libspn.graph.tensorsum import TensorSum
 from libspn.graph.tensorproduct import TensorProduct
 from libspn.graph.tensorrandomize import TensorRandomize
 from libspn.graph.tensor_merge_decomps import TensorMergeDecomps
-from libspn.graph.product import Product
-from libspn.graph.permproducts import PermProducts
-from libspn.graph.productslayer import ProductsLayer
 from libspn.graph.convprod2d import ConvProd2D, _ConvProdNaive
 from libspn.graph.convproddepthwise import ConvProdDepthWise
 from libspn.graph.spatialpermproducts import SpatialPermProducts
@@ -43,18 +34,18 @@ from libspn.graph.loader import Loader, JSONLoader
 from libspn.graph.algorithms import compute_graph_up
 from libspn.graph.algorithms import compute_graph_up_down
 from libspn.graph.algorithms import traverse_graph
-from libspn.graph.distribution import NormalLeaf
-from libspn.graph.distribution import LaplaceLeaf
-from libspn.graph.distribution import StudentTLeaf
-from libspn.graph.distribution import CauchyLeaf
-from libspn.graph.distribution import LocationScaleLeaf
-from libspn.graph.distribution import DistributionLeaf
-from libspn.graph.distribution import TruncatedNormalLeaf
-from libspn.graph.distribution import MultivariateNormalDiagLeaf
+from libspn.graph.leaf.normal import NormalLeaf
+from libspn.graph.leaf.cauchy import CauchyLeaf
+from libspn.graph.leaf.student_t import StudentTLeaf
+from libspn.graph.leaf.laplace import LaplaceLeaf
+from libspn.graph.leaf.indicator import IndicatorLeaf
+from libspn.graph.leaf.raw import RawLeaf
+from libspn.graph.leaf.multivariate_cauchy_diag import MultivariateCauchyDiagLeaf
+from libspn.graph.leaf.multivariate_normal_diag import MultivariateNormalDiagLeaf
 
 # Generators
 from libspn.generation.dense import DenseSPNGenerator
-from libspn.generation.dense_layernodes import DenseSPNGeneratorLayerNodes
+from libspn.generation.conversion import convert_to_layer_nodes
 from libspn.generation.weights import WeightsGenerator
 from libspn.generation.weights import generate_weights
 
@@ -69,7 +60,6 @@ from libspn.learning.em import EMLearning
 from libspn.learning.gd import GDLearning
 from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
-from libspn.learning.type import GradientType
 from libspn.learning.ebw import ExtendedBaumWelch
 
 # Data
@@ -110,13 +100,9 @@ from libspn.log import INFO
 from libspn.log import DEBUG1
 from libspn.log import DEBUG2
 
-# Custom TF ops
-from libspn.ops import ops
-
 # Utils and config
 from libspn import conf
 from libspn import utils
-from libspn.utils import ValueType
 
 # App
 from libspn.app import App
@@ -124,31 +110,38 @@ from libspn.app import App
 # Exceptions
 from libspn.exceptions import StructureError
 
+from libspn.utils.serialization import register_serializable
+
+# Initilaizers
+from libspn.utils.initializers import Equidistant
+
+# Graphkeys
+from libspn.utils.graphkeys import SPNGraphKeys
+
+
 # All
 __all__ = [
     # Graph
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
-    'Concat', 'IVs', 'ContVars',
-    'Sum', 'ParSums', 'SumsLayer', 'TensorSum',
-    'Product', 'PermProducts', 'ProductsLayer', 'TensorProduct',
-    'ConvProd2D', '_ConvProdNaive',
-    'TensorMergeDecomps', 'TensorRandomize',
-    'NormalLeaf', 'MultivariateNormalDiagLeaf',
-    'CauchyLeaf', 'LaplaceLeaf', 'StudentTLeaf', 'LocationScaleLeaf',
-    'DistributionLeaf', 'TruncatedNormalLeaf',
+    'Concat', 'IndicatorLeaf', 'RawLeaf',
+    'Sum', 'ParSums', 'SumsLayer',
+    'TensorSum', 'TensorProduct', 'TensorRandomize', 'TensorMergeDecomps',
+    'Product', 'PermProducts', 'ProductsLayer',
+    'GaussianLeaf',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
     'compute_graph_up', 'compute_graph_up_down',
     'traverse_graph',
+    'StudentTLeaf', 'NormalLeaf', 'CauchyLeaf', 'LaplaceLeaf',
+    'MultivariateCauchyDiagLeaf', 'MultivariateNormalDiagLeaf'
     # Generators
-    'DenseSPNGenerator', 'DenseSPNGeneratorLayerNodes',
+    'DenseSPNGenerator',
     'WeightsGenerator', 'generate_weights',
     # Inference and learning
-    'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient', 'MPEState',
-    'EMLearning', 'GDLearning', 'LearningTaskType',
-    'LearningMethodType', 'GradientType',
-    'ExtendedBaumWelch',
+    'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient',
+    'MPEState', 'EMLearning', 'GDLearning', 'LearningTaskType',
+    'LearningMethodType', 'GradientType', 'ExtendedBaumWelch'
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
     'IntGridDataset', 'ImageFormat', 'ImageShape', 'ImageDatasetBase',
@@ -163,9 +156,13 @@ __all__ = [
     # Logging
     'config_logger', 'get_logger', 'WARNING', 'INFO', 'DEBUG1', 'DEBUG2',
     # Custom ops, utils and config
-    'ops', 'conf', 'utils', 'ValueType', 'App',
+    'conf', 'utils', 'App',
     # Exceptions
-    'StructureError']
+    'StructureError',
+    # Initializers
+    'Equidistant',
+    # Graphkeys
+    'SPNGraphKeys']
 
 # Configure the logger to show INFO and WARNING by default
 config_logger(level=INFO)

@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-# ------------------------------------------------------------------------
-# Copyright (C) 2016-2017 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
-
 import unittest
 import tensorflow as tf
 import numpy as np
@@ -14,12 +7,10 @@ import random
 import collections
 import itertools
 from context import libspn as spn
+from test import TestCase
 
 
-class TestNodesProductsLayer(unittest.TestCase):
-
-    def tearDown(self):
-        tf.reset_default_graph()
+class TestNodesProductsLayer(TestCase):
 
     def test_compute_vals(self):
         """Calculating value of ProductsLayer"""
@@ -49,8 +40,8 @@ class TestNodesProductsLayer(unittest.TestCase):
                     # biggest product modelled
                     num_vars = max(prod_input_sizes)
 
-                    # Create a ContVars input node
-                    input_var = spn.ContVars(num_vars=num_vars)
+                    # Create a RawLeaf input node
+                    input_var = spn.RawLeaf(num_vars=num_vars)
                     inputs = list(itertools.repeat(input_var, len(prod_input_sizes)))
 
                     # Generate random input-indices for each product modelled,
@@ -69,8 +60,8 @@ class TestNodesProductsLayer(unittest.TestCase):
                         else:
                             num_vars = i_size
 
-                        # Create a ContVars input node
-                        inputs.append(spn.ContVars(num_vars=num_vars))
+                        # Create a RawLeaf input node
+                        inputs.append(spn.RawLeaf(num_vars=num_vars))
                         if indexed:
                             # Generate random indices for the created input
                             indices.append(random.sample(range(num_vars), k=i_size))
@@ -95,7 +86,7 @@ class TestNodesProductsLayer(unittest.TestCase):
                 outputs = collections.OrderedDict()
 
                 # Create a session and execute the generated op
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     outputs[op_marg] = sess.run(op_marg, feed_dict=inputs_feed)
                     outputs[op_log_marg] = sess.run(tf.exp(op_log_marg),
                                                     feed_dict=inputs_feed)
@@ -175,24 +166,24 @@ class TestNodesProductsLayer(unittest.TestCase):
     def test_comput_scope(self):
         """Calculating scope of ProductsLayer"""
         # Create graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=2, name="V34")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
+        v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
-        s1.generate_ivs()
+        s1.generate_latent_indicators()
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
         pl1 = spn.ProductsLayer((v12, [0, 5, 6, 7]), (v12, [3, 4]), v34,
                                 num_or_size_prods=[4, 3, 1], name="PL1")
         n1 = spn.Concat(s1, s2, (pl1, [2]), name="N1")
         n2 = spn.Concat((pl1, [0]), (pl1, [1]), name="N2")
         s3 = spn.Sum(pl1, name="S3")
-        s3.generate_ivs()
+        s3.generate_latent_indicators()
         pl2 = spn.ProductsLayer((n1, [0, 1]), (n1, 2), (n2, 0), (pl1, [1]), n2,
                                 s3, (n2, 1), s3, pl1, num_or_size_prods=[2, 3, 3, 5],
                                 name="PL2")
         s4 = spn.Sum((pl2, 0), n2, name="S4")
         s5 = spn.Sum(pl2, name="S5")
         s6 = spn.Sum((pl2, [1, 3]), name="S6")
-        s6.generate_ivs()
+        s6.generate_latent_indicators()
         pl3 = spn.ProductsLayer(s4, (n1, 2), num_or_size_prods=1, name="PL3")
         pl4 = spn.ProductsLayer(s4, s5, s6, s4, s5, s6, num_or_size_prods=2, name="PL4")
         # Test
@@ -204,7 +195,7 @@ class TestNodesProductsLayer(unittest.TestCase):
         self.assertListEqual(v34.get_scope(),
                              [spn.Scope(v34, 0), spn.Scope(v34, 1)])
         self.assertListEqual(s1.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0)])
+                             [spn.Scope(v12, 0) | spn.Scope(s1.latent_indicators.node, 0)])
         self.assertListEqual(s2.get_scope(),
                              [spn.Scope(v12, 1)])
         self.assertListEqual(pl1.get_scope(),
@@ -214,7 +205,7 @@ class TestNodesProductsLayer(unittest.TestCase):
                               spn.Scope(v34, 0),
                               spn.Scope(v34, 1)])
         self.assertListEqual(n1.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 1),
                               spn.Scope(v34, 1)])
         self.assertListEqual(n2.get_scope(),
@@ -225,52 +216,52 @@ class TestNodesProductsLayer(unittest.TestCase):
         self.assertListEqual(s3.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s3.ivs.node, 0)])
+                              spn.Scope(s3.latent_indicators.node, 0)])
         self.assertListEqual(pl2.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s3.ivs.node, 0),
+                              spn.Scope(s3.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s3.ivs.node, 0)])
+                              spn.Scope(s3.latent_indicators.node, 0)])
         self.assertListEqual(s4.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0) | spn.Scope(v34, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0) | spn.Scope(v34, 0)])
         self.assertListEqual(s5.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0) | spn.Scope(v34, 0) |
-                              spn.Scope(v34, 1) | spn.Scope(s3.ivs.node, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0) | spn.Scope(v34, 0) |
+                              spn.Scope(v34, 1) | spn.Scope(s3.latent_indicators.node, 0)])
         self.assertListEqual(s6.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s3.ivs.node, 0) |
-                              spn.Scope(s6.ivs.node, 0)])
+                              spn.Scope(s3.latent_indicators.node, 0) |
+                              spn.Scope(s6.latent_indicators.node, 0)])
         self.assertListEqual(pl3.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0) |
+                              spn.Scope(s1.latent_indicators.node, 0) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(pl4.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s1.ivs.node, 0) |
-                              spn.Scope(s3.ivs.node, 0) |
-                              spn.Scope(s6.ivs.node, 0),
+                              spn.Scope(s1.latent_indicators.node, 0) |
+                              spn.Scope(s3.latent_indicators.node, 0) |
+                              spn.Scope(s6.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s1.ivs.node, 0) |
-                              spn.Scope(s3.ivs.node, 0) |
-                              spn.Scope(s6.ivs.node, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0) |
+                              spn.Scope(s3.latent_indicators.node, 0) |
+                              spn.Scope(s6.latent_indicators.node, 0)])
 
     def test_compute_valid(self):
         """Calculating validity of ProductsLayer"""
-        v12 = spn.IVs(num_vars=2, num_vals=3)
-        v345 = spn.IVs(num_vars=3, num_vals=3)
-        v678 = spn.ContVars(num_vars=3)
-        v910 = spn.ContVars(num_vars=2)
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=3)
+        v345 = spn.IndicatorLeaf(num_vars=3, num_vals=3)
+        v678 = spn.RawLeaf(num_vars=3)
+        v910 = spn.RawLeaf(num_vars=2)
         p1 = spn.ProductsLayer((v12, [0, 3]), (v345, [1, 4, 7]), (v678, [0, 1, 2]),
                                (v910, [0]), (v910, 1), num_or_size_prods=1)
         p2 = spn.ProductsLayer((v12, [0, 3]), (v345, [1, 4, 7]),
@@ -340,7 +331,7 @@ class TestNodesProductsLayer(unittest.TestCase):
         self.assertFalse(p17.is_valid())
         self.assertFalse(p18.is_valid())
 
-    def test_compute_mpe_path(self):
+    def test_compute_log_mpe_path(self):
         """Calculating path of ProductsLayer"""
         num_vals = 2
 
@@ -367,12 +358,12 @@ class TestNodesProductsLayer(unittest.TestCase):
                     # biggest product modelled
                     num_vars = max(prod_input_sizes)
 
-                    # Randomly choose to create either an IVs or a ContVars node
+                    # Randomly choose to create either an IndicatorLeaf or a RawLeaf node
                     contvar = random.choice([True, False])
 
                     # Create an input node
-                    input_var = spn.ContVars(num_vars=num_vars) if contvar else \
-                        spn.IVs(num_vars=num_vars, num_vals=num_vals)
+                    input_var = spn.RawLeaf(num_vars=num_vars) if contvar else \
+                        spn.IndicatorLeaf(num_vars=num_vars, num_vals=num_vals)
                     inputs = list(itertools.repeat(input_var, len(prod_input_sizes)))
 
                     # Generate random input-indices for each product modelled,
@@ -386,17 +377,17 @@ class TestNodesProductsLayer(unittest.TestCase):
                     true_outputs = [np.zeros((batch_size, num_vars if contvar else
                                     num_vars*num_vals)) for _ in prod_input_sizes]
                 else:
-                    # Create random (IVs or ContVar) inputs of random size each
+                    # Create random (IndicatorLeaf or ContVar) inputs of random size each
                     for i_size in input_sizes:
                         if indexed:
                             # Choose a random size for an input node
                             num_vars = np.random.randint(low=i_size, high=i_size+5)
                         else:
                             num_vars = i_size
-                        # Randomly choose to create either a IVs or a ContVar input
+                        # Randomly choose to create either a IndicatorLeaf or a ContVar input
                         if random.choice([True, False]):
-                            # Create an IVs input node
-                            inputs.append(spn.IVs(num_vars=num_vars,
+                            # Create an IndicatorLeaf input node
+                            inputs.append(spn.IndicatorLeaf(num_vars=num_vars,
                                                   num_vals=num_vals))
                             # Generate random indices for the created input
                             indices.append(random.sample(range(num_vars*num_vals),
@@ -406,8 +397,8 @@ class TestNodesProductsLayer(unittest.TestCase):
                             true_outputs.append(np.zeros((batch_size,
                                                           num_vars*num_vals)))
                         else:
-                            # Create anContVars input node
-                            inputs.append(spn.ContVars(num_vars=num_vars))
+                            # Create anRawLeaf input node
+                            inputs.append(spn.RawLeaf(num_vars=num_vars))
                             # Generate random indices for the created input
                             indices.append(random.sample(range(num_vars), k=i_size))
                             # Create a Zeros matrix, with the same size as the
@@ -422,7 +413,7 @@ class TestNodesProductsLayer(unittest.TestCase):
                 counts = tf.placeholder(tf.float32, shape=(None, num_prods))
 
                 # Create mpe path op
-                ops = p._compute_mpe_path(tf.identity(counts),
+                ops = p._compute_log_mpe_path(tf.identity(counts),
                                           *[inp.get_value() for inp in inputs])
 
                 ops = [op for op in ops if op is not None]
@@ -431,7 +422,7 @@ class TestNodesProductsLayer(unittest.TestCase):
                 coutnts_feed = np.random.randint(100, size=(batch_size, num_prods))
 
                 # Create a session and execute the generated op
-                with tf.Session() as sess:
+                with self.test_session() as sess:
                     outputs = sess.run(ops, feed_dict={counts: coutnts_feed})
 
                 # Calculate true-output

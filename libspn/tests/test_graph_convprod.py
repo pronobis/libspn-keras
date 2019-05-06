@@ -1,4 +1,4 @@
-from libspn.graph.basesum import BaseSum
+from libspn.graph.op.basesum import BaseSum
 from libspn.tests.test import argsprod
 import tensorflow as tf
 import numpy as np
@@ -68,7 +68,7 @@ def grid_spn(var_node, patch_size, num_mixtures, num_alterations, input_dist, nu
 
     offsets = list(itertools.product(range(patch_size[0]), range(patch_size[1])))
 
-    product_layer = input_dist == spn.DenseSPNGeneratorLayerNodes.InputDist.RAW
+    product_layer = input_dist == spn.DenseSPNGenerator.InputDist.RAW
     if product_layer:
         unique_patch_combinations = _patch_combinations(patch_size, last_dim_size)
         print("Unique patch combinations")
@@ -321,7 +321,7 @@ class TestConvProd(tf.test.TestCase):
         grid_dims = [4, 4]
         batch_size = 256
         num_vars = grid_dims[0] * grid_dims[1]
-        ivs = spn.IVs(num_vars=num_vars, num_vals=2)
+        ivs = spn.IndicatorLeaf(num_vars=num_vars, num_vals=2)
 
         dilation_rate = 1 if stride else 2
         stride = 2 if stride else 1
@@ -329,15 +329,15 @@ class TestConvProd(tf.test.TestCase):
         conv_manual = grid_spn(ivs, patch_size=(2, 2), num_mixtures=[2], num_alterations=1,
                                asymmetric=True, num_rows=grid_dims[0], num_cols=grid_dims[1],
                                max_patch_combs=16,
-                               input_dist=spn.DenseSPNGeneratorLayerNodes.InputDist.RAW,
+                               input_dist=spn.DenseSPNGenerator.InputDist.RAW,
                                strides=stride, dilation_rate=dilation_rate)
         conv_layer = spn.ConvProd2D(ivs, kernel_size=2, num_channels=16, grid_dim_sizes=grid_dims,
                                     strides=stride, dilation_rate=dilation_rate)
 
-        dense_gen = spn.DenseSPNGeneratorLayerNodes(
+        dense_gen = spn.DenseSPNGenerator(
             num_decomps=1, num_subsets=2, num_mixtures=2,
-            input_dist=spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE,
-            node_type=spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER)
+            input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
+            node_type=spn.DenseSPNGenerator.NodeType.LAYER)
 
         rnd = random.Random(x=1234)
         rnd_state = rnd.getstate()
@@ -482,7 +482,7 @@ class TestConvProd(tf.test.TestCase):
     def test_compute_scope(self, dilate):
         grid_dims = [4, 4]
         input_channels = 2
-        vars = spn.IVs(num_vars=grid_dims[0] * grid_dims[1], num_vals=input_channels)
+        vars = spn.IndicatorLeaf(num_vars=grid_dims[0] * grid_dims[1], num_vals=input_channels)
         strides = 1 if dilate else 2
         dilation_rate = 2 if dilate else 1
         convprod = spn.ConvProd2D(vars, num_channels=32, padding='valid', strides=strides,
@@ -513,7 +513,7 @@ class TestConvProd(tf.test.TestCase):
     def test_compute_valid(self):
         grid_dims = [16, 16]
         input_channels = 2
-        vars = spn.IVs(num_vars=grid_dims[0] * grid_dims[1], num_vals=input_channels)
+        vars = spn.IndicatorLeaf(num_vars=grid_dims[0] * grid_dims[1], num_vals=input_channels)
         convprod0 = spn.ConvProd2D(vars, num_channels=32, padding='valid', strides=1,
                                    grid_dim_sizes=grid_dims, dilation_rate=1, name="ConvProd0")
         convprod10 = spn.ConvProd2D(convprod0, num_channels=32, padding='valid',
@@ -569,22 +569,22 @@ class TestConvProd(tf.test.TestCase):
                     grid_dim_sizes=[8, 8])
         self.assertTrue(convprod_b_ds_level2c.is_valid())
 
-    @argsprod([spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
-               spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-               spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
-              [spn.DenseSPNGeneratorLayerNodes.InputDist.RAW,
-               spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE])
+    @argsprod([spn.DenseSPNGenerator.NodeType.SINGLE,
+               spn.DenseSPNGenerator.NodeType.BLOCK,
+               spn.DenseSPNGenerator.NodeType.LAYER],
+              [spn.DenseSPNGenerator.InputDist.RAW,
+               spn.DenseSPNGenerator.InputDist.MIXTURE])
     def test_compute_dense_gen_two_spatial_decomps(self, node_type, input_dist):
         input_channels = 2
         grid_dims = [8, 8]
         num_vars = grid_dims[0] * grid_dims[1]
-        vars = spn.IVs(num_vars=num_vars, num_vals=input_channels)
+        vars = spn.IndicatorLeaf(num_vars=num_vars, num_vals=input_channels)
 
         convert_after = False
-        if input_dist == spn.DenseSPNGeneratorLayerNodes.InputDist.RAW and \
-            node_type in [spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-                          spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER]:
-            node_type = spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE
+        if input_dist == spn.DenseSPNGenerator.InputDist.RAW and \
+            node_type in [spn.DenseSPNGenerator.NodeType.BLOCK,
+                          spn.DenseSPNGenerator.NodeType.LAYER]:
+            node_type = spn.DenseSPNGenerator.NodeType.SINGLE
             convert_after = True
 
         # First decomposition
@@ -605,7 +605,7 @@ class TestConvProd(tf.test.TestCase):
             dilation_rate=1, strides=2, kernel_size=2)
         convsum_stride = spn.ConvSum(convprod_stride1, num_channels=2, grid_dim_sizes=[2, 2])
 
-        dense_gen = spn.DenseSPNGeneratorLayerNodes(
+        dense_gen = spn.DenseSPNGenerator(
             num_mixtures=2, num_decomps=1, num_subsets=2, node_type=node_type,
             input_dist=input_dist)
         root = dense_gen.generate(convsum_dilate, convsum_stride)
@@ -626,22 +626,22 @@ class TestConvProd(tf.test.TestCase):
 
         self.assertAllClose(value_out, 0.0)
 
-    @argsprod([spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
-               spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-               spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
-              [spn.DenseSPNGeneratorLayerNodes.InputDist.RAW,
-               spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE])
+    @argsprod([spn.DenseSPNGenerator.NodeType.SINGLE,
+               spn.DenseSPNGenerator.NodeType.BLOCK,
+               spn.DenseSPNGenerator.NodeType.LAYER],
+              [spn.DenseSPNGenerator.InputDist.RAW,
+               spn.DenseSPNGenerator.InputDist.MIXTURE])
     def test_compute_dense_gen_two_spatial_decomps_v2(self, node_type, input_dist):
         input_channels = 2
         grid_dims = [32, 32]
         num_vars = grid_dims[0] * grid_dims[1]
-        vars = spn.IVs(num_vars=num_vars, num_vals=input_channels)
+        vars = spn.IndicatorLeaf(num_vars=num_vars, num_vals=input_channels)
 
         convert_after = False
-        if input_dist == spn.DenseSPNGeneratorLayerNodes.InputDist.RAW and \
-                node_type in [spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-                              spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER]:
-            node_type = spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE
+        if input_dist == spn.DenseSPNGenerator.InputDist.RAW and \
+                node_type in [spn.DenseSPNGenerator.NodeType.BLOCK,
+                              spn.DenseSPNGenerator.NodeType.LAYER]:
+            node_type = spn.DenseSPNGenerator.NodeType.SINGLE
             convert_after = True
 
         # First decomposition
@@ -680,7 +680,7 @@ class TestConvProd(tf.test.TestCase):
             padding='valid', dilation_rate=1, strides=2, kernel_size=2)
         convsum_stride_l2 = spn.ConvSum(convprod_stride1_l2, num_channels=2, grid_dim_sizes=[4, 4])
 
-        dense_gen = spn.DenseSPNGeneratorLayerNodes(
+        dense_gen = spn.DenseSPNGenerator(
             num_mixtures=2, num_decomps=1, num_subsets=2, node_type=node_type,
             input_dist=input_dist)
         root = dense_gen.generate(convsum_stride_l2, convsum_dilate_l2)
@@ -701,24 +701,24 @@ class TestConvProd(tf.test.TestCase):
 
         self.assertAllClose(value_out, 0.0)
 
-    @argsprod([spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
-               spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-               spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
-              [spn.DenseSPNGeneratorLayerNodes.InputDist.RAW,
-               spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE])
+    @argsprod([spn.DenseSPNGenerator.NodeType.SINGLE,
+               spn.DenseSPNGenerator.NodeType.BLOCK,
+               spn.DenseSPNGenerator.NodeType.LAYER],
+              [spn.DenseSPNGenerator.InputDist.RAW,
+               spn.DenseSPNGenerator.InputDist.MIXTURE])
     def test_conv_spn(self, node_type, input_dist):
         input_channels = 2
         grid_dims = [32, 32]
         num_vars = grid_dims[0] * grid_dims[1]
-        vars = spn.IVs(num_vars=num_vars, num_vals=input_channels)
+        vars = spn.IndicatorLeaf(num_vars=num_vars, num_vals=input_channels)
 
         conv_spn_gen = ConvSPN()
 
         convert_after = False
-        if input_dist == spn.DenseSPNGeneratorLayerNodes.InputDist.RAW and \
-                node_type in [spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-                              spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER]:
-            node_type = spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE
+        if input_dist == spn.DenseSPNGenerator.InputDist.RAW and \
+                node_type in [spn.DenseSPNGenerator.NodeType.BLOCK,
+                              spn.DenseSPNGenerator.NodeType.LAYER]:
+            node_type = spn.DenseSPNGenerator.NodeType.SINGLE
             convert_after = True
 
         convsum_dilate = conv_spn_gen.add_dilate_stride(
@@ -733,7 +733,7 @@ class TestConvProd(tf.test.TestCase):
             convsum_dilate, convsum_stride, prod_num_channels=16, sum_num_channels=2,
             spatial_dims=grid_dims)
 
-        dense_gen = spn.DenseSPNGeneratorLayerNodes(
+        dense_gen = spn.DenseSPNGenerator(
             num_mixtures=2, num_decomps=1, num_subsets=2, node_type=node_type,
             input_dist=input_dist)
         root = dense_gen.generate(convsum_stride_level2, convsum_dilate_level2)
@@ -754,24 +754,24 @@ class TestConvProd(tf.test.TestCase):
 
         self.assertAllClose(value_out, 0.0)
 
-    @argsprod([spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE,
-               spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-               spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER],
-              [spn.DenseSPNGeneratorLayerNodes.InputDist.RAW,
-               spn.DenseSPNGeneratorLayerNodes.InputDist.MIXTURE])
+    @argsprod([spn.DenseSPNGenerator.NodeType.SINGLE,
+               spn.DenseSPNGenerator.NodeType.BLOCK,
+               spn.DenseSPNGenerator.NodeType.LAYER],
+              [spn.DenseSPNGenerator.InputDist.RAW,
+               spn.DenseSPNGenerator.InputDist.MIXTURE])
     def test_conv_spn_pad_decomps(self, node_type, input_dist):
         input_channels = 2
         grid_dims = [28, 28]
         num_vars = grid_dims[0] * grid_dims[1]
-        vars = spn.IVs(num_vars=num_vars, num_vals=input_channels)
+        vars = spn.IndicatorLeaf(num_vars=num_vars, num_vals=input_channels)
 
         conv_spn_gen = ConvSPN()
 
         convert_after = False
-        if input_dist == spn.DenseSPNGeneratorLayerNodes.InputDist.RAW and \
-                node_type in [spn.DenseSPNGeneratorLayerNodes.NodeType.BLOCK,
-                              spn.DenseSPNGeneratorLayerNodes.NodeType.LAYER]:
-            node_type = spn.DenseSPNGeneratorLayerNodes.NodeType.SINGLE
+        if input_dist == spn.DenseSPNGenerator.InputDist.RAW and \
+                node_type in [spn.DenseSPNGenerator.NodeType.BLOCK,
+                              spn.DenseSPNGenerator.NodeType.LAYER]:
+            node_type = spn.DenseSPNGenerator.NodeType.SINGLE
             convert_after = True
 
         convsum_dilate = conv_spn_gen.add_dilate_stride(
@@ -786,7 +786,7 @@ class TestConvProd(tf.test.TestCase):
             vars, prod_num_channels=16, sum_num_channels=2, pad_all=(0, 1),
             spatial_dims=grid_dims)
 
-        dense_gen = spn.DenseSPNGeneratorLayerNodes(
+        dense_gen = spn.DenseSPNGenerator(
             num_mixtures=2, num_decomps=1, num_subsets=2, node_type=node_type,
             input_dist=input_dist)
         root_no_pad = dense_gen.generate(convsum_dilate, convsum_stride)

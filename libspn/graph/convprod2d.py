@@ -15,7 +15,7 @@ from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode
 from libspn.graph.spatialsum import SpatialSum
 from libspn import conf
-from libspn.graph.productslayer import ProductsLayer
+from libspn.graph.op.productslayer import ProductsLayer
 from libspn.log import get_logger
 
 
@@ -30,9 +30,6 @@ class ConvProd2D(OpNode):
         weights (input_like): Input providing weights container to this sum container.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
-            associated with this sum container. See :meth:`~libspn.Input.as_input`
-            for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the container.
 
     Attributes:
@@ -539,9 +536,6 @@ class _ConvProdNaive(ProductsLayer):
         weights (input_like): Input providing weights container to this sum container.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
-            associated with this sum container. See :meth:`~libspn.Input.as_input`
-            for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the container.
 
     Attributes:
