@@ -70,17 +70,19 @@ class BlockRandomDecompositions(BlockNode):
                     "results in {} factors while {} are needed.".format(
                         self, len(factors) - i - 1, fc, num_input_scopes))
 
-        num_m1 = factor_prod - num_input_scopes
-        # e.g. num_m1 == 2 and factor_prod = 32. Then rate_m1 is 16, so once every 16 values
-        # we should leave a variable slot empty
-        rate_m1 = int(np.floor(factor_prod / num_m1))
-
         # Now we generate the random index permutations
         perms = [np.random.permutation(num_input_scopes).astype(int).tolist()
                  for _ in range(self._num_decomps)]
-        for p in perms:
-            for i in range(num_m1):
-                p.insert(i * rate_m1, -1)
+
+        num_m1 = factor_prod - num_input_scopes
+        if num_m1 > 0:
+            # e.g. num_m1 == 2 and factor_prod = 32. Then rate_m1 is 16, so once every 16 values
+            # we should leave a variable slot empty
+            rate_m1 = int(np.floor(factor_prod / num_m1))
+
+            for p in perms:
+                for i in range(num_m1):
+                    p.insert(i * rate_m1, -1)
         self._perms = perms = np.asarray(perms)
         return perms
 
@@ -159,13 +161,14 @@ class BlockRandomDecompositions(BlockNode):
         if self._perms is None:
             raise StructureError("First need to determine permutations")
         # [batch, scope, node]
+        child, = value_tensors
         dim_scope_in = self.values[0].node.num_vars
         dim_nodes_in = self.values[0].node.num_vals if isinstance(
             self.values[0].node, IndicatorLeaf) else self.values[0].node.num_components
         zero_padded = tf.concat(
-            [tf.zeros([1, tf.shape(value_tensors[0])[0], dim_nodes_in]),
-             tf.transpose(tf.reshape(value_tensors[0], [-1, dim_scope_in, dim_nodes_in]),
-                          (1, 0, 2))], axis=0)
+            [tf.zeros([1, tf.shape(child)[0], dim_nodes_in]),
+             tf.transpose(
+                 tf.reshape(child, [-1, dim_scope_in, dim_nodes_in]), (1, 0, 2))], axis=0)
         gather_indices = self._perms + 1
         permuted = self._gather_op = tf.gather(zero_padded, np.transpose(gather_indices))
         self._zero_padded_shape = tf.shape(zero_padded)
@@ -173,46 +176,9 @@ class BlockRandomDecompositions(BlockNode):
         return permuted
 
     @utils.docinherit(OpNode)
-    def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):
-        raise NotImplementedError()
-
-    @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
                                dropconnect_keep_prob=None):
-        raise NotImplementedError()
-
-    @utils.lru_cache
-    def _compute_mpe_path_common(
-            self, reducible_log_prob, counts, w_log_prob, latent_indicator_log_prob,
-            *child_log_probs, sample=False, sample_prob=None, sum_weight_grads=False):
-        """Common operations for computing the MPE path.
-
-        Args:
-            reducible_log_prob (Tensor): A (weighted) ``Tensor`` of (log-)values of this node.
-            counts (Tensor): A ``Tensor`` that contains the accumulated counts of the parents
-                             of this node.
-            w_log_prob (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
-            latent_indicator_log_prob (Tensor): A ``Tensor`` containing the log probability
-                of the latent indicators.
-            child_log_probs (list): A list of ``Tensor``s with outputs of the child nodes.
-            log (bool): Whether the computation is in log-space or not
-            sample (bool): Whether to sample the 'winner' of the max or not
-            sample_prob (Tensor): A scalar ``Tensor`` indicating the probability of drawing
-                a sample. If a sample is drawn, the probability for each index is given by the
-                (log-)normalized probability as given by ``reducible_log_prob``.
-        Returns:
-            A ``list`` of ``tuple``s [(MPE counts, input tensor), ...] where the first corresponds
-            to the Weights of this node, the second corresponds to the latent indicators and the
-            remaining tuples correspond to the nodes in ``self._values``.
-        """
-        raise NotImplementedError()
-
-    @utils.docinherit(OpNode)
-    @utils.lru_cache
-    def _compute_mpe_path(self, counts, *value_tensors,
-                          use_unweighted=False, with_ivs=True, add_random=None,
-                          sample=False, sample_prob=None, dropconnect_keep_prob=None):
         raise NotImplementedError()
 
     @utils.docinherit(OpNode)

@@ -110,6 +110,26 @@ class GDLearning:
                 else:
                     return minimize, loss
 
+    def loss(self, learning_method=None, dropconnect_keep_prob=None, reduce_fn=tf.reduce_mean):
+        """Assembles main objective operations. In case of generative learning it will select
+        the MLE objective, whereas in discriminative learning it selects the cross entropy.
+
+        Args:
+            learning_method (LearningMethodType): The learning method (can be either generative
+                or discriminative).
+            dropconnect_keep_prob (float or Tensor): The dropconnect keep probability to use.
+                Overrides the value of GDLearning._dropconnect_keep_prob
+
+        Returns:
+            An operation to compute the main loss function.
+        """
+        learning_method = learning_method or self._learning_method
+        if learning_method == LearningMethodType.GENERATIVE:
+            return self.negative_log_likelihood(
+                dropconnect_keep_prob=dropconnect_keep_prob, reduce_fn=reduce_fn)
+        return self.cross_entropy_loss(
+            dropconnect_keep_prob=dropconnect_keep_prob, reduce_fn=reduce_fn)
+
     def post_gradient_update(self, update_op):
         """Constructs post-parameter update ops such as normalization of weights and clipping of
         scale parameters of NormalLeaf nodes.
@@ -201,7 +221,7 @@ class GDLearning:
                 *self._root.values, weights=self._root.weights)
         else:
             marginalizing_root = self._marginalizing_root or BlockSum(
-                self._root.values[0], weights=self._root.weights, num_sums=1)
+                self._root.values[0], weights=self._root.weights, num_sums_per_block=1)
         learning_task_type = learning_task_type or self._learning_task_type
         dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
         if self._turn_off_dropconnect_root(dropconnect_keep_prob, learning_task_type):

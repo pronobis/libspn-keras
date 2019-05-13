@@ -46,7 +46,7 @@ class SpatialSum(BaseSum, abc.ABC):
         if isinstance(self._grid_dim_sizes, tuple):
             self._grid_dim_sizes = list(self._grid_dim_sizes)
         super().__init__(
-            *values, num_sums=self._num_inner_sums(), weights=weights, ivs=ivs,
+            *values, num_sums=self._num_inner_sums(), weights=weights, latent_indicators=ivs,
             inference_type=inference_type, name=name, reduce_axis=4, op_axis=[1, 2])
 
     @abc.abstractmethod
@@ -62,7 +62,7 @@ class SpatialSum(BaseSum, abc.ABC):
 
         input_tensors = [self._spatial_reshape(t) for t in input_tensors]
 
-        reducible_inputs = utils.concat_maybe(input_tensors, axis=self._reduce_axis)
+        reducible_inputs = tf.concat(input_tensors, axis=self._reduce_axis)
 
         if ivs_tensor is not None:
             shape = [-1] + self._grid_dim_sizes + [self._num_channels, self._max_sum_size]
@@ -78,8 +78,9 @@ class SpatialSum(BaseSum, abc.ABC):
     def output_shape_spatial(self):
         return tuple(self._grid_dim_sizes + [self._num_channels])
 
-    def generate_weights(self, init_value=1, trainable=True, input_sizes=None,
-                         log=False, name=None):
+    def generate_weights(
+        self, initializer=tf.initializers.random_uniform(), trainable=True, input_sizes=None,
+        log=False, name=None):
         """Generate a weights node matching this sum node and connect it to
         this sum.
 
@@ -88,7 +89,7 @@ class SpatialSum(BaseSum, abc.ABC):
         once all inputs are added to this node.
 
         Args:
-            init_value: Initial value of the weights. For possible values, see
+            initializer: Initial value of the weights. For possible values, see
                 :meth:`~libspn.utils.broadcast_value`.
             trainable (bool): See :class:`~libspn.Weights`.
             input_sizes (list of int): Pre-computed sizes of each input of
@@ -109,7 +110,7 @@ class SpatialSum(BaseSum, abc.ABC):
         num_values = max(self._sum_sizes)
         # Generate weights
         weights = Weights(
-            init_value=init_value, num_weights=num_values, num_sums=self._num_sums,
+            initializer=initializer, num_weights=num_values, num_sums=self._num_sums,
             log=log, trainable=trainable, name=name)
         self.set_weights(weights)
         return weights

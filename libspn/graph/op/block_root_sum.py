@@ -40,10 +40,10 @@ class BlockRootSum(BlockSum):
 
     def __init__(self, child, weights=None, latent_ivs=None,
                  inference_type=InferenceType.MARGINAL, masked=False, sample_prob=None,
-                 dropconnect_keep_prob=None, name="TensorSum", input_format="SDBN",
+                 dropconnect_keep_prob=None, name="RootSum", input_format="SDBN",
                  output_format="SDBN"):
         super().__init__(
-            child=child, num_sums=1, weights=weights, latent_ivs=latent_ivs,
+            child=child, num_sums_per_block=1, weights=weights, latent_ivs=latent_ivs,
             inference_type=inference_type, masked=masked, sample_prob=sample_prob,
             dropconnect_keep_prob=dropconnect_keep_prob, name=name, input_format=input_format,
             output_format=output_format)
@@ -55,6 +55,6 @@ class BlockRootSum(BlockSum):
         if randomize_node is not None:
             factors = []
             traverse_graph(
-                self,
-                lambda n: factors.append(n.num_factors) if isinstance(n, BlockPermuteProduct) else None)
+                self, lambda n: factors.append(n.num_factors)
+                if isinstance(n, BlockPermuteProduct) else None)
             randomize_node.generate_permutations(factors)

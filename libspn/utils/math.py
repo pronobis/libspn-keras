@@ -4,57 +4,41 @@ import tensorflow as tf
 import numpy as np
 import collections
 from libspn import utils as utils
-from libspn import conf
 from tensorflow.python.framework import ops as tfops
 
 
-def one_hot_conv2d(input, filter, strides=(1, 1), dilations=(1, 1), padding="VALID",
-                   name=None):
-    if padding != "VALID":
-        raise NotImplementedError("Currently only supports padding == VALID")
-    with tf.name_scope(name, "one_hot_conv2d", [input, filter]):
-        input = tf.convert_to_tensor(input, name="input")
-        filter = tf.convert_to_tensor(filter, name="filter")
-        # Check input dims
-        if len(input.shape) != 4:
-            raise ValueError("Input rank must be 4")
-        if len(filter.shape) != 3:
-            raise ValueError("Filter rank must be 3")
-
-        return ops.one_hot_conv2d(input, filter, strides=strides, dilations=dilations)
-
-
-def one_hot_conv2d_backprop(input, filter, grad, strides=(1, 1), dilations=(1, 1),
-                            padding="VALID", name=None):
-    # TODO should be a way to only specify the input shape...
-    if padding != "VALID":
-        raise NotImplementedError("Currently only supports padding == VALID")
-    with tf.name_scope(name, "one_hot_conv2d_backprop", [input, filter]):
-        input = tf.convert_to_tensor(input, name="input")
-        filter = tf.convert_to_tensor(filter, name="filter")
-        # Check input dims
-        if len(input.shape) != 4:
-            raise ValueError("Input rank must be 4")
-        if len(filter.shape) != 3:
-            raise ValueError("Filter rank must be 3")
-
-        return ops.one_hot_conv2d_backprop(
-            input, filter, grad, strides=strides, dilations=dilations)
-
-
-@tfops.RegisterGradient("OneHotConv2D")
-def _OneHotConv2DGrad(op, grad):
-    dilations = op.get_attr("dilations")
-    strides = op.get_attr("strides")
-    return [
-        ops.one_hot_conv2d_backprop(
-            op.inputs[0],
-            op.inputs[1],
-            grad,
-            dilations=dilations,
-            strides=strides),
-        None
-    ]
+# def one_hot_conv2d(input, filter, strides=(1, 1), dilations=(1, 1), padding="VALID",
+#                    name=None):
+#     if padding != "VALID":
+#         raise NotImplementedError("Currently only supports padding == VALID")
+#     with tf.name_scope(name, "one_hot_conv2d", [input, filter]):
+#         input = tf.convert_to_tensor(input, name="input")
+#         filter = tf.convert_to_tensor(filter, name="filter")
+#         # Check input dims
+#         if len(input.shape) != 4:
+#             raise ValueError("Input rank must be 4")
+#         if len(filter.shape) != 3:
+#             raise ValueError("Filter rank must be 3")
+#
+#         return ops.one_hot_conv2d(input, filter, strides=strides, dilations=dilations)
+#
+#
+# def one_hot_conv2d_backprop(input, filter, grad, strides=(1, 1), dilations=(1, 1),
+#                             padding="VALID", name=None):
+#     # TODO should be a way to only specify the input shape...
+#     if padding != "VALID":
+#         raise NotImplementedError("Currently only supports padding == VALID")
+#     with tf.name_scope(name, "one_hot_conv2d_backprop", [input, filter]):
+#         input = tf.convert_to_tensor(input, name="input")
+#         filter = tf.convert_to_tensor(filter, name="filter")
+#         # Check input dims
+#         if len(input.shape) != 4:
+#             raise ValueError("Input rank must be 4")
+#         if len(filter.shape) != 3:
+#             raise ValueError("Filter rank must be 3")
+#
+#         return ops.one_hot_conv2d_backprop(
+#             input, filter, grad, strides=strides, dilations=dilations)
 
 
 def logtensordot(a, b, axes, name=None):

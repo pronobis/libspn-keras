@@ -141,5 +141,5 @@ if __name__ == "__main__":
                 experiment_group(defaults, grid_params)
     else:
         for cs in configs().values():
-            for defaults, grid_params in cs[dataset]:
+            for defaults, grid_params in cs:
                 experiment_group(defaults, grid_params)

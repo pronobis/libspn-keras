@@ -184,7 +184,7 @@ class ConvProd2D(OpNode):
             The concatenated tensor.
         """
         input_tensors = [self._spatial_reshape(t) for t in input_tensors]
-        return utils.concat_maybe(input_tensors, axis=self._channel_axis)
+        return tf.concat(input_tensors, axis=self._channel_axis)
 
     def _spatial_reshape(self, t, forward=True):
         """Reshapes a Tensor ``t``` to one that represents the spatial dimensions.
@@ -290,25 +290,19 @@ class ConvProd2D(OpNode):
         # Concatenate along channel axis
         concat_inp = self._prepare_convolutional_processing(*input_tensors)
 
-        if conf.custom_one_hot_conv2d:
-            conv_out = utils.one_hot_conv2d(
-                concat_inp, self._sparse_connections, self._strides, self._dilation_rate)        
-        else:
-            # Convolve
-            # TODO, this the quickest workaround for TensorFlow's apparent optimization whenever
-            # part of the kernel computation involves a -inf:
-            concat_inp = tf.where(
-                tf.is_inf(concat_inp), tf.fill(tf.shape(concat_inp), value=-1e20), concat_inp)
-            # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
-            # to be a TF debug. Now we transpose before and after
+        # Convolve
+        # TODO, this the quickest workaround for TensorFlow's apparent optimization whenever
+        # part of the kernel computation involves a -inf:
+        concat_inp = tf.where(
+            tf.is_inf(concat_inp), tf.fill(tf.shape(concat_inp), value=-1e20), concat_inp)
 
-            conv_out = tf.nn.conv2d(
-                input=concat_inp,
-                filter=self._dense_connections, padding='VALID',
-                strides=[1] + self._strides + [1],
-                dilations=[1] + self._dilation_rate + [1],
-                data_format='NHWC'
-            )
+        conv_out = tf.nn.conv2d(
+            input=concat_inp,
+            filter=self._dense_connections, padding='VALID',
+            strides=[1] + self._strides + [1],
+            dilations=[1] + self._dilation_rate + [1],
+            data_format='NHWC'
+        )
         return self._flatten(conv_out)
 
     @utils.lru_cache
@@ -333,19 +327,14 @@ class ConvProd2D(OpNode):
         inp_concat = self._prepare_convolutional_processing(*input_values)
         spatial_counts = tf.reshape(counts, (-1,) + self.output_shape_spatial)
 
-        if conf.custom_one_hot_conv2d:
-            input_counts = utils.one_hot_conv2d_backprop(
-                inp_concat, self._sparse_connections, spatial_counts, strides=self._strides,
-                dilations=self._dilation_rate)
-        else:
-            input_counts = tf.nn.conv2d_backprop_input(
-                input_sizes=tf.shape(inp_concat),
-                filter=self._dense_connections,
-                out_backprop=spatial_counts,
-                strides=[1] + self._strides + [1],
-                padding='VALID',
-                dilations=[1] + self._dilation_rate + [1],
-                data_format="NHWC")
+        input_counts = tf.nn.conv2d_backprop_input(
+            input_sizes=tf.shape(inp_concat),
+            filter=self._dense_connections,
+            out_backprop=spatial_counts,
+            strides=[1] + self._strides + [1],
+            padding='VALID',
+            dilations=[1] + self._dilation_rate + [1],
+            data_format="NHWC")
 
         # In case we have explicitly padded the tensor before forward convolution, we should
         # slice the counts now
@@ -709,7 +698,7 @@ class _ConvProdNaive(ProductsLayer):
     @utils.lru_cache
     def _spatial_concat(self, *input_tensors):
         input_tensors = [self._spatial_reshape(t) for t in input_tensors]
-        reducible_inputs = utils.concat_maybe(input_tensors, axis=self._channel_axis)
+        reducible_inputs = tf.concat(input_tensors, axis=self._channel_axis)
         return reducible_inputs
 
     def _spatial_reshape(self, t, forward=True):

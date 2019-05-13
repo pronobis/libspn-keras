@@ -37,6 +37,10 @@ class BlockReduceProduct(BlockPermuteProduct):
     def dim_nodes(self):
         return self.child.dim_nodes
 
+    @property
+    def dim_scope(self):
+        return self.child.dim_scope // self.num_factors
+
     def _compute_out_size(self, *input_out_sizes):
         pass
 
@@ -62,4 +66,5 @@ class BlockReduceProduct(BlockPermuteProduct):
         child = self.child
         counts_reshaped = tf.reshape(
             counts, [self.dim_scope, 1, self.dim_decomps, -1, child.dim_nodes])
-        return tf.reshape(tf.tile([1, self.num_factors, self.dim_decomps, -1, child.dim_nodes]))
+        return (tf.reshape(
+            tf.tile(counts_reshaped, [1, self.num_factors, 1, 1, 1]), tf.shape(child_log_prob[0])),)

@@ -7,8 +7,6 @@ from .math import scatter_cols
 from .math import scatter_values
 from .math import scatter_values_nd
 from .math import cwise_add
-from .math import one_hot_conv2d
-from .math import one_hot_conv2d_backprop
 from .math import logmatmul
 from .math import logtensordot
 from .math import logconv_1x1

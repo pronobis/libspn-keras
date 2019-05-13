@@ -22,7 +22,9 @@ from libspn.graph.leaf.normal import NormalLeaf
 from libspn.graph.leaf.multivariate_normal_diag import MultivariateNormalDiagLeaf
 from libspn.graph.leaf.multivariate_cauchy_diag import MultivariateCauchyDiagLeaf
 from libspn.graph.leaf.laplace import LaplaceLeaf
+from libspn.graph.leaf.cauchy import CauchyLeaf
 from libspn.graph.leaf.truncated_normal import TruncatedNormalLeaf
+from libspn.graph.leaf.continuous_base import ContinuousLeafBase
 from libspn.graph.leaf.student_t import StudentTLeaf
 
 logger = get_logger()
@@ -54,8 +56,9 @@ def train(args):
         [test_x, test_y], batch_size=args.eval_batch_size, shuffle=False)
 
     in_var, root = build_spn(args, num_dims, num_vars, train_x, train_y)
-    weight_initializer = spn.ValueType.RANDOM_UNIFORM(args.weight_init_min, args.weight_init_max)
-    spn.generate_weights(root, log=args.log_weights, init_value=weight_initializer)
+    spn.generate_weights(
+        root, log=args.log_weights,
+        initializer=tf.initializers.random_uniform(args.weight_init_min, args.weight_init_max))
 
     init_weights = spn.initialize_weights(root)
 
@@ -256,34 +259,25 @@ def build_spn(args, num_dims, num_vars, train_x, train_y):
         in_var = spn.IndicatorLeaf(num_vars=num_vars, num_vals=2, name="IndicatorLeaf")
     else:
         if num_dims == 1:
-            if args.dist == "beta":
-                in_var = BetaLocationPrecisionLeaf(
-                    num_vars=num_vars, softplus_precision=softplus_scale,
-                    num_components=args.num_components,
-                    trainable_precision=not args.fixed_variance,
-                    share_precision=args.share_scales, trainable_loc=not args.fixed_mean
-                )
+            LeafDist = {
+                "laplace": LaplaceLeaf,
+                'normal': NormalLeaf,
+                'cauchy': CauchyLeaf,
+                'truncate': TruncatedNormalLeaf,
+            }[args.dist]
+            if args.dist == "normal" and not args.equidistant_means:
+                kwargs = dict(initialization_data=train_x,
+                              estimate_scale=args.estimate_scale)
             else:
-                LeafDist = {
-                    "laplace": LaplaceLeaf,
-                    'normal': NormalLeaf,
-                    'cauchy': CauchyLeaf,
-                    'truncate': TruncatedNormalLeaf,
-                }[args.dist]
-                if args.dist == "normal" and not args.equidistant_means:
-                    kwargs = dict(initialization_data=train_x,
-                                  estimate_scale=args.estimate_scale)
-                else:
-                    kwargs = dict()
-                in_var = LeafDist(
-                    num_vars=num_vars, softplus_scale=softplus_scale,
-                    num_components=args.num_components, trainable_scale=not args.fixed_variance,
-                    scale_init=args.variance_init, trainable_loc=not args.fixed_mean,
-                    share_scales=args.share_scales, share_locs_across_vars=args.share_locs,
-                    loc_init=Equidistant(-2.0, 2.0) if args.normalize_data else Equidistant(),
-                    samplewise_normalization=args.normalize_data,
-                    **kwargs)
-
+                kwargs = dict()
+            in_var = LeafDist(
+                num_vars=num_vars, softplus_scale=softplus_scale,
+                num_components=args.num_components, trainable_scale=not args.fixed_variance,
+                scale_init=args.variance_init, trainable_loc=not args.fixed_mean,
+                share_scales=args.share_scales, share_locs_across_vars=args.share_locs,
+                loc_init=Equidistant(-2.0, 2.0) if args.normalize_data else Equidistant(),
+                samplewise_normalization=args.normalize_data,
+                **kwargs)
         else:
             LeafDist = {
                 'cauchy': MultivariateCauchyDiagLeaf,
@@ -293,7 +287,7 @@ def build_spn(args, num_dims, num_vars, train_x, train_y):
             maxval = 2 if args.normalize_data else 1
             in_var = LeafDist(
                 num_vars=num_vars, softplus_scale=softplus_scale,
-                    num_components=args.num_components, trainable_scale=not args.fixed_variance,
+                num_components=args.num_components, trainable_scale=not args.fixed_variance,
                 scale_init=args.variance_init, trainable_loc=not args.fixed_mean,
                 share_scales=args.share_scales, share_locs_across_vars=args.share_locs,
                 dimensionality=num_dims, samplewise_normalization=args.normalize_data,
@@ -353,14 +347,14 @@ def setup_learning(args, in_var, root):
         root_marginalized = spn.Sum(*root.values, name="RootMarginalized", weights=root.weights,
                                     dropconnect_keep_prob=1.0)
         # A dummy node to get MPE state
-        labels_no_evidence_node = root_marginalized.generate_ivs(
+        labels_no_evidence_node = root_marginalized.generate_latent_indicators(
             name="LabesNoEvidenceIndicators", feed=-tf.ones([tf.shape(in_var.feed)[0], 1], dtype=tf.int32))
 
         # Get prediction from dummy node
         with tf.name_scope("Prediction"):
             logger.info("Setting up MPE state")
-            if args.completion_by_marginal and isinstance(in_var, spn.DistributionLeaf):
-                in_var_mpe = in_var.completion_by_posterior_marginal(labels_no_evidence_node)
+            if args.completion_by_marginal and isinstance(in_var, ContinuousLeafBase):
+                in_var_mpe = in_var.impute_by_posterior_marginal(labels_no_evidence_node)
                 class_mpe, = mpe_state.get_state(
                     root_marginalized, labels_no_evidence_node)
             else:
@@ -371,8 +365,8 @@ def setup_learning(args, in_var, root):
         with tf.name_scope("Prediction"):
             class_mpe = correct = no_op
             labels_node = root_marginalized = None
-            if args.completion_by_marginal and isinstance(in_var, spn.DistributionLeaf):
-                in_var_mpe = in_var.completion_by_posterior_marginal(root)
+            if args.completion_by_marginal and isinstance(in_var, ContinuousLeafBase):
+                in_var_mpe = in_var.impute_by_posterior_marginal(root)
             else:
                 in_var_mpe, = mpe_state.get_state(root, in_var)
 
@@ -381,7 +375,7 @@ def setup_learning(args, in_var, root):
         logger.info("Setting up log-likelihood")
         val_gen = spn.LogValue(
             inference_type=inference_type,
-            dropconnect_keep_prob=1.0, dropprod_keep_prob=1.0, noise=0.0, batch_noise=0.0)
+            dropconnect_keep_prob=1.0)
         labels_llh = val_gen.get_value(root)
         no_labels_llh = val_gen.get_value(root_marginalized) if args.supervised else labels_llh
 
@@ -414,17 +408,15 @@ def setup_learning(args, in_var, root):
         'adam': tf.train.AdamOptimizer,
         'rmsprop': tf.train.RMSPropOptimizer,
         'amsgrad': AMSGrad,
-    }[args.learning_algo]
+    }[args.learning_algo]()
     minimize_op, _ = learning.learn(optimizer=optimizer)
 
     logger.info("Settting up test loss")
     with tf.name_scope("DeterministicLoss"):
-        main_loss = learning.loss(
-            dropconnect_keep_prob=1.0, dropprod_keep_prob=1.0, noise=0.0, batch_noise=0.0)
+        main_loss = learning.loss(dropconnect_keep_prob=1.0)
         regularization_loss = learning.regularization_loss()
         loss_per_sample = learning.loss(
-            dropconnect_keep_prob=1.0, dropprod_keep_prob=1.0, noise=0.0, batch_noise=0.0,
-            reduce_fn=lambda x: tf.reshape(x, (-1,)))
+            dropconnect_keep_prob=1.0, reduce_fn=lambda x: tf.reshape(x, (-1,)))
 
     return correct, labels_node, main_loss, no_labels_llh, minimize_op, class_mpe, \
            regularization_loss, loss_per_sample, in_var_mpe

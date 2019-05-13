@@ -44,7 +44,7 @@ class BlockSum(BlockNode):
     def _compute_out_size(self, *input_out_sizes):
         pass
 
-    def __init__(self, child, num_sums, weights=None, latent_ivs=None,
+    def __init__(self, child, num_sums_per_block, weights=None, latent_ivs=None,
                  inference_type=InferenceType.MARGINAL, masked=False, sample_prob=None,
                  dropconnect_keep_prob=None, name="TensorSum", input_format="SDBN",
                  output_format="SDBN"):
@@ -60,7 +60,7 @@ class BlockSum(BlockNode):
         # Set dropconnect and dropout probabilities
         self._dropconnect_keep_prob = dropconnect_keep_prob
 
-        self._num_sums = num_sums
+        self._num_sums = num_sums_per_block
 
     @property
     def child(self):
@@ -255,8 +255,9 @@ class BlockSum(BlockNode):
             Latent indicators: Generated IndicatorLeaf node.
         """
         if self.dim_scope != 1 or self.dim_decomps != 1:
-            raise NotImplementedError("{}: scope dim and decomposition dim must be 1 to "
-                                      "apply latent indicators".format(self))
+            raise NotImplementedError(
+                "{}: scope dim and decomposition dim must be 1 to apply latent indicators, got "
+                "{} and  {} instead".format(self, self.dim_scope, self.dim_decomps))
         latent_indicator = IndicatorLeaf(
             feed=feed, num_vars=1, num_vals=self.child.dim_nodes,
             name=name or self._name + "_LatentIndicator")
@@ -282,14 +283,14 @@ class BlockSum(BlockNode):
         return tf.reduce_max(self._compute_weighted(child_log_prob, w_tensor, ivs_tensor), axis=3)
 
     @utils.lru_cache
-    def _compute_apply_ivs(self, child, ivs_tensor):
-        if ivs_tensor is not None:
+    def _compute_apply_ivs(self, child_log_prob, latent_indicator_log_prob):
+        if latent_indicator_log_prob is not None:
             if self.dim_scope != 1 or self.dim_decomps != 1:
                 raise NotImplementedError("{}: scope dim and decomposition dim must be 1 to "
                                           "apply ltent indicators".format(self))
             # [batch, nodes_input]
-            return child + tf.reshape(ivs_tensor, (1, 1, -1, self.child.dim_nodes))
-        return child
+            return child_log_prob + tf.reshape(latent_indicator_log_prob, (1, 1, -1, self.child.dim_nodes))
+        return child_log_prob
 
     @utils.lru_cache
     def _compute_weighted(self, child, w_tensor, ivs_tensor):
@@ -309,11 +310,14 @@ class BlockSum(BlockNode):
             weighted = self._compute_weighted(child_log_prob, w_tensor, ivs_tensor)
             winning_indices = utils.argmax_breaking_ties(weighted, axis=-2)
 
+        # Paths has shape [scope, decomp, batch, node_out, node_in]
         paths = utils.scatter_values_nd(counts, winning_indices, depth=self.child.dim_nodes)
-        input_counts = tf.reduce_sum(paths, axis=3)
+        # Get child counts by summing over out nodes
+        child_counts = tf.reduce_sum(paths, axis=3)
+        # Get weight counts by summing over batch and transposing last two dims
         weight_counts = tf.transpose(tf.reduce_sum(paths, axis=self._batch_axis), (0, 1, 3, 2))
-        ivs_counts = tf.reshape(input_counts, (-1, self._num_sums))
-        return weight_counts, ivs_counts, input_counts
+        ivs_counts = tf.reshape(child_counts, (-1, self._num_sums))
+        return weight_counts, ivs_counts, child_counts
 
     def _get_flat_value_scopes(self, weight_scopes, latent_indicator_scopes, *value_scopes):
         """Get a flat representation of the value scopes per sum.

@@ -99,7 +99,7 @@ class SpatialPermProducts(OpNode):
             The concatenated tensor.
         """
         input_tensors = [self._spatial_reshape(t) for t in input_tensors]
-        return utils.concat_maybe(input_tensors, axis=self._channel_axis)
+        return tf.concat(input_tensors, axis=self._channel_axis)
 
     def _spatial_reshape(self, t, forward=True):
         """Reshapes a Tensor ``t``` to one that represents the spatial dimensions.
