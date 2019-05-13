@@ -454,12 +454,8 @@ def scatter_values(params, indices, num_out_cols, name=None):
             # and forward the tensor.
             return tf.expand_dims(params, axis=-1)
         else:
-            if param_dims == 1:
-                return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
-                       * tf.expand_dims(params, axis=1)
-            else:
-                return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
-                       * tf.expand_dims(params, axis=2)
+            return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
+                   * tf.expand_dims(params, axis=param_dims)
 
 
 def print_tensor(*tensors):

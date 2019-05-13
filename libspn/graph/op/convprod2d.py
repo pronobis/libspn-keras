@@ -377,10 +377,6 @@ class ConvProd2D(OpNode):
                               use_unweighted=False, with_ivs=False, sample=False, sample_prob=None):
         return self._compute_mpe_path_common(counts, *input_values)
 
-    def _compute_mpe_path(self, counts, *input_values, add_random=False,
-                          use_unweighted=False, with_ivs=False, sample=False, sample_prob=None):
-        return self._compute_mpe_path_common(counts, *input_values)
-
     @utils.lru_cache
     def _split_to_children(self, x):
         if len(self.inputs) == 1:

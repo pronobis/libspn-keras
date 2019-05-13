@@ -251,28 +251,10 @@ class SpatialSum(BaseSum, abc.ABC):
 
         self.logger.debug1("{}: computing pairwise products.".format(self))
         val = self._reduce_marginal_inference_log(self._compute_reducible(
-            w_tensor, ivs_tensor, *input_tensors, log=True, weighted=True,
+            w_tensor, ivs_tensor, *input_tensors, weighted=True,
             dropconnect_keep_prob=dropconnect_keep_prob))
         out = maybe_add_noise(val)
         return tf.reshape(out, (-1, self._compute_out_size()))
-
-    @utils.docinherit(BaseSum)
-    @utils.lru_cache
-    def _compute_value(self, w_tensor, ivs_tensor, *input_tensors,
-                       dropconnect_keep_prob=None, matmul_or_conv=False,
-                       noise=None, batch_noise=None):
-        ivs_log = None if ivs_tensor is None else tf.log(ivs_tensor)
-        return tf.exp(self._compute_log_value(
-            tf.log(w_tensor), ivs_log, *[tf.log(t) for t in input_tensors],
-            dropconnect_keep_prob=dropconnect_keep_prob, matmul_or_conv=matmul_or_conv))
-
-    @utils.lru_cache
-    @utils.docinherit(BaseSum)
-    def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors,
-                           dropconnect_keep_prob=None):
-        val = super(SpatialSum, self)._compute_mpe_value(
-            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob)
-        return tf.reshape(val, (-1, self._compute_out_size()))
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
@@ -304,7 +286,7 @@ class SpatialSum(BaseSum, abc.ABC):
             the remaining tuples correspond to the nodes in ``self._values``.
         """
         sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
-        num_samples = self._tile_unweighted_size if use_unweighted else 1
+        num_samples = 1 if reducible_log_prob.shape[self._channel_axis] != 1 else self._num_channels
         if sample:
             max_indices = self._reduce_sample_log(
                 reducible_log_prob, sample_prob=sample_prob, num_samples=num_samples)

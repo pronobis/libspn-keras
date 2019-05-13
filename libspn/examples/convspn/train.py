@@ -315,7 +315,7 @@ def build_spn(args, num_dims, num_vars, train_x, train_y):
         'mnist': 28,
         'fashion_mnist': 28,
         'cifar10': 32,
-        'olivetti': 64,
+        'olivetti': 4,
         'caltech': 100
     }[args.dataset]
     if args.dataset == 'cifar10':

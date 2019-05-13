@@ -354,6 +354,7 @@ class BaseSum(OpNode, abc.ABC):
                     w_tensor = utils.cwise_add(w_tensor, mask)
                     if conf.renormalize_dropconnect:
                         w_tensor = tf.nn.log_softmax(w_tensor, axis=-1)
+
             reducible = utils.cwise_add(reducible, w_tensor)
 
         return reducible
@@ -460,7 +461,7 @@ class BaseSum(OpNode, abc.ABC):
             tuples correspond to the nodes in ``self._values``.
         """
         sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
-        num_samples = 1 if reducible_tensor.shape[1] != 1 else self._num_sums
+        num_samples = 1 if reducible_tensor.shape[self._reduce_axis] != 1 else self._num_sums
         if sample:
             max_indices = self._reduce_sample_log(
                 reducible_tensor, sample_prob=sample_prob, num_samples=num_samples)
@@ -511,10 +512,6 @@ class BaseSum(OpNode, abc.ABC):
         reducible = self._compute_reducible(
             w_tensor, latent_indicators_tensor, *input_tensors, weighted=weighted,
             dropconnect_keep_prob=dropconnect_keep_prob)
-        # Add random
-        if add_random is not None:
-            reducible += tf.random_uniform(
-                tf.shape(reducible), minval=0.0, maxval=add_random, dtype=conf.dtype)
 
         return self._compute_mpe_path_common(
             reducible, counts, w_tensor, latent_indicators_tensor, *input_tensors,
@@ -781,7 +778,6 @@ class BaseSum(OpNode, abc.ABC):
             return _select_sample_or_argmax(_sample())
         else:
             return _sample()
-
 
     @utils.lru_cache
     def multinomial_sample(self, logits, num_samples):
