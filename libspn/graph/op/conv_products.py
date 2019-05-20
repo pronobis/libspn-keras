@@ -1,9 +1,3 @@
-# ------------------------------------------------------------------------
-# Copyright (C) 2016 Andrzej Pronobis - All Rights Reserved
-#
-# This file is part of LibSPN. Unauthorized use or copying of this file,
-# via any medium is strictly prohibited. Proprietary and confidential.
-# ------------------------------------------------------------------------
 import itertools
 
 from libspn.inference.type import InferenceType
@@ -12,24 +6,35 @@ import tensorflow as tf
 from libspn.exceptions import StructureError
 import numpy as np
 from libspn.graph.scope import Scope
-from libspn.graph.node import OpNode
-from libspn.graph.op.spatialsum import SpatialSum
+from libspn.graph.node import OpNode, Input
+from libspn.graph.op.spatial_sums import SpatialSums
 from libspn import conf
-from libspn.graph.op.productslayer import ProductsLayer
+from libspn.graph.op.products_layer import ProductsLayer
 from libspn.log import get_logger
 
 
 @utils.register_serializable
-class ConvProd2D(OpNode):
+class ConvProducts(OpNode):
     """A container representing convolutional products in an SPN.
 
     Args:
         *values (input_like): Inputs providing input values to this container.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (int): Number of Sum ops modelled by this container.
-        weights (input_like): Input providing weights container to this sum container.
-            See :meth:`~libspn.Input.as_input` for possible values. If set
-            to ``None``, the input is disconnected.
+        num_channels (int): Number of channels modeled by this node. This parameter is optional.
+            If ``None``, the layer will attempt to generate all possible permutations of channels
+            under a patch as long as it is under ``num_channels_max``.
+        padding (str): Type of padding used. Can be either, 'full', 'valid' or 'wicker_top'.
+            For building Wicker CSPNs, 'full' padding is necessary in all but the very last
+            ConvProducts node. The last ConvProducts node should take the 'wicker_top' padding algorithm
+        dilation_rate (int or tuple of ints): Dilation rate of the convolution.
+        strides (int or tuple of ints): Strides used for the convolution.
+        sparse_connections (numpy.ndarray): Sparse representation of connections
+            [height, width, num_out_channels]
+        dense_connections (numpy.ndarray): Dense representation of connections
+            ([height, width, num_in_channels, num_out_channels])
+        spatial_dim_sizes (tuple or list of ints): Dim sizes of spatial dimensions (height and width)
+        num_channels_max (int): The maximum number of channels when automatically generating
+            permutations.
         name (str): Name of the container.
 
     Attributes:
@@ -44,8 +49,8 @@ class ConvProd2D(OpNode):
     logger = get_logger()
 
     def __init__(self, *values, num_channels=None, padding='valid', dilation_rate=1,
-                 strides=2, kernel_size=2, inference_type=InferenceType.MARGINAL, name="ConvProd2D",
-                 sparse_connections=None, dense_connections=None, grid_dim_sizes=None,
+                 strides=2, kernel_size=2, inference_type=InferenceType.MARGINAL, name="ConvProducts",
+                 sparse_connections=None, dense_connections=None, spatial_dim_sizes=None,
                  num_channels_max=512):
         self._batch_axis = 0
         self._channel_axis = 3
@@ -54,12 +59,12 @@ class ConvProd2D(OpNode):
 
         num_channels = min(num_channels or num_channels_max, num_channels_max)
 
-        self._grid_dim_sizes = self._values[0].node.output_shape_spatial[:2] if \
-            isinstance(self._values[0].node, (SpatialSum, ConvProd2D)) else grid_dim_sizes
-        if self._grid_dim_sizes is None:
+        self._spatial_dim_sizes = self._values[0].node.output_shape_spatial[:2] if \
+            isinstance(self._values[0].node, (SpatialSums, ConvProducts)) else spatial_dim_sizes
+        if self._spatial_dim_sizes is None:
             raise StructureError("{}: if no spatial".format(self))
-        if isinstance(self._grid_dim_sizes, tuple):
-            self._grid_dim_sizes = list(self._grid_dim_sizes)
+        if isinstance(self._spatial_dim_sizes, tuple):
+            self._spatial_dim_sizes = list(self._spatial_dim_sizes)
         self._padding = padding
         self._dilation_rate = [dilation_rate] * 2 \
             if isinstance(dilation_rate, int) else list(dilation_rate)
@@ -199,9 +204,9 @@ class ConvProd2D(OpNode):
         """
         non_batch_dim_size = self._non_batch_dim_prod(t)
         if forward:
-            input_channels = non_batch_dim_size // np.prod(self._grid_dim_sizes)
-            return tf.reshape(t, [-1] + self._grid_dim_sizes + [input_channels])
-        return tf.reshape(t, [-1] + self._grid_dim_sizes + [self._num_channels])
+            input_channels = non_batch_dim_size // np.prod(self._spatial_dim_sizes)
+            return tf.reshape(t, [-1] + self._spatial_dim_sizes + [input_channels])
+        return tf.reshape(t, [-1] + self._spatial_dim_sizes + [self._num_channels])
 
     def _non_batch_dim_prod(self, t):
         """Computes the product of the non-batch dimensions to be used for reshaping purposes.
@@ -226,7 +231,7 @@ class ConvProd2D(OpNode):
             A list of ints containing the number of channels.
         """
         input_sizes = self.get_input_sizes()
-        return [int(s // np.prod(self._grid_dim_sizes)) for s in input_sizes]
+        return [int(s // np.prod(self._spatial_dim_sizes)) for s in input_sizes]
 
     def _num_input_channels(self):
         """Computes the total number of input channels.
@@ -246,9 +251,8 @@ class ConvProd2D(OpNode):
 
         pad_left, pad_right, pad_top, pad_bottom = self.pad_sizes()
 
-        # TODO determine the grid dimensions from the input nodes
-        rows_post_pad = pad_top + pad_bottom + self._grid_dim_sizes[0] - kernel_size0 + 1
-        cols_post_pad = pad_left + pad_right + self._grid_dim_sizes[1] - kernel_size1 + 1
+        rows_post_pad = pad_top + pad_bottom + self._spatial_dim_sizes[0] - kernel_size0 + 1
+        cols_post_pad = pad_left + pad_right + self._spatial_dim_sizes[1] - kernel_size1 + 1
         out_rows = int(np.ceil(rows_post_pad / self._strides[0]))
         out_cols = int(np.ceil(cols_post_pad / self._strides[1]))
         return int(out_rows), int(out_cols), self._num_channels
@@ -282,11 +286,8 @@ class ConvProd2D(OpNode):
             (self._kernel_size[1] - 1) * self._dilation_rate[1] + 1
         ]
 
-    def _compute_value(self, *input_tensors):
-        raise NotImplementedError("{}: No linear value implementation for ConvProd".format(self))
-
     @utils.lru_cache
-    def _compute_log_value(self, *input_tensors, dropout_keep_prob=None):
+    def _compute_log_value(self, *input_tensors):
         # Concatenate along channel axis
         concat_inp = self._prepare_convolutional_processing(*input_tensors)
 
@@ -313,10 +314,6 @@ class ConvProd2D(OpNode):
     def _transpose_channel_first_to_last(self, t):
         return tf.transpose(t, (0, 2, 3, 1))
 
-    def _compute_mpe_value(self, *input_tensors):
-        raise NotImplementedError("{}: No linear MPE value implementation for ConvProd"
-                                  .format(self))
-
     def _compute_log_mpe_value(self, *input_tensors):
         return self._compute_log_value(*input_tensors)
 
@@ -340,12 +337,8 @@ class ConvProd2D(OpNode):
         # slice the counts now
         pad_left, pad_right, pad_bottom, pad_top = self.pad_sizes()
         if not any([pad_bottom, pad_left, pad_right, pad_top]):
-            self._split_to_children(input_counts)
+            return self._split_to_children(input_counts)
         return self._split_to_children(input_counts[:, pad_top:-pad_bottom, pad_left:-pad_right, :])
-
-    @property
-    def _no_explicit_padding(self):
-        return all(e == 0 for e in self._explicit_pad_sizes())
 
     @utils.lru_cache
     def _prepare_convolutional_processing(self, *input_values):
@@ -361,20 +354,8 @@ class ConvProd2D(OpNode):
         paddings = [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]]
         return tf.pad(x, paddings=paddings, mode="CONSTANT", constant_values=0)
 
-    def _explicit_pad_sizes(self):
-        # Replace any 'None' with 0
-        pad_top = self._pad_or_zero(self._pad_top)
-        pad_bottom = self._pad_or_zero(self._pad_bottom)
-        pad_left = self._pad_or_zero(self._pad_left)
-        pad_right = self._pad_or_zero(self._pad_right)
-        return pad_bottom, pad_left, pad_right, pad_top
-
-    @staticmethod
-    def _pad_or_zero(pad):
-        return 0 if pad is None else pad
-
-    def _compute_log_mpe_path(self, counts, *input_values, add_random=False,
-                              use_unweighted=False, with_ivs=False, sample=False, sample_prob=None):
+    def _compute_log_mpe_path(self, counts, *input_values,
+                              use_unweighted=False, sample=False, sample_prob=None):
         return self._compute_mpe_path_common(counts, *input_values)
 
     @utils.lru_cache
@@ -401,24 +382,17 @@ class ConvProd2D(OpNode):
         non_batch_dim_size = self._non_batch_dim_prod(t)
         return tf.reshape(t, (-1, non_batch_dim_size))
 
-    def _compute_gradient(self, *input_tensors, with_ivs=True):
-        raise NotImplementedError("{}: No gradient implementation available.".format(self))
-
-    def _compute_log_gradient(
-            self, *value_tensors, with_ivs=True, sum_weight_grads=False):
-        raise NotImplementedError("{}: No log-gradient implementation available.".format(self))
-
     @utils.docinherit(OpNode)
     def _compute_scope(self, *value_scopes, check_valid=False):
         flat_value_scopes = self._gather_input_scopes(*value_scopes)
 
         value_scopes_grid = [
-            np.asarray(vs).reshape(self._grid_dim_sizes + [-1]) for vs in flat_value_scopes]
+            np.asarray(vs).reshape(self._spatial_dim_sizes + [-1]) for vs in flat_value_scopes]
         value_scopes_concat = np.concatenate(value_scopes_grid, axis=2)
 
         dilate = self._dilation_rate
         kernel_size = self._kernel_size
-        grid_dims = self._grid_dim_sizes
+        grid_dims = self._spatial_dim_sizes
         strides = self._strides
         input_channels = self._num_input_channels()
 
@@ -460,8 +434,7 @@ class ConvProd2D(OpNode):
                         for sc1, sc2 in itertools.combinations(single_scope, 2):
                             if sc1 & sc2:
                                 # Invalid if intersection not empty
-                                self.logger.warn("{} is not decomposable with input scopes {}"
-                                                 .format(self, flat_value_scopes[:10]))
+                                self.logger.warn("{} is not decomposable".format(self))
                                 return None
                     scope_list.append(Scope.merge_scopes(single_scope))
 
@@ -481,29 +454,39 @@ class ConvProd2D(OpNode):
             pad_top = pad_bottom = kernel_height - 1
             pad_left = pad_right = kernel_width - 1
             return pad_left, pad_right, pad_top, pad_bottom
-        if self._padding == 'final':
+        if self._padding == 'wicker_top':
             kernel_height, kernel_width = self._effective_kernel_size()
-            pad_top = (kernel_height - 1) * 2 - self._grid_dim_sizes[0]
-            pad_left = (kernel_width - 1) * 2 - self._grid_dim_sizes[1]
+            pad_top = (kernel_height - 1) * 2 - self._spatial_dim_sizes[0]
+            pad_left = (kernel_width - 1) * 2 - self._spatial_dim_sizes[1]
             return 0, pad_left, 0, pad_top
-        raise ValueError("{}: invalid padding algorithm. Use 'valid', 'full' or 'final'")
+        raise ValueError(
+            "{}: invalid padding algorithm. Use 'valid', 'full' or 'wicker_top', got '{}'"
+            .format(self, self._padding))
 
     @utils.docinherit(OpNode)
     def _compute_valid(self, *value_scopes):
         return self._compute_scope(*value_scopes, check_valid=True)
 
     def deserialize_inputs(self, data, nodes_by_name):
-        pass
+        self._values = tuple(Input(nodes_by_name[nn], i) for nn, i in data['values'])
 
     @property
     def inputs(self):
         return self._values
 
     def serialize(self):
-        pass
+        data = super().serialize()
+        data['padding'] = self._padding
+        data['spatial_dim_sizes'] = self._spatial_dim_sizes
+        data['sparse_connections'] = self._sparse_connections
+        return data
 
     def deserialize(self, data):
-        pass
+        super().deserialize(data)
+        self._padding = data['padding']
+        self._spatial_dim_sizes = data['spatial_dim_sizes']
+        self._sparse_connections = data['sparse_connections']
+        self._dense_connections = self.sparse_kernels_to_onehot(self._sparse_connections)
 
     @property
     def _const_out_size(self):
@@ -534,9 +517,9 @@ class _ConvProdNaive(ProductsLayer):
 
     logger = get_logger()
 
-    def __init__(self, *values, num_channels=None, padding_algorithm='valid', dilation_rate=1,
-                 strides=2, kernel_size=2, inference_type=InferenceType.MARGINAL, name="ConvProd2D",
-                 sparse_connections=None, dense_connections=None, grid_dim_sizes=None,
+    def __init__(self, *values, num_channels=None, padding='valid', dilation_rate=1,
+                 strides=2, kernel_size=2, name="ConvProd2D",
+                 sparse_connections=None, dense_connections=None, spatial_dim_sizes=None,
                  num_channels_max=512, pad_top=None, pad_bottom=None,
                  pad_left=None, pad_right=None):
         self._batch_axis = 0
@@ -545,18 +528,18 @@ class _ConvProdNaive(ProductsLayer):
         self._pad_top, self._pad_bottom = pad_top, pad_bottom
         self._pad_left, self._pad_right = pad_left, pad_right
 
-        super().__init__(name=name)
+        super().__init__(name=name, inference_type=inference_type)
         self.set_values(*values)
 
         num_channels = min(num_channels or num_channels_max, num_channels_max)
-        if grid_dim_sizes is None:
+        if spatial_dim_sizes is None:
             raise NotImplementedError(
-                "{}: Must also provide grid_dim_sizes at this point.".format(self))
+                "{}: Must also provide spatial_dim_sizes at this point.".format(self))
 
-        self._grid_dim_sizes = grid_dim_sizes or [-1] * 2
-        if isinstance(self._grid_dim_sizes, tuple):
-            self._grid_dim_sizes = list(self._grid_dim_sizes)
-        self._padding = padding_algorithm
+        self._spatial_dim_sizes = spatial_dim_sizes or [-1] * 2
+        if isinstance(self._spatial_dim_sizes, tuple):
+            self._spatial_dim_sizes = list(self._spatial_dim_sizes)
+        self._padding = padding
         self._dilation_rate = [dilation_rate] * 2 \
             if isinstance(dilation_rate, int) else list(dilation_rate)
         self._strides = [strides] * 2 \
@@ -580,7 +563,6 @@ class _ConvProdNaive(ProductsLayer):
 
         self._set_prod_sizes()
 
-
     @staticmethod
     def _pad_or_zero(pad):
         return 0 if pad is None else pad
@@ -592,7 +574,6 @@ class _ConvProdNaive(ProductsLayer):
         pad_left = self._pad_or_zero(self._pad_left)
         pad_right = self._pad_or_zero(self._pad_right)
         return pad_bottom, pad_left, pad_right, pad_top
-
 
     def set_values(self, *values):
         """Set the inputs providing input values to this node. If no arguments
@@ -620,7 +601,7 @@ class _ConvProdNaive(ProductsLayer):
         num_inp_channels = self._num_input_channels()
 
         def sub2ind(row, col, channel):
-            return int(row * self._grid_dim_sizes[1] * num_inp_channels + \
+            return int(row * self._spatial_dim_sizes[1] * num_inp_channels + \
                        col * num_inp_channels + \
                        channel)
 
@@ -635,8 +616,8 @@ class _ConvProdNaive(ProductsLayer):
                         input_row = kstart_row + kernel_row * self._dilation_rate[0]
                         for kernel_col in range(self._kernel_size[1]):
                             input_col = kstart_col + kernel_col * self._dilation_rate[0]
-                            if 0 <= input_row < self._grid_dim_sizes[0] and \
-                                    0 <= input_col < self._grid_dim_sizes[1]:
+                            if 0 <= input_row < self._spatial_dim_sizes[0] and \
+                                    0 <= input_col < self._spatial_dim_sizes[1]:
                                 channel = self._sparse_connections \
                                     [kernel_row, kernel_col, out_channel]
                                 ind_current_prod.append(sub2ind(input_row, input_col, channel))
@@ -654,8 +635,8 @@ class _ConvProdNaive(ProductsLayer):
 
     def _preconv_grid_sizes(self):
         pad_top, pad_bottom, pad_left, pad_right = self.pad_sizes()
-        return pad_top + pad_bottom + self._grid_dim_sizes[0], \
-               pad_left + pad_right + self._grid_dim_sizes[1]
+        return pad_top + pad_bottom + self._spatial_dim_sizes[0], \
+               pad_left + pad_right + self._spatial_dim_sizes[1]
 
     def sparse_connections_to_dense(self, sparse):
         # Sparse has shape [rows, cols, out_channels]
@@ -710,9 +691,9 @@ class _ConvProdNaive(ProductsLayer):
         """
         non_batch_dim_size = self._non_batch_dim_prod(t)
         if forward:
-            input_channels = non_batch_dim_size // np.prod(self._grid_dim_sizes)
-            return tf.reshape(t, [-1] + self._grid_dim_sizes + [input_channels])
-        return tf.reshape(t, [-1] + self._grid_dim_sizes + [self._num_channels])
+            input_channels = non_batch_dim_size // np.prod(self._spatial_dim_sizes)
+            return tf.reshape(t, [-1] + self._spatial_dim_sizes + [input_channels])
+        return tf.reshape(t, [-1] + self._spatial_dim_sizes + [self._num_channels])
 
     def _non_batch_dim_prod(self, t):
         """Computes the product of the non-batch dimensions to be used for reshaping purposes.
@@ -734,20 +715,18 @@ class _ConvProdNaive(ProductsLayer):
             A list of ints containing the number of channels.
         """
         input_sizes = self.get_input_sizes()
-        return [int(s // np.prod(self._grid_dim_sizes)) for s in input_sizes]
+        return [int(s // np.prod(self._spatial_dim_sizes)) for s in input_sizes]
 
     def _num_input_channels(self):
         return sum(self._num_channels_per_input())
 
     def _compute_out_size_spatial(self, *input_out_sizes):
-        # See https://www.tensorflow.org/api_guides/python/nn#Convolution
         kernel_size0, kernel_size1 = self._effective_kernel_size()
 
         pad_left, pad_right, pad_top, pad_bottom = self.pad_sizes()
 
-        # TODO determine the grid dimensions from the input nodes
-        rows_post_pad = pad_top + pad_bottom + self._grid_dim_sizes[0]
-        cols_post_pad = pad_left + pad_right + self._grid_dim_sizes[1]
+        rows_post_pad = pad_top + pad_bottom + self._spatial_dim_sizes[0]
+        cols_post_pad = pad_left + pad_right + self._spatial_dim_sizes[1]
         rows_post_pad -= kernel_size0 - 1
         cols_post_pad -= kernel_size1 - 1
         out_rows = int(np.ceil(rows_post_pad / self._strides[0]))
@@ -788,14 +767,14 @@ class _ConvProdNaive(ProductsLayer):
 
         # See https://www.tensorflow.org/api_guides/python/nn#Convolution
         filter_height, filter_width = self._effective_kernel_size()
-        if self._grid_dim_sizes[0] % self._strides[0] == 0:
+        if self._spatial_dim_sizes[0] % self._strides[0] == 0:
             pad_along_height = max(filter_height - self._strides[0], 0)
         else:
-            pad_along_height = max(filter_height - (self._grid_dim_sizes[0] % self._strides[0]), 0)
-        if self._grid_dim_sizes[1] % self._strides[1] == 0:
+            pad_along_height = max(filter_height - (self._spatial_dim_sizes[0] % self._strides[0]), 0)
+        if self._spatial_dim_sizes[1] % self._strides[1] == 0:
             pad_along_width = max(filter_width - self._strides[1], 0)
         else:
-            pad_along_width = max(filter_width - (self._grid_dim_sizes[1] % self._strides[1]), 0)
+            pad_along_width = max(filter_width - (self._spatial_dim_sizes[1] % self._strides[1]), 0)
 
         pad_top = pad_along_height // 2
         pad_bottom = pad_along_height - pad_top
@@ -807,10 +786,6 @@ class _ConvProdNaive(ProductsLayer):
             pad_top + pad_top_explicit,
             pad_bottom + pad_bottom_explicit
         )
-
-    # @utils.docinherit(OpNode)
-    # def _compute_valid(self, *value_scopes):
-    #     return self._compute_scope(*value_scopes, check_valid=True)
 
     def deserialize_inputs(self, data, nodes_by_name):
         pass

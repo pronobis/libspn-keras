@@ -1,5 +1,5 @@
 from libspn.inference.type import InferenceType
-from libspn.graph.op.basesum import BaseSum
+from libspn.graph.op.base_sum import BaseSum
 import libspn.utils as utils
 import tensorflow as tf
 from libspn.exceptions import StructureError
@@ -7,20 +7,26 @@ from libspn.graph.weights import Weights
 import numpy as np
 from libspn.graph.scope import Scope
 from libspn.graph.node import OpNode
-from libspn import conf
 import abc
 
 from libspn.utils.math import logconv_1x1, logmatmul
 
 
 @utils.register_serializable
-class SpatialSum(BaseSum, abc.ABC):
+class SpatialSums(BaseSum, abc.ABC):
     """A container representing convolutional sums (which share the same input) in an SPN.
 
     Args:
         *values (input_like): Inputs providing input values to this container.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (int): Number of Sum ops modelled by this container.
+        num_channels (int): Number of channels modeled by this spatial sum.
+        spatial_dim_sizes (tuple of ints): Sizes of spatial dimensions
+        weights (input_like): Input providing weights node to this sum node.
+            See :meth:`~libspn.Input.as_input` for possible values. If set
+            to ``None``, the input is disconnected.
+        latent_indicators (input_like): Input providing IndicatorLeafs of an explicit latent
+            variable associated with this sum node. See :meth:`~libspn.Input.as_input`
+            for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the container.
 
     Attributes:
@@ -32,43 +38,42 @@ class SpatialSum(BaseSum, abc.ABC):
                                        op generation.
     """
 
-    def __init__(self, *values, num_channels=1, weights=None, ivs=None,
-                 inference_type=InferenceType.MARGINAL, name="LocalSum",
-                 grid_dim_sizes=None):
+    def __init__(self, *values, num_channels=1, weights=None, latent_indicators=None,
+                 inference_type=InferenceType.MARGINAL, name="SpatialSums", spatial_dim_sizes=None):
 
         self._channel_axis = 3
         self._num_channels = num_channels
         self._scope_mask = None
         try:
-            self._grid_dim_sizes = values[0].output_shape_spatial[:2]
+            self._spatial_dim_sizes = values[0].output_shape_spatial[:2]
         except:
-            self._grid_dim_sizes = grid_dim_sizes
-        if isinstance(self._grid_dim_sizes, tuple):
-            self._grid_dim_sizes = list(self._grid_dim_sizes)
+            self._spatial_dim_sizes = spatial_dim_sizes
+        if isinstance(self._spatial_dim_sizes, tuple):
+            self._spatial_dim_sizes = list(self._spatial_dim_sizes)
         super().__init__(
-            *values, num_sums=self._num_inner_sums(), weights=weights, latent_indicators=ivs,
-            inference_type=inference_type, name=name, reduce_axis=4, op_axis=[1, 2])
+            *values, num_sums=self._num_inner_sums(), weights=weights,
+            latent_indicators=latent_indicators, inference_type=inference_type, name=name,
+            reduce_axis=4, op_axis=[1, 2])
 
     @abc.abstractmethod
     def _num_inner_sums(self):
         """Returns the number of sums that are modelled internally. """
-        # TODO better terminology here
 
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _prepare_component_wise_processing(
-            self, w_tensor, ivs_tensor, *input_tensors, zero_prob_val=0.0):
+            self, w_tensor, latent_indicator_tensor, *input_tensors, zero_prob_val=0.0):
         w_tensor = tf.reshape(w_tensor, self._spatial_weight_shape())
 
         input_tensors = [self._spatial_reshape(t) for t in input_tensors]
 
         reducible_inputs = tf.concat(input_tensors, axis=self._reduce_axis)
 
-        if ivs_tensor is not None:
-            shape = [-1] + self._grid_dim_sizes + [self._num_channels, self._max_sum_size]
-            ivs_tensor = tf.reshape(ivs_tensor, shape=shape)
+        if latent_indicator_tensor is not None:
+            shape = [-1] + self._spatial_dim_sizes + [self._num_channels, self._max_sum_size]
+            latent_indicator_tensor = tf.reshape(latent_indicator_tensor, shape=shape)
 
-        return w_tensor, ivs_tensor, reducible_inputs
+        return w_tensor, latent_indicator_tensor, reducible_inputs
 
     @abc.abstractmethod
     def _spatial_weight_shape(self):
@@ -76,7 +81,7 @@ class SpatialSum(BaseSum, abc.ABC):
 
     @property
     def output_shape_spatial(self):
-        return tuple(self._grid_dim_sizes + [self._num_channels])
+        return tuple(self._spatial_dim_sizes + [self._num_channels])
 
     def generate_weights(
         self, initializer=tf.initializers.random_uniform(), trainable=True, input_sizes=None,
@@ -128,10 +133,10 @@ class SpatialSum(BaseSum, abc.ABC):
         """
         non_batch_dim_size = self._non_batch_dim_prod(t)
         if forward:
-            input_channels = non_batch_dim_size // np.prod(self._grid_dim_sizes)
-            return tf.reshape(t, [-1] + self._grid_dim_sizes + [1, input_channels])
-        return tf.reshape(t, [-1] + self._grid_dim_sizes + [non_batch_dim_size // (
-            self._max_sum_size * np.prod(self._grid_dim_sizes)), self._max_sum_size])
+            input_channels = non_batch_dim_size // np.prod(self._spatial_dim_sizes)
+            return tf.reshape(t, [-1] + self._spatial_dim_sizes + [1, input_channels])
+        return tf.reshape(t, [-1] + self._spatial_dim_sizes + [non_batch_dim_size // (
+            self._max_sum_size * np.prod(self._spatial_dim_sizes)), self._max_sum_size])
 
     def _non_batch_dim_prod(self, t):
         """Computes the product of the non-batch dimensions to be used for reshaping purposes.
@@ -153,115 +158,55 @@ class SpatialSum(BaseSum, abc.ABC):
             A list of ints containing the number of channels.
         """
         _, _, *input_sizes = self.get_input_sizes()
-        return [int(s // np.prod(self._grid_dim_sizes)) for s in input_sizes]
+        return [int(s // np.prod(self._spatial_dim_sizes)) for s in input_sizes]
 
     @utils.docinherit(BaseSum)
     def _get_sum_sizes(self, num_sums):
-        num_values = sum(self._get_input_num_channels())  # Skip ivs, weights
-        return num_sums * int(np.prod(self._grid_dim_sizes)) * [num_values]
+        num_values = sum(self._get_input_num_channels())  # Skip latent indicators, weights
+        return num_sums * int(np.prod(self._spatial_dim_sizes)) * [num_values]
 
     @utils.docinherit(BaseSum)
     def _compute_out_size(self, *input_out_sizes):
-        return int(np.prod(self._grid_dim_sizes) * self._num_channels)
-
-    def _set_scope_mask(self, t):
-        self._scope_mask = t
+        return int(np.prod(self._spatial_dim_sizes) * self._num_channels)
 
     @utils.docinherit(BaseSum)
     @utils.lru_cache
-    def _compute_log_value(self, w_tensor, ivs_tensor, *input_tensors,
-                           dropconnect_keep_prob=None, matmul_or_conv=False,
+    def _compute_log_value(self, w_tensor, latent_indicators_tensor, *input_tensors, matmul_or_conv=False,
                            noise=None, batch_noise=None):
 
-        def maybe_add_noise(val):
-            if noise is not None and noise != 0.0:
-                with tf.name_scope("Noise"):
-                    self.logger.debug1("{}: added noise {}".format(self, noise))
-                    noise_tensor = tf.truncated_normal(
-                        shape=tf.shape(val), stddev=noise, mean=0.0)
-                    val += noise_tensor
-            if batch_noise is not None and batch_noise != 0.0:
-                if self._scope_mask is None:
-                    raise StructureError("Should set scope mask externally")
-                with tf.name_scope("BatchNoise"):
-                    self.logger.debug1("{}: added batch noise {}".format(self, batch_noise))
-                    shuffled = tf.stop_gradient(tf.manip.roll(val, shift=1, axis=0))
-                    mask = tf.tile(tf.less(tf.expand_dims(self._scope_mask, axis=-1), batch_noise),
-                                   [1, 1, 1, self._num_channels])
-                    val = tf.where(mask, shuffled, val)
-            return val
-
-        dropconnect_keep_prob = utils.maybe_first(
-            self._dropconnect_keep_prob, dropconnect_keep_prob)
-        if matmul_or_conv and ivs_tensor is not None:
+        if matmul_or_conv and latent_indicators_tensor is not None:
             self.logger.warn("Cannot use matmul when using latent indicators, setting matmul=False")
             matmul_or_conv = False
-        else:
-            matmul_or_conv = conf.dropout_mode != 'pairwise' \
-                             or dropconnect_keep_prob is None or dropconnect_keep_prob == 1.0
+
         if matmul_or_conv:
             self.logger.debug1("{}: using matrix multiplication or conv ops.".format(self))
             w_tensor, _, inp_concat = self._prepare_component_wise_processing(
-                w_tensor, ivs_tensor, *input_tensors)
-            if dropconnect_keep_prob is not None and (not isinstance(
-                    dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob != 1.0):
-                if conf.dropout_mode == "weights":
-                    self.logger.debug1("{}: applying dropout with p={} to weights.".format(
-                        self, dropconnect_keep_prob))
-                    dropout_mask = self._create_dropconnect_mask(
-                        keep_prob=dropconnect_keep_prob, shape=tf.shape(w_tensor))
-                    min_inf = tf.cast(
-                        tf.fill(tf.shape(w_tensor), value=float('-inf')), dtype=conf.dtype)
-                    w_tensor = tf.where(dropout_mask, w_tensor, min_inf)
-                    if conf.renormalize_dropconnect:
-                        w_tensor = tf.nn.log_softmax(w_tensor, axis=-1)
-                    if conf.rescale_dropconnect:
-                        w_tensor -= tf.log(
-                            dropconnect_keep_prob +
-                            dropconnect_keep_prob ** w_tensor.shape[-1].value)
-                else:  # Dropout to inputs (products)
-                    self.logger.debug1("{}: applying dropout with p={} to sum inputs.".format(
-                        self, dropconnect_keep_prob))
-                    dropout_mask = self._create_dropconnect_mask(
-                        keep_prob=dropconnect_keep_prob, shape=tf.shape(inp_concat))
-                    min_inf = tf.cast(
-                        tf.fill(tf.shape(inp_concat), value=float('-inf')), dtype=conf.dtype)
-                    inp_concat = tf.where(dropout_mask, inp_concat, min_inf)
-                    if conf.rescale_dropconnect:
-                        inp_concat -= tf.log(
-                            dropconnect_keep_prob +
-                            dropconnect_keep_prob ** inp_concat.shape[-1].value)
+                w_tensor, latent_indicators_tensor, *input_tensors)
 
             # Determine whether to use matmul or conv op and return
             if all(w_tensor.shape[i] == 1 for i in self._op_axis):
                 w_tensor = tf.transpose(tf.squeeze(w_tensor, axis=0), (0, 1, 3, 2))
                 inp_concat = tf.reshape(
-                    inp_concat, [-1] + self._grid_dim_sizes + [self._max_sum_size])
+                    inp_concat, [-1] + self._spatial_dim_sizes + [self._max_sum_size])
                 out = logconv_1x1(input=inp_concat, filter=w_tensor)
-                return maybe_add_noise(tf.reshape(out, (-1, self._compute_out_size())))
+                return tf.reshape(out, (-1, self._compute_out_size()))
             else:
                 w_tensor = tf.squeeze(w_tensor, axis=0)
                 inp_concat = tf.squeeze(inp_concat, axis=3)
                 inp_concat = tf.reshape(
                     tf.transpose(inp_concat, (1, 2, 0, 3)),
-                    self._grid_dim_sizes + [-1, self._max_sum_size])
+                    self._spatial_dim_sizes + [-1, self._max_sum_size])
                 out = tf.transpose(logmatmul(inp_concat, w_tensor, transpose_b=True), (2, 0, 1, 3))
-                out = maybe_add_noise(out)
                 return tf.reshape(out, (-1, self._compute_out_size()))
 
-        self.logger.debug1("{}: computing pairwise products.".format(self))
-        val = self._reduce_marginal_inference_log(self._compute_reducible(
-            w_tensor, ivs_tensor, *input_tensors, weighted=True,
-            dropconnect_keep_prob=dropconnect_keep_prob))
-        out = maybe_add_noise(val)
+        out = self._reduce_marginal_inference_log(self._compute_reducible(
+            w_tensor, latent_indicators_tensor, *input_tensors, weighted=True))
         return tf.reshape(out, (-1, self._compute_out_size()))
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)
-    def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *input_tensors,
-                           dropconnect_keep_prob=None):
-        val = super(SpatialSum, self)._compute_log_mpe_value(
-            w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=dropconnect_keep_prob)
+    def _compute_log_mpe_value(self, w_tensor, latent_indicators_tensor, *input_tensors):
+        val = super(SpatialSums, self)._compute_log_mpe_value(w_tensor, latent_indicators_tensor, *input_tensors)
         return tf.reshape(val, (-1, self._compute_out_size()))
 
     @utils.lru_cache
@@ -325,8 +270,8 @@ class SpatialSum(BaseSum, abc.ABC):
             A flattened ``Tensor``.
         """
         if self._batch_axis != 0:
-            raise NotImplementedError("{}: Cannot flatten if batch axis isn't equal to zero."
-                                      .format(self))
+            raise NotImplementedError(
+                "{}: Cannot flatten if batch axis isn't equal to zero.".format(self))
         non_batch_dim_size = self._non_batch_dim_prod(t)
         return tf.reshape(t, (-1, non_batch_dim_size))
 
@@ -334,20 +279,10 @@ class SpatialSum(BaseSum, abc.ABC):
     def _accumulate_weight_counts(self, counts_spatial):
         """Accumulates the counts for the weights. """
 
-    @utils.docinherit(BaseSum)
-    def _compute_gradient(self, gradients, w_tensor, ivs_tensor, *input_tensors, with_ivs=True):
-        raise NotImplementedError("{}: No gradient implementation available.".format(self))
-
-    @utils.docinherit(BaseSum)
-    def _compute_log_gradient(
-            self, gradients, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
-            accumulate_weights_batch=False, dropconnect_keep_prob=None):
-        raise NotImplementedError("{}: No log-gradient implementation available.".format(self))
-
     @utils.docinherit(OpNode)
-    def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes, check_valid=False):
+    def _compute_scope(self, weight_scopes, latent_scopes, *value_scopes, check_valid=False):
         value_scopes_grid = [
-            np.asarray(vs).reshape(self._grid_dim_sizes + [-1]) for vs in value_scopes]
+            np.asarray(vs).reshape(self._spatial_dim_sizes + [-1]) for vs in value_scopes]
         value_scopes_concat = np.concatenate(value_scopes_grid, axis=2)
 
         if check_valid:
@@ -356,16 +291,12 @@ class SpatialSum(BaseSum, abc.ABC):
                     self.logger.warn("{}: not complete.".format(self))
                     return None
 
-        if self._ivs:
-            raise NotImplementedError("{}: no support for computing scope when node has latent "
-                                      "indicators.".format(self))
         return list(map(Scope.merge_scopes, value_scopes_concat.repeat(self._num_channels).reshape(
             (-1, self._max_sum_size))))
 
     @utils.docinherit(OpNode)
-    def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
-        return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes, check_valid=True)
-
+    def _compute_valid(self, weight_scopes, latent_scopes, *value_scopes):
+        return self._compute_scope(weight_scopes, latent_scopes, *value_scopes, check_valid=True)
 
     @utils.lru_cache
     @utils.docinherit(BaseSum)

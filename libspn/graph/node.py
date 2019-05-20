@@ -93,9 +93,9 @@ class Input():
             # Check for duplicates - duplicated indices cannot be handled
             # properly during the downward pass since integrating multiple
             # parents happens only on the level of inputs, not indices.
-            if len(set(indices)) != len(indices):
-                raise ValueError("Indices %s for node %s contain duplicates"
-                                 % (indices, node))
+            # if len(set(indices)) != len(indices):
+            #     raise ValueError("Indices %s for node %s contain duplicates"
+            #                      % (indices, node))
         elif indices is not None:
             raise TypeError("Invalid indices %s for node %s" % (indices, node))
         self.indices = indices
@@ -731,24 +731,6 @@ class OpNode(Node):
             where the first dimension corresponds to the batch size and the
             second dimension is the size of the output of the input node.
         """
-
-    @utils.lru_cache
-    def _create_dropout_mask(self, keep_prob, shape, log=True, name="DropoutMask",
-                             dtype=conf.dtype, axis=-1):
-        """Creates a dropout mask with values drawn from a Bernoulli distribution with parameter
-        ``keep_prob``.
-
-        Args:
-            keep_prob (Tensor): A float ``Tensor`` indicating the probability of keeping an element
-                active.
-            shape (Tensor): A 1D ``Tensor`` specifying the shape of the
-
-        """
-        with tf.name_scope(name):
-            mask = tfd.Bernoulli(probs=keep_prob, dtype=dtype, name="DropoutMaskBernoulli")\
-                .sample(sample_shape=shape)
-            return tf.log(mask) if log else mask
-
 
 class VarNode(Node):
     """An abstract class defining a variable node of the SPN graph.

@@ -9,23 +9,21 @@ from libspn.graph.node import VarNode
 from libspn.graph.node import ParamNode
 from libspn.graph.op.concat import Concat
 from libspn.graph.op.sum import Sum
-from libspn.graph.op.parsums import ParSums
+from libspn.graph.op.parallel_sums import ParallelSums
 from libspn.graph.op.sumslayer import SumsLayer
 from libspn.graph.op.product import Product
-from libspn.graph.op.permproducts import PermProducts
-from libspn.graph.op.productslayer import ProductsLayer
-from libspn.graph.op.convsum import ConvSum
-from libspn.graph.op.localsum import LocalSum
+from libspn.graph.op.permute_products import PermuteProducts
+from libspn.graph.op.products_layer import ProductsLayer
+from libspn.graph.op.local_sums import LocalSums
+from libspn.graph.op.conv_sums import ConvSums
 from libspn.graph.op.block_sum import BlockSum
-from libspn.graph.op.block_permute_product import BlockPermuteProduct
 from libspn.graph.op.block_reduce_product import BlockReduceProduct
+from libspn.graph.op.block_permute_product import BlockPermuteProduct
 from libspn.graph.op.block_random_decompositions import BlockRandomDecompositions
 from libspn.graph.op.block_merge_decomps import BlockMergeDecomps
 from libspn.graph.op.block_root_sum import BlockRootSum
-from libspn.graph.op.convprod2d import ConvProd2D, _ConvProdNaive
-from libspn.graph.op.convproddepthwise import ConvProdDepthWise
-from libspn.graph.op.spatialpermproducts import SpatialPermProducts
-from libspn.graph.stridedslice import StridedSlice2D
+from libspn.graph.op.conv_products import ConvProducts
+from libspn.graph.op.conv_products_depthwise import ConvProductsDepthwise
 from libspn.graph.weights import Weights
 from libspn.graph.weights import assign_weights
 from libspn.graph.weights import initialize_weights
@@ -57,12 +55,10 @@ from libspn.inference.value import Value
 from libspn.inference.value import LogValue
 from libspn.inference.mpe_path import MPEPath
 from libspn.inference.mpe_state import MPEState
-from libspn.inference.gradient import Gradient
 from libspn.learning.em import EMLearning
 from libspn.learning.gd import GDLearning
 from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
-from libspn.learning.ebw import ExtendedBaumWelch
 
 # Data
 from libspn.data.dataset import Dataset
@@ -126,9 +122,9 @@ __all__ = [
     # Graph
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IndicatorLeaf', 'RawLeaf',
-    'Sum', 'ParSums', 'SumsLayer',
+    'Sum', 'ParallelSums', 'SumsLayer',
     'BlockSum', 'BlockPermuteProduct', 'BlockRandomDecompositions', 'BlockMergeDecomps', 'BlockRootSum',
-    'Product', 'PermProducts', 'ProductsLayer',
+    'Product', 'PermuteProducts', 'ProductsLayer',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
     'Saver', 'Loader', 'JSONSaver', 'JSONLoader',
@@ -140,7 +136,7 @@ __all__ = [
     'DenseSPNGenerator',
     'WeightsGenerator', 'generate_weights',
     # Inference and learning
-    'InferenceType', 'Value', 'LogValue', 'MPEPath', 'Gradient',
+    'InferenceType', 'Value', 'LogValue', 'MPEPath',
     'MPEState', 'EMLearning', 'GDLearning', 'LearningTaskType',
     'LearningMethodType',
     # Data

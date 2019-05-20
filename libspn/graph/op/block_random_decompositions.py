@@ -151,13 +151,7 @@ class BlockRandomDecompositions(BlockNode):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):
-        # Reduce over last axis
-        raise NotImplementedError()
-
-    @utils.docinherit(OpNode)
-    @utils.lru_cache
-    def _compute_log_value(self, *value_tensors, with_ivs=True):
+    def _compute_log_value(self, *value_tensors):
         if self._perms is None:
             raise StructureError("First need to determine permutations")
         # [batch, scope, node]
@@ -177,16 +171,14 @@ class BlockRandomDecompositions(BlockNode):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
-                               dropconnect_keep_prob=None):
-        raise NotImplementedError()
+    def _compute_log_mpe_value(self, *value_tensors):
+        raise self._compute_log_value(*value_tensors)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_path(self, counts, *input_tensors,
-                              use_unweighted=False, with_ivs=True, add_random=None,
-                              sum_weight_grads=False, sample=False, sample_prob=None,
-                              dropconnect_keep_prob=None):
+    def _compute_log_mpe_path(
+            self, counts, *input_tensors, use_unweighted=False, sum_weight_grads=False,
+            sample=False, sample_prob=None):
         # counts is shape [scope, decomps, batch, nodes]
         # will have to be transformed to [batch, scope * nodes]
         grad = tf.reshape(_GatherV2Grad(self._gather_op._op, counts)[0], self._zero_padded_shape)
@@ -196,11 +188,11 @@ class BlockRandomDecompositions(BlockNode):
                           (-1, self.values[0].node._compute_out_size())),
 
     @utils.docinherit(OpNode)
-    def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):
+    def _compute_scope(self, *value_scopes):
         raise NotImplementedError()
 
     @utils.docinherit(OpNode)
-    def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
+    def _compute_valid(self, *value_scopes):
         # If already invalid, return None
         raise NotImplementedError()
 

@@ -1,10 +1,8 @@
-from libspn.graph.op.basesum import BaseSum
 from libspn.tests.test import argsprod
 import tensorflow as tf
 import numpy as np
 import libspn as spn
 from libspn.log import get_logger
-from libspn.generation.spatial import ConvSPN
 import itertools
 import random
 logger = get_logger()
@@ -130,7 +128,8 @@ def grid_spn(var_node, patch_size, num_mixtures, num_alterations, input_dist, nu
                 num_or_size_prods=num_rows * num_cols * last_dim_size)
         else:
             if conv:
-                node = spn.ConvSum(node, num_channels=num_mixt, grid_dim_sizes=[num_rows, num_cols])
+                node = spn.ConvSums(
+                    node, num_channels=num_mixt, spatial_dim_sizes=[num_rows, num_cols])
             else:
                 node = spn.SumsLayer(
                     (node, indices), name="GridSums{}".format(layer_ind),
@@ -148,110 +147,13 @@ def grid_spn(var_node, patch_size, num_mixtures, num_alterations, input_dist, nu
 
 class TestConvProd(tf.test.TestCase):
 
-    @argsprod([4, 2, 1], [4, 2, 1])
-    def test_compare_v1_and_v2_value(self, stride, dilate):
-        if dilate > 1:
-            if stride > 1:
-                # Not supported by TF's convolution
-                return
-        ivs_rows, ivs_cols = 16, 16
-        batch_size = 32
-        num_vars = ivs_rows * ivs_cols
-        num_vals = 3
-        ivs = spn.ContVars(num_vars=num_vars * 2)
-        ivs2 = spn.ContVars(num_vars=num_vars * 2)
-
-        localsum0 = spn.LocalSum(ivs, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=2)
-        localsum1 = spn.LocalSum(ivs2, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=2)
-
-        ivs_concat = spn.Concat(localsum0, localsum1, axis=3)
-
-        convprod_v1 = spn._ConvProdNaive(
-            ivs_concat, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=256,
-            strides=stride, dilation_rate=dilate)
-        convprod_v2 = spn.ConvProd2D(
-            ivs_concat, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=256,
-            strides=stride, dilation_rate=dilate)
-
-        spn.generate_weights(convprod_v1)
-        spn.generate_weights(convprod_v2)
-        init_v1 = spn.initialize_weights(convprod_v1)
-        init_v2 = spn.initialize_weights(convprod_v2)
-
-        val_v1 = convprod_v1.get_log_value()
-        val_v2 = convprod_v2.get_log_value()
-
-        # ivs_feed = np.random.randint(-1, 2, size=num_vars * batch_size).reshape(
-        #     (batch_size, num_vars))
-        ivs_feed = np.random.rand(batch_size, num_vars * 2)
-        ivs_feed2 = np.random.rand(batch_size, num_vars * 2)
-
-        with self.test_session() as sess:
-            sess.run([init_v1, init_v2])
-            val_v1_out, val_v2_out = sess.run(
-                [val_v1, val_v2], {ivs: ivs_feed, ivs2: ivs_feed2})
-
-        self.assertAllClose(np.exp(val_v1_out), np.exp(val_v2_out))
-
-    @argsprod([4, 2, 1], [4, 2, 1], [0, 1])
-    def test_compare_v1_and_v2_counts(self, stride, dilate, pad_size):
-        if dilate > 1:
-            if stride > 1:
-                # Not supported by TF's convolution, it seems to be a bug...
-                return
-        ivs_rows, ivs_cols = 16, 16
-        batch_size = 32
-        num_vars = ivs_rows * ivs_cols
-        num_vals = 3
-        ivs = spn.ContVars(num_vars=num_vars * 2)
-        ivs2 = spn.ContVars(num_vars=num_vars * 2)
-
-        localsum0 = spn.LocalSum(ivs, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=2)
-        localsum1 = spn.LocalSum(ivs2, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=2)
-
-        ivs_concat = spn.Concat(localsum0, localsum1, axis=3)
-
-        convprod_v1 = spn._ConvProdNaive(
-            ivs_concat, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=256,
-            strides=stride, dilation_rate=dilate, pad_left=pad_size, pad_right=pad_size,
-            pad_top=pad_size, pad_bottom=pad_size)
-        convprod_v2 = spn.ConvProd2D(
-            ivs_concat, grid_dim_sizes=[ivs_rows, ivs_cols], num_channels=256,
-            strides=stride, dilation_rate=dilate, pad_left=pad_size, pad_right=pad_size,
-            pad_top=pad_size, pad_bottom=pad_size)
-
-
-        spn.generate_weights(convprod_v1)
-        spn.generate_weights(convprod_v2)
-        init_v1 = spn.initialize_weights(convprod_v1)
-        init_v2 = spn.initialize_weights(convprod_v2)
-
-
-        mpe_path_gen_v1 = spn.MPEPath()
-        mpe_path_gen_v2 = spn.MPEPath()
-
-        mpe_path_gen_v1.get_mpe_path(convprod_v1)
-        mpe_path_gen_v2.get_mpe_path(convprod_v2)
-
-        ivs_feed = np.random.rand(batch_size, num_vars * 2)
-        ivs_feed2 = np.random.rand(batch_size, num_vars * 2)
-        with self.test_session() as sess:
-            sess.run([init_v1, init_v2])
-            val_v1_out, val_v2_out = sess.run(
-                [mpe_path_gen_v1.counts[ivs], mpe_path_gen_v2.counts[ivs]],
-                {ivs: ivs_feed, ivs2: ivs_feed2})
-
-        # print(val_v1_out[0])
-        # print(val_v2_out[0])
-        self.assertAllClose(val_v1_out, val_v2_out)
-
     def test_generate_sparse_connections(self):
         grid_dims = [4, 4]
         input_channels = 2
-        vars = spn.ContVars(num_vars=grid_dims[0] * grid_dims[1] * input_channels)
+        vars = spn.RawLeaf(num_vars=grid_dims[0] * grid_dims[1] * input_channels)
 
-        convprod = spn.ConvProd2D(vars, num_channels=32, strides=2, padding='valid',
-                                  grid_dim_sizes=grid_dims)
+        convprod = spn.ConvProducts(
+            vars, num_channels=32, strides=2, padding='valid', spatial_dim_sizes=grid_dims)
 
         connections = convprod.generate_sparse_kernels(32)
         connection_tuples = [tuple(c) for c in
@@ -261,9 +163,9 @@ class TestConvProd(tf.test.TestCase):
     def test_compute_log_value(self):
         grid_dims = [4, 4]
         input_channels = 2
-        vars = spn.ContVars(num_vars=grid_dims[0] * grid_dims[1] * input_channels)
-        convprod = spn.ConvProd2D(vars, num_channels=32, padding='valid', strides=2,
-                                  grid_dim_sizes=grid_dims)
+        vars = spn.RawLeaf(num_vars=grid_dims[0] * grid_dims[1] * input_channels)
+        convprod = spn.ConvProducts(vars, num_channels=32, padding='valid', strides=2,
+                                    spatial_dim_sizes=grid_dims)
         connectivity = [(0, 0, 0, 0), (1, 0, 0, 0), (0, 1, 0, 0), (1, 1, 0, 0),
                         (0, 0, 1, 0), (1, 0, 1, 0), (0, 1, 1, 0), (1, 1, 1, 0),
                         (0, 0, 0, 1), (1, 0, 0, 1), (0, 1, 0, 1), (1, 1, 0, 1),
@@ -315,74 +217,12 @@ class TestConvProd(tf.test.TestCase):
 
         self.assertAllClose(conv_out, np.ones((1, 2, 2, 1)) * 4)
 
-    @argsprod([False, True])
-    def test_compare_manual_convprod(self, stride):
-        spn.conf.argmax_zero = True
-        grid_dims = [4, 4]
-        batch_size = 256
-        num_vars = grid_dims[0] * grid_dims[1]
-        ivs = spn.IndicatorLeaf(num_vars=num_vars, num_vals=2)
-
-        dilation_rate = 1 if stride else 2
-        stride = 2 if stride else 1
-
-        conv_manual = grid_spn(ivs, patch_size=(2, 2), num_mixtures=[2], num_alterations=1,
-                               asymmetric=True, num_rows=grid_dims[0], num_cols=grid_dims[1],
-                               max_patch_combs=16,
-                               input_dist=spn.DenseSPNGenerator.InputDist.RAW,
-                               strides=stride, dilation_rate=dilation_rate)
-        conv_layer = spn.ConvProd2D(ivs, kernel_size=2, num_channels=16, grid_dim_sizes=grid_dims,
-                                    strides=stride, dilation_rate=dilation_rate)
-
-        dense_gen = spn.DenseSPNGenerator(
-            num_decomps=1, num_subsets=2, num_mixtures=2,
-            input_dist=spn.DenseSPNGenerator.InputDist.MIXTURE,
-            node_type=spn.DenseSPNGenerator.NodeType.LAYER)
-
-        rnd = random.Random(x=1234)
-        rnd_state = rnd.getstate()
-        root_manual = dense_gen.generate(conv_manual, root_name="RootManual", rnd=rnd)
-        spn.generate_weights(root_manual)
-        init_manual = spn.initialize_weights(root_manual)
-
-        rnd.setstate(rnd_state)
-        root_layer = dense_gen.generate(conv_layer, root_name="RootLayer", rnd=rnd)
-        spn.generate_weights(root_layer)
-        init_layer = spn.initialize_weights(root_layer)
-
-        pathgen_man = spn.MPEPath(value_inference_type=spn.InferenceType.MARGINAL, log=True)
-        pathgen_man.get_mpe_path(root_manual)
-
-        pathgen_lay = spn.MPEPath(value_inference_type=spn.InferenceType.MARGINAL, log=True)
-        pathgen_lay.get_mpe_path(root_layer)
-
-        ivs_counts_man = pathgen_man.counts[ivs]
-        ivs_counts_lay = pathgen_lay.counts[ivs]
-
-        value_man = pathgen_man.value.values[root_manual]
-        value_lay = pathgen_lay.value.values[root_layer]
-
-        random_ivs_feed = np.random.randint(-1, 2, size=num_vars * batch_size).reshape(
-            (batch_size, num_vars))
-
-        with self.test_session() as sess:
-            sess.run([init_manual, init_layer])
-
-            counts_man_out, counts_lay_out = sess.run(
-                [ivs_counts_man, ivs_counts_lay], feed_dict={ivs: random_ivs_feed})
-
-            value_man_out, value_lay_out = sess.run(
-                [value_man, value_lay], feed_dict={ivs: random_ivs_feed})
-
-        self.assertAllClose(np.exp(value_man_out), np.exp(value_lay_out))
-        self.assertAllEqual(counts_man_out, counts_lay_out)
-
     def test_compute_mpe_path(self):
         grid_dims = [4, 4]
         input_channels = 2
-        vars = spn.ContVars(num_vars=grid_dims[0] * grid_dims[1] * input_channels)
-        convprod = spn.ConvProd2D(vars, num_channels=32, padding='valid', strides=2,
-                                  grid_dim_sizes=grid_dims)
+        vars = spn.RawLeaf(num_vars=grid_dims[0] * grid_dims[1] * input_channels)
+        convprod = spn.ConvProducts(vars, num_channels=32, padding='valid', strides=2,
+                                    spatial_dim_sizes=grid_dims)
 
         valgen = spn.LogValue(inference_type=spn.InferenceType.MARGINAL)
         valgen.get_value(convprod)
@@ -418,9 +258,9 @@ class TestConvProd(tf.test.TestCase):
     def test_compute_mpe_path_dilated(self):
         grid_dims = [4, 4]
         input_channels = 2
-        vars = spn.ContVars(num_vars=grid_dims[0] * grid_dims[1] * input_channels)
-        convprod = spn.ConvProd2D(vars, num_channels=32, padding='valid', strides=1,
-                                  grid_dim_sizes=grid_dims, dilation_rate=2)
+        vars = spn.RawLeaf(num_vars=grid_dims[0] * grid_dims[1] * input_channels)
+        convprod = spn.ConvProducts(vars, num_channels=32, padding='valid', strides=1,
+                                    spatial_dim_sizes=grid_dims, dilation_rate=2)
 
         valgen = spn.LogValue(inference_type=spn.InferenceType.MARGINAL)
         valgen.get_value(convprod)
@@ -440,10 +280,9 @@ class TestConvProd(tf.test.TestCase):
 
     def test_compute_value_padding(self):
         grid_dims = [2, 2]
-        vars = spn.ContVars(num_vars=4)
-        convprod = spn.ConvProd2D(vars, num_channels=1, strides=1, kernel_size=2,
-                                  pad_left=1, pad_right=1, pad_top=1, pad_bottom=1,
-                                  grid_dim_sizes=grid_dims)
+        vars = spn.RawLeaf(num_vars=4)
+        convprod = spn.ConvProducts(vars, num_channels=1, strides=1, kernel_size=2,
+                                    padding='full', spatial_dim_sizes=grid_dims)
         value_op = convprod.get_log_value()
 
         var_feed = np.exp(np.arange(16, dtype=np.float32).reshape((4, 4)))
@@ -460,10 +299,9 @@ class TestConvProd(tf.test.TestCase):
 
     def test_compute_mpe_path_padding(self):
         grid_dims = [2, 2]
-        vars = spn.ContVars(num_vars=4)
-        convprod = spn.ConvProd2D(vars, num_channels=1, strides=1, kernel_size=2,
-                                  pad_left=1, pad_right=1, pad_top=1, pad_bottom=1,
-                                  grid_dim_sizes=grid_dims)
+        vars = spn.RawLeaf(num_vars=4)
+        convprod = spn.ConvProducts(vars, num_channels=1, strides=1, kernel_size=2,
+                                    padding='full', spatial_dim_sizes=grid_dims)
         counts_feed = tf.constant(np.arange(18, dtype=np.float32).reshape((2, 9)))
 
         truth = [
@@ -485,8 +323,8 @@ class TestConvProd(tf.test.TestCase):
         vars = spn.IndicatorLeaf(num_vars=grid_dims[0] * grid_dims[1], num_vals=input_channels)
         strides = 1 if dilate else 2
         dilation_rate = 2 if dilate else 1
-        convprod = spn.ConvProd2D(vars, num_channels=32, padding='valid', strides=strides,
-                                  grid_dim_sizes=grid_dims, dilation_rate=dilation_rate)
+        convprod = spn.ConvProducts(vars, num_channels=32, padding='valid', strides=strides,
+                                    spatial_dim_sizes=grid_dims, dilation_rate=dilation_rate)
         conv_prod_scope = convprod.get_scope()
 
         singular_scopes = np.asarray(
@@ -510,65 +348,6 @@ class TestConvProd(tf.test.TestCase):
 
         self.assertAllEqual(conv_prod_scope, scope_truth)
 
-    def test_compute_valid(self):
-        grid_dims = [16, 16]
-        input_channels = 2
-        vars = spn.IndicatorLeaf(num_vars=grid_dims[0] * grid_dims[1], num_vals=input_channels)
-        convprod0 = spn.ConvProd2D(vars, num_channels=32, padding='valid', strides=1,
-                                   grid_dim_sizes=grid_dims, dilation_rate=1, name="ConvProd0")
-        convprod10 = spn.ConvProd2D(convprod0, num_channels=32, padding='valid',
-                                    strides=1, dilation_rate=1, grid_dim_sizes=[15, 15],
-                                    name="ConvProd00")
-        self.assertFalse(convprod10.is_valid())
-
-        convprod11 = spn.ConvProd2D(convprod0, num_channels=32, padding='valid',
-                                    strides=1, dilation_rate=2, grid_dim_sizes=[15, 15],
-                                    name="ConvProd11")
-        self.assertTrue(convprod11.is_valid())
-
-        convprod_a = spn.ConvProd2D(vars, num_channels=16, padding='valid', strides=1,
-                                    dilation_rate=2, grid_dim_sizes=grid_dims, name="ConvProdA")
-        convprod_a_ds = spn.ConvProd2D(convprod_a, num_channels=512, padding='valid',
-                                       strides=2, grid_dim_sizes=[14, 14],
-                                       name="ConvProdADownSample")
-        convprod_a_inv = spn.ConvProd2D(convprod_a, num_channels=512, padding='valid', strides=1,
-                                        dilation_rate=2, grid_dim_sizes=[14, 14],
-                                        name="ConvProdAInvalid")
-        self.assertTrue(convprod_a_ds.is_valid())
-        self.assertFalse(convprod_a_inv.is_valid())
-
-        convprod_b = spn.ConvProd2D(vars, num_channels=16, padding='same', strides=1,
-                                    dilation_rate=2, grid_dim_sizes=grid_dims,
-                                    name="ConvProdB")
-        convprod_b_ds = spn.ConvProd2D(convprod_b, num_channels=512, padding='valid', strides=2,
-                                       grid_dim_sizes=[16, 16], name="ConvProdBDownSample")
-        convprod_b_inv = spn.ConvProd2D(convprod_b, num_channels=512, padding='valid', strides=1,
-                                        dilation_rate=2, grid_dim_sizes=[16, 16],
-                                        name="ConvProdBInvalid")
-        self.assertTrue(convprod_b_ds.is_valid())
-        self.assertFalse(convprod_b_inv.is_valid())
-
-        convprod_b_ds2 = spn.ConvProd2D(
-            convprod_b_ds, num_channels=512, padding='same', dilation_rate=2, strides=1,
-            grid_dim_sizes=[8, 8], name="ConvProdBDownSample2")
-
-        self.assertTrue(convprod_b_ds2.is_valid())
-
-        convprod_b_ds_level2 = spn.ConvProd2D(
-            convprod_b_ds2, num_channels=512, padding='same', dilation_rate=2, strides=1,
-            grid_dim_sizes=[8, 8])
-
-        self.assertFalse(convprod_b_ds_level2.is_valid())
-        convprod_b_ds_level2b = spn.ConvProd2D(
-                    convprod_b_ds2, num_channels=512, padding='same', dilation_rate=3, strides=1,
-                    grid_dim_sizes=[8, 8])
-        self.assertFalse(convprod_b_ds_level2b.is_valid())
-
-        convprod_b_ds_level2c = spn.ConvProd2D(
-                    convprod_b_ds2, num_channels=512, padding='same', dilation_rate=4, strides=1,
-                    grid_dim_sizes=[8, 8])
-        self.assertTrue(convprod_b_ds_level2c.is_valid())
-
     @argsprod([spn.DenseSPNGenerator.NodeType.SINGLE,
                spn.DenseSPNGenerator.NodeType.BLOCK,
                spn.DenseSPNGenerator.NodeType.LAYER],
@@ -588,22 +367,22 @@ class TestConvProd(tf.test.TestCase):
             convert_after = True
 
         # First decomposition
-        convprod_dilate0 = spn.ConvProd2D(
-            vars, grid_dim_sizes=grid_dims, num_channels=16, padding='valid', dilation_rate=2,
+        convprod_dilate0 = spn.ConvProducts(
+            vars, spatial_dim_sizes=grid_dims, num_channels=16, padding='valid', dilation_rate=2,
             strides=1, kernel_size=2)
-        convprod_dilate1 = spn.ConvProd2D(
-            convprod_dilate0, grid_dim_sizes=[6, 6], num_channels=512, padding='valid',
+        convprod_dilate1 = spn.ConvProducts(
+            convprod_dilate0, spatial_dim_sizes=[6, 6], num_channels=512, padding='valid',
             dilation_rate=1, strides=4, kernel_size=2)
-        convsum_dilate = spn.ConvSum(convprod_dilate1, num_channels=2, grid_dim_sizes=[2, 2])
+        convsum_dilate = spn.ConvSums(convprod_dilate1, num_channels=2, spatial_dim_sizes=[2, 2])
 
         # Second decomposition
-        convprod_stride0 = spn.ConvProd2D(
-            vars, grid_dim_sizes=grid_dims, num_channels=16, padding='valid', dilation_rate=1,
+        convprod_stride0 = spn.ConvProducts(
+            vars, spatial_dim_sizes=grid_dims, num_channels=16, padding='valid', dilation_rate=1,
             strides=2, kernel_size=2)
-        convprod_stride1 = spn.ConvProd2D(
-            convprod_stride0, grid_dim_sizes=[4, 4], num_channels=512, padding='valid',
+        convprod_stride1 = spn.ConvProducts(
+            convprod_stride0, spatial_dim_sizes=[4, 4], num_channels=512, padding='valid',
             dilation_rate=1, strides=2, kernel_size=2)
-        convsum_stride = spn.ConvSum(convprod_stride1, num_channels=2, grid_dim_sizes=[2, 2])
+        convsum_stride = spn.ConvSums(convprod_stride1, num_channels=2, spatial_dim_sizes=[2, 2])
 
         dense_gen = spn.DenseSPNGenerator(
             num_mixtures=2, num_decomps=1, num_subsets=2, node_type=node_type,
@@ -645,40 +424,40 @@ class TestConvProd(tf.test.TestCase):
             convert_after = True
 
         # First decomposition
-        convprod_dilate0 = spn.ConvProd2D(
-            vars, grid_dim_sizes=grid_dims, num_channels=16, padding='valid', dilation_rate=2,
+        convprod_dilate0 = spn.ConvProducts(
+            vars, spatial_dim_sizes=grid_dims, num_channels=16, padding='valid', dilation_rate=2,
             strides=1, kernel_size=2)
-        convprod_dilate1 = spn.ConvProd2D(
-            convprod_dilate0, grid_dim_sizes=[30, 30], num_channels=512, padding='valid',
+        convprod_dilate1 = spn.ConvProducts(
+            convprod_dilate0, spatial_dim_sizes=[30, 30], num_channels=512, padding='valid',
             dilation_rate=1, strides=4, kernel_size=2)
-        convsum_dilate = spn.ConvSum(convprod_dilate1, num_channels=2, grid_dim_sizes=[8, 8])
+        convsum_dilate = spn.ConvSums(convprod_dilate1, num_channels=2, spatial_dim_sizes=[8, 8])
 
         # Second decomposition
-        convprod_stride0 = spn.ConvProd2D(
-            vars, grid_dim_sizes=grid_dims, num_channels=16, padding='valid', dilation_rate=1,
+        convprod_stride0 = spn.ConvProducts(
+            vars, spatial_dim_sizes=grid_dims, num_channels=16, padding='valid', dilation_rate=1,
             strides=2, kernel_size=2)
-        convprod_stride1 = spn.ConvProd2D(
-            convprod_stride0, grid_dim_sizes=[16, 16], num_channels=512, padding='valid',
+        convprod_stride1 = spn.ConvProducts(
+            convprod_stride0, spatial_dim_sizes=[16, 16], num_channels=512, padding='valid',
             dilation_rate=1, strides=2, kernel_size=2)
-        convsum_stride = spn.ConvSum(convprod_stride1, num_channels=2, grid_dim_sizes=[8, 8])
+        convsum_stride = spn.ConvSums(convprod_stride1, num_channels=2, spatial_dim_sizes=[8, 8])
 
         # First decomposition level 2
-        convprod_dilate0_l2 = spn.ConvProd2D(
-            convsum_stride, convsum_dilate, grid_dim_sizes=[8, 8], num_channels=512,
+        convprod_dilate0_l2 = spn.ConvProducts(
+            convsum_stride, convsum_dilate, spatial_dim_sizes=[8, 8], num_channels=512,
             padding='valid', dilation_rate=2, strides=1, kernel_size=2)
-        convprod_dilate1_l2 = spn.ConvProd2D(
-            convprod_dilate0_l2, grid_dim_sizes=[6, 6], num_channels=512, padding='valid',
+        convprod_dilate1_l2 = spn.ConvProducts(
+            convprod_dilate0_l2, spatial_dim_sizes=[6, 6], num_channels=512, padding='valid',
             dilation_rate=1, kernel_size=2, strides=4)
-        convsum_dilate_l2 = spn.ConvSum(convprod_dilate1_l2, num_channels=2, grid_dim_sizes=[4, 4])
+        convsum_dilate_l2 = spn.ConvSums(convprod_dilate1_l2, num_channels=2, spatial_dim_sizes=[4, 4])
         
         # Second decomposition level 2
-        convprod_stride0_l2 = spn.ConvProd2D(
-            convsum_stride, convsum_dilate, grid_dim_sizes=[8, 8], num_channels=512,
+        convprod_stride0_l2 = spn.ConvProducts(
+            convsum_stride, convsum_dilate, spatial_dim_sizes=[8, 8], num_channels=512,
             padding='valid', dilation_rate=1, strides=2, kernel_size=2)
-        convprod_stride1_l2 = spn.ConvProd2D(
-            convprod_stride0_l2, grid_dim_sizes=[4, 4], num_channels=512,
+        convprod_stride1_l2 = spn.ConvProducts(
+            convprod_stride0_l2, spatial_dim_sizes=[4, 4], num_channels=512,
             padding='valid', dilation_rate=1, strides=2, kernel_size=2)
-        convsum_stride_l2 = spn.ConvSum(convprod_stride1_l2, num_channels=2, grid_dim_sizes=[4, 4])
+        convsum_stride_l2 = spn.ConvSums(convprod_stride1_l2, num_channels=2, spatial_dim_sizes=[4, 4])
 
         dense_gen = spn.DenseSPNGenerator(
             num_mixtures=2, num_decomps=1, num_subsets=2, node_type=node_type,
@@ -701,112 +480,3 @@ class TestConvProd(tf.test.TestCase):
 
         self.assertAllClose(value_out, 0.0)
 
-    @argsprod([spn.DenseSPNGenerator.NodeType.SINGLE,
-               spn.DenseSPNGenerator.NodeType.BLOCK,
-               spn.DenseSPNGenerator.NodeType.LAYER],
-              [spn.DenseSPNGenerator.InputDist.RAW,
-               spn.DenseSPNGenerator.InputDist.MIXTURE])
-    def test_conv_spn(self, node_type, input_dist):
-        input_channels = 2
-        grid_dims = [32, 32]
-        num_vars = grid_dims[0] * grid_dims[1]
-        vars = spn.IndicatorLeaf(num_vars=num_vars, num_vals=input_channels)
-
-        conv_spn_gen = ConvSPN()
-
-        convert_after = False
-        if input_dist == spn.DenseSPNGenerator.InputDist.RAW and \
-                node_type in [spn.DenseSPNGenerator.NodeType.BLOCK,
-                              spn.DenseSPNGenerator.NodeType.LAYER]:
-            node_type = spn.DenseSPNGenerator.NodeType.SINGLE
-            convert_after = True
-
-        convsum_dilate = conv_spn_gen.add_dilate_stride(
-            vars, prod_num_channels=16, sum_num_channels=2, spatial_dims=grid_dims)
-        convsum_stride = conv_spn_gen.add_double_stride(
-            vars, prod_num_channels=16, sum_num_channels=2, spatial_dims=grid_dims)
-        grid_dims = [grid_dims[0] // 4, grid_dims[1] // 4]
-        convsum_dilate_level2 = conv_spn_gen.add_dilate_stride(
-            convsum_dilate, convsum_stride, prod_num_channels=16, sum_num_channels=2,
-            spatial_dims=grid_dims)
-        convsum_stride_level2 = conv_spn_gen.add_double_stride(
-            convsum_dilate, convsum_stride, prod_num_channels=16, sum_num_channels=2,
-            spatial_dims=grid_dims)
-
-        dense_gen = spn.DenseSPNGenerator(
-            num_mixtures=2, num_decomps=1, num_subsets=2, node_type=node_type,
-            input_dist=input_dist)
-        root = dense_gen.generate(convsum_stride_level2, convsum_dilate_level2)
-        if convert_after:
-            root = dense_gen.convert_to_layer_nodes(root)
-
-        # Assert valid
-        self.assertTrue(root.is_valid())
-
-        # Setup the remaining Ops
-        spn.generate_weights(root)
-        init = spn.initialize_weights(root)
-        value_op = tf.squeeze(root.get_log_value())
-
-        with self.test_session() as sess:
-            sess.run(init)
-            value_out = sess.run(value_op, {vars: -np.ones((1, num_vars), dtype=np.int32)})
-
-        self.assertAllClose(value_out, 0.0)
-
-    @argsprod([spn.DenseSPNGenerator.NodeType.SINGLE,
-               spn.DenseSPNGenerator.NodeType.BLOCK,
-               spn.DenseSPNGenerator.NodeType.LAYER],
-              [spn.DenseSPNGenerator.InputDist.RAW,
-               spn.DenseSPNGenerator.InputDist.MIXTURE])
-    def test_conv_spn_pad_decomps(self, node_type, input_dist):
-        input_channels = 2
-        grid_dims = [28, 28]
-        num_vars = grid_dims[0] * grid_dims[1]
-        vars = spn.IndicatorLeaf(num_vars=num_vars, num_vals=input_channels)
-
-        conv_spn_gen = ConvSPN()
-
-        convert_after = False
-        if input_dist == spn.DenseSPNGenerator.InputDist.RAW and \
-                node_type in [spn.DenseSPNGenerator.NodeType.BLOCK,
-                              spn.DenseSPNGenerator.NodeType.LAYER]:
-            node_type = spn.DenseSPNGenerator.NodeType.SINGLE
-            convert_after = True
-
-        convsum_dilate = conv_spn_gen.add_dilate_stride(
-            vars, prod_num_channels=16, sum_num_channels=2, spatial_dims=grid_dims)
-        convsum_stride = conv_spn_gen.add_double_stride(
-            vars, prod_num_channels=16, sum_num_channels=2, spatial_dims=grid_dims)
-
-        convsum_dilate_pad = conv_spn_gen.add_dilate_stride(
-            vars, prod_num_channels=16, sum_num_channels=2, pad_all=(2, 0),
-            spatial_dims=grid_dims)
-        convsum_stride_pad = conv_spn_gen.add_double_stride(
-            vars, prod_num_channels=16, sum_num_channels=2, pad_all=(0, 1),
-            spatial_dims=grid_dims)
-
-        dense_gen = spn.DenseSPNGenerator(
-            num_mixtures=2, num_decomps=1, num_subsets=2, node_type=node_type,
-            input_dist=input_dist)
-        root_no_pad = dense_gen.generate(convsum_dilate, convsum_stride)
-        root_pad = dense_gen.generate(convsum_dilate_pad, convsum_stride_pad)
-        if convert_after:
-            root_no_pad = dense_gen.convert_to_layer_nodes(root_no_pad)
-            root_pad = dense_gen.convert_to_layer_nodes(root_pad)
-
-        root = spn.Sum(root_no_pad, root_pad, name="Root")
-
-        # Assert valid
-        self.assertTrue(root.is_valid())
-
-        # Setup the remaining Ops
-        spn.generate_weights(root)
-        init = spn.initialize_weights(root)
-        value_op = tf.squeeze(root.get_log_value())
-
-        with self.test_session() as sess:
-            sess.run(init)
-            value_out = sess.run(value_op, {vars: -np.ones((1, num_vars), dtype=np.int32)})
-
-        self.assertAllClose(value_out, 0.0)

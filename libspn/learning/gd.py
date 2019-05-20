@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from libspn import BlockSum
-from libspn.graph.op.basesum import BaseSum
+from libspn.graph.op.base_sum import BaseSum
 
 from libspn.inference.value import LogValue
 from libspn.graph.algorithms import traverse_graph
@@ -23,7 +23,7 @@ class GDLearning:
         learning_task_type (LearningTaskType): Learning type used while learning.
         learning_method (LearningMethodType): Learning method type, can be either generative
             (LearningMethodType.GENERATIVE) or discriminative (LearningMethodType.DISCRIMINATIVE).
-        marginalizing_root (Sum, ParSums, SumsLayer): A sum node without IndicatorLeafs attached to
+        marginalizing_root (Sum, ParallelSums, SumsLayer): A sum node without IndicatorLeafs attached to
             it (or IndicatorLeafs with a fixed no-evidence feed). If it is omitted here, the node
             will constructed internally once needed.
         name (str): The name given to this instance of GDLearning.
@@ -33,7 +33,7 @@ class GDLearning:
 
     __logger = get_logger()
 
-    def __init__(self, root, value=None, value_inference_type=None, dropconnect_keep_prob=None,
+    def __init__(self, root, value=None, value_inference_type=None,
                  learning_task_type=LearningTaskType.SUPERVISED,
                  learning_method=LearningMethodType.DISCRIMINATIVE,
                  learning_rate=1e-4, marginalizing_root=None, name="GDLearning",
@@ -46,10 +46,6 @@ class GDLearning:
 
         self._root = root
         self._marginalizing_root = marginalizing_root
-        if self._turn_off_dropconnect_root(dropconnect_keep_prob, learning_task_type):
-            self._root.set_dropconnect_keep_prob(1.0)
-            if self._marginalizing_root is not None:
-                self._marginalizing_root.set_dropconnect_keep_prob(1.0)
 
         if value is not None and isinstance(value, LogValue):
             self._log_value = value
@@ -59,17 +55,31 @@ class GDLearning:
                     "{}: Value instance is ignored since the current implementation does "
                     "not support gradients with non-log inference. Using a LogValue instance "
                     "instead.".format(name))
-            self._log_value = LogValue(
-                value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob)
+            self._log_value = LogValue(value_inference_type)
         self._learning_rate = learning_rate
         self._learning_task_type = learning_task_type
         self._learning_method = learning_method
         self._l1_regularize_coeff = l1_regularize_coeff
         self._l2_regularize_coeff = l2_regularize_coeff
-        self._dropconnect_keep_prob = dropconnect_keep_prob
         self._name = name
         self._global_step = global_step
         self._linear_w_minimum = linear_w_minimum
+
+    def loss(self, learning_method=None, reduce_fn=tf.reduce_mean):
+        """Assembles main objective operations. In case of generative learning it will select
+        the MLE objective, whereas in discriminative learning it selects the cross entropy.
+
+        Args:
+            learning_method (LearningMethodType): The learning method (can be either generative
+                or discriminative).
+
+        Returns:
+            An operation to compute the main loss function.
+        """
+        learning_method = learning_method or self._learning_method
+        if learning_method == LearningMethodType.GENERATIVE:
+            return self.negative_log_likelihood(reduce_fn=reduce_fn)
+        return self.cross_entropy_loss(reduce_fn=reduce_fn)
 
     def learn(self, loss=None, gradient_type=None, optimizer=None, post_gradient_ops=True,
               name="LearnGD"):
@@ -110,26 +120,6 @@ class GDLearning:
                 else:
                     return minimize, loss
 
-    def loss(self, learning_method=None, dropconnect_keep_prob=None, reduce_fn=tf.reduce_mean):
-        """Assembles main objective operations. In case of generative learning it will select
-        the MLE objective, whereas in discriminative learning it selects the cross entropy.
-
-        Args:
-            learning_method (LearningMethodType): The learning method (can be either generative
-                or discriminative).
-            dropconnect_keep_prob (float or Tensor): The dropconnect keep probability to use.
-                Overrides the value of GDLearning._dropconnect_keep_prob
-
-        Returns:
-            An operation to compute the main loss function.
-        """
-        learning_method = learning_method or self._learning_method
-        if learning_method == LearningMethodType.GENERATIVE:
-            return self.negative_log_likelihood(
-                dropconnect_keep_prob=dropconnect_keep_prob, reduce_fn=reduce_fn)
-        return self.cross_entropy_loss(
-            dropconnect_keep_prob=dropconnect_keep_prob, reduce_fn=reduce_fn)
-
     def post_gradient_update(self, update_op):
         """Constructs post-parameter update ops such as normalization of weights and clipping of
         scale parameters of NormalLeaf nodes.
@@ -160,29 +150,22 @@ class GDLearning:
                     traverse_graph(self._root, fun=fun)
             return tf.group(*weight_norm_ops, name="weight_norm")
 
-    def cross_entropy_loss(self, name="CrossEntropy", reduce_fn=tf.reduce_mean,
-                           dropconnect_keep_prob=None):
+    def cross_entropy_loss(self, name="CrossEntropy", reduce_fn=tf.reduce_mean):
         """Sets up the cross entropy loss, which is equivalent to -log(p(Y|X)).
 
         Args:
             name (str): Name of the name scope for the Ops defined here
             reduce_fn (Op): An operation that reduces the losses for all samples to a scalar.
-            dropconnect_keep_prob (float or Tensor): Keep probability for dropconnect, will
-                override the value of GDLearning._dropconnect_keep_prob.
 
         Returns:
             A Tensor corresponding to the cross-entropy loss.
         """
-        dropconnect_keep_prob = dropconnect_keep_prob if dropconnect_keep_prob is None else \
-            self._dropconnect_keep_prob
         with tf.name_scope(name):
-            log_prob_data_and_labels = LogValue(
-                dropconnect_keep_prob=dropconnect_keep_prob).get_value(self._root)
-            log_prob_data = self._log_likelihood(dropconnect_keep_prob=dropconnect_keep_prob)
+            log_prob_data_and_labels = LogValue().get_value(self._root)
+            log_prob_data = self._log_likelihood()
             return -reduce_fn(log_prob_data_and_labels - log_prob_data)
 
-    def negative_log_likelihood(self, name="NegativeLogLikelihood", reduce_fn=tf.reduce_mean,
-                                dropconnect_keep_prob=None):
+    def negative_log_likelihood(self, name="NegativeLogLikelihood", reduce_fn=tf.reduce_mean):
         """Returns the maximum (log) likelihood estimate loss function which corresponds to
         -log(p(X)) in the case of unsupervised learning or -log(p(X,Y)) in the case of supservised
         learning.
@@ -191,15 +174,13 @@ class GDLearning:
             name (str): The name for the name scope to use
             reduce_fn (function): An function that returns an operation that reduces the losses for
                 all samples to a scalar.
-            dropconnect_keep_prob (float or Tensor): Keep probability for dropconnect, will
-                override the value of GDLearning._dropconnect_keep_prob.
         Returns:
             A Tensor corresponding to the MLE loss
         """
         with tf.name_scope(name):
             if self._learning_task_type == LearningTaskType.UNSUPERVISED:
                 if self._root.latent_indicators is not None:
-                    likelihood = self._log_likelihood(dropconnect_keep_prob=dropconnect_keep_prob)
+                    likelihood = self._log_likelihood()
                 else:
                     likelihood = self._log_value.get_value(self._root)
             elif self._root.latent_indicators is None:
@@ -209,9 +190,8 @@ class GDLearning:
                 likelihood = self._log_value.get_value(self._root)
             return -reduce_fn(likelihood)
 
-    def _log_likelihood(self, learning_task_type=None, dropconnect_keep_prob=None):
+    def _log_likelihood(self):
         """Computes log(p(X)) by creating a copy of the root node without latent indicators.
-        Also turns off dropconnect at the root if necessary.
 
         Returns:
             A Tensor of shape [batch, 1] corresponding to the log likelihood of the data.
@@ -222,10 +202,6 @@ class GDLearning:
         else:
             marginalizing_root = self._marginalizing_root or BlockSum(
                 self._root.values[0], weights=self._root.weights, num_sums_per_block=1)
-        learning_task_type = learning_task_type or self._learning_task_type
-        dropconnect_keep_prob = dropconnect_keep_prob or self._dropconnect_keep_prob
-        if self._turn_off_dropconnect_root(dropconnect_keep_prob, learning_task_type):
-            marginalizing_root.set_dropconnect_keep_prob(1.0)
         return self._log_value.get_value(marginalizing_root)
 
     def regularization_loss(self, name="Regularization"):
@@ -250,11 +226,4 @@ class GDLearning:
 
             traverse_graph(self._root, fun=regularize_node)
             return tf.add_n(losses) if losses else tf.constant(0.0)
-
-    @staticmethod
-    def _turn_off_dropconnect_root(dropconnect_keep_prob, learning_task_type):
-        """Determines whether to turn off dropconnect for the root node. """
-        return dropconnect_keep_prob is not None and \
-            (not isinstance(dropconnect_keep_prob, (int, float)) or dropconnect_keep_prob == 1.0) \
-            and learning_task_type == LearningTaskType.SUPERVISED
 

@@ -1,9 +1,9 @@
 import tensorflow as tf
 from types import MappingProxyType
 from libspn.graph.algorithms import compute_graph_up
-from libspn.graph.op.spatialsum import SpatialSum
+from libspn.graph.op.spatial_sums import SpatialSums
 from libspn.inference.type import InferenceType
-from libspn.graph.op.basesum import BaseSum
+from libspn.graph.op.base_sum import BaseSum
 
 
 
@@ -20,11 +20,9 @@ class LogValue:
             MPE inference will be used for all nodes.
     """
 
-    def __init__(self, inference_type=None, dropconnect_keep_prob=None, name="LogValue",
-                 matmul_or_conv=True):
+    def __init__(self, inference_type=None,  name="LogValue", matmul_or_conv=True):
         self._inference_type = inference_type
         self._values = {}
-        self._dropconnect_keep_prob = dropconnect_keep_prob
         self._name = name
         self._matmul_or_conv = matmul_or_conv
 
@@ -53,16 +51,12 @@ class LogValue:
             dimension corresponds to the batch size.
         """
         def fun(node, *args):
-            if self._dropconnect_keep_prob and isinstance(node, BaseSum):
-                kwargs = dict(
-                    dropconnect_keep_prob=self._dropconnect_keep_prob)
-            else:
-                kwargs = dict()
+            kwargs = dict()
             with tf.name_scope(node.name):
                 if (self._inference_type == InferenceType.MARGINAL
                     or (self._inference_type is None and
                         node.inference_type == InferenceType.MARGINAL)):
-                    if isinstance(node, SpatialSum):
+                    if isinstance(node, SpatialSums):
                         kwargs['matmul_or_conv'] = self._matmul_or_conv
                     return node._compute_log_value(*args, **kwargs)
                 else:
@@ -86,9 +80,8 @@ class Value(LogValue):
             MPE inference will be used for all nodes.
     """
 
-    def __init__(self, inference_type=None, dropconnect_keep_prob=None, name="Value"):
-        super().__init__(
-            inference_type=inference_type, dropconnect_keep_prob=dropconnect_keep_prob, name=name)
+    def __init__(self, inference_type=None, name="Value"):
+        super().__init__(inference_type=inference_type, name=name)
 
     def log(self):
         return False

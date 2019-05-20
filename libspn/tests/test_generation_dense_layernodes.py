@@ -154,7 +154,7 @@ class TestDenseSPNGenerator(TestCase):
             if node_type == spn.DenseSPNGenerator.NodeType.SINGLE:
                 sums_lower.append([spn.Sum(*prods) for _ in range(num_top_mix)])
             elif node_type == spn.DenseSPNGenerator.NodeType.BLOCK:
-                sums_lower.append([spn.ParSums(*prods, num_sums=num_top_mix)])
+                sums_lower.append([spn.ParallelSums(*prods, num_sums=num_top_mix)])
             else:
                 sums_lower.append([spn.SumsLayer(*prods * num_top_mix,
                                                  num_or_size_sums=num_top_mix)])

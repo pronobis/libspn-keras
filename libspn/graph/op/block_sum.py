@@ -44,21 +44,17 @@ class BlockSum(BlockNode):
     def _compute_out_size(self, *input_out_sizes):
         pass
 
-    def __init__(self, child, num_sums_per_block, weights=None, latent_ivs=None,
-                 inference_type=InferenceType.MARGINAL, masked=False, sample_prob=None,
-                 dropconnect_keep_prob=None, name="TensorSum", input_format="SDBN",
-                 output_format="SDBN"):
+    def __init__(self, child, num_sums_per_block, weights=None, latent_indicators=None,
+                 inference_type=InferenceType.MARGINAL, sample_prob=None,
+                 name="BlockSum", input_format="SDBN", output_format="SDBN"):
         super().__init__(inference_type=inference_type, name=name,
                          input_format=input_format, output_format=output_format)
         self.set_values(child)
         self.set_weights(weights)
-        self.set_latent_indicator(latent_ivs)
+        self.set_latent_indicator(latent_indicators)
 
         # Set the sampling probability and sampling type
         self._sample_prob = sample_prob
-
-        # Set dropconnect and dropout probabilities
-        self._dropconnect_keep_prob = dropconnect_keep_prob
 
         self._num_sums = num_sums_per_block
 
@@ -96,13 +92,6 @@ class BlockSum(BlockNode):
         return (self._weights, self._latent_indicator) + self._values
 
     @property
-    def dropconnect_keep_prob(self):
-        return self._dropconnect_keep_prob
-
-    def set_dropconnect_keep_prob(self, p):
-        self._dropconnect_keep_prob = p
-
-    @property
     def weights(self):
         """Input: Weights input."""
         return self._weights
@@ -119,32 +108,6 @@ class BlockSum(BlockNode):
         if weights and not isinstance(weights.node, (Weights, BlockWeights)):
             raise StructureError("%s is not Weights" % weights.node)
         self._weights = weights
-
-    @utils.lru_cache
-    def _create_dropconnect_mask(
-            self, keep_prob, to_be_masked, enforce_one_axis=-1, name="DropconnectMask"):
-        with tf.name_scope(name):
-            shape = tf.shape(to_be_masked)
-            drop_mask = tf.random_uniform(shape=shape, minval=0.0, maxval=1.0)
-            # To ensure numerical stability and the opportunity to always learn something,
-            # we enforce at least a single 'True' value along the last axis (sum axis) by comparing
-            # the randomly drawn floats with their minimum and setting True in case of equality.
-            # return tf.less(mask, keep_prob)
-            if self._masked:
-                rank = tf.size(shape)
-                size_mask = tf.reshape(
-                    self._build_mask(),
-                    tf.concat([tf.ones(rank - 2, dtype=tf.int32),
-                               [self._num_sums, self._max_sum_size]], axis=0))
-                size_mask = tf.tile(size_mask, tf.concat([shape[:rank - 2], [1, 1]], axis=0))
-                drop_mask = tf.where(
-                    size_mask, drop_mask, tf.ones_like(size_mask, dtype=tf.float32) * 1e20)
-
-            if enforce_one_axis is None:
-                return tf.less(drop_mask, keep_prob)
-            mask_min = tf.reduce_min(drop_mask, axis=enforce_one_axis, keepdims=True)
-            out = tf.logical_or(tf.equal(drop_mask, mask_min), tf.less(drop_mask, keep_prob))
-            return out
 
     @property
     def latent_indicators(self):
@@ -266,24 +229,19 @@ class BlockSum(BlockNode):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_value(self, w_log_prob, latent_indicator_log_prob, child_log_prob,
-                           dropconnect_keep_prob=None, with_ivs=True):
-        if latent_indicator_log_prob is None and dropconnect_keep_prob is not None and \
-                tensor_util.constant_value(dropconnect_keep_prob) != 1.0:
-            mask = self._create_dropconnect_mask(dropconnect_keep_prob, to_be_masked=child_log_prob)
-            child_log_prob += tf.log(mask)
-
+    def _compute_log_value(
+            self, w_log_prob, latent_indicator_log_prob, child_log_prob):
         return utils.logmatmul(
-            self._compute_apply_ivs(child_log_prob, latent_indicator_log_prob), w_log_prob)
+            self._compute_apply_latent_indicators(child_log_prob, latent_indicator_log_prob), w_log_prob)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_value(self, w_tensor, ivs_tensor, child_log_prob, with_ivs=True,
-                               dropconnect_keep_prob=None):
-        return tf.reduce_max(self._compute_weighted(child_log_prob, w_tensor, ivs_tensor), axis=3)
+    def _compute_log_mpe_value(self, w_tensor, latent_indicator_tensor, child_log_prob):
+        return tf.reduce_max(
+            self._compute_weighted(child_log_prob, w_tensor, latent_indicator_tensor), axis=3)
 
     @utils.lru_cache
-    def _compute_apply_ivs(self, child_log_prob, latent_indicator_log_prob):
+    def _compute_apply_latent_indicators(self, child_log_prob, latent_indicator_log_prob):
         if latent_indicator_log_prob is not None:
             if self.dim_scope != 1 or self.dim_decomps != 1:
                 raise NotImplementedError("{}: scope dim and decomposition dim must be 1 to "
@@ -293,21 +251,21 @@ class BlockSum(BlockNode):
         return child_log_prob
 
     @utils.lru_cache
-    def _compute_weighted(self, child, w_tensor, ivs_tensor):
-        child = self._compute_apply_ivs(child, ivs_tensor)
+    def _compute_weighted(self, child, w_tensor, latent_indicator_tensor):
+        child = self._compute_apply_latent_indicators(child, latent_indicator_tensor)
         return tf.expand_dims(child, axis=4) + tf.expand_dims(w_tensor, axis=2)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_path(self, counts, w_tensor, ivs_tensor, child_log_prob,
-                              use_unweighted=False, add_random=None, sum_weight_grads=False,
-                              sample=False, sample_prob=None, dropconnect_keep_prob=None):
+    def _compute_log_mpe_path(self, counts, w_tensor, latent_indicator_tensor, child_log_prob,
+                              use_unweighted=False, sum_weight_grads=False, sample=False,
+                              sample_prob=None):
         if use_unweighted:
             winning_indices = utils.argmax_breaking_ties(
-                self._compute_apply_ivs(child_log_prob, ivs_tensor),
+                self._compute_apply_latent_indicators(child_log_prob, latent_indicator_tensor),
                 num_samples=self.child.dim_nodes, keepdims=True)
         else:
-            weighted = self._compute_weighted(child_log_prob, w_tensor, ivs_tensor)
+            weighted = self._compute_weighted(child_log_prob, w_tensor, latent_indicator_tensor)
             winning_indices = utils.argmax_breaking_ties(weighted, axis=-2)
 
         # Paths has shape [scope, decomp, batch, node_out, node_in]
@@ -316,8 +274,8 @@ class BlockSum(BlockNode):
         child_counts = tf.reduce_sum(paths, axis=3)
         # Get weight counts by summing over batch and transposing last two dims
         weight_counts = tf.transpose(tf.reduce_sum(paths, axis=self._batch_axis), (0, 1, 3, 2))
-        ivs_counts = tf.reshape(child_counts, (-1, self._num_sums))
-        return weight_counts, ivs_counts, child_counts
+        latent_counts = tf.reshape(child_counts, (-1, self._num_sums))
+        return weight_counts, latent_counts, child_counts
 
     def _get_flat_value_scopes(self, weight_scopes, latent_indicator_scopes, *value_scopes):
         """Get a flat representation of the value scopes per sum.
@@ -339,11 +297,11 @@ class BlockSum(BlockNode):
         return list(chain.from_iterable(value_scopes)), latent_indicator_scopes, value_scopes
 
     @utils.docinherit(OpNode)
-    def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):
+    def _compute_scope(self, weight_scopes, latent_scopes, *value_scopes):
         raise NotImplementedError()
 
     @utils.docinherit(OpNode)
-    def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
+    def _compute_valid(self, weight_scopes, latent_scopes, *value_scopes):
         # If already invalid, return None
         raise NotImplementedError()
 

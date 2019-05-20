@@ -14,11 +14,11 @@ class TestBaseSum(tf.test.TestCase):
         num_vals = 4
         batch_size = 256
         num_vars = grid_dims[0] * grid_dims[1]
-        ivs = spn.IndicatorLeaf(num_vars=num_vars, num_vals=num_vals)
+        indicator_leaf = spn.IndicatorLeaf(num_vars=num_vars, num_vals=num_vals)
         num_sums = 32
         weights = spn.Weights(
             num_weights=num_vals, num_sums=num_sums * num_vars,
-            init_value=spn.ValueType.RANDOM_UNIFORM(), log=log_weights)
+            initializer=tf.initializers.random_uniform(), log=log_weights)
 
         weights_per_cell = tf.split(weights.variable, num_or_size_splits=num_vars)
 
@@ -27,37 +27,37 @@ class TestBaseSum(tf.test.TestCase):
             for col in range(ncols):
                 indices = list(range(row * (ncols * num_vals) + col * num_vals,
                                      row * (ncols * num_vals) + (col + 1) * num_vals))
-                parsums.append(spn.ParSums((ivs, indices), num_sums=num_sums))
+                parsums.append(spn.ParallelSums((indicator_leaf, indices), num_sums=num_sums))
 
         parsum_concat = spn.Concat(*parsums, name="ParSumConcat")
-        convsum = spn.LocalSum(
-            ivs, num_channels=num_sums, weights=weights, grid_dim_sizes=grid_dims)
+        convsum = spn.LocalSums(
+            indicator_leaf, num_channels=num_sums, weights=weights, spatial_dim_sizes=grid_dims)
 
-        prod00_conv = spn.PermProducts(
+        prod00_conv = spn.PermuteProducts(
             (convsum, list(range(num_sums))), (convsum, list(range(num_sums, num_sums * 2))),
             name="Prod00")
-        prod01_conv = spn.PermProducts(
+        prod01_conv = spn.PermuteProducts(
             (convsum, list(range(num_sums * 2, num_sums * 3))),
             (convsum, list(range(num_sums * 3, num_sums * 4))),
             name="Prod01")
-        sum00_conv = spn.ParSums(prod00_conv, num_sums=2)
-        sum01_conv = spn.ParSums(prod01_conv, num_sums=2)
+        sum00_conv = spn.ParallelSums(prod00_conv, num_sums=2)
+        sum01_conv = spn.ParallelSums(prod01_conv, num_sums=2)
 
-        prod10_conv = spn.PermProducts(sum00_conv, sum01_conv, name="Prod10")
+        prod10_conv = spn.PermuteProducts(sum00_conv, sum01_conv, name="Prod10")
 
         conv_root = spn.Sum(prod10_conv)
 
-        prod00_pars = spn.PermProducts(
+        prod00_pars = spn.PermuteProducts(
             (parsum_concat, list(range(num_sums))),
             (parsum_concat, list(range(num_sums, num_sums * 2))))
-        prod01_pars = spn.PermProducts(
+        prod01_pars = spn.PermuteProducts(
             (parsum_concat, list(range(num_sums * 2, num_sums * 3))),
             (parsum_concat, list(range(num_sums * 3, num_sums * 4))))
 
-        sum00_pars = spn.ParSums(prod00_pars, num_sums=2)
-        sum01_pars = spn.ParSums(prod01_pars, num_sums=2)
+        sum00_pars = spn.ParallelSums(prod00_pars, num_sums=2)
+        sum01_pars = spn.ParallelSums(prod01_pars, num_sums=2)
 
-        prod10_pars = spn.PermProducts(sum00_pars, sum01_pars)
+        prod10_pars = spn.PermuteProducts(sum00_pars, sum01_pars)
 
         parsum_root = spn.Sum(prod10_pars)
 
@@ -68,10 +68,10 @@ class TestBaseSum(tf.test.TestCase):
 
         self.assertAllEqual(parsum_concat.get_scope(), convsum.get_scope())
 
-        spn.generate_weights(conv_root, log=log_weights, 
-                             init_value=spn.ValueType.RANDOM_UNIFORM())
-        spn.generate_weights(parsum_root, log=log_weights, 
-                             init_value=spn.ValueType.RANDOM_UNIFORM())
+        spn.generate_weights(
+            conv_root, log=log_weights, initializer=tf.initializers.random_uniform())
+        spn.generate_weights(
+            parsum_root, log=log_weights, initializer=tf.initializers.random_uniform())
 
         convsum.set_weights(weights)
         copy_weight_ops = []
@@ -94,8 +94,8 @@ class TestBaseSum(tf.test.TestCase):
         path_parsum = spn.MPEPath(value_inference_type=inference_type)
         path_parsum.get_mpe_path(parsum_root)
 
-        ivs_counts_parsum = path_parsum.counts[ivs]
-        ivs_counts_conv = path_conv.counts[ivs]
+        indicator_counts_parsum = path_parsum.counts[indicator_leaf]
+        indicator_counts_convsum = path_conv.counts[indicator_leaf]
 
         weight_counts_parsum = tf.concat(
             [path_parsum.counts[w] for w in parsum_weight_nodes], axis=1)
@@ -110,34 +110,34 @@ class TestBaseSum(tf.test.TestCase):
         parsum_counts = path_parsum.counts[parsum_concat]
         conv_counts = path_conv.counts[convsum]
 
-        ivs_feed = np.random.randint(-1, 2, size=batch_size * num_vars)\
+        indicator_feed = np.random.randint(-1, 2, size=batch_size * num_vars)\
             .reshape((batch_size, num_vars))
         with tf.Session() as sess:
             sess.run([init_conv, init_parsum])
             sess.run(copy_weights_op)
-            ivs_counts_conv_out, ivs_counts_parsum_out = sess.run(
-                [ivs_counts_conv, ivs_counts_parsum], feed_dict={ivs: ivs_feed})
+            indicator_counts_conv_out, indicator_counts_parsum_out = sess.run(
+                [indicator_counts_convsum, indicator_counts_parsum], feed_dict={indicator_leaf: indicator_feed})
 
             root_conv_value_out, root_parsum_value_out = sess.run(
-                [root_val_conv, root_val_parsum], feed_dict={ivs: ivs_feed})
+                [root_val_conv, root_val_parsum], feed_dict={indicator_leaf: indicator_feed})
 
             weight_counts_conv_out, weight_counts_parsum_out = sess.run(
-                [weight_counts_conv, weight_counts_parsum], feed_dict={ivs: ivs_feed})
+                [weight_counts_conv, weight_counts_parsum], feed_dict={indicator_leaf: indicator_feed})
 
             weight_value_conv_out, weight_value_parsum_out = sess.run(
                 [convsum.weights.node.variable, weight_parsum_concat])
 
             parsum_counts_out, conv_counts_out = sess.run(
-                [parsum_counts, conv_counts], feed_dict={ivs: ivs_feed})
+                [parsum_counts, conv_counts], feed_dict={indicator_leaf: indicator_feed})
 
             parsum_concat_val, convsum_val = sess.run(
                 [path_parsum.value.values[parsum_concat], path_conv.value.values[convsum]],
-                feed_dict={ivs: ivs_feed})
+                feed_dict={indicator_leaf: indicator_feed})
 
         self.assertAllClose(convsum_val, parsum_concat_val)
         self.assertAllClose(weight_value_conv_out, weight_value_parsum_out)
         self.assertAllClose(root_conv_value_out, root_parsum_value_out)
-        self.assertAllEqual(ivs_counts_conv_out, ivs_counts_parsum_out)
+        self.assertAllEqual(indicator_counts_conv_out, indicator_counts_parsum_out)
         self.assertAllEqual(parsum_counts_out, conv_counts_out)
         self.assertAllEqual(weight_counts_conv_out, weight_counts_parsum_out)
 

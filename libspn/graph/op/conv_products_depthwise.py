@@ -3,21 +3,27 @@ import libspn.utils as utils
 import tensorflow as tf
 from libspn.exceptions import StructureError
 from libspn.log import get_logger
-from libspn.graph.op.convprod2d import ConvProd2D
-from libspn import conf
+from libspn.graph.op.conv_products import ConvProducts
 
 
 @utils.register_serializable
-class ConvProdDepthWise(ConvProd2D):
+class ConvProductsDepthwise(ConvProducts):
     """A container representing convolutional products in an SPN.
 
     Args:
         *values (input_like): Inputs providing input values to this container.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (int): Number of Sum ops modelled by this container.
-        weights (input_like): Input providing weights container to this sum container.
-            See :meth:`~libspn.Input.as_input` for possible values. If set
-            to ``None``, the input is disconnected.
+        num_channels (int): Number of channels modeled by this node. This parameter is optional.
+            If ``None``, the layer will attempt to generate all possible permutations of channels
+            under a patch as long as it is under ``num_channels_max``.
+        padding (str): Type of padding used. Can be either, 'full', 'valid' or 'wicker_top'.
+            For building Wicker CSPNs, 'full' padding is necessary in all but the very last
+            ConvProducts node. The last ConvProducts node should take the 'wicker_top' padding algorithm
+        dilation_rate (int or tuple of ints): Dilation rate of the convolution.
+        strides (int or tuple of ints): Strides used for the convolution.
+        spatial_dim_sizes (list or tuple of ints): Dim sizes of spatial dimensions (height and width)
+        num_channels_max (int): The maximum number of channels when automatically generating
+            permutations.
         name (str): Name of the container.
 
     Attributes:
@@ -33,25 +39,22 @@ class ConvProdDepthWise(ConvProd2D):
 
     def __init__(self, *values, padding='valid', dilation_rate=1,
                  strides=2, kernel_size=2, inference_type=InferenceType.MARGINAL,
-                 name="ConvProdDepthWise", grid_dim_sizes=None):
-        super().__init__(*values, inference_type=inference_type, name=name,
-                         grid_dim_sizes=grid_dim_sizes, strides=strides,
-                         kernel_size=kernel_size, padding=padding,
-                         dilation_rate=dilation_rate)
+                 name="ConvProductsDepthwise", spatial_dim_sizes=None):
+        super().__init__(
+            *values, inference_type=inference_type, name=name, spatial_dim_sizes=spatial_dim_sizes,
+            strides=strides, kernel_size=kernel_size, padding=padding, dilation_rate=dilation_rate)
         self._num_channels = self._num_input_channels()
 
     @utils.lru_cache
-    def _compute_log_value(self, *input_tensors, dropout_keep_prob=None):
+    def _compute_log_value(self, *input_tensors):
         # Concatenate along channel axis
         concat_inp = self._prepare_convolutional_processing(*input_tensors)
 
-        # Convolve
-        # TODO, this the quickest workaround for TensorFlow's apparent optimization whenever
+        # This the quickest workaround for TensorFlow's apparent optimization whenever
         # part of the kernel computation involves a -inf:
-        # TODO the use of NHWC resulted in errors thrown for having dilation rates > 1, seemed
-        # to be a TF debug. Now we transpose before and after
         concat_inp = tf.where(
             tf.is_inf(concat_inp), tf.fill(tf.shape(concat_inp), value=-1e20), concat_inp)
+        # Convolve
         conv_out = tf.nn.conv2d(
             input=self._channels_to_batch(concat_inp),
             filter=tf.ones(self._kernel_size + [1, 1]),
@@ -87,10 +90,10 @@ class ConvProdDepthWise(ConvProd2D):
             input_sizes=tf.shape(inp_concat),
             filter=tf.ones(self._kernel_size + [1, 1]),
             out_backprop=spatial_counts,
-            strides=[1, 1] + self._strides,  # [1] + self._strides + [1],
+            strides=[1, 1] + self._strides,
             padding='VALID',
             dilations=[1, 1] + self._dilation_rate,
-            data_format="NCHW")  # [1] + self._dilation_rate + [1])
+            data_format="NCHW")
 
         input_counts = self._batch_to_channels(input_counts)
 

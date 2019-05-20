@@ -1,17 +1,16 @@
 from collections import deque
 from libspn import utils
-from libspn.graph.op.convprod2d import ConvProd2D
+from libspn.graph.op.conv_products import ConvProducts
 from libspn.graph.node import Input
 from libspn.graph.op.sum import Sum
-from libspn.graph.stridedslice import StridedSlice2D
-from libspn.graph.op.parsums import ParSums
+from libspn.graph.op.parallel_sums import ParallelSums
 from libspn.graph.op.sumslayer import SumsLayer
 from libspn.graph.op.product import Product
-from libspn.graph.op.permproducts import PermProducts
-from libspn.graph.op.productslayer import ProductsLayer
+from libspn.graph.op.permute_products import PermuteProducts
+from libspn.graph.op.products_layer import ProductsLayer
 from libspn.graph.op.concat import Concat
-from libspn.graph.op.convsum import ConvSum
-from libspn.graph.op.localsum import LocalSum
+from libspn.graph.op.conv_sums import ConvSums
+from libspn.graph.op.local_sums import LocalSums
 from libspn.graph.algorithms import traverse_graph
 from libspn.log import get_logger
 from libspn.exceptions import StructureError
@@ -42,7 +41,7 @@ class DenseSPNGenerator:
         balanced (bool): Use only balanced decompositions, into subsets of
                          similar cardinality (differing by max 1).
         node_type (NodeType): Determines the type of op-node - single (Sum, Product),
-                              block (ParSums, PermProducts) or layer (SumsLayer,
+                              block (ParallelSums, PermuteProducts) or layer (SumsLayer,
                               ProductsLayer) - to be used in the generated structure.
 
     """
@@ -69,8 +68,8 @@ class DenseSPNGenerator:
         to product nodes for singleton variable subsets."""
 
     class NodeType(Enum):
-        """Determines the type of op-node - single (Sum, Product), block (ParSums,
-        PermProducts) or layer (SumsLayer, ProductsLayer) - to be used in the
+        """Determines the type of op-node - single (Sum, Product), block (ParallelSums,
+        PermuteProducts) or layer (SumsLayer, ProductsLayer) - to be used in the
         generated structure."""
 
         SINGLE = 0
@@ -313,8 +312,8 @@ class DenseSPNGenerator:
                     if len(subsubset) > 1:  # Decomposable further
                         # Add mixtures
                         with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
-                            sums = ParSums(num_sums=self.num_mixtures,
-                                           name="ParallelSums%s.%s" %
+                            sums = ParallelSums(num_sums=self.num_mixtures,
+                                                name="ParallelSums%s.%s" %
                                            (self.__decomp_id, sums_id))
                             sums_id += 1
                         # Register the mixtures as inputs of PermProds
@@ -336,9 +335,9 @@ class DenseSPNGenerator:
                             inputs_list = subsubset_to_inputs_list(subsubset)
                             # Add mixtures
                             with tf.name_scope("Sums%s.%s" % (self.__decomp_id, sums_id)):
-                                sums = ParSums(*inputs_list,
-                                               num_sums=self.num_input_mixtures,
-                                               name="ParallelSums%s.%s" %
+                                sums = ParallelSums(*inputs_list,
+                                                    num_sums=self.num_input_mixtures,
+                                                    name="ParallelSums%s.%s" %
                                                (self.__decomp_id, sums_id))
                                 sums_id += 1
                             # Register the mixtures as inputs of PermProds
@@ -347,7 +346,7 @@ class DenseSPNGenerator:
             if self.node_type == DenseSPNGenerator.NodeType.SINGLE:
                 products = self.__add_products(prod_inputs)
             else:
-                products = ([PermProducts(*prod_inputs, name="PermProducts%s" % self.__decomp_id)]
+                products = ([PermuteProducts(*prod_inputs, name="PermuteProducts%s" % self.__decomp_id)]
                             if len(prod_inputs) > 1 else prod_inputs)
             # Connect products to each parent Sum
             for p in subset_info.parents:
@@ -418,9 +417,8 @@ class DenseSPNGenerator:
                 for i in node.inputs:
                     if (i and  # Input not empty
                             not(i.is_param or i.is_var or
-                                isinstance(i.node, (SumsLayer, ProductsLayer, ConvSum,
-                                                    ConvProd2D, Concat, LocalSum,
-                                                    StridedSlice2D)))):
+                                isinstance(i.node, (SumsLayer, ProductsLayer, ConvSums,
+                                                    ConvProducts, Concat, LocalSums)))):
                         parents[i.node].append(node)
                         node_to_depth[i.node] = node_to_depth[node] + 1
 
@@ -456,7 +454,7 @@ class DenseSPNGenerator:
         # Iterate through each depth of the SPN, starting from the deepest layer,
         # moving up to the root node
         for depth in range(spn_depth, 1, -1):
-            if isinstance(depths[depth][0], (Sum, ParSums)):  # A Sums Layer
+            if isinstance(depths[depth][0], (Sum, ParallelSums)):  # A Sums Layer
                 # Create a default SumsLayer node
                 with tf.name_scope("Layer%s" % depth):
                     sums_layer = SumsLayer(name="SumsLayer-%s.%s" % (depth, 1))
@@ -517,7 +515,7 @@ class DenseSPNGenerator:
                 # After all nodes at a certain depth are modelled into a Layer-node,
                 # set num-sums parameter accordingly
                 sums_layer.set_sum_sizes(num_or_size_sums)
-            elif isinstance(depths[depth][0], (Product, PermProducts)):  # A Products Layer
+            elif isinstance(depths[depth][0], (Product, PermuteProducts)):  # A Products Layer
                 with tf.name_scope("Layer%s" % depth):
                     prods_layer = ProductsLayer(name="ProductsLayer-%s.%s" % (depth, 1))
                 # Initialize a counter for keeping track of number of prods
@@ -531,7 +529,7 @@ class DenseSPNGenerator:
                     # Get input values and sizes of the product node
                     input_values = list(node.values)
                     input_sizes = list(node.get_input_sizes())
-                    if isinstance(node, PermProducts):
+                    if isinstance(node, PermuteProducts):
                         # Permute over input-values to model permuted products
                         input_values = permute_inputs(input_values, input_sizes)
                         node_num_prods = node.num_prods

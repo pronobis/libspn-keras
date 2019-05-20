@@ -6,7 +6,7 @@ import numpy as np
 from context import libspn as spn
 import libspn as spn
 
-class TestNodesParSums(tf.test.TestCase):
+class TestNodesParallelSums(tf.test.TestCase):
 
     def tearDown(self):
         tf.reset_default_graph()
@@ -16,7 +16,7 @@ class TestNodesParSums(tf.test.TestCase):
         def test(values, num_sums, latent_indicators, weights, feed, output):
             with self.subTest(values=values, num_sums=num_sums, latent_indicators=latent_indicators,
                               weights=weights, feed=feed):
-                n = spn.ParSums(*values, num_sums=num_sums, latent_indicators=latent_indicators)
+                n = spn.ParallelSums(*values, num_sums=num_sums, latent_indicators=latent_indicators)
                 n.generate_weights(tf.initializers.constant(weights))
                 op = n.get_value(spn.InferenceType.MARGINAL)
                 op_log = n.get_log_value(spn.InferenceType.MARGINAL)
@@ -398,12 +398,12 @@ class TestNodesParSums(tf.test.TestCase):
              [[0.2*0.8]])
 
     def test_compute_mpe_value(self):
-        """Calculating MPE value of ParSums."""
+        """Calculating MPE value of ParallelSums."""
         
         def test(values, num_sums, latent_indicators, weights, feed, output):
             with self.subTest(values=values, num_sums=num_sums, latent_indicators=latent_indicators,
                               weights=weights, feed=feed):
-                n = spn.ParSums(*values, num_sums=num_sums, latent_indicators=latent_indicators)
+                n = spn.ParallelSums(*values, num_sums=num_sums, latent_indicators=latent_indicators)
                 n.generate_weights(tf.initializers.constant(weights))
                 op = n.get_value(spn.InferenceType.MPE)
                 op_log = n.get_log_value(spn.InferenceType.MPE)
@@ -755,17 +755,17 @@ class TestNodesParSums(tf.test.TestCase):
              [[0.1*0.2]])
 
     def test_comput_scope(self):
-        """Calculating scope of ParSums"""
+        """Calculating scope of ParallelSums"""
         # Create a graph
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v34 = spn.RawLeaf(num_vars=2)
         latent_indicators_ps5 = spn.IndicatorLeaf(num_vars=3, num_vals=7)
-        ps1 = spn.ParSums((v12, [0, 1, 2, 3]), num_sums=2, name="PS1")
-        ps2 = spn.ParSums((v12, [2, 3, 6, 7]), num_sums=1, name="PS2")
+        ps1 = spn.ParallelSums((v12, [0, 1, 2, 3]), num_sums=2, name="PS1")
+        ps2 = spn.ParallelSums((v12, [2, 3, 6, 7]), num_sums=1, name="PS2")
         ps2.generate_latent_indicators()
-        ps3 = spn.ParSums((v12, [4, 6]), (v34, 0), num_sums=3, name="PS3")
+        ps3 = spn.ParallelSums((v12, [4, 6]), (v34, 0), num_sums=3, name="PS3")
         ps3.generate_latent_indicators()
-        ps4 = spn.ParSums(v34, num_sums=2, name="PS4")
+        ps4 = spn.ParallelSums(v34, num_sums=2, name="PS4")
         n1 = spn.Concat(ps1, ps2, (ps3, [0, 2]), name="N1")
         n2 = spn.Concat((ps3, 1), (ps4, 1), name="N2")
         p1 = spn.Product((ps1, 1), ps3, name="P1")
@@ -774,9 +774,9 @@ class TestNodesParSums(tf.test.TestCase):
         s1.generate_latent_indicators()
         p3 = spn.Product(ps3, name="P3")
         n3 = spn.Concat(ps4, name="N3")
-        ps5 = spn.ParSums(n1, (n2, 0), p1, latent_indicators=latent_indicators_ps5, num_sums=3, name="PS5")
-        ps6 = spn.ParSums(p2, name="PS6")
-        ps7 = spn.ParSums(p2, s1, p3, (n3, 1), num_sums=2, name="PS7")
+        ps5 = spn.ParallelSums(n1, (n2, 0), p1, latent_indicators=latent_indicators_ps5, num_sums=3, name="PS5")
+        ps6 = spn.ParallelSums(p2, name="PS6")
+        ps7 = spn.ParallelSums(p2, s1, p3, (n3, 1), num_sums=2, name="PS7")
         s2 = spn.Sum(ps5, ps6, ps7, name="S2")
         s2.generate_latent_indicators()
         # Test
@@ -879,18 +879,18 @@ class TestNodesParSums(tf.test.TestCase):
                               spn.Scope(s2.latent_indicators.node, 0)])
 
     def test_compute_valid(self):
-        """Calculating validity of ParSums"""
+        """Calculating validity of ParallelSums"""
         # Without IndicatorLeaf
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v34 = spn.RawLeaf(num_vars=2)
-        s1 = spn.ParSums((v12, [0, 1, 2, 3]), num_sums=3)
-        s2 = spn.ParSums((v12, [0, 1, 2, 4]), name="S2")
-        s3 = spn.ParSums((v12, [0, 1, 2, 3]), (v34, 0), num_sums=2)
+        s1 = spn.ParallelSums((v12, [0, 1, 2, 3]), num_sums=3)
+        s2 = spn.ParallelSums((v12, [0, 1, 2, 4]), name="S2")
+        s3 = spn.ParallelSums((v12, [0, 1, 2, 3]), (v34, 0), num_sums=2)
         p1 = spn.Product((v12, [0, 5]), (v34, 0))
         p2 = spn.Product((v12, [1, 6]), (v34, 0))
         p3 = spn.Product((v12, [1, 6]), (v34, 1))
-        s4 = spn.ParSums(p1, p2, num_sums=2)
-        s5 = spn.ParSums(p1, p3, num_sums=3)
+        s4 = spn.ParallelSums(p1, p2, num_sums=2)
+        s5 = spn.ParallelSums(p1, p3, num_sums=3)
         self.assertTrue(v12.is_valid())
         self.assertTrue(v34.is_valid())
         self.assertTrue(s1.is_valid())
@@ -899,20 +899,20 @@ class TestNodesParSums(tf.test.TestCase):
         self.assertTrue(s4.is_valid())
         self.assertFalse(s5.is_valid())
         # With IVS
-        s6 = spn.ParSums(p1, p2, num_sums=3)
+        s6 = spn.ParallelSums(p1, p2, num_sums=3)
         s6.generate_latent_indicators()
         self.assertTrue(s6.is_valid())
-        s7 = spn.ParSums(p1, p2, num_sums=1)
+        s7 = spn.ParallelSums(p1, p2, num_sums=1)
         s7.set_latent_indicators(spn.RawLeaf(num_vars=2))
         self.assertFalse(s7.is_valid())
-        s8 = spn.ParSums(p1, p2, num_sums=2)
+        s8 = spn.ParallelSums(p1, p2, num_sums=2)
         s8.set_latent_indicators(spn.IndicatorLeaf(num_vars=3, num_vals=2))
-        s9 = spn.ParSums(p1, p2, num_sums=2)
+        s9 = spn.ParallelSums(p1, p2, num_sums=2)
         s9.set_latent_indicators(spn.RawLeaf(num_vars=2))
         with self.assertRaises(spn.StructureError):
             s8.is_valid()
             s9.is_valid()
-        s10 = spn.ParSums(p1, p2, num_sums=2)
+        s10 = spn.ParallelSums(p1, p2, num_sums=2)
         s10.set_latent_indicators((v12, [0, 3, 5, 7]))
         self.assertTrue(s10.is_valid())
 
@@ -922,7 +922,7 @@ class TestNodesParSums(tf.test.TestCase):
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v34 = spn.RawLeaf(num_vars=2)
         v5 = spn.RawLeaf(num_vars=1)
-        s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5)
+        s = spn.ParallelSums((v12, [0, 5]), v34, (v12, [3]), v5)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
         op = s._compute_log_mpe_path(tf.identity(counts),
@@ -999,7 +999,7 @@ class TestNodesParSums(tf.test.TestCase):
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v34 = spn.RawLeaf(num_vars=2)
         v5 = spn.RawLeaf(num_vars=1)
-        s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=2)
+        s = spn.ParallelSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=2)
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 2))
         op = s._compute_log_mpe_path(tf.identity(counts),
@@ -1079,7 +1079,7 @@ class TestNodesParSums(tf.test.TestCase):
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v34 = spn.RawLeaf(num_vars=2)
         v5 = spn.RawLeaf(num_vars=1)
-        s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5)
+        s = spn.ParallelSums((v12, [0, 5]), v34, (v12, [3]), v5)
         iv = s.generate_latent_indicators()
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 1))
@@ -1205,7 +1205,7 @@ class TestNodesParSums(tf.test.TestCase):
         v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
         v34 = spn.RawLeaf(num_vars=2)
         v5 = spn.RawLeaf(num_vars=1)
-        s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=2)
+        s = spn.ParallelSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=2)
         iv = s.generate_latent_indicators()
         w = s.generate_weights()
         counts = tf.placeholder(tf.float32, shape=(None, 2))
@@ -1346,7 +1346,7 @@ class TestNodesParSums(tf.test.TestCase):
         v34 = spn.RawLeaf(num_vars=2)
         v5 = spn.RawLeaf(num_vars=1)
         num_sums = 10
-        s = spn.ParSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=num_sums)
+        s = spn.ParallelSums((v12, [0, 5]), v34, (v12, [3]), v5, num_sums=num_sums)
         iv = s.generate_latent_indicators()
         weights = np.random.rand(num_sums, 6)
         w = s.generate_weights(tf.initializers.constant(weights))

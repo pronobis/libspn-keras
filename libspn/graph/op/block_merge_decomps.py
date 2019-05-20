@@ -111,13 +111,7 @@ class BlockMergeDecomps(BlockNode):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):
-        # Reduce over last axis
-        raise NotImplementedError()
-
-    @utils.docinherit(OpNode)
-    @utils.lru_cache
-    def _compute_log_value(self, *value_tensors, with_ivs=True):
+    def _compute_log_value(self, *value_tensors):
         child = value_tensors[0]
         child_node = self.values[0].node
         if child_node.dim_scope != 1:
@@ -132,67 +126,24 @@ class BlockMergeDecomps(BlockNode):
         return tf.reshape(tf.transpose(child, [0, 1, 3, 4, 2]), [1, dim_decomps, -1, self.dim_nodes])
 
     @utils.docinherit(OpNode)
-    def _compute_mpe_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):
-        raise NotImplementedError()
+    @utils.lru_cache
+    def _compute_log_mpe_value(self, w_tensor, latent_indicators_tensor, *value_tensors):
+        raise self._compute_log_value(*value_tensors)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_value(self, w_tensor, ivs_tensor, *value_tensors, with_ivs=True,
-                               dropconnect_keep_prob=None):
-        raise self._compute_log_value(*value_tensors, with_ivs=with_ivs)
-
-    @utils.lru_cache
-    def _compute_mpe_path_common(
-            self, reducible_logits, counts, w_logits, latent_indicator_logits, *input_logits,
-            log=True, sample=False, sample_prob=None, sum_weight_grads=False):
-        """Common operations for computing the MPE path.
-
-        Args:
-            reducible_logits (Tensor): A (weighted) ``Tensor`` of (log-)values of this node.
-            counts (Tensor): A ``Tensor`` that contains the accumulated counts of the parents
-                             of this node.
-            w_logits (Tensor):  A ``Tensor`` containing the (log-)value of the weights.
-            latent_indicator_logits (Tensor): A ``Tensor`` containing the logits of the latent
-                indicator
-            input_logits (list): A list of ``Tensor``s with outputs of the child nodes.
-            log (bool): Whether the computation is in log-space or not
-            sample (bool): Whether to sample the 'winner' of the max or not
-            sample_prob (Tensor): A scalar ``Tensor`` indicating the probability of drawing
-                a sample. If a sample is drawn, the probability for each index is given by the
-                (log-)normalized probability as given by ``reducible_logits``.
-        Returns:
-            A ``list`` of ``tuple``s [(MPE counts, input tensor), ...] where the first corresponds
-            to the Weights of this node, the second corresponds to the  and the remaining
-            tuples correspond to the nodes in ``self._values``.
-        """
-        raise NotImplementedError()
-
-    @utils.docinherit(OpNode)
-    @utils.lru_cache
-    def _compute_mpe_path(self, counts, *value_tensors, use_unweighted=False, with_ivs=True,
-                          add_random=None, sample=False, sample_prob=None,
-                          dropconnect_keep_prob=None):
+    def _compute_log_mpe_path(self, counts, *input_tensors):
         child = self.values[0].node
         counts = tf.reshape(counts, (self.dim_decomps, -1, child.dim_nodes, self._factor))
         return tf.reshape(tf.transpose(counts, [0, 3, 1, 2]),
                           (child.dim_scope, child.dim_decomps, -1, child.dim_nodes)),
 
     @utils.docinherit(OpNode)
-    @utils.lru_cache
-    def _compute_log_mpe_path(self, counts, *input_tensors, use_unweighted=False, with_ivs=True,
-                              add_random=None, sum_weight_grads=False, sample=False, sample_prob=None,
-                              dropconnect_keep_prob=None):
-        child = self.values[0].node
-        counts = tf.reshape(counts, (self.dim_decomps, -1, child.dim_nodes, self._factor))
-        return tf.reshape(tf.transpose(counts, [0, 3, 1, 2]),
-                          (child.dim_scope, child.dim_decomps, -1, child.dim_nodes)),
-
-    @utils.docinherit(OpNode)
-    def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):
+    def _compute_scope(self, *value_scopes):
         raise NotImplementedError()
 
     @utils.docinherit(OpNode)
-    def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
+    def _compute_valid(self, *value_scopes):
         # If already invalid, return None
         raise NotImplementedError()
 

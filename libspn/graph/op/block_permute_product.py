@@ -115,12 +115,6 @@ class BlockPermuteProduct(BlockNode):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_value(self, w_tensor, ivs_tensor, *input_tensors, dropconnect_keep_prob=None):
-        # Reduce over last axis
-        raise NotImplementedError()
-
-    @utils.docinherit(OpNode)
-    @utils.lru_cache
     def _compute_log_value(self, child_log_prob):
 
         # Split in list of tensors which will be added up using outer products
@@ -171,11 +165,11 @@ class BlockPermuteProduct(BlockNode):
                            (child.dim_scope, self.dim_decomps, -1, child.dim_nodes)),)
 
     @utils.docinherit(OpNode)
-    def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):
+    def _compute_scope(self, *value_scopes):
         raise NotImplementedError()
 
     @utils.docinherit(OpNode)
-    def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
+    def _compute_valid(self, *value_scopes):
         # If already invalid, return None
         raise NotImplementedError()
 

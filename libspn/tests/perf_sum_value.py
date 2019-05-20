@@ -62,13 +62,13 @@ class Ops:
         else:
             inputs = [(inputs, indices)]
 
-        # Generate a single ParSums node, modeling 'num_sums' sum nodes
+        # Generate a single ParallelSums node, modeling 'num_sums' sum nodes
         # within, connecting it to inputs and latent_indicators
-        s = spn.ParSums(*inputs, num_sums=num_sums, latent_indicators=latent_indicators[0])
-        # Generate weights of the ParSums node
+        s = spn.ParallelSums(*inputs, num_sums=num_sums, latent_indicators=latent_indicators[0])
+        # Generate weights of the ParallelSums node
         s.generate_weights()
 
-        # Connect the ParSums nodes to a single root Sum node and generate
+        # Connect the ParallelSums nodes to a single root Sum node and generate
         # its weights
         root = spn.Sum(s)
         root.generate_weights()
@@ -367,7 +367,7 @@ class PerformanceTest:
                                                    size=self.num_input_rows),
                                  axis=1)
 
-        # ParSums
+        # ParallelSums
         par_sums_inputs = np.random.rand(self.num_input_rows,
                                          self.num_input_cols)
         par_sums_indices = list(range(self.num_input_cols-1, -1, -1))

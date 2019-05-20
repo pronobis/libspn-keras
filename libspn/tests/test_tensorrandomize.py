@@ -14,8 +14,8 @@ class TestTensorRandomize(tf.test.TestCase):
     def test_small_spn(self):
         num_vars = 13
 
-        iv = spn.IndicatorLeaf(num_vals=2, num_vars=num_vars)
-        randomize = BlockRandomDecompositions(iv, num_decomps=2)
+        indicator_leaf = spn.IndicatorLeaf(num_vals=2, num_vars=num_vars)
+        randomize = BlockRandomDecompositions(indicator_leaf, num_decomps=2)
         p0 = BlockPermuteProduct(randomize, num_subsets=4)
         s0 = BlockSum(p0, num_sums_per_block=3)
         p1 = BlockPermuteProduct(s0, num_subsets=2)
@@ -34,12 +34,12 @@ class TestTensorRandomize(tf.test.TestCase):
         num_possibilities = 2 ** num_vars
         nums = np.arange(num_possibilities).reshape((num_possibilities, 1))
         powers = 2 ** np.arange(num_vars).reshape((1, num_vars))
-        ivs_feed = np.bitwise_and(nums, powers) // powers
+        leaf_feed = np.bitwise_and(nums, powers) // powers
 
         with self.test_session() as sess:
             sess.run(spn.initialize_weights(root))
-            out = sess.run(logsum, {iv: ivs_feed,
-                                    latent: -np.ones((ivs_feed.shape[0], 1), dtype=np.int32)})
+            out = sess.run(logsum, {indicator_leaf: leaf_feed,
+                                    latent: -np.ones((leaf_feed.shape[0], 1), dtype=np.int32)})
 
         self.assertAllClose(out, 0.0)
 

@@ -8,7 +8,7 @@ import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.inference.type import InferenceType
 from libspn.graph.weights import Weights
-from libspn.graph.op.basesum import BaseSum
+from libspn.graph.op.base_sum import BaseSum
 from libspn import utils
 from libspn.exceptions import StructureError
 from libspn import conf
@@ -50,7 +50,7 @@ class SumsLayer(BaseSum):
 
     def __init__(self, *values, num_or_size_sums=None, weights=None, latent_indicators=None,
                  inference_type=InferenceType.MARGINAL, sample_prob=None,
-                 dropconnect_keep_prob=None, name="SumsLayer"):
+                 name="SumsLayer"):
         if isinstance(num_or_size_sums, int) or num_or_size_sums is None:
             num_sums = num_or_size_sums
             sum_sizes = None
@@ -60,8 +60,7 @@ class SumsLayer(BaseSum):
         super().__init__(
             *values, num_sums=num_sums, sum_sizes=sum_sizes, weights=weights,
             latent_indicators=latent_indicators, inference_type=inference_type,
-            sample_prob=sample_prob, dropconnect_keep_prob=dropconnect_keep_prob,
-            name=name, masked=True)
+            sample_prob=sample_prob, name=name, masked=True)
 
     @property
     def is_layer(self):
@@ -324,10 +323,8 @@ class SumsLayer(BaseSum):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_log_gradient(self, gradients, w_tensor, latent_indicators_tensor, *value_tensors,
-                              accumulate_weights_batch=False, dropconnect_keep_prob=None):
-        reducible = self._compute_reducible(
-            w_tensor, latent_indicators_tensor, *value_tensors,
-            dropconnect_keep_prob=dropconnect_keep_prob)
+                              accumulate_weights_batch=False):
+        reducible = self._compute_reducible(w_tensor, latent_indicators_tensor, *value_tensors)
         log_sum = tf.expand_dims(
             self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
 

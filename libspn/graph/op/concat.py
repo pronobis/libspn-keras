@@ -1,11 +1,10 @@
 from itertools import chain
+import tensorflow as tf
 from libspn.graph.node import OpNode, Input
 from libspn import utils
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
 from libspn.utils.serialization import register_serializable
-import tensorflow as tf
-import numpy as np
 
 
 @register_serializable
@@ -18,10 +17,9 @@ class Concat(OpNode):
         name (str): Name of the node.
     """
 
-    def __init__(self, *inputs, name="Concat", axis=1):
+    def __init__(self, *inputs, name="Concat"):
         super().__init__(inference_type=InferenceType.MARGINAL, name=name)
         self.set_inputs(*inputs)
-        self._axis = axis
 
     def serialize(self):
         data = super().serialize()
@@ -75,12 +73,6 @@ class Concat(OpNode):
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
         input_scopes = self._gather_input_scopes(*input_scopes)
-        if self.is_spatial:
-            input_shapes = self._gather_input_shapes()
-            reshaped_scopes = [np.asarray(sc).reshape(s) for sc, s in
-                               zip(input_scopes, input_shapes)]
-            return np.concatenate(reshaped_scopes, axis=self._axis - 1).ravel().tolist()
-
         return list(chain.from_iterable(input_scopes))
 
     @utils.docinherit(OpNode)
@@ -101,37 +93,21 @@ class Concat(OpNode):
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
 
-        input_tensors = self._gather_input_tensors(*input_tensors)
-        input_shapes = self._gather_input_shapes()
-        reshaped_tensors = [tf.reshape(t, (-1,) + s) for t, s in zip(input_tensors, input_shapes)]
-        out = tf.concat(reshaped_tensors, axis=self._axis)
-        if self.is_spatial:
-            out = tf.reshape(out, (-1, int(np.prod(self.output_shape_spatial))))
-        return out
-
-    @property
-    def is_spatial(self):
-        return self._axis == 3
+        gathered_inputs = self._gather_input_tensors(*input_tensors)
+        # Concatenate inputs
+        return tf.concat(gathered_inputs, axis=1)
 
     @utils.docinherit(OpNode)
     def _compute_log_mpe_value(self, *input_tensors):
         return self._compute_log_value(*input_tensors)
 
     @utils.lru_cache
-    def _compute_log_mpe_path(self, counts, *input_values, add_random=False,
-                              use_unweighted=False):
+    def _compute_log_mpe_path(self, counts, *input_values, use_unweighted=False):
         # Check inputs
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
         # Split counts for each input
         input_sizes = self.get_input_sizes(*input_values)
-
-        if self.is_spatial:
-            input_shapes = self._gather_input_shapes()
-            counts = tf.reshape(counts, (-1,) + self.output_shape_spatial)
-            split = utils.split_maybe(counts, self._num_channels_per_input(), axis=self._axis)
-            split = [tf.reshape(t, (-1, int(np.prod(s)))) for t, s in zip(split, input_shapes)]
-        else:
-            split = tf.split(counts, input_sizes, axis=1)
+        split = tf.split(counts, num_or_size_splits=input_sizes, axis=1)
         return self._scatter_to_input_tensors(*[(t, v) for t, v in
                                                 zip(split, input_values)])

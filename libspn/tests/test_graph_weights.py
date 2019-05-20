@@ -145,10 +145,10 @@ class TestGraphWeights(TestCase):
         s1.generate_weights(tf.initializers.constant([0.2, 0.3]))
         s2 = spn.Sum(v2)
         s2.generate_weights(tf.initializers.constant(5))
-        # ParSums
-        s3 = spn.ParSums(*[v3, v4], num_sums=2)
+        # ParallelSums
+        s3 = spn.ParallelSums(*[v3, v4], num_sums=2)
         s3.generate_weights(tf.initializers.constant([0.1, 0.2, 0.3, 0.4, 0.4, 0.3, 0.2, 0.1]))
-        s4 = spn.ParSums(*[v1, v2, v3, v4], num_sums=3)
+        s4 = spn.ParallelSums(*[v1, v2, v3, v4], num_sums=3)
         s4.generate_weights(tf.initializers.constant(2.0))
         # Product
         p = spn.Product(s1, s2, s3, s4)
@@ -187,68 +187,6 @@ class TestGraphWeights(TestCase):
         np.testing.assert_array_almost_equal(val4, [[0.1] * 10,
                                                     [0.1] * 10,
                                                     [0.1] * 10])
-
-    # def test_group_assignment(self):
-    #     """Group assignment of weights nodes"""
-    #     v1 = spn.IndicatorLeaf(num_vars=1, num_vals=2)
-    #     v2 = spn.IndicatorLeaf(num_vars=1, num_vals=4)
-    #     v3 = spn.IndicatorLeaf(num_vars=1, num_vals=2)
-    #     v4 = spn.IndicatorLeaf(num_vars=1, num_vals=2)
-    #     # Sum
-    #     s1 = spn.Sum(v1)
-    #     s1.generate_weights(tf.initializers.constant([0.2, 0.3]))
-    #     s2 = spn.Sum(v2)
-    #     s2.generate_weights(tf.initializers.constant(5))
-    #     # ParSums
-    #     s3 = spn.ParSums(*[v3, v4], num_sums=2)
-    #     s3.generate_weights(tf.initializers.constant([0.1, 0.2, 0.3, 0.4, 0.4, 0.3, 0.2, 0.1]))
-    #     s4 = spn.ParSums(*[v2, v3], num_sums=3)
-    #     s4.generate_weights(tf.initializers.constant(2.0))
-    #     p = spn.Product(s1, s2, s3, s4)
-    #     init1 = s1.weights.node.initialize()
-    #     assign = spn.assign_weights(p, tf.initializers.constant(0.2))
-    #
-    #     with self.test_session() as sess:
-    #         sess.run([init1])
-    #         val1i = sess.run(s1.weights.node.get_value())
-    #         val1i_log = sess.run(tf.exp(s1.weights.node.get_log_value()))
-    #         sess.run([assign])
-    #         val1 = sess.run(s1.weights.node.get_value())
-    #         val2 = sess.run(s2.weights.node.get_value())
-    #         val3 = sess.run(s3.weights.node.get_value())
-    #         val4 = sess.run(s4.weights.node.get_value())
-    #         val1_log = sess.run(tf.exp(s1.weights.node.get_log_value()))
-    #         val2_log = sess.run(tf.exp(s2.weights.node.get_log_value()))
-    #         val3_log = sess.run(tf.exp(s3.weights.node.get_log_value()))
-    #         val4_log = sess.run(tf.exp(s4.weights.node.get_log_value()))
-    #
-    #     self.assertEqual(val1i.dtype, spn.conf.dtype.as_numpy_dtype())
-    #     self.assertEqual(val1.dtype, spn.conf.dtype.as_numpy_dtype())
-    #     self.assertEqual(val2.dtype, spn.conf.dtype.as_numpy_dtype())
-    #     self.assertEqual(val3.dtype, spn.conf.dtype.as_numpy_dtype())
-    #     self.assertEqual(val4.dtype, spn.conf.dtype.as_numpy_dtype())
-    #     np.testing.assert_array_almost_equal(val1i, [[0.4, 0.6]])
-    #     np.testing.assert_array_almost_equal(val1, [[0.5, 0.5]])
-    #     np.testing.assert_array_almost_equal(val2, [[0.25, 0.25, 0.25, 0.25]])
-    #     np.testing.assert_array_almost_equal(val3, [[0.25, 0.25, 0.25, 0.25],
-    #                                                 [0.25, 0.25, 0.25, 0.25]])
-    #     np.testing.assert_array_almost_equal(val4, [[1 / 6] * 6,
-    #                                                 [1 / 6] * 6,
-    #                                                 [1 / 6] * 6])
-    #     self.assertEqual(val1i_log.dtype, spn.conf.dtype.as_numpy_dtype())
-    #     self.assertEqual(val1_log.dtype, spn.conf.dtype.as_numpy_dtype())
-    #     self.assertEqual(val2_log.dtype, spn.conf.dtype.as_numpy_dtype())
-    #     self.assertEqual(val3_log.dtype, spn.conf.dtype.as_numpy_dtype())
-    #     self.assertEqual(val4_log.dtype, spn.conf.dtype.as_numpy_dtype())
-    #     np.testing.assert_array_almost_equal(val1i_log, [[0.4, 0.6]])
-    #     np.testing.assert_array_almost_equal(val1_log, [[0.5, 0.5]])
-    #     np.testing.assert_array_almost_equal(val2_log, [[0.25, 0.25, 0.25, 0.25]])
-    #     np.testing.assert_array_almost_equal(val3_log, [[0.25, 0.25, 0.25, 0.25],
-    #                                                     [0.25, 0.25, 0.25, 0.25]])
-    #     np.testing.assert_array_almost_equal(val4_log, [[1 / 6] * 6,
-    #                                                     [1 / 6] * 6,
-    #                                                     [1 / 6] * 6])
-
 
 if __name__ == '__main__':
     tf.test.main()

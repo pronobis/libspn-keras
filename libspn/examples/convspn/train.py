@@ -319,7 +319,7 @@ def build_spn(args, num_dims, num_vars, train_x, train_y):
         'caltech': 100
     }[args.dataset]
     if args.dataset == 'cifar10':
-        in_var_ = spn.LocalSum(in_var, num_channels=args.sum_num_c0, grid_dim_sizes=[32, 32])
+        in_var_ = spn.LocalSums(in_var, num_channels=args.sum_num_c0, spatial_dim_sizes=[32, 32])
     else:
         in_var_ = in_var
 
@@ -344,8 +344,7 @@ def setup_learning(args, in_var, root):
         labels_node = root.generate_latent_indicators(name="LabelIndicators")
 
         # Marginalized root, so without filling in labels, so p(x) = \sum_y p(x,y)
-        root_marginalized = spn.Sum(*root.values, name="RootMarginalized", weights=root.weights,
-                                    dropconnect_keep_prob=1.0)
+        root_marginalized = spn.Sum(*root.values, name="RootMarginalized", weights=root.weights)
         # A dummy node to get MPE state
         labels_no_evidence_node = root_marginalized.generate_latent_indicators(
             name="LabesNoEvidenceIndicators", feed=-tf.ones([tf.shape(in_var.feed)[0], 1], dtype=tf.int32))
@@ -373,9 +372,7 @@ def setup_learning(args, in_var, root):
     # Get the log likelihood
     with tf.name_scope("LogLikelihoods"):
         logger.info("Setting up log-likelihood")
-        val_gen = spn.LogValue(
-            inference_type=inference_type,
-            dropconnect_keep_prob=1.0)
+        val_gen = spn.LogValue(inference_type=inference_type)
         labels_llh = val_gen.get_value(root)
         no_labels_llh = val_gen.get_value(root_marginalized) if args.supervised else labels_llh
 
@@ -398,8 +395,7 @@ def setup_learning(args, in_var, root):
     learning_method = spn.LearningMethodType.DISCRIMINATIVE if args.learning_type == 'discriminative' else \
         spn.LearningMethodType.GENERATIVE
     learning = spn.GDLearning(
-        root, dropconnect_keep_prob=args.dropconnect_keep_prob,
-        learning_task_type=spn.LearningTaskType.SUPERVISED if args.supervised else \
+        root, learning_task_type=spn.LearningTaskType.SUPERVISED if args.supervised else \
             spn.LearningTaskType.UNSUPERVISED,
         learning_method=learning_method, learning_rate=learning_rate,
         marginalizing_root=root_marginalized, global_step=global_step)
@@ -413,10 +409,9 @@ def setup_learning(args, in_var, root):
 
     logger.info("Settting up test loss")
     with tf.name_scope("DeterministicLoss"):
-        main_loss = learning.loss(dropconnect_keep_prob=1.0)
+        main_loss = learning.loss()
         regularization_loss = learning.regularization_loss()
-        loss_per_sample = learning.loss(
-            dropconnect_keep_prob=1.0, reduce_fn=lambda x: tf.reshape(x, (-1,)))
+        loss_per_sample = learning.loss(reduce_fn=lambda x: tf.reshape(x, (-1,)))
 
     return correct, labels_node, main_loss, no_labels_llh, minimize_op, class_mpe, \
            regularization_loss, loss_per_sample, in_var_mpe

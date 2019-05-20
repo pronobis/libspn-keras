@@ -38,15 +38,14 @@ class BlockRootSum(BlockSum):
                                        op generation.
     """
 
-    def __init__(self, child, weights=None, latent_ivs=None,
+    def __init__(self, child, weights=None, latent_indicators=None,
                  inference_type=InferenceType.MARGINAL, masked=False, sample_prob=None,
-                 dropconnect_keep_prob=None, name="RootSum", input_format="SDBN",
+                 name="RootSum", input_format="SDBN",
                  output_format="SDBN"):
         super().__init__(
-            child=child, num_sums_per_block=1, weights=weights, latent_ivs=latent_ivs,
+            child=child, num_sums_per_block=1, weights=weights, latent_indicators=latent_indicators,
             inference_type=inference_type, masked=masked, sample_prob=sample_prob,
-            dropconnect_keep_prob=dropconnect_keep_prob, name=name, input_format=input_format,
-            output_format=output_format)
+            name=name, input_format=input_format, output_format=output_format)
 
         # Take care of generating the random decompositions
         randomize_node = traverse_graph(

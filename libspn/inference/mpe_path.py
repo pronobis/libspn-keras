@@ -2,7 +2,7 @@ from types import MappingProxyType
 import tensorflow as tf
 from libspn.inference.value import Value, LogValue
 from libspn.graph.algorithms import compute_graph_up_down
-from libspn.graph.op.basesum import BaseSum
+from libspn.graph.op.base_sum import BaseSum
 from libspn import utils
 
 
@@ -20,20 +20,16 @@ class MPEPath:
                     if ``value`` is given.
     """
 
-    def __init__(self, value=None, value_inference_type=None, log=True, add_random=None,
-                 use_unweighted=False, sample=False, sample_prob=None, matmul_or_conv=False,
-                 dropconnect_keep_prob=None):
+    def __init__(self, value=None, value_inference_type=None, log=True, use_unweighted=False,
+                 sample=False, sample_prob=None, matmul_or_conv=False):
         self._true_counts = {}
         self._actual_counts = {}
         self._log = log
-        self._add_random = add_random
         self._use_unweighted = use_unweighted
         self._sample = sample
         self._sample_prob = sample_prob
         # Create internal value generator
-        self._value = value or LogValue(
-            value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob,
-            matmul_or_conv=matmul_or_conv)
+        self._value = value or LogValue(value_inference_type, matmul_or_conv=matmul_or_conv)
 
     @property
     def value(self):
@@ -68,8 +64,8 @@ class MPEPath:
         def down_fun(node, parent_vals):
             self._true_counts[node] = summed = self._accumulate_parents(*parent_vals)
             basesum_kwargs = dict(
-                add_random=self._add_random, use_unweighted=self._use_unweighted,
-                sample=self._sample, sample_prob=self._sample_prob)
+                use_unweighted=self._use_unweighted, sample=self._sample,
+                sample_prob=self._sample_prob)
             if node.is_op:
                 kwargs = basesum_kwargs if isinstance(node, BaseSum) else dict()
                 # Compute for inputs
@@ -111,8 +107,7 @@ class MPEPath:
         def down_fun(node, parent_vals):
             self._actual_counts[node] = summed = self._accumulate_parents(*parent_vals)
             basesum_kwargs = dict(
-                add_random=self._add_random, use_unweighted=self._use_unweighted,
-                sample=self._sample, sample_prob=self._sample_prob)
+                use_unweighted=self._use_unweighted, sample=self._sample, sample_prob=self._sample_prob)
             if node.is_op:
                 # Compute for inputs
                 kwargs = basesum_kwargs if isinstance(node, BaseSum) else dict()

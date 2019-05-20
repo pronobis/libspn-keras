@@ -24,9 +24,9 @@ class EMLearning:
         "LocationScaleLeafNode", ["node", "name_scope", "accum", "sum_data", "sum_data_squared"])
 
     def __init__(self, root, mpe_path=None, log=True, value_inference_type=None,
-                 additive_smoothing=None, add_random=None, initial_accum_value=1.0,
+                 additive_smoothing=None, initial_accum_value=1.0,
                  use_unweighted=False, sample_winner=False, sample_prob=None,
-                 dropconnect_keep_prob=None, matmul_or_conv=False):
+                 matmul_or_conv=False):
         self._root = root
         self._log = log
         self._additive_smoothing = additive_smoothing
@@ -35,9 +35,9 @@ class EMLearning:
         # Create internal MPE path generator
         if mpe_path is None:
             self._mpe_path = MPEPath(
-                log=log, value_inference_type=value_inference_type, add_random=add_random,
+                log=log, value_inference_type=value_inference_type,
                 use_unweighted=use_unweighted, sample=sample_winner, sample_prob=sample_prob,
-                dropconnect_keep_prob=dropconnect_keep_prob, matmul_or_conv=matmul_or_conv)
+                matmul_or_conv=matmul_or_conv)
         else:
             self._mpe_path = mpe_path
         # Create a name scope

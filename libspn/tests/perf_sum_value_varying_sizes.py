@@ -116,7 +116,7 @@ class Ops:
         """ Creates the graph using only ParSum nodes """
         parallel_sum_nodes = []
         for ind in sum_indices:
-            parallel_sum_nodes.append(spn.ParSums((inputs, ind), num_sums=repetitions))
+            parallel_sum_nodes.append(spn.ParallelSums((inputs, ind), num_sums=repetitions))
         [s.generate_weights() for s in parallel_sum_nodes]
         if latent_indicators:
             [s.set_latent_indicators(iv) for s, iv in zip(parallel_sum_nodes, latent_indicators)]

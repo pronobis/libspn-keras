@@ -6,10 +6,10 @@ import tensorflow as tf
 
 from libspn.graph.op.sum import Sum
 from libspn.graph.op.sumslayer import SumsLayer
-from libspn.graph.op.parsums import ParSums
-from libspn.graph.op.productslayer import ProductsLayer
+from libspn.graph.op.parallel_sums import ParallelSums
+from libspn.graph.op.products_layer import ProductsLayer
 from libspn.graph.op.product import Product
-from libspn.graph.op.permproducts import PermProducts
+from libspn.graph.op.permute_products import PermuteProducts
 from libspn.graph.op.concat import Concat
 from libspn.exceptions import StructureError
 from libspn.graph.algorithms import traverse_graph
@@ -74,7 +74,7 @@ def convert_to_layer_nodes(root):
     # Iterate through each depth of the SPN, starting from the deepest layer,
     # moving up to the root node
     for depth in range(spn_depth, 1, -1):
-        if isinstance(depths[depth][0], (Sum, ParSums)):  # A Sums Layer
+        if isinstance(depths[depth][0], (Sum, ParallelSums)):  # A Sums Layer
             # Create a default SumsLayer node
             with tf.name_scope("Layer%s" % depth):
                 sums_layer = SumsLayer(name="SumsLayer-%s.%s" % (depth, 1))
@@ -138,7 +138,7 @@ def convert_to_layer_nodes(root):
             # After all nodes at a certain depth are modelled into a Layer-node,
             # set num-sums parameter accordingly
             sums_layer.set_sum_sizes(num_or_size_sums)
-        elif isinstance(depths[depth][0], (Product, PermProducts)):  # A Products Layer
+        elif isinstance(depths[depth][0], (Product, PermuteProducts)):  # A Products Layer
             with tf.name_scope("Layer%s" % depth):
                 prods_layer = ProductsLayer(name="ProductsLayer-%s.%s" % (depth, 1))
             # Initialize a counter for keeping track of number of prods
@@ -152,7 +152,7 @@ def convert_to_layer_nodes(root):
                 # Get input values and sizes of the product node
                 input_values = list(node.values)
                 input_sizes = list(node.get_input_sizes())
-                if isinstance(node, PermProducts):
+                if isinstance(node, PermuteProducts):
                     # Permute over input-values to model permuted products
                     input_values = permute_inputs(input_values, input_sizes)
                     node_num_prods = node.num_prods

@@ -1,5 +1,5 @@
 from libspn.inference.type import InferenceType
-from libspn.graph.op.basesum import BaseSum
+from libspn.graph.op.base_sum import BaseSum
 import libspn.utils as utils
 
 
@@ -29,8 +29,7 @@ class Sum(BaseSum):
 
     def __init__(self, *values, weights=None, latent_indicators=None,
                  inference_type=InferenceType.MARGINAL,
-                 sample_prob=None, dropconnect_keep_prob=None, name="Sum"):
+                 sample_prob=None, name="Sum"):
         super().__init__(
             *values, num_sums=1, weights=weights, latent_indicators=latent_indicators,
-            inference_type=inference_type, sample_prob=sample_prob,
-            dropconnect_keep_prob=dropconnect_keep_prob, name=name)
+            inference_type=inference_type, sample_prob=sample_prob, name=name)
