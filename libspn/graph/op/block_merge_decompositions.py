@@ -32,10 +32,10 @@ class BlockMergeDecompositions(BlockNode):
                  name="BlockMergeDecompositions"):
         super().__init__(inference_type=inference_type, name=name, num_scopes=1)
         self.set_values(child)
-        if self.child.num_decompositions % num_decomps != 0:
+        if self.child.dim_decomps % num_decomps != 0:
             raise ValueError("Num decompositions must be a multiple of the decompositions in the "
                              "child node")
-        self._factor = self.child.num_decomps // num_decomps
+        self._factor = self.child.dim_decomps // num_decomps
 
     def set_values(self, *values):
         self._values = self._parse_inputs(*values)

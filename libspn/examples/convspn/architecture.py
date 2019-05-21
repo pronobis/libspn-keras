@@ -30,7 +30,7 @@ def wicker_convspn_two_non_overlapping(
         h = LocalSums(h, num_channels=num_channels_sums[2 + i])
 
     full_scope_prod = ConvProductsDepthwise(
-        h, padding='final', kernel_size=2, strides=1, dilation_rate=2 ** stack_size)
+        h, padding='wicker_top', kernel_size=2, strides=1, dilation_rate=2 ** stack_size)
     if supervised:
         class_roots = ParallelSums(full_scope_prod, num_sums=num_classes)
         root = Sum(class_roots)
@@ -60,7 +60,7 @@ def full_wicker(in_var, num_channels_prod, num_channels_sums, num_classes=10, ed
         h = LocalSums(h, num_channels=num_channels_sums[1 + i])
 
     full_scope_prod = ConvProductsDepthwise(
-        h, padding='final', kernel_size=2, strides=1, dilation_rate=2 ** (stack_size + 1))
+        h, padding='wicker_top', kernel_size=2, strides=1, dilation_rate=2 ** (stack_size + 1))
     if supervised:
         class_roots = ParallelSums(full_scope_prod, num_sums=num_classes)
         root = Sum(class_roots)

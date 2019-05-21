@@ -3,7 +3,6 @@ from libspn.graph.leaf.indicator import IndicatorLeaf
 from libspn.inference.type import InferenceType
 from libspn.exceptions import StructureError
 import libspn.utils as utils
-from libspn.log import get_logger
 from tensorflow.python.ops.array_grad import _GatherV2Grad
 import tensorflow as tf
 import numpy as np
@@ -134,7 +133,7 @@ class BlockRandomDecompositions(BlockNode):
         child, = value_tensors
         dim_scope_in = self.child.num_vars
         dim_nodes_in = self.child.num_vals if isinstance(
-            self.child.node, IndicatorLeaf) else self.values[0].node.num_components
+            self.child, IndicatorLeaf) else self.child.num_components
         zero_padded = tf.concat(
             [tf.zeros([1, tf.shape(child)[0], dim_nodes_in]),
              tf.transpose(
@@ -158,10 +157,10 @@ class BlockRandomDecompositions(BlockNode):
         # counts is shape [scope, decomps, batch, nodes]
         # will have to be transformed to [batch, scope * nodes]
         grad = tf.reshape(_GatherV2Grad(self._gather_op._op, counts)[0], self._zero_padded_shape)
-        dim_scope_in = self.values[0].node.num_vars
+        dim_scope_in = self.child.num_vars
         _, counts_in = tf.split(grad, num_or_size_splits=[1, dim_scope_in], axis=0)
         return tf.reshape(tf.transpose(counts_in, (1, 0, 2)),
-                          (-1, self.values[0].node._compute_out_size())),
+                          (-1, self.child._compute_out_size())),
 
     @utils.docinherit(OpNode)
     def _compute_scope(self, *value_scopes):
