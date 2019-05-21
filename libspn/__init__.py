@@ -20,7 +20,7 @@ from libspn.graph.op.block_sum import BlockSum
 from libspn.graph.op.block_reduce_product import BlockReduceProduct
 from libspn.graph.op.block_permute_product import BlockPermuteProduct
 from libspn.graph.op.block_random_decompositions import BlockRandomDecompositions
-from libspn.graph.op.block_merge_decomps import BlockMergeDecomps
+from libspn.graph.op.block_merge_decompositions import BlockMergeDecompositions
 from libspn.graph.op.block_root_sum import BlockRootSum
 from libspn.graph.op.conv_products import ConvProducts
 from libspn.graph.op.conv_products_depthwise import ConvProductsDepthwise
@@ -35,6 +35,7 @@ from libspn.graph.algorithms import compute_graph_up
 from libspn.graph.algorithms import compute_graph_up_down
 from libspn.graph.algorithms import traverse_graph
 from libspn.graph.leaf.normal import NormalLeaf
+from libspn.graph.leaf.truncated_normal import TruncatedNormalLeaf
 from libspn.graph.leaf.cauchy import CauchyLeaf
 from libspn.graph.leaf.student_t import StudentTLeaf
 from libspn.graph.leaf.laplace import LaplaceLeaf
@@ -123,7 +124,8 @@ __all__ = [
     'Scope', 'Input', 'Node', 'ParamNode', 'OpNode', 'VarNode',
     'Concat', 'IndicatorLeaf', 'RawLeaf',
     'Sum', 'ParallelSums', 'SumsLayer',
-    'BlockSum', 'BlockPermuteProduct', 'BlockRandomDecompositions', 'BlockMergeDecomps', 'BlockRootSum',
+    'BlockSum', 'BlockPermuteProduct', 'BlockRandomDecompositions',
+    'BlockMergeDecompositions', 'BlockRootSum',
     'Product', 'PermuteProducts', 'ProductsLayer',
     'Weights', 'assign_weights', 'initialize_weights',
     'serialize_graph', 'deserialize_graph',
@@ -131,7 +133,7 @@ __all__ = [
     'compute_graph_up', 'compute_graph_up_down',
     'traverse_graph',
     'StudentTLeaf', 'NormalLeaf', 'CauchyLeaf', 'LaplaceLeaf',
-    'MultivariateCauchyDiagLeaf',
+    'MultivariateCauchyDiagLeaf', 'TruncatedNormalLeaf',
     # Generators
     'DenseSPNGenerator',
     'WeightsGenerator', 'generate_weights',

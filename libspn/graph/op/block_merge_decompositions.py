@@ -7,22 +7,17 @@ import tensorflow as tf
 
 
 @utils.register_serializable
-class BlockMergeDecomps(BlockNode):
+class BlockMergeDecompositions(BlockNode):
 
-    logger = get_logger()
-    info = logger.info
-
-    """An abstract node representing sums in an SPN.
+    """A node that merges decompositions in block-representation. Each block corresponds to a
+    set of nodes for a specific (i) scope and (ii) decomposition. Apart from the axis containing
+    nodes within the block, there's an axis for (i) batch element, (ii) the scope and (iii) the
+    decomposition in the internal tensor representation.
 
     Args:
-        *values (input_like): Inputs providing input values to this node.
+        child (input_like): Input providing input values to this node.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (int): Number of Sum ops modelled by this node.
-        sum_sizes (list): A list of ints corresponding to the sizes of each sum. If both num_sums
-                          and sum_sizes are given, we should have len(sum_sizes) == num_sums.
-        batch_axis (int): The index of the batch axis.
-        op_axis (int): The index of the op axis that contains the individual sums being modeled.
-        reduce_axis (int): The axis over which to perform summing (or max for MPE)
+        num_decomps (int): Number of decompositions in the output
         name (str): Name of the node.
 
     Attributes:
@@ -33,13 +28,14 @@ class BlockMergeDecomps(BlockNode):
                                        used during the next inference/learning
                                        op generation.
     """
-    def __init__(self, *values, factor, inference_type=InferenceType.MARGINAL,
-                 name="TensorMergeDecomps", input_format="SDBN", output_format="SDBN"):
-        super().__init__(
-            inference_type=inference_type, name=name, input_format=input_format,
-            output_format=output_format, num_scopes=1)
-        self.set_values(*values)
-        self._factor = factor
+    def __init__(self, child, num_decomps, inference_type=InferenceType.MARGINAL,
+                 name="BlockMergeDecompositions"):
+        super().__init__(inference_type=inference_type, name=name, num_scopes=1)
+        self.set_values(child)
+        if self.child.num_decompositions % num_decomps != 0:
+            raise ValueError("Num decompositions must be a multiple of the decompositions in the "
+                             "child node")
+        self._factor = self.child.num_decomps // num_decomps
 
     def set_values(self, *values):
         self._values = self._parse_inputs(*values)
@@ -99,16 +95,6 @@ class BlockMergeDecomps(BlockNode):
         """list of Input: List of value inputs."""
         return self._values
 
-    def add_values(self, *values):
-        """Add more inputs providing input values to this node.
-
-        Args:
-            *values (input_like): Inputs providing input values to this node.
-                See :meth:`~libspn.Input.as_input` for possible values.
-        """
-        self._values += self._parse_inputs(*values)
-        self._reset_sum_sizes()
-
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
@@ -121,9 +107,11 @@ class BlockMergeDecomps(BlockNode):
                                  .format(child_node.dim_decomps, self._factor))
 
         dim_decomps = child_node.dim_decomps // self._factor
-        child = tf.reshape(child, (child_node.dim_scope, dim_decomps, self._factor, -1, child_node.dim_nodes))
+        child = tf.reshape(
+            child, (child_node.dim_scope, dim_decomps, self._factor, -1, child_node.dim_nodes))
 
-        return tf.reshape(tf.transpose(child, [0, 1, 3, 4, 2]), [1, dim_decomps, -1, self.dim_nodes])
+        return tf.reshape(
+            tf.transpose(child, [0, 1, 3, 4, 2]), [1, dim_decomps, -1, self.dim_nodes])
 
     @utils.docinherit(OpNode)
     @utils.lru_cache

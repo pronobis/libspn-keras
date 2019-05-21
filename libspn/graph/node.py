@@ -140,10 +140,6 @@ class Input():
         """Returns ``True`` if the input is connected to a variable node."""
         return isinstance(self.node, VarNode)
 
-    @property
-    def is_distribution(self):
-        return isinstance(self.node, DistributionNode)
-
     def get_size(self, input_tensor):
         """Get the size of the input.
 
@@ -278,7 +274,9 @@ class Node(ABC):
         return nodes
 
     def get_num_nodes(self, skip_params=False, node_type=None):
-        """Get the number of nodes in the SPN graph for which this node is root.
+        """
+        Get the number of nodes in the SPN graph for which this node is root.
+
         Args:
             skip_params (bool): If ``True`` don't count param nodes.
             node_type: Type of node in the SPN graph to be counted. If 'None' count
@@ -983,13 +981,30 @@ class ParamNode(Node):
 
 class BlockNode(OpNode, abc.ABC):
 
+    """
+    Abstract node in which probabilities are computed in blocks where each block corresponds to
+    a specific (i) scope and (ii) decomposition. Apart from a node axis, these layers also have
+    a (i) batch, (ii) scope and (iii) a decomposition axis.
+
+    Args:
+        num_decomps (int): Number of decompositions modeled by this node.
+        num_scopes (int): Number of scopes modeled by this node
+        name (str): Name of the node.
+
+    Attributes:
+        inference_type(InferenceType): Flag indicating the preferred inference
+                                       type for this node that will be used
+                                       during value calculation and learning.
+                                       Can be changed at any time and will be
+                                       used during the next inference/learning
+                                       op generation.
+    """
+
     def __init__(self, num_decomps=None, num_scopes=None, inference_type=InferenceType.MARGINAL,
-                 name="TensorNode", input_format="SDBN", output_format="SDBN"):
+                 name="BlockNode"):
         super().__init__(inference_type=inference_type, name=name)
         self._num_decomps = num_decomps
         self._num_scopes = num_scopes
-        self._input_format = input_format
-        self._output_format = output_format
 
         self._scope_axis = 0
         self._decomp_axis = 1
@@ -997,6 +1012,7 @@ class BlockNode(OpNode, abc.ABC):
         self._node_axis = 3
 
     def describe(self):
+        """Describes the dimensionality of this node """
         return "{}: [{} x {} x ? x {}]".format(
             self._name, self.dim_scope, self.dim_decomps, self.dim_nodes)
 
@@ -1006,10 +1022,12 @@ class BlockNode(OpNode, abc.ABC):
 
     @property
     def dim_scope(self):
+        """Number of scopes """
         return self._num_scopes
 
     @property
     def dim_decomps(self):
+        """Number of decompositions """
         return self._num_decomps
 
     def set_values(self, *values):
@@ -1025,3 +1043,8 @@ class BlockNode(OpNode, abc.ABC):
         if not isinstance(values[0], BlockNode):
             raise NotImplementedError("Inputs must be TensorNode")
         self._values = self._parse_inputs(*values)
+
+    @property
+    def child(self):
+        """Child node"""
+        return self._values[0].node

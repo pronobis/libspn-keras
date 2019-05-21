@@ -10,23 +10,20 @@ from libspn.graph.algorithms import traverse_graph
 @utils.register_serializable
 class BlockRootSum(BlockSum):
 
-    logger = get_logger()
-    info = logger.info
-
-    """An abstract node representing sums in an SPN.
+    """
+    This node can be used for putting a root node on top of an SPN built with ``BlockNode`` s. This
+    simply assumes there's only a single decomposition and a single scope in the preceding layer,
+    so that the root can join all nodes by means of a sum. This node will also ensure correct
+    generation of decompositions if there exists a ``BlockRandomDecompositions`` descendant.
 
     Args:
-        *values (input_like): Inputs providing input values to this node.
+        child (input_like): Child for this node.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (int): Number of Sum ops modelled by this node.
-        sum_sizes (list): A list of ints corresponding to the sizes of each sum. If both num_sums
-                          and sum_sizes are given, we should have len(sum_sizes) == num_sums.
-        batch_axis (int): The index of the batch axis.
-        op_axis (int): The index of the op axis that contains the individual sums being modeled.
-        reduce_axis (int): The axis over which to perform summing (or max for MPE)
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
+        sample_prob (float): Probability for sampling on MPE path computation.
+        latent_indicators (IndicatorLeaf): Latent indicators (can be used for classification tasks)
         name (str): Name of the node.
 
     Attributes:
@@ -39,13 +36,11 @@ class BlockRootSum(BlockSum):
     """
 
     def __init__(self, child, weights=None, latent_indicators=None,
-                 inference_type=InferenceType.MARGINAL, masked=False, sample_prob=None,
-                 name="RootSum", input_format="SDBN",
-                 output_format="SDBN"):
+                 inference_type=InferenceType.MARGINAL, sample_prob=None,
+                 name="BlockRootSum"):
         super().__init__(
             child=child, num_sums_per_block=1, weights=weights, latent_indicators=latent_indicators,
-            inference_type=inference_type, masked=masked, sample_prob=sample_prob,
-            name=name, input_format=input_format, output_format=output_format)
+            inference_type=inference_type, sample_prob=sample_prob, name=name)
 
         # Take care of generating the random decompositions
         randomize_node = traverse_graph(

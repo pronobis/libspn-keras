@@ -3,7 +3,7 @@ from libspn.graph.op.block_random_decompositions import BlockRandomDecomposition
 from libspn.graph.op.block_permute_product import BlockPermuteProduct
 from libspn.graph.op.block_reduce_product import BlockReduceProduct
 from libspn.graph.op.block_sum import BlockSum
-from libspn.graph.op.block_merge_decomps import BlockMergeDecomps
+from libspn.graph.op.block_merge_decompositions import BlockMergeDecompositions
 from libspn.graph.op.block_root_sum import BlockRootSum
 import tensorflow as tf
 import numpy as np
@@ -16,12 +16,12 @@ class TestTensorRandomize(tf.test.TestCase):
 
         indicator_leaf = spn.IndicatorLeaf(num_vals=2, num_vars=num_vars)
         randomize = BlockRandomDecompositions(indicator_leaf, num_decomps=2)
-        p0 = BlockPermuteProduct(randomize, num_subsets=4)
+        p0 = BlockPermuteProduct(randomize, num_factors=4)
         s0 = BlockSum(p0, num_sums_per_block=3)
-        p1 = BlockPermuteProduct(s0, num_subsets=2)
+        p1 = BlockPermuteProduct(s0, num_factors=2)
         s1 = BlockSum(p1, num_sums_per_block=3)
         p2 = BlockReduceProduct(s1, num_subsets=2)
-        m = BlockMergeDecomps(p2, factor=2)
+        m = BlockMergeDecompositions(p2, num_decomps=2)
         root = BlockRootSum(m)
 
         latent = root.generate_latent_indicators(name="Latent")

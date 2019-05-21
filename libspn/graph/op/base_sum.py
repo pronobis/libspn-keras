@@ -757,7 +757,7 @@ class BaseSum(OpNode, abc.ABC):
         logits = tf.reshape(logits, (-1, last_dim))
         sample = tf.multinomial(logits, num_samples)
 
-        if self._tile_unweighted_size == num_samples:
+        if self._tile_unweighted_size == num_samples and self._max_sum_size > 1:
             shape = tf.concat((shape[:-1], [num_samples]), axis=0)
             return tf.squeeze(tf.reshape(sample, shape), axis=self._reduce_axis - 1)
 

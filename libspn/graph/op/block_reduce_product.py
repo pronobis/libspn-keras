@@ -1,27 +1,28 @@
+from libspn.inference.type import InferenceType
 from libspn.graph.node import OpNode
 from libspn.graph.op.block_permute_product import BlockPermuteProduct
 import libspn.utils as utils
-from libspn.log import get_logger
 import tensorflow as tf
 
 
 @utils.register_serializable
 class BlockReduceProduct(BlockPermuteProduct):
 
-    logger = get_logger()
-    info = logger.info
+    """
+    This node represents products computed in blocks. Each block corresponds to a set of nodes for
+    a specific (i) scope and (ii) decomposition. Apart from the axis containing nodes within the
+    block, there's an axis for (i) batch element, (ii) the scope and (iii) the decomposition in
+    the internal tensor representation.
 
-    """An abstract node representing sums in an SPN.
+    'Reduce' products are computed by simply reducing over adjacent scopes. For example, when
+    ``num_subsets`` is set to 2 and there are 4 scopes at the child node with 8 nodes each, then
+    the output of this layer will have 4 / 2 == 2 scopes and 8 nodes per block.
 
     Args:
-        *values (input_like): Inputs providing input values to this node.
+        child (input_like): Child for this node.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (int): Number of Sum ops modelled by this node.
-        sum_sizes (list): A list of ints corresponding to the sizes of each sum. If both num_sums
-                          and sum_sizes are given, we should have len(sum_sizes) == num_sums.
-        batch_axis (int): The index of the batch axis.
-        op_axis (int): The index of the op axis that contains the individual sums being modeled.
-        reduce_axis (int): The axis over which to perform summing (or max for MPE)
+        num_factors (int): Number of factors per product. Corresponds to how many scopes are joined
+            in this layer.
         name (str): Name of the node.
 
     Attributes:
@@ -32,22 +33,24 @@ class BlockReduceProduct(BlockPermuteProduct):
                                        used during the next inference/learning
                                        op generation.
     """
+    def __init__(self, child, num_factors, num_decomps=None, inference_type=InferenceType.MARGINAL,
+                 name="BlockReduceProduct"):
+        super().__init__(child=child, num_factors=num_factors,
+                         num_decomps=num_decomps, inference_type=inference_type, name=name)
 
     @property
     def dim_nodes(self):
+        """Number of nodes per block """
         return self.child.dim_nodes
 
     @property
     def dim_scope(self):
+        """Number of scopes """
         return self.child.dim_scope // self.num_factors
-
-    def _compute_out_size(self, *input_out_sizes):
-        pass
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_log_value(self, child_log_prob):
-
         # Split in list of tensors which will be added up using outer products
         shape = [self.dim_scope, self._num_factors, self.dim_decomps, -1, self.child.dim_nodes]
         return tf.reduce_sum(tf.reshape(child_log_prob, shape=shape), axis=1)
@@ -68,3 +71,6 @@ class BlockReduceProduct(BlockPermuteProduct):
             counts, [self.dim_scope, 1, self.dim_decomps, -1, child.dim_nodes])
         return (tf.reshape(
             tf.tile(counts_reshaped, [1, self.num_factors, 1, 1, 1]), tf.shape(child_log_prob[0])),)
+
+    def _compute_out_size(self, *input_out_sizes):
+        pass

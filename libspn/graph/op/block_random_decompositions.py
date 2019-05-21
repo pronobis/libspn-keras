@@ -12,24 +12,13 @@ import numpy as np
 @utils.register_serializable
 class BlockRandomDecompositions(BlockNode):
 
-    logger = get_logger()
-    info = logger.info
-
     """A node that creates random decompositions of its leaf inputs by generating an arbitrary 
     number of random orderings the inputs randomly and having singleton scopes in the output.
 
     Args:
-        *values (input_like): Inputs providing input values to this node.
+        child (input_like): Inputs providing input values to this node.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (int): Number of Sum ops modelled by this node.
-        sum_sizes (list): A list of ints corresponding to the sizes of each sum. If both num_sums
-                          and sum_sizes are given, we should have len(sum_sizes) == num_sums.
-        batch_axis (int): The index of the batch axis.
-        op_axis (int): The index of the op axis that contains the individual sums being modeled.
-        reduce_axis (int): The axis over which to perform summing (or max for MPE)
-        weights (input_like): Input providing weights node to this sum node.
-            See :meth:`~libspn.Input.as_input` for possible values. If set
-            to ``None``, the input is disconnected.
+        num_decomps (int): Number of random decompositions to generate
         name (str): Name of the node.
 
     Attributes:
@@ -41,18 +30,12 @@ class BlockRandomDecompositions(BlockNode):
                                        op generation.
     """
 
-    def __init__(self, *values, num_decomps, inference_type=InferenceType.MARGINAL,
-                 name="TensorRandomize", input_format="SDBN", output_format="BNN"):
-        super().__init__(
-            inference_type=inference_type, name=name, input_format=input_format,
-            output_format=output_format, num_decomps=num_decomps)
-        self.set_values(*values)
+    def __init__(self, child, num_decomps, inference_type=InferenceType.MARGINAL,
+                 name="BlockRandomDecompositions"):
+        super().__init__(inference_type=inference_type, name=name, num_decomps=num_decomps)
+        self.set_values(child)
         self._num_decomps = num_decomps
-        self._batch_axis = 2
-        self._decomp_axis = 1
-        self._scope_axis = 0
-        self._node_axis = 3
-        self._perms = None
+        self._permutations = None
 
     def generate_permutations(self, factors):
         if not factors:
@@ -83,21 +66,14 @@ class BlockRandomDecompositions(BlockNode):
             for p in perms:
                 for i in range(num_m1):
                     p.insert(i * rate_m1, -1)
-        self._perms = perms = np.asarray(perms)
+        self._permutations = perms = np.asarray(perms)
         return perms
 
     def set_values(self, *values):
         self._values = self._parse_inputs(*values)
 
     def _get_num_input_scopes(self):
-        if not self._values:
-            raise StructureError("{}: cannot get num input scopes since this "
-                                 "node has no children.".format(self))
-        return self._values[0].node.num_vars
-
-    def _assert_generated(self):
-        if self._perms is None:
-            raise StructureError("{}: First need to generate decompositions.".format(self))
+        return self.child.num_vars
 
     @property
     def dim_nodes(self):
@@ -115,7 +91,7 @@ class BlockRandomDecompositions(BlockNode):
 
     @property
     def dim_scope(self):
-        return self._perms.shape[1]
+        return self._permutations.shape[1]
 
     @utils.docinherit(OpNode)
     def serialize(self):
@@ -152,18 +128,18 @@ class BlockRandomDecompositions(BlockNode):
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_log_value(self, *value_tensors):
-        if self._perms is None:
+        if self._permutations is None:
             raise StructureError("First need to determine permutations")
         # [batch, scope, node]
         child, = value_tensors
-        dim_scope_in = self.values[0].node.num_vars
-        dim_nodes_in = self.values[0].node.num_vals if isinstance(
-            self.values[0].node, IndicatorLeaf) else self.values[0].node.num_components
+        dim_scope_in = self.child.num_vars
+        dim_nodes_in = self.child.num_vals if isinstance(
+            self.child.node, IndicatorLeaf) else self.values[0].node.num_components
         zero_padded = tf.concat(
             [tf.zeros([1, tf.shape(child)[0], dim_nodes_in]),
              tf.transpose(
                  tf.reshape(child, [-1, dim_scope_in, dim_nodes_in]), (1, 0, 2))], axis=0)
-        gather_indices = self._perms + 1
+        gather_indices = self._permutations + 1
         permuted = self._gather_op = tf.gather(zero_padded, np.transpose(gather_indices))
         self._zero_padded_shape = tf.shape(zero_padded)
 
@@ -200,4 +176,3 @@ class BlockRandomDecompositions(BlockNode):
     @utils.docinherit(OpNode)
     def _const_out_size(self):
         return True
-

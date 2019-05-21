@@ -13,23 +13,20 @@ import tensorflow as tf
 @utils.register_serializable
 class BlockSum(BlockNode):
 
-    logger = get_logger()
-    info = logger.info
-
-    """An abstract node representing sums in an SPN.
+    """
+    This node represents sums computed in blocks. Each block corresponds to a set of nodes for
+    a specific (i) scope and (ii) decomposition. Apart from the axis containing nodes within the
+    block, there's an axis for (i) batch element, (ii) the scope and (iii) the decomposition in
+    the internal tensor representation.
 
     Args:
-        *values (input_like): Inputs providing input values to this node.
+        child (input_like): Child for this node.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (int): Number of Sum ops modelled by this node.
-        sum_sizes (list): A list of ints corresponding to the sizes of each sum. If both num_sums
-                          and sum_sizes are given, we should have len(sum_sizes) == num_sums.
-        batch_axis (int): The index of the batch axis.
-        op_axis (int): The index of the op axis that contains the individual sums being modeled.
-        reduce_axis (int): The axis over which to perform summing (or max for MPE)
+        num_sums_per_block (int): Number of sums modeled per blobck.
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
+        sample_prob (float): Probability for sampling on MPE path computation.
         name (str): Name of the node.
 
     Attributes:
@@ -41,14 +38,10 @@ class BlockSum(BlockNode):
                                        op generation.
     """
 
-    def _compute_out_size(self, *input_out_sizes):
-        pass
-
     def __init__(self, child, num_sums_per_block, weights=None, latent_indicators=None,
                  inference_type=InferenceType.MARGINAL, sample_prob=None,
-                 name="BlockSum", input_format="SDBN", output_format="SDBN"):
-        super().__init__(inference_type=inference_type, name=name,
-                         input_format=input_format, output_format=output_format)
+                 name="BlockSum"):
+        super().__init__(inference_type=inference_type, name=name)
         self.set_values(child)
         self.set_weights(weights)
         self.set_latent_indicator(latent_indicators)
@@ -59,19 +52,18 @@ class BlockSum(BlockNode):
         self._num_sums = num_sums_per_block
 
     @property
-    def child(self):
-        return self._values[0].node
-    
-    @property
     def dim_nodes(self):
+        """Dim size nodes"""
         return self._num_sums
 
     @property
     def dim_decomps(self):
+        """Dim size decompositions"""
         return self.child.dim_decomps
 
     @property
     def dim_scope(self):
+        """Dim size scopes"""
         return self.child.dim_scope
 
     @utils.docinherit(OpNode)
@@ -310,3 +302,5 @@ class BlockSum(BlockNode):
     def _const_out_size(self):
         return True
 
+    def _compute_out_size(self, *input_out_sizes):
+        pass

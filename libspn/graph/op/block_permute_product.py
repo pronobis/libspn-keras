@@ -1,8 +1,7 @@
 import operator
-from libspn.graph.node import OpNode, Input, BlockNode
+from libspn.graph.node import OpNode, BlockNode
 from libspn.inference.type import InferenceType
 import libspn.utils as utils
-from libspn.log import get_logger
 import functools
 import tensorflow as tf
 
@@ -10,20 +9,21 @@ import tensorflow as tf
 @utils.register_serializable
 class BlockPermuteProduct(BlockNode):
 
-    logger = get_logger()
-    info = logger.info
+    """
+    This node represents products computed in blocks. Each block corresponds to a set of nodes for
+    a specific (i) scope and (ii) decomposition. Apart from the axis containing nodes within the
+    block, there's an axis for (i) batch element, (ii) the scope and (iii) the decomposition in
+    the internal tensor representation.
 
-    """An abstract node representing sums in an SPN.
+    'Permute' products are computed by permuting over adjacent scopes. For example, when
+    ``num_subsets`` is set to 2 and there are 4 scopes at the child node with 8 nodes each, then
+    the output of this layer will have 4 / 2 == 2 scopes and 8 ^ 2 == 64 nodes per block.
 
     Args:
-        *values (input_like): Inputs providing input values to this node.
+        child (input_like): Child for this node.
             See :meth:`~libspn.Input.as_input` for possible values.
-        num_sums (int): Number of Sum ops modelled by this node.
-        sum_sizes (list): A list of ints corresponding to the sizes of each sum. If both num_sums
-                          and sum_sizes are given, we should have len(sum_sizes) == num_sums.
-        batch_axis (int): The index of the batch axis.
-        op_axis (int): The index of the op axis that contains the individual sums being modeled.
-        reduce_axis (int): The axis over which to perform summing (or max for MPE)
+        num_factors (int): Number of factors per product. Corresponds to how many scopes are joined
+            in this layer.
         name (str): Name of the node.
 
     Attributes:
@@ -35,32 +35,25 @@ class BlockPermuteProduct(BlockNode):
                                        op generation.
     """
 
-    def __init__(self, child, num_subsets, num_decomps=None, num_scopes=None,
-                 inference_type=InferenceType.MARGINAL,
-                 name="TensorProduct", input_format="SDBN", output_format="SDBN"):
-        super().__init__(
-            inference_type=inference_type, name=name, input_format=input_format,
-            output_format=output_format, num_decomps=num_decomps, num_scopes=num_scopes)
+    def __init__(self, child, num_factors, num_decomps=None, inference_type=InferenceType.MARGINAL,
+                 name="BlockPermuteProduct"):
+        super().__init__(inference_type=inference_type, name=name, num_decomps=num_decomps)
         self.set_values(child)
-        self._num_factors = num_subsets
+        self._num_factors = num_factors
 
     @property
     def dim_nodes(self):
+        """Number of node per block """
         return self.child.dim_nodes ** self._num_factors
 
     @property
     def dim_decomps(self):
+        """Number of decompositions """
         return self.child.dim_decomps
 
-    def _compute_out_size(self, *input_out_sizes):
-        pass
-
-    @property
-    def child(self):
-        return self.values[0].node
-    
     @property
     def dim_scope(self):
+        """Number of scopes """
         return self.child.dim_scope // self._num_factors
 
     @property
@@ -178,3 +171,5 @@ class BlockPermuteProduct(BlockNode):
     def _const_out_size(self):
         return True
 
+    def _compute_out_size(self, *input_out_sizes):
+        pass

@@ -108,11 +108,6 @@ class TestGraph(TestCase):
             inpt = spn.Input(v1, [1, -1, 2])
         with self.assertRaises(ValueError):
             inpt = spn.Input.as_input((v1, [1, -1, 2]))
-        # Detecting duplicate indices
-        with self.assertRaises(ValueError):
-            inpt = spn.Input(v1, [0, 1, 3, 1])
-        with self.assertRaises(ValueError):
-            inpt = spn.Input.as_input((v1, [0, 1, 3, 1]))
 
     def test_input_flags(self):
         """Detection of different types of inputs"""

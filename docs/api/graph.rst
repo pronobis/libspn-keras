@@ -74,12 +74,27 @@ Operation Nodes
 ---------------
 
 .. autoclass:: libspn.Sum
-.. autoclass:: libspn.ParSums
+.. autoclass:: libspn.ParallelSums
 .. autoclass:: libspn.SumsLayer
 .. autoclass:: libspn.Product
-.. autoclass:: libspn.PermProducts
+.. autoclass:: libspn.PermuteProducts
 .. autoclass:: libspn.ProductsLayer
 .. autoclass:: libspn.Concat
+.. autoclass:: libspn.BlockSum
+.. autoclass:: libspn.BlockRootSum
+.. autoclass:: libspn.BlockReduceProduct
+.. autoclass:: libspn.BlockPermuteProduct
+.. autoclass:: libspn.BlockMergeDecompositions
+.. autoclass:: libspn.BlockRandomDecompositions
+
+
+Convolutional Nodes
+-------------------
+
+.. autoclass:: libspn.ConvSums
+.. autoclass:: libspn.LocalSums
+.. autoclass:: libspn.ConvProducts
+.. autoclass:: libspn.ConvProductsDepthwise
 
 
 Parameter Nodes
