@@ -57,8 +57,8 @@ class Ops:
         root0 = dense_gen.generate(inputs, root_name="root_0")
         root1 = dense_gen.generate(inputs, root_name="root_1")
         root = spn.Sum(root0, root1, name="root")
-        spn.generate_weights(root, init_value=weight_init_value)
-        latent = root.generate_ivs()
+        spn.generate_weights(root, initializer=weight_init_value)
+        latent = root.generate_latent_indicators()
 
         # Add EM Learning
         additive_smoothing_var = tf.Variable(additive_smoothing, dtype=spn.conf.dtype)
@@ -80,7 +80,6 @@ class Ops:
         weight_init_value = tf.initializers.random_uniform(0, 1)
 
         # Add random values before max
-        add_random = None
         use_unweighted = True
 
         # Generate SPN structure
@@ -98,14 +97,13 @@ class Ops:
         class_roots = [dense_gen.generate(inputs, root_name=("Class_%d" % i))
                        for i in range(10)]
         root = spn.Sum(*class_roots, name="root")
-        spn.generate_weights(root, init_value=weight_init_value)
-        latent = root.generate_ivs()
+        spn.generate_weights(root, intializer=weight_init_value)
+        latent = root.generate_latent_indicators()
 
         # Add EM Learning
         additive_smoothing_var = tf.Variable(additive_smoothing, dtype=spn.conf.dtype)
         learning = spn.EMLearning(root, log=log, value_inference_type=inf_type,
                                   additive_smoothing=additive_smoothing_var,
-                                  add_random=add_random,
                                   initial_accum_value=initial_accum_value,
                                   use_unweighted=use_unweighted)
 
@@ -255,8 +253,8 @@ class PerformanceTest:
         # Create graph
         tf.reset_default_graph()
         with tf.device(device_name):
-            # Create input ivs
-            inputs_pl = spn.IVs(num_vars=196, num_vals=2)
+            # Create input latent_indicators
+            inputs_pl = spn.IndicatorLeaf(num_vars=196, num_vals=2)
             # Create dense SPN and generate TF graph for training
             start_time = time.time()
             # Generate SPN
@@ -273,7 +271,7 @@ class PerformanceTest:
 
             # Generate Testing Ops
             mpe_state_gen = spn.MPEState(log=log, value_inference_type=spn.InferenceType.MPE)
-            mpe_ivs, mpe_latent = mpe_state_gen.get_state(root, inputs_pl, latent)
+            mpe_latent_indicators, mpe_latent = mpe_state_gen.get_state(root, inputs_pl, latent)
             setup_time = time.time() - start_time
 
             if on_gpu:

@@ -6,15 +6,15 @@ import tensorflow as tf
 import numpy as np
 
 
-class TestGraphIVs(TestCase):
+class TestGraphIndicatorLeaf(TestCase):
 
     def test_iv_value_feed_dict(self):
-        """Calculating value of IVs based on inputs provided using feed_dict"""
+        """Calculating value of IndicatorLeaf based on inputs provided using feed_dict"""
 
         def test(num_vars, num_vals, rv_value, iv_value):
             with self.subTest(num_vars=num_vars, num_vals=num_vals,
                               rv_value=rv_value):
-                n = spn.IVs(num_vars=num_vars, num_vals=num_vals)
+                n = spn.IndicatorLeaf(num_vars=num_vars, num_vals=num_vals)
                 op = n.get_value()
                 op_log = n.get_log_value()
                 with self.test_session() as sess:
@@ -62,13 +62,13 @@ class TestGraphIVs(TestCase):
               [0, 0, 1, 0, 1, 1, 1, 1]])
 
     def test_iv_value_tensor(self):
-        """Calculating value of IVs based on inputs from a tensor"""
+        """Calculating value of IndicatorLeaf based on inputs from a tensor"""
 
         def test(num_vars, num_vals, rv_value, iv_value):
             with self.subTest(num_vars=num_vars, num_vals=num_vals,
                               rv_value=rv_value):
                 p = tf.placeholder(tf.int32, [None, num_vars])
-                n = spn.IVs(feed=p, num_vars=num_vars,
+                n = spn.IndicatorLeaf(feed=p, num_vars=num_vars,
                             num_vals=num_vals)
                 op = n.get_value()
                 op_log = n.get_log_value()

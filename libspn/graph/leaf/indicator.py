@@ -7,11 +7,12 @@ from libspn.utils.serialization import register_serializable
 
 
 @register_serializable
-class IVs(VarNode):
+class IndicatorLeaf(VarNode):
     """A node representing multiple random variables in the form of indicator
     variables. Each random variable is assumed to take the same number of
     possible values ``[0, 1, ..., num_vals-1]``. If the value of the random
-    variable is negative (e.g. -1), all indicators will be set to 1.
+    variable is negative (e.g. -1), all indicators will be set to 1. For a
+    Bernoulli random variable, use ``num_vals=2``.
 
     Args:
         feed (Tensor): Tensor feeding this node or ``None``. If ``None``,
@@ -21,7 +22,7 @@ class IVs(VarNode):
         name (str): Name of the node
     """
 
-    def __init__(self, feed=None, num_vars=1, num_vals=2, name="IVs"):
+    def __init__(self, feed=None, num_vars=1, num_vals=2, name="IndicatorLeaf"):
         if not isinstance(num_vars, int) or num_vars < 1:
             raise ValueError("num_vars must be a positive integer")
         if not isinstance(num_vals, int) or num_vals < 2:
@@ -32,7 +33,7 @@ class IVs(VarNode):
 
     @property
     def num_vars(self):
-        """int: Number of random variables of the IVs."""
+        """int: Number of random variables of the IndicatorLeaf."""
         return self._num_vars
 
     @property
@@ -83,7 +84,7 @@ class IVs(VarNode):
         # The output type has to be conf.dtype otherwise MatMul will
         # complain about being unable to mix types
         oh = tf.one_hot(self._feed, self._num_vals, dtype=conf.dtype)
-        # Detect negative input values and convert them to all IVs equal to 1
+        # Detect negative input values and convert them to all IndicatorLeaf equal to 1
         neg = tf.expand_dims(tf.cast(tf.less(self._feed, 0), dtype=conf.dtype), axis=-1)
         oh = tf.add(oh, neg)
         # Reshape

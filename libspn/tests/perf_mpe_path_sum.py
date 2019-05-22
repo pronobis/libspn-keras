@@ -12,9 +12,9 @@ from libspn.tests.abstract_performance_profiling import AbstractPerformanceTest,
     AbstractPerformanceUnit, PerformanceTestArgs, ConfigGenerator
 from libspn.tests.perf_sum_value_varying_sizes import sums_layer_numpy_common
 
-MPEPathPerformanceInput = namedtuple("MPEPathPerformanceInput",
+MPEPathPerformanceInput = namedtuple("LogMatMulInput",
                                      ["values", "indices", "num_parallel", "sum_sizes", "num_sums",
-                                      "weights", "ivs"])
+                                      "weights", "latent_indicators"])
 
 
 def _repeat_elements(arr, n):
@@ -31,13 +31,13 @@ class AbstractSumUnit(AbstractPerformanceUnit, abc.ABC):
     def true_out(self, inputs, conf):
         """ Computes the output of _compute_mpe_path with numpy """
         weights = inputs.weights
-        ivs = inputs.ivs
+        latent_indicators = inputs.latent_indicators
         sums_sizes = inputs.sum_sizes
         values = _repeat_elements([(inputs.values[0][:, ind], None) for ind in
                                    inputs.indices], inputs.num_parallel)
         sums_sizes = _repeat_elements(sums_sizes, inputs.num_parallel)
         inputs_to_reduce, iv_mask_per_sum, weights_per_sum = sums_layer_numpy_common(
-            values, ivs, sums_sizes, weights)
+            values, latent_indicators, sums_sizes, weights)
         # Get max index for sum node
         if conf.inf_type == spn.InferenceType.MPE:
             # We don't have to think about the max individual sum outcome in this case, it will just
@@ -83,11 +83,11 @@ class SumsLayerUnit(AbstractSumUnit):
 
     def _build_placeholders(self, inputs):
         total_inputs = sum([inp.shape[1] for inp in inputs.values])
-        return [spn.ContVars(num_vars=total_inputs)]
+        return [spn.RawLeaf(num_vars=total_inputs)]
 
     def _build_op(self, inputs, placeholders, conf):
-        # TODO make sure the ivs are correct
-        sum_indices, weights, ivs = inputs.indices, inputs.weights, None
+        # TODO make sure the latent_indicators are correct
+        sum_indices, weights, latent_indicators = inputs.indices, inputs.weights, None
         log, inf_type = conf.log, conf.inf_type
         repeated_inputs = []
         repeated_sum_sizes = []
@@ -103,8 +103,8 @@ class SumsLayerUnit(AbstractSumUnit):
         spn.conf.sumslayer_count_sum_strategy = self.sum_count_strategy
         sums_layer = spn.SumsLayer(*repeated_inputs, num_or_size_sums=repeated_sum_sizes)
         weight_node = self._generate_weights(sums_layer, weights)
-        if ivs:
-            sums_layer.set_ivs(*ivs)
+        if latent_indicators:
+            sums_layer.set_latent_indicators(*latent_indicators)
         # Connect a single sum to group outcomes
         root = spn.Sum(sums_layer)
 
@@ -130,31 +130,31 @@ class SumsLayerUnit(AbstractSumUnit):
         return true_out
 
 
-class ParSumsUnit(AbstractSumUnit):
+class ParallelSumsUnit(AbstractSumUnit):
 
     def __init__(self, name, dtype):
-        super(ParSumsUnit, self).__init__(name, dtype)
+        super(ParallelSumsUnit, self).__init__(name, dtype)
 
     def _build_placeholders(self, inputs):
-        return [spn.ContVars(num_vars=inputs.values[0].shape[1])]
+        return [spn.RawLeaf(num_vars=inputs.values[0].shape[1])]
 
     def _build_op(self, inputs, placeholders, conf):
         """ Creates the graph using only ParSum nodes """
-        # TODO make sure the ivs are correct
-        sum_indices, weights, ivs = inputs.indices, inputs.weights, None
+        # TODO make sure the latent_indicators are correct
+        sum_indices, weights, latent_indicators = inputs.indices, inputs.weights, None
         log, inf_type = conf.log, conf.inf_type
         weights = np.split(weights, np.cumsum([len(ind) * inputs.num_parallel for ind in
                                                sum_indices])[:-1])
 
         parallel_sum_nodes = []
         for ind in sum_indices:
-            parallel_sum_nodes.append(spn.ParSums((placeholders[0], ind),
-                                                  num_sums=inputs.num_parallel))
+            parallel_sum_nodes.append(spn.ParallelSums((placeholders[0], ind),
+                                                       num_sums=inputs.num_parallel))
 
         weight_nodes = [self._generate_weights(node, w.tolist()) for node, w in
                         zip(parallel_sum_nodes, weights)]
-        if ivs:
-            [s.set_ivs(iv) for s, iv in zip(parallel_sum_nodes, ivs)]
+        if latent_indicators:
+            [s.set_latent_indicators(iv) for s, iv in zip(parallel_sum_nodes, latent_indicators)]
         root = spn.Sum(*parallel_sum_nodes)
         self._generate_weights(root)
 
@@ -166,7 +166,7 @@ class ParSumsUnit(AbstractSumUnit):
         return tf.tuple(path_op + input_counts)[:len(path_op)], self._initialize_from(root)
 
     def true_out(self, inputs, conf):
-        true_out = super(ParSumsUnit, self).true_out(inputs, conf)
+        true_out = super(ParallelSumsUnit, self).true_out(inputs, conf)
         true_out = [np.concatenate(true_out[i:i + inputs.num_parallel], axis=1)
                     .reshape((true_out[0].shape[0], inputs.num_parallel, -1))
                     for i in range(0, len(true_out), inputs.num_parallel)]
@@ -191,7 +191,7 @@ class MPEPathPerformanceTest(AbstractPerformanceTest):
         weights = self.random_numpy_tensor((num_params,))
         return MPEPathPerformanceInput(
             values=[values], indices=indices, num_parallel=self.num_parallel,
-            num_sums=self.num_sums, sum_sizes=self.sum_sizes, weights=weights, ivs=None
+            num_sums=self.num_sums, sum_sizes=self.sum_sizes, weights=weights, latent_indicators=None
         )
 
 
@@ -211,7 +211,7 @@ def main():
         SumsLayerUnit("LayerCountMatmul", tf.float32, "matmul"),
         SumsLayerUnit("LayerCountGather", tf.float32, "gather"),
         SumsLayerUnit("LayerCountSegmented", tf.float32, "segmented"),
-        ParSumsUnit("ParSums", tf.float32)
+        ParallelSumsUnit("ParallelSums", tf.float32)
     ]
     # Select the device
     gpu = [False, True]

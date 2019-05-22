@@ -10,7 +10,7 @@ class TestGraph(TestCase):
 
     def test_input_conversion(self):
         """Conversion and verification of input specs in Input"""
-        v1 = spn.ContVars(num_vars=5)
+        v1 = spn.RawLeaf(num_vars=5)
         # None
         inpt = spn.Input()
         self.assertIs(inpt.node, None)
@@ -108,11 +108,6 @@ class TestGraph(TestCase):
             inpt = spn.Input(v1, [1, -1, 2])
         with self.assertRaises(ValueError):
             inpt = spn.Input.as_input((v1, [1, -1, 2]))
-        # Detecting duplicate indices
-        with self.assertRaises(ValueError):
-            inpt = spn.Input(v1, [0, 1, 3, 1])
-        with self.assertRaises(ValueError):
-            inpt = spn.Input.as_input((v1, [0, 1, 3, 1]))
 
     def test_input_flags(self):
         """Detection of different types of inputs"""
@@ -129,7 +124,7 @@ class TestGraph(TestCase):
         self.assertFalse(inpt.is_var)
         self.assertFalse(inpt.is_param)
 
-        n = spn.ContVars()
+        n = spn.RawLeaf()
         inpt = spn.Input(n)
         self.assertTrue(inpt)
         self.assertFalse(inpt.is_op)
@@ -155,9 +150,9 @@ class TestGraph(TestCase):
     def test_get_nodes(self):
         """Obtaining the list of nodes in the SPN graph"""
         # Generate graph
-        v1 = spn.ContVars(num_vars=1)
-        v2 = spn.ContVars(num_vars=1)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=1)
+        v2 = spn.RawLeaf(num_vars=1)
+        v3 = spn.RawLeaf(num_vars=1)
         s1 = spn.Sum(v1, v1, v2)  # v1 included twice
         s2 = spn.Sum(v1, v3)
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice
@@ -220,9 +215,9 @@ class TestGraph(TestCase):
     def test_get_num_nodes(self):
         """Computing the number of nodes in the SPN graph"""
         # Generate graph
-        v1 = spn.ContVars(num_vars=1)
-        v2 = spn.ContVars(num_vars=1)
-        v3 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=1)
+        v2 = spn.RawLeaf(num_vars=1)
+        v3 = spn.RawLeaf(num_vars=1)
         s1 = spn.Sum(v1, v1, v2)  # v1 included twice
         s2 = spn.Sum(v1, v3)
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice
@@ -280,9 +275,9 @@ class TestGraph(TestCase):
     def test_get_out_size(self):
         """Computing the sizes of the outputs of nodes in SPN graph"""
         # Generate graph
-        v1 = spn.ContVars(num_vars=5)
-        v2 = spn.ContVars(num_vars=5)
-        v3 = spn.ContVars(num_vars=5)
+        v1 = spn.RawLeaf(num_vars=5)
+        v2 = spn.RawLeaf(num_vars=5)
+        v3 = spn.RawLeaf(num_vars=5)
         s1 = spn.Sum((v1, [1, 3]), (v1, [1, 4]), v2)  # v1 included twice
         s2 = spn.Sum(v1, (v3, [0, 1, 2, 3, 4]))
         s3 = spn.Sum(v2, v3, v3)  # v3 included twice
@@ -368,12 +363,12 @@ class TestGraph(TestCase):
         self.assertEqual(len(spn.Scope("a", 1) | spn.Scope("b", 1)), 2)
 
     def test_gather_input_scopes(self):
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=2, name="V34")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
+        v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum(v12, v12, v34, (v12, [7, 3, 1, 0]), (v34, 0), name="S1")
         scopes_v12 = v12._compute_scope()
         scopes_v34 = v34._compute_scope()
-        # Note: weights/ivs are disconnected, so None should be output these
+        # Note: weights/latent_indicators are disconnected, so None should be output these
         scopes = s1._gather_input_scopes(None, None, None, scopes_v12, scopes_v34,
                                          scopes_v12, scopes_v34)
         self.assertTupleEqual(scopes,
@@ -385,8 +380,8 @@ class TestGraph(TestCase):
     def test_get_scope(self):
         """Computing the scope of nodes of the SPN graph"""
         # Create graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=2, name="V34")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
+        v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
         p1 = spn.Product((v12, [0, 7]), name="P1")
@@ -441,8 +436,8 @@ class TestGraph(TestCase):
     def test_is_valid_true(self):
         """Checking validity of the SPN"""
         # Create graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=2, name="V34")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
+        v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
         p1 = spn.Product((v12, [0, 7]), name="P1")
@@ -474,8 +469,8 @@ class TestGraph(TestCase):
     def test_is_valid_false(self):
         """Checking validity of the SPN"""
         # Create graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=2, name="V34")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
+        v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
         p1 = spn.Product((v12, [0, 7]), name="P1")
@@ -513,8 +508,8 @@ class TestGraph(TestCase):
                     out = sess.run(op, feed_dict=feed)
                 np.testing.assert_array_equal(out, np.array(true_output))
 
-        v1 = spn.ContVars(num_vars=3)
-        v2 = spn.ContVars(num_vars=1)
+        v1 = spn.RawLeaf(num_vars=3)
+        v2 = spn.RawLeaf(num_vars=1)
 
         # Disconnected input
         n = spn.Concat(None)

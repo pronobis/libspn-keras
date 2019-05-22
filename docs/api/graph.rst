@@ -59,21 +59,42 @@ inherit from these classes.
 Variable Nodes
 --------------
 
-.. autoclass:: libspn.ContVars
-.. autoclass:: libspn.IVs
-.. autoclass:: libspn.GaussianLeaf
+.. autoclass:: libspn.RawLeaf
+.. autoclass:: libspn.IndicatorLeaf
+.. autoclass:: libspn.NormalLeaf
+.. autoclass:: libspn.CauchyLeaf
+.. autoclass:: libspn.LaplaceLeaf
+.. autoclass:: libspn.TruncatedNormalLeaf
+.. autoclass:: libspn.StudentTLeaf
+.. autoclass:: libspn.MultivariateNormalDiagLeaf
+.. autoclass:: libspn.MultivariateCauchyDiagLeaf
 
 
 Operation Nodes
 ---------------
 
 .. autoclass:: libspn.Sum
-.. autoclass:: libspn.ParSums
+.. autoclass:: libspn.ParallelSums
 .. autoclass:: libspn.SumsLayer
 .. autoclass:: libspn.Product
-.. autoclass:: libspn.PermProducts
+.. autoclass:: libspn.PermuteProducts
 .. autoclass:: libspn.ProductsLayer
 .. autoclass:: libspn.Concat
+.. autoclass:: libspn.BlockSum
+.. autoclass:: libspn.BlockRootSum
+.. autoclass:: libspn.BlockReduceProduct
+.. autoclass:: libspn.BlockPermuteProduct
+.. autoclass:: libspn.BlockMergeDecompositions
+.. autoclass:: libspn.BlockRandomDecompositions
+
+
+Convolutional Nodes
+-------------------
+
+.. autoclass:: libspn.ConvSums
+.. autoclass:: libspn.LocalSums
+.. autoclass:: libspn.ConvProducts
+.. autoclass:: libspn.ConvProductsDepthwise
 
 
 Parameter Nodes

@@ -29,6 +29,7 @@ REQUIRED_PACKAGES = [
     'scipy',
     'matplotlib',
     'parameterized',
+    'tensorflow-probability',
     'pillow',
     'pyyaml',
     'tqdm',

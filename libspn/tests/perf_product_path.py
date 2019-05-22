@@ -85,11 +85,11 @@ class Ops:
         else:
             inputs_list = inputs
 
-        if isinstance(inputs, list):  # Is a list of ContVars inputs - Multiple inputs
-            # Generate 'len(inputs)' PermProducts nodes, modeling 'n_prods' products
+        if isinstance(inputs, list):  # Is a list of RawLeaf inputs - Multiple inputs
+            # Generate 'len(inputs)' PermuteProducts nodes, modeling 'n_prods' products
             # within each
-            p = [spn.PermProducts(*inps) for inps in inputs]
-        else:  # Is a single input of type ContVars - A single input
+            p = [spn.PermuteProducts(*inps) for inps in inputs]
+        else:  # Is a single input of type RawLeaf - A single input
             num_inputs_array = np.array(num_inputs)
             num_input_cols_array = np.array(num_input_cols)
             num_cols = num_input_cols[0]
@@ -104,12 +104,12 @@ class Ops:
                            for start, stop in zip(num_inputs_cumsum[:-1],
                                                   num_inputs_cumsum[1:])]
 
-            # Generate 'len(inputs)' PermProducts nodes, modeling 'n_prods'
+            # Generate 'len(inputs)' PermuteProducts nodes, modeling 'n_prods'
             # products within each, and inputs for each node emination from a
             # commoninput source
-            p = [spn.PermProducts(*inps) for inps in inputs_list]
+            p = [spn.PermuteProducts(*inps) for inps in inputs_list]
 
-        # Connect all PermProducts nodes to a single root Sum node and generate
+        # Connect all PermuteProducts nodes to a single root Sum node and generate
         # its weights
         root = spn.Sum(*p)
         root.generate_weights()
@@ -120,10 +120,10 @@ class Ops:
             mpe_path_gen = spn.MPEPath(value_inference_type=inf_type, log=False)
 
         mpe_path_gen.get_mpe_path(root)
-        if isinstance(inputs, list):  # Is a list of ContVars inputs - Multiple inputs
+        if isinstance(inputs, list):  # Is a list of RawLeaf inputs - Multiple inputs
             path_ops = [mpe_path_gen.counts[inp] for inp in
                         list(chain.from_iterable(inputs))]
-        else:  # Is a single input of type ContVars - A single input
+        else:  # Is a single input of type RawLeaf - A single input
             path_ops = mpe_path_gen.counts[inputs]
         return spn.initialize_weights(root), path_ops
 
@@ -172,7 +172,7 @@ class Ops:
                        indices=None, log=False, output=None):
         products_inputs = []
         num_or_size_prods = []
-        if isinstance(inputs, list):  # Is a list of ContVars inputs - Multiple inputs
+        if isinstance(inputs, list):  # Is a list of RawLeaf inputs - Multiple inputs
             for inps, n_inp_cols, n_prods in zip(inputs, num_input_cols, num_prods):
                 num_inputs = len(inps)
                 # Create permuted indices based on number and size of inputs
@@ -192,7 +192,7 @@ class Ops:
 
                 # Create products-size list
                 num_or_size_prods += [num_inputs] * n_prods
-        else:  # Is a single input of type ContVars - A single input
+        else:  # Is a single input of type RawLeaf - A single input
             outer_offset = 0
             permuted_inds_list = []
             for n_inps, n_inp_cols in zip(num_inputs, num_input_cols):
@@ -398,9 +398,9 @@ class PerformanceTest:
                 num_inputs_array = np.array(num_inputs)
                 num_input_cols_array = np.array(self.num_input_cols)
                 num_vars = int(np.sum(num_inputs_array * num_input_cols_array))
-                inputs_pl = spn.ContVars(num_vars=num_vars)
+                inputs_pl = spn.RawLeaf(num_vars=num_vars)
             else:
-                inputs_pl = [[spn.ContVars(num_vars=n_inp_cols) for _ in
+                inputs_pl = [[spn.RawLeaf(num_vars=n_inp_cols) for _ in
                               range(n_inps)] for n_inps, n_inp_cols in
                              zip(num_inputs, self.num_input_cols)]
             # Create ops
@@ -495,7 +495,7 @@ class PerformanceTest:
                   log):
         """Run a single test for multiple ops and devices."""
 
-        # Atleast two inputs are needed for modelling multiple products in PermProducts
+        # Atleast two inputs are needed for modelling multiple products in PermuteProducts
         if not all(n_inp >= 2 for n_inp in num_inputs):
             sys.exit('ERROR: All num_inputs must be >= 2')
 
@@ -662,7 +662,7 @@ def main():
     args = parser.parse_args()
 
     # Atleast two columns per input are needed for modelling multiple products
-    # in PermProducts
+    # in PermuteProducts
     if not all(n_inp_cols >= 2 for n_inp_cols in args.num_input_cols):
         sys.exit('ERROR: All num_input_cols must be >= 2')
 

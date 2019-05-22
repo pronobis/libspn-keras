@@ -4,16 +4,15 @@ import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
-from test import TestCase
 
-class TestNodesPermProducts(TestCase):
 
+class TestNodesPermuteProducts(tf.test.TestCase):
 
     def test_compute_value(self):
-        """Calculating value of PermProducts"""
+        """Calculating value of PermuteProducts"""
         def test(inputs, feed, output):
             with self.subTest(inputs=inputs, feed=feed):
-                n = spn.PermProducts(*inputs)
+                n = spn.PermuteProducts(*inputs)
                 op = n.get_value(spn.InferenceType.MARGINAL)
                 op_log = n.get_log_value(spn.InferenceType.MARGINAL)
                 op_mpe = n.get_value(spn.InferenceType.MPE)
@@ -37,9 +36,9 @@ class TestNodesPermProducts(TestCase):
                     np.array(output, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=3)
-        v2 = spn.ContVars(num_vars=3)
-        v3 = spn.ContVars(num_vars=3)
+        v1 = spn.RawLeaf(num_vars=3)
+        v2 = spn.RawLeaf(num_vars=3)
+        v3 = spn.RawLeaf(num_vars=3)
 
         # Multiple Product nodes - Common input Sizes
         # -------------------------------------------
@@ -301,32 +300,32 @@ class TestNodesPermProducts(TestCase):
              [[0.9]])
 
     def test_comput_scope(self):
-        """Calculating scope of PermProducts"""
+        """Calculating scope of PermuteProducts"""
         # Create graph
-        v12 = spn.IVs(num_vars=2, num_vals=4, name="V12")
-        v34 = spn.ContVars(num_vars=2, name="V34")
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=4, name="V12")
+        v34 = spn.RawLeaf(num_vars=2, name="V34")
         s1 = spn.Sum((v12, [0, 1, 2, 3]), name="S1")
-        s1.generate_ivs()
+        s1.generate_latent_indicators()
         s2 = spn.Sum((v12, [4, 5, 6, 7]), name="S2")
         p1 = spn.Product((v12, [0, 7]), name="P1")
         p2 = spn.Product((v12, [3, 4]), name="P2")
         p3 = spn.Product(v34, name="P3")
         n1 = spn.Concat(s1, s2, p3, name="N1")
         n2 = spn.Concat(p1, p2, name="N2")
-        pp1 = spn.PermProducts(n1, n2, name="PP1")  # num_prods = 6
-        pp2 = spn.PermProducts((n1, [0, 1]), (n2, [0]), name="PP2")  # num_prods = 2
-        pp3 = spn.PermProducts(n2, p3, name="PP3")  # num_prods = 2
-        pp4 = spn.PermProducts(p2, p3, name="PP4")  # num_prods = 1
-        pp5 = spn.PermProducts((n2, [0, 1]), name="PP5")  # num_prods = 1
-        pp6 = spn.PermProducts(p3, name="PP6")  # num_prods = 1
+        pp1 = spn.PermuteProducts(n1, n2, name="PP1")  # num_prods = 6
+        pp2 = spn.PermuteProducts((n1, [0, 1]), (n2, [0]), name="PP2")  # num_prods = 2
+        pp3 = spn.PermuteProducts(n2, p3, name="PP3")  # num_prods = 2
+        pp4 = spn.PermuteProducts(p2, p3, name="PP4")  # num_prods = 1
+        pp5 = spn.PermuteProducts((n2, [0, 1]), name="PP5")  # num_prods = 1
+        pp6 = spn.PermuteProducts(p3, name="PP6")  # num_prods = 1
         n3 = spn.Concat((pp1, [0, 2, 3]), pp2, pp4, name="N3")
         s3 = spn.Sum((pp1, [0, 2, 4]), (pp1, [1, 3, 5]), pp2, pp3, (pp4, 0),
                      pp5, pp6, name="S3")
-        s3.generate_ivs()
+        s3.generate_latent_indicators()
         n4 = spn.Concat((pp3, [0, 1]), pp5, (pp6, 0), name="N4")
-        pp7 = spn.PermProducts(n3, s3, n4, name="PP7")  # num_prods = 24
-        pp8 = spn.PermProducts(n3, name="PP8")  # num_prods = 1
-        pp9 = spn.PermProducts((n4, [0, 1, 2, 3]), name="PP9")  # num_prods = 1
+        pp7 = spn.PermuteProducts(n3, s3, n4, name="PP7")  # num_prods = 24
+        pp8 = spn.PermuteProducts(n3, name="PP8")  # num_prods = 1
+        pp9 = spn.PermuteProducts((n4, [0, 1, 2, 3]), name="PP9")  # num_prods = 1
         # Test
         self.assertListEqual(v12.get_scope(),
                              [spn.Scope(v12, 0), spn.Scope(v12, 0),
@@ -336,7 +335,7 @@ class TestNodesPermProducts(TestCase):
         self.assertListEqual(v34.get_scope(),
                              [spn.Scope(v34, 0), spn.Scope(v34, 1)])
         self.assertListEqual(s1.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0)])
+                             [spn.Scope(v12, 0) | spn.Scope(s1.latent_indicators.node, 0)])
         self.assertListEqual(s2.get_scope(),
                              [spn.Scope(v12, 1)])
         self.assertListEqual(p1.get_scope(),
@@ -346,7 +345,7 @@ class TestNodesPermProducts(TestCase):
         self.assertListEqual(p3.get_scope(),
                              [spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(n1.get_scope(),
-                             [spn.Scope(v12, 0) | spn.Scope(s1.ivs.node, 0),
+                             [spn.Scope(v12, 0) | spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 1),
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(n2.get_scope(),
@@ -354,9 +353,9 @@ class TestNodesPermProducts(TestCase):
                               spn.Scope(v12, 0) | spn.Scope(v12, 1)])
         self.assertListEqual(pp1.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
@@ -365,7 +364,7 @@ class TestNodesPermProducts(TestCase):
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(pp2.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1)])
         self.assertListEqual(pp3.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
@@ -381,19 +380,19 @@ class TestNodesPermProducts(TestCase):
                              [spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(n3.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0),
+                              spn.Scope(s1.latent_indicators.node, 0),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1),
                               spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
         self.assertListEqual(s3.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s1.ivs.node, 0) |
-                              spn.Scope(s3.ivs.node, 0)])
+                              spn.Scope(s1.latent_indicators.node, 0) |
+                              spn.Scope(s3.latent_indicators.node, 0)])
         self.assertListEqual(n4.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1),
@@ -404,31 +403,30 @@ class TestNodesPermProducts(TestCase):
         self.assertListEqual(pp7.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1) |
-                              spn.Scope(s1.ivs.node, 0) |
-                              spn.Scope(s3.ivs.node, 0)] * 24)
+                              spn.Scope(s1.latent_indicators.node, 0) |
+                              spn.Scope(s3.latent_indicators.node, 0)] * 24)
         self.assertListEqual(pp8.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
-                              spn.Scope(s1.ivs.node, 0) | spn.Scope(v34, 0) |
+                              spn.Scope(s1.latent_indicators.node, 0) | spn.Scope(v34, 0) |
                               spn.Scope(v34, 1)])
         self.assertListEqual(pp9.get_scope(),
                              [spn.Scope(v12, 0) | spn.Scope(v12, 1) |
                               spn.Scope(v34, 0) | spn.Scope(v34, 1)])
 
     def test_compute_valid(self):
-        """Calculating validity of PermProducts"""
-        v12 = spn.IVs(num_vars=2, num_vals=3)
-        v345 = spn.IVs(num_vars=3, num_vals=3)
-        v678 = spn.ContVars(num_vars=3)
-        v910 = spn.ContVars(num_vars=2)
-        p1 = spn.PermProducts((v12, [0, 1]), (v12, [4, 5]))
-        p2 = spn.PermProducts((v12, [3, 5]), (v345, [0, 1, 2]))
-        p3 = spn.PermProducts((v345, [0, 1, 2]), (v345, [3, 4, 5]),
-                              (v345, [6, 7, 8]))
-        p4 = spn.PermProducts((v345, [6, 8]), (v678, [0, 1]))
-        p5 = spn.PermProducts((v678, [1]), v910)
-        p6 = spn.PermProducts(v678, v910)
-        p7 = spn.PermProducts((v678, [0, 1, 2]))
-        p8 = spn.PermProducts((v910, [0]), (v910, [1]))
+        """Calculating validity of PermuteProducts"""
+        v12 = spn.IndicatorLeaf(num_vars=2, num_vals=3)
+        v345 = spn.IndicatorLeaf(num_vars=3, num_vals=3)
+        v678 = spn.RawLeaf(num_vars=3)
+        v910 = spn.RawLeaf(num_vars=2)
+        p1 = spn.PermuteProducts((v12, [0, 1]), (v12, [4, 5]))
+        p2 = spn.PermuteProducts((v12, [3, 5]), (v345, [0, 1, 2]))
+        p3 = spn.PermuteProducts((v345, [0, 1, 2]), (v345, [3, 4, 5]), (v345, [6, 7, 8]))
+        p4 = spn.PermuteProducts((v345, [6, 8]), (v678, [0, 1]))
+        p5 = spn.PermuteProducts((v678, [1]), v910)
+        p6 = spn.PermuteProducts(v678, v910)
+        p7 = spn.PermuteProducts((v678, [0, 1, 2]))
+        p8 = spn.PermuteProducts((v910, [0]), (v910, [1]))
         self.assertTrue(p1.is_valid())
         self.assertTrue(p2.is_valid())
         self.assertTrue(p3.is_valid())
@@ -437,12 +435,12 @@ class TestNodesPermProducts(TestCase):
         self.assertTrue(p6.is_valid())
         self.assertTrue(p7.is_valid())
         self.assertTrue(p8.is_valid())
-        p9 = spn.PermProducts((v12, [0, 1]), (v12, [1, 2]))
-        p10 = spn.PermProducts((v12, [3, 4, 5]), (v345, [0]), (v345, [0, 1, 2]))
-        p11 = spn.PermProducts((v345, [3, 5]), (v678, [0]), (v678, [0]))
-        p12 = spn.PermProducts((v910, [1]), (v910, [1]))
-        p13 = spn.PermProducts(v910, v910)
-        p14 = spn.PermProducts((v12, [0]), (v12, [1]))
+        p9 = spn.PermuteProducts((v12, [0, 1]), (v12, [1, 2]))
+        p10 = spn.PermuteProducts((v12, [3, 4, 5]), (v345, [0]), (v345, [0, 1, 2]))
+        p11 = spn.PermuteProducts((v345, [3, 5]), (v678, [0]), (v678, [0]))
+        p12 = spn.PermuteProducts((v910, [1]), (v910, [1]))
+        p13 = spn.PermuteProducts(v910, v910)
+        p14 = spn.PermuteProducts((v12, [0]), (v12, [1]))
         self.assertFalse(p9.is_valid())
         self.assertFalse(p10.is_valid())
         self.assertFalse(p11.is_valid())
@@ -452,10 +450,10 @@ class TestNodesPermProducts(TestCase):
         self.assertFalse(p14.is_valid())
 
     def test_compute_mpe_path(self):
-        """Calculating MPE path of PermProducts"""
+        """Calculating MPE path of PermuteProducts"""
         def test(counts, inputs, feed, output):
             with self.subTest(counts=counts, inputs=inputs, feed=feed):
-                p = spn.PermProducts(*inputs)
+                p = spn.PermuteProducts(*inputs)
                 op = p._compute_log_mpe_path(tf.identity(counts),
                                          *[i[0].get_value() for i in inputs])
                 with self.test_session() as sess:
@@ -467,9 +465,9 @@ class TestNodesPermProducts(TestCase):
                         np.array(t, dtype=spn.conf.dtype.as_numpy_dtype()))
 
         # Create inputs
-        v1 = spn.ContVars(num_vars=6)
-        v2 = spn.ContVars(num_vars=8)
-        v3 = spn.ContVars(num_vars=5)
+        v1 = spn.RawLeaf(num_vars=6)
+        v2 = spn.RawLeaf(num_vars=8)
+        v3 = spn.RawLeaf(num_vars=5)
 
         # Multiple Product nodes - Common input Sizes
         # -------------------------------------------

@@ -18,7 +18,7 @@ class Concat(OpNode):
     """
 
     def __init__(self, *inputs, name="Concat"):
-        super().__init__(InferenceType.MARGINAL, name)
+        super().__init__(inference_type=InferenceType.MARGINAL, name=name)
         self.set_inputs(*inputs)
 
     def serialize(self):
@@ -93,24 +93,16 @@ class Concat(OpNode):
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)
 
-        @tf.custom_gradient
-        def value_gradient(*input_tensors):
-            def gradient(gradients):
-                scattered_grads = self._compute_log_mpe_path(gradients, *input_tensors)
-                return [sg for sg in scattered_grads if sg is not None]
-
-            gathered_inputs = self._gather_input_tensors(*input_tensors)
-            # Concatenate inputs
-            return tf.concat(gathered_inputs, 1), gradient
-        return value_gradient(*input_tensors)
+        gathered_inputs = self._gather_input_tensors(*input_tensors)
+        # Concatenate inputs
+        return tf.concat(gathered_inputs, axis=1)
 
     @utils.docinherit(OpNode)
     def _compute_log_mpe_value(self, *input_tensors):
         return self._compute_log_value(*input_tensors)
 
     @utils.lru_cache
-    def _compute_log_mpe_path(self, counts, *input_values, add_random=False,
-                              use_unweighted=False):
+    def _compute_log_mpe_path(self, counts, *input_values, use_unweighted=False):
         # Check inputs
         if not self._inputs:
             raise StructureError("%s is missing inputs." % self)

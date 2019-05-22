@@ -2,7 +2,7 @@ from types import MappingProxyType
 import tensorflow as tf
 from libspn.inference.value import Value, LogValue
 from libspn.graph.algorithms import compute_graph_up_down
-from libspn.graph.basesum import BaseSum
+from libspn.graph.op.base_sum import BaseSum
 from libspn import utils
 
 
@@ -20,23 +20,16 @@ class MPEPath:
                     if ``value`` is given.
     """
 
-    def __init__(self, value=None, value_inference_type=None, log=True, add_random=None,
-                 use_unweighted=False, sample=False, sample_prob=None,
-                 dropconnect_keep_prob=None):
+    def __init__(self, value=None, value_inference_type=None, log=True, use_unweighted=False,
+                 sample=False, sample_prob=None, matmul_or_conv=False):
         self._true_counts = {}
         self._actual_counts = {}
         self._log = log
-        self._add_random = add_random
         self._use_unweighted = use_unweighted
         self._sample = sample
         self._sample_prob = sample_prob
         # Create internal value generator
-        if value is None:
-            self._value = LogValue(
-                value_inference_type, dropconnect_keep_prob=dropconnect_keep_prob)
-        else:
-            self._value = value
-            self._log = value.log()
+        self._value = value or LogValue(value_inference_type, matmul_or_conv=matmul_or_conv)
 
     @property
     def value(self):
@@ -49,13 +42,6 @@ class MPEPath:
         computing the branch counts, based on the true value of the SPN's latent
         variable, for the inputs of the node."""
         return MappingProxyType(self._true_counts)
-
-    @property
-    def actual_counts(self):
-        """dict: Dictionary indexed by node, where each value is a list of tensors
-        computing the branch counts, based on the actual value calculated by the
-        SPN, for the inputs of the node."""
-        return MappingProxyType(self._actual_counts)
 
     @property
     def log(self):
@@ -71,8 +57,8 @@ class MPEPath:
         def down_fun(node, parent_vals):
             self._true_counts[node] = summed = self._accumulate_parents(*parent_vals)
             basesum_kwargs = dict(
-                add_random=self._add_random, use_unweighted=self._use_unweighted,
-                sample=self._sample, sample_prob=self._sample_prob)
+                use_unweighted=self._use_unweighted, sample=self._sample,
+                sample_prob=self._sample_prob)
             if node.is_op:
                 kwargs = basesum_kwargs if isinstance(node, BaseSum) else dict()
                 # Compute for inputs
@@ -103,34 +89,3 @@ class MPEPath:
     @utils.lru_cache
     def _graph_input(root_value):
         return tf.ones_like(root_value)
-
-    def get_mpe_path_actual(self, root):
-        """Assemble TF operations computing the actual branch counts for the MPE
-        downward path through the SPN rooted in ``root``.
-
-        Args:
-            root (Node): The root node of the SPN graph.
-        """
-        def down_fun(node, parent_vals):
-            self._actual_counts[node] = summed = self._accumulate_parents(*parent_vals)
-            basesum_kwargs = dict(
-                add_random=self._add_random, use_unweighted=self._use_unweighted,
-                sample=self._sample, sample_prob=self._sample_prob)
-            if node.is_op:
-                # Compute for inputs
-                kwargs = basesum_kwargs if isinstance(node, BaseSum) else dict()
-                with tf.name_scope(node.name):
-                    return node._compute_log_mpe_path(
-                        summed, *[self._value.values[i.node] if i else None
-                                  for i in node.inputs], **kwargs)
-
-        # Generate values if not yet generated
-        if not self._value.values:
-            self._value.get_value(root)
-
-        with tf.name_scope("ActualMPEPath"):
-            graph_input = self._graph_input(self._value.values[root] )
-
-            # Traverse the graph computing counts
-            self._actual_counts = {}
-            compute_graph_up_down(root, down_fun=down_fun, graph_input=graph_input)

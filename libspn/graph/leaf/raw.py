@@ -7,8 +7,11 @@ from libspn.utils.serialization import register_serializable
 
 
 @register_serializable
-class ContVars(VarNode):
-    """A node representing a vector of continuous random variables.
+class RawLeaf(VarNode):
+    """A node representing a vector of continuous random variables as raw inputs. The inputs are
+    not transformed to probabilities, and should therefore be probabilities themselves if the
+    SPN has to compute a (log) PDF. It is mainly used for testing purposes and should generally
+    be avoided.
 
     Args:
         feed (Tensor): Tensor feeding this node or ``None``. If ``None``,
@@ -17,7 +20,7 @@ class ContVars(VarNode):
         name (str): Name of the node
     """
 
-    def __init__(self, feed=None, num_vars=1, name="ContVars"):
+    def __init__(self, feed=None, num_vars=1, name="RawLeaf"):
         if not isinstance(num_vars, int) or num_vars < 1:
             raise ValueError("num_vars must be a positive integer")
         self._num_vars = num_vars

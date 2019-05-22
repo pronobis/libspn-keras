@@ -8,7 +8,7 @@ import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.inference.type import InferenceType
 from libspn.graph.weights import Weights
-from libspn.graph.basesum import BaseSum
+from libspn.graph.op.base_sum import BaseSum
 from libspn import utils
 from libspn.exceptions import StructureError
 from libspn import conf
@@ -34,7 +34,7 @@ class SumsLayer(BaseSum):
         weights (input_like): Input providing weights node to this sum node.
             See :meth:`~libspn.Input.as_input` for possible values. If set
             to ``None``, the input is disconnected.
-        ivs (input_like): Input providing IVs of an explicit latent variable
+        latent_indicators (input_like): Input providing IndicatorLeaf of an explicit latent variable
             associated with this sum node. See :meth:`~libspn.Input.as_input`
             for possible values. If set to ``None``, the input is disconnected.
         name (str): Name of the node.
@@ -48,9 +48,9 @@ class SumsLayer(BaseSum):
                                        op generation.
     """
 
-    def __init__(self, *values, num_or_size_sums=None, weights=None, ivs=None,
+    def __init__(self, *values, num_or_size_sums=None, weights=None, latent_indicators=None,
                  inference_type=InferenceType.MARGINAL, sample_prob=None,
-                 dropconnect_keep_prob=None, name="SumsLayer"):
+                 name="SumsLayer"):
         if isinstance(num_or_size_sums, int) or num_or_size_sums is None:
             num_sums = num_or_size_sums
             sum_sizes = None
@@ -58,10 +58,13 @@ class SumsLayer(BaseSum):
             num_sums = len(num_or_size_sums)
             sum_sizes = num_or_size_sums
         super().__init__(
-            *values, num_sums=num_sums, sum_sizes=sum_sizes,
-            weights=weights, ivs=ivs, inference_type=inference_type, sample_prob=sample_prob,
-            dropconnect_keep_prob=dropconnect_keep_prob,
-            name=name, masked=True)
+            *values, num_sums=num_sums, sum_sizes=sum_sizes, weights=weights,
+            latent_indicators=latent_indicators, inference_type=inference_type,
+            sample_prob=sample_prob, name=name, masked=True)
+
+    @property
+    def is_layer(self):
+        return True
 
     @utils.docinherit(BaseSum)
     def _reset_sum_sizes(self, num_sums=None, sum_sizes=None):
@@ -95,54 +98,57 @@ class SumsLayer(BaseSum):
         self._max_sum_size = max(sum_sizes) if sum_sizes else 0
 
     def set_sum_sizes(self, sizes):
-        """Sets the sum sizes. The sum of the sizes given should match the total number of inputs.
+        """
+        Sets the sum sizes. The sum of the sizes given should match the total number of inputs.
 
         Args:
             sizes (list): A ``list`` of ``int``s corresponding to the sizes of the sums.
+
         """
         self._reset_sum_sizes(sum_sizes=sizes)
 
     @utils.docinherit(BaseSum)
-    def _compute_scope(self, weight_scopes, ivs_scopes, *value_scopes):
-        flat_value_scopes, ivs_scopes, *value_scopes = self._get_flat_value_scopes(
-            weight_scopes, ivs_scopes, *value_scopes)
+    def _compute_scope(self, weight_scopes, latent_indicators_scopes, *value_scopes):
+        flat_value_scopes, latent_indicators_scopes, *value_scopes = self._get_flat_value_scopes(
+            weight_scopes, latent_indicators_scopes, *value_scopes)
         split_indices = np.cumsum(self._sum_sizes)[:-1]
         # Divide gathered value scopes into sublists, one per modelled Sum node
         value_scopes_sublists = [arr.tolist() for arr in
                                  np.split(flat_value_scopes, split_indices)]
-        if self._ivs:
-            # Divide gathered ivs scopes into sublists, one per modelled Sum node
-            ivs_scopes_sublists = [arr.tolist() for arr in
-                                   np.split(ivs_scopes, split_indices)]
-            # Add respective ivs scope to value scope list of each Sum node
-            for val, ivs in zip(value_scopes_sublists, ivs_scopes_sublists):
-                val.extend(ivs)
+        if self._latent_indicators:
+            # Divide gathered latent_indicators scopes into sublists, one per modelled Sum node
+            latent_indicators_scopes_sublists = [arr.tolist() for arr in
+                                   np.split(latent_indicators_scopes, split_indices)]
+            # Add respective latent_indicators scope to value scope list of each Sum node
+            for val, latent_indicators in zip(
+                    value_scopes_sublists, latent_indicators_scopes_sublists):
+                val.extend(latent_indicators)
         return [Scope.merge_scopes(val_scope) for val_scope in
                 value_scopes_sublists]
 
     @utils.docinherit(BaseSum)
-    def _compute_valid(self, weight_scopes, ivs_scopes, *value_scopes):
-        flat_value_scopes, ivs_scopes_, *value_scopes_ = self._get_flat_value_scopes(
-            weight_scopes, ivs_scopes, *value_scopes)
+    def _compute_valid(self, weight_scopes, latent_indicators_scopes, *value_scopes):
+        flat_value_scopes, latent_indicators_scopes_, *value_scopes_ = self._get_flat_value_scopes(
+            weight_scopes, latent_indicators_scopes, *value_scopes)
         # If already invalid, return None
         if (any(s is None for s in value_scopes_)
-                or (self._ivs and ivs_scopes_ is None)):
+                or (self._latent_indicators and latent_indicators_scopes_ is None)):
             return None
 
         # Split the flat value scopes based on value input sizes
         split_indices = np.cumsum(self._sum_sizes)[:-1]
 
-        # IVs
-        if self._ivs:
-            # Verify number of IVs
-            if len(ivs_scopes_) != len(flat_value_scopes):
-                raise StructureError("Number of IVs (%s) and values (%s) does "
+        # IndicatorLeaf
+        if self._latent_indicators:
+            # Verify number of IndicatorLeaf
+            if len(latent_indicators_scopes_) != len(flat_value_scopes):
+                raise StructureError("Number of IndicatorLeaf (%s) and values (%s) does "
                                      "not match for %s"
-                                     % (len(ivs_scopes_), len(flat_value_scopes),
+                                     % (len(latent_indicators_scopes_), len(flat_value_scopes),
                                         self))
 
-            # Go over IVs involved for each sum. Scope size should be exactly one
-            for iv_scopes_for_sum in np.split(ivs_scopes_, split_indices):
+            # Go over IndicatorLeaf involved for each sum. Scope size should be exactly one
+            for iv_scopes_for_sum in np.split(latent_indicators_scopes_, split_indices):
                 if len(Scope.merge_scopes(iv_scopes_for_sum)) != 1:
                     return None
 
@@ -154,7 +160,7 @@ class SumsLayer(BaseSum):
                 self.info("%s is not complete with input value scopes %s", self, flat_value_scopes)
                 return None
 
-        return self._compute_scope(weight_scopes, ivs_scopes, *value_scopes)
+        return self._compute_scope(weight_scopes, latent_indicators_scopes, *value_scopes)
 
     def _build_mask(self):
         """Constructs mask that could be used to cancel out 'columns' that are padded as a result of
@@ -269,7 +275,7 @@ class SumsLayer(BaseSum):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _prepare_component_wise_processing(
-            self, w_tensor, ivs_tensor, *input_tensors, zero_prob_val=0.0):
+            self, w_tensor, latent_indicators_tensor, *input_tensors, zero_prob_val=0.0):
         indices, values = self._combine_values_and_indices(input_tensors)
         # Create a 3D tensor with dimensions [batch, sum node, sum input]
         # The last axis will have zeros when the sum size is less than the max sum size
@@ -286,19 +292,23 @@ class SumsLayer(BaseSum):
             reducible_values = utils.gather_cols_3d(
                 values, indices, pad_elem=zero_prob_val, name="GatherToReducible")
         w_tensor = tf.expand_dims(w_tensor, axis=self._batch_axis)
-        if ivs_tensor is not None:
-            ivs_tensor = tf.reshape(ivs_tensor, shape=(-1, self._num_sums, self._max_sum_size))
-        return w_tensor, ivs_tensor, reducible_values
+        if latent_indicators_tensor is not None:
+            latent_indicators_tensor = tf.reshape(
+                latent_indicators_tensor, shape=(-1, self._num_sums, self._max_sum_size))
+        return w_tensor, latent_indicators_tensor, reducible_values
 
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_mpe_path_common(
-            self, reducible_tensor, counts, w_tensor, ivs_tensor, *input_tensors,
+            self, reducible_tensor, counts, w_tensor, latent_indicators_tensor, *input_tensors,
             accumulate_weights_batch=False, sample=False, sample_prob=None):
+        sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
+        num_samples = 1 if reducible_tensor.shape[1] != 1 else self._num_sums
         if sample:
-            max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
+            max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob,
+                                                  num_samples=num_samples)
         else:
-            max_indices = self._reduce_argmax(reducible_tensor)
+            max_indices = self._reduce_argmax(reducible_tensor, num_samples=num_samples)
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_split = self._accumulate_and_split_to_children(max_counts, *input_tensors)
@@ -309,15 +319,14 @@ class SumsLayer(BaseSum):
 
         return self._scatter_to_input_tensors(
             (w_counts, w_tensor),  # Weights
-            (max_counts, ivs_tensor)
+            (max_counts, latent_indicators_tensor)
         ) + tuple(max_counts_split)
 
     @utils.docinherit(BaseSum)
     @utils.lru_cache
-    def _compute_log_gradient(self, gradients, w_tensor, ivs_tensor, *value_tensors,
-                              accumulate_weights_batch=False, dropconnect_keep_prob=None):
-        reducible = self._compute_reducible(
-            w_tensor, ivs_tensor, *value_tensors, dropconnect_keep_prob=dropconnect_keep_prob)
+    def _compute_log_gradient(self, gradients, w_tensor, latent_indicators_tensor, *value_tensors,
+                              accumulate_weights_batch=False):
+        reducible = self._compute_reducible(w_tensor, latent_indicators_tensor, *value_tensors)
         log_sum = tf.expand_dims(
             self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
 
@@ -326,20 +335,21 @@ class SumsLayer(BaseSum):
         w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(
             reducible - log_sum)
         inp_grad_split = self._accumulate_and_split_to_children(w_grad, *value_tensors)
-        ivs_grads = w_grad
+        latent_indicators_grads = w_grad
         if accumulate_weights_batch:
             w_grad = tf.reduce_sum(w_grad, axis=self._batch_axis)
 
         return self._scatter_to_input_tensors(
             (w_grad, w_tensor),
-            (ivs_grads, ivs_tensor)
+            (latent_indicators_grads, latent_indicators_tensor)
         ) + tuple(inp_grad_split)
 
     @utils.docinherit(BaseSum)
     @utils.lru_cache
-    def _get_differentiable_inputs(self, w_tensor, ivs_tensor, *value_tensors):
+    def _get_differentiable_inputs(self, w_tensor, latent_indicators_tensor, *value_tensors):
         unique_tensors = list(OrderedDict.fromkeys(value_tensors))
-        return [w_tensor] + ([ivs_tensor] if self._ivs else []) + unique_tensors
+        return [w_tensor] + (
+            [latent_indicators_tensor] if self._latent_indicators else []) + unique_tensors
 
     @utils.docinherit(BaseSum)
     @utils.lru_cache

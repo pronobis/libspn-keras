@@ -13,7 +13,7 @@ import numpy as np
 
 
 @register_serializable
-class PermProducts(OpNode):
+class PermuteProducts(OpNode):
     """A node representing multiple products, permuted over the input space, in
        an SPN.
 
@@ -28,7 +28,7 @@ class PermProducts(OpNode):
     logger = get_logger()
     info = logger.info
 
-    def __init__(self, *values, name="PermProducts"):
+    def __init__(self, *values, name="PermuteProducts"):
         self._values = []
         super().__init__(inference_type=InferenceType.MARGINAL, name=name)
         self.set_values(*values)
@@ -161,16 +161,15 @@ class PermProducts(OpNode):
         if self._num_prods == 1:
             for s1, s2 in combinations(chain(*value_scopes_), 2):
                 if s1 & s2:
-                    PermProducts.info("%s is not decomposable with input value "
-                                      "scopes %s", self, value_scopes_)
+                    PermuteProducts.info("%s is not decomposable with input value " 
+                                         "scopes %s", self, value_scopes_[:10])
                     return None
 
         # Check product decomposability
         for perm_val_scope in product(*value_scopes_):
             for s1, s2 in combinations(perm_val_scope, 2):
                 if s1 & s2:
-                    PermProducts.info("%s is not decomposable with input value "
-                                      "scopes %s", self, value_scopes_)
+                    PermuteProducts.info("%s is not decomposable", self)
                     return None
         return self._compute_scope(*value_scopes)
 
@@ -225,8 +224,8 @@ class PermProducts(OpNode):
         return self._compute_log_value(*value_tensors)
 
     @utils.lru_cache
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                          use_unweighted=False, sample=False, sample_prob=None):
+    def _compute_log_mpe_path(self, counts, *value_values, use_unweighted=False,
+                              sample=False, sample_prob=None):
         # Path per product node is calculated by permuting backwards to the
         # input nodes, then adding the appropriate counts per input, and then
         # scattering the summed counts to value inputs

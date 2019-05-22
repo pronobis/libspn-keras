@@ -60,9 +60,9 @@ class Ops:
                     log=False, output=None):
 
         # Build a POON-like network with multi-op nodes
-        subsets = [spn.ParSums((inputs, list(range(i*num_vals, (i+1)*num_vals))),
-                               num_sums=num_mixtures) for i in range(num_subsets)]
-        products = spn.PermProducts(*subsets)
+        subsets = [spn.ParallelSums((inputs, list(range(i*num_vals, (i+1)*num_vals))),
+                                    num_sums=num_mixtures) for i in range(num_subsets)]
+        products = spn.PermuteProducts(*subsets)
         root = spn.Sum(products, name="root")
 
         # Generate dense SPN and all weights in the network
@@ -188,7 +188,7 @@ class PerformanceTest:
         tf.reset_default_graph()
         with tf.device(device_name):
             # Create input
-            inputs_pl = spn.IVs(num_vars=self.num_input_vars,
+            inputs_pl = spn.IndicatorLeaf(num_vars=self.num_input_vars,
                                 num_vals=self.num_input_vals, name="iv_x")
             # Create networks, stacking one on top of the other, although each
             # network remains unconnected and independent of each other.
