@@ -27,8 +27,6 @@ class GDLearning:
             it (or IndicatorLeafs with a fixed no-evidence feed). If it is omitted here, the node
             will constructed internally once needed.
         name (str): The name given to this instance of GDLearning.
-        l1_regularize_coeff (float or Tensor): The L1 regularization coefficient.
-        l2_regularize_coeff (float or Tensor): The L2 regularization coefficient.
     """
 
     __logger = get_logger()
@@ -37,8 +35,7 @@ class GDLearning:
                  learning_task_type=LearningTaskType.SUPERVISED,
                  learning_method=LearningMethodType.DISCRIMINATIVE,
                  learning_rate=1e-4, marginalizing_root=None, name="GDLearning",
-                 l1_regularize_coeff=None, l2_regularize_coeff=None, global_step=None,
-                 linear_w_minimum=1e-2):
+                 global_step=None, linear_w_minimum=1e-2):
 
         if learning_task_type == LearningTaskType.UNSUPERVISED and \
                 learning_method == LearningMethodType.DISCRIMINATIVE:
@@ -59,8 +56,6 @@ class GDLearning:
         self._learning_rate = learning_rate
         self._learning_task_type = learning_task_type
         self._learning_method = learning_method
-        self._l1_regularize_coeff = l1_regularize_coeff
-        self._l2_regularize_coeff = l2_regularize_coeff
         self._name = name
         self._global_step = global_step
         self._linear_w_minimum = linear_w_minimum
@@ -81,8 +76,7 @@ class GDLearning:
             return self.negative_log_likelihood(reduce_fn=reduce_fn)
         return self.cross_entropy_loss(reduce_fn=reduce_fn)
 
-    def learn(self, loss=None, gradient_type=None, optimizer=None, post_gradient_ops=True,
-              name="LearnGD"):
+    def learn(self, loss=None, optimizer=None, post_gradient_ops=True, name="LearnGD"):
         """Assemble TF operations performing GD learning of the SPN. This includes setting up
         the loss function (with regularization), setting up the optimizer and setting up
         post gradient-update ops.
@@ -105,13 +99,10 @@ class GDLearning:
         with tf.name_scope(name):
             with tf.name_scope("Loss"):
                 if loss is None:
-                    loss = (
-                        self.negative_log_likelihood() if self._learning_method == LearningMethodType.GENERATIVE else
-                        self.cross_entropy_loss()
-                    )
-                if self._l1_regularize_coeff is not None or self._l2_regularize_coeff is not None:
-                    loss += self.regularization_loss()
-
+                    if self._learning_method == LearningMethodType.GENERATIVE:
+                        loss = self.negative_log_likelihood()
+                    else:
+                        loss = self.cross_entropy_loss()
             # Assemble TF ops for optimizing and weights normalization
             with tf.name_scope("ParameterUpdate"):
                 minimize = optimizer.minimize(loss=loss)
@@ -204,26 +195,4 @@ class GDLearning:
                 self._root.values[0], weights=self._root.weights, num_sums_per_block=1)
         return self._log_value.get_value(marginalizing_root)
 
-    def regularization_loss(self, name="Regularization"):
-        """Adds regularization to the weight nodes. This can be either L1 or L2 or both, depending
-        on what is specified at instantiation of GDLearning.
-
-        Returns:
-            A Tensor computing the total regularization loss.
-        """
-
-        with tf.name_scope(name):
-            losses = []
-
-            def regularize_node(node):
-                if node.is_param:
-                    if self._l1_regularize_coeff is not None:
-                        losses.append(
-                            self._l1_regularize_coeff * tf.reduce_sum(tf.abs(node.variable)))
-                    if self._l2_regularize_coeff is not None:
-                        losses.append(
-                            self._l2_regularize_coeff * tf.reduce_sum(tf.square(node.variable)))
-
-            traverse_graph(self._root, fun=regularize_node)
-            return tf.add_n(losses) if losses else tf.constant(0.0)
 

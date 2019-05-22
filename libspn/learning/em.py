@@ -56,13 +56,6 @@ class EMLearning:
         """Value or LogValue: Computed SPN values."""
         return self._mpe_path.value
 
-    # TODO: For testing only
-    def root_accum(self):
-        for pn in self._param_nodes:
-            if pn.node == self._root.weights.node:
-                return pn.accum
-        return None
-
     @utils.lru_cache
     def reset_accumulators(self):
         with tf.name_scope(self._name_scope):
@@ -93,10 +86,6 @@ class EMLearning:
             assign_ops = []
             for pn in self._param_nodes:
                 with tf.name_scope(pn.name_scope):
-                    # counts = self._mpe_path.counts[pn.node]
-                    # update_value = pn.node._compute_hard_em_update(counts)
-                    # with tf.control_dependencies([update_value]):
-                    # op = tf.assign_add(pn.accum, self._mpe_path.counts[pn.node])
                     counts_summed_batch = pn.node._compute_hard_em_update(
                         self._mpe_path.counts[pn.node])
                     assign_ops.append(tf.assign_add(pn.accum, counts_summed_batch))

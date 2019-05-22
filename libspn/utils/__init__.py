@@ -8,7 +8,6 @@ from .math import scatter_values
 from .math import scatter_values_nd
 from .math import cwise_add
 from .math import logmatmul
-from .math import logtensordot
 from .math import logconv_1x1
 from .math import multinomial_sample
 from .math import argmax_breaking_ties
@@ -32,7 +31,7 @@ from .spngraphkeys import SPNGraphKeys
 # All
 # TODO newlines here to make git merging easier
 __all__ = ['decode_bytes_array', 'scatter_cols', 'scatter_values',
-           'logmatmul', 'logtensordot', 'logconv_1x1',
+           'logmatmul', 'logconv_1x1',
            'multinomial_sample', 'argmax_breaking_ties',
            'gather_cols_3d', 'scatter_values_nd',
            'StirlingNumber', 'StirlingRatio', 'Stirling', 'random_partition',

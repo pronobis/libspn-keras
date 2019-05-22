@@ -10,7 +10,6 @@ import libspn.utils as utils
 from libspn.log import get_logger
 from itertools import chain
 import tensorflow as tf
-from tensorflow_probability import distributions as tfd
 
 
 @utils.register_serializable
@@ -331,30 +330,6 @@ class BaseSum(OpNode, abc.ABC):
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_log_value(self, w_tensor, latent_indicators_tensor, *value_tensors):
-
-        # Defines soft-gradient for the log value
-        def custom_grad(grad):
-            # Use the _compute_log_gradient method to compute the gradient w.r.t. to the
-            # inputs of this node.
-            scattered_grads = self._compute_log_gradient(
-                grad, w_tensor, latent_indicators_tensor, *value_tensors,
-                accumulate_weights_batch=True)
-
-            return [sg for sg in scattered_grads if sg is not None]
-
-        # Wrap the log value with its custom gradient
-        @tf.custom_gradient
-        def _log_value(*input_tensors):
-            # First reduce over last axis
-            val = self._reduce_marginal_inference_log(self._compute_reducible(
-                w_tensor, latent_indicators_tensor, *value_tensors, weighted=True))
-
-            return val, custom_grad
-
-        # if conf.custom_gradient:
-        #     return _log_value(*self._get_differentiable_inputs(
-        #         w_tensor, latent_indicators_tensor, *value_tensors))
-        # else:
         return self._reduce_marginal_inference_log(self._compute_reducible(
             w_tensor, latent_indicators_tensor, *value_tensors, weighted=True))
 
@@ -374,27 +349,8 @@ class BaseSum(OpNode, abc.ABC):
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_log_mpe_value(self, w_tensor, latent_indicators_tensor, *value_tensors):
-
-        # Defines hard-gradient for the log-mpe
-        def custom_grad(grad):
-            scattered_grads = self._compute_log_mpe_path(
-                grad, w_tensor, latent_indicators_tensor, *value_tensors)
-
-            return [sg for sg in scattered_grads if sg is not None]
-
-        # Wrap the log value with its custom gradient
-        @tf.custom_gradient
-        def _log_mpe_value(*input_tensors):
-            val = self._reduce_mpe_inference_log(self._compute_reducible(
-                w_tensor, latent_indicators_tensor, *value_tensors, weighted=True))
-            return val, custom_grad
-
-        if conf.custom_gradient:
-            return _log_mpe_value(*self._get_differentiable_inputs(
-                w_tensor, latent_indicators_tensor, *value_tensors))
-        else:
-            return self._reduce_mpe_inference_log(self._compute_reducible(
-                w_tensor, latent_indicators_tensor, *value_tensors, weighted=True))
+        return self._reduce_mpe_inference_log(self._compute_reducible(
+            w_tensor, latent_indicators_tensor, *value_tensors, weighted=True))
 
     @utils.lru_cache
     def _compute_mpe_path_common(
@@ -479,51 +435,6 @@ class BaseSum(OpNode, abc.ABC):
     def _tile_unweighted_size(self):
         return self._num_sums
 
-    @utils.lru_cache
-    def _compute_log_gradient(
-        self, gradients, w_tensor, latent_indicators_tensor, *value_tensors,
-        accumulate_weights_batch=False):
-        """Computes gradient for log probabilities.
-
-        Args:
-            gradients (Tensor): A ``Tensor`` of shape [batch, num_sums] that contains the
-                accumulated backpropagated gradient coming from this node's parents.
-            w_tensor (Tensor): A ``Tensor`` of shape [num_sums, max_sum_size] that contains the
-                               weights corresponding to this node.
-            latent_indicators_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] that
-                                 corresponds to the IndicatorLeaf of this node.
-            value_tensors (tuple): A ``tuple`` of ``Tensor``s that correspond to the values of the
-                children of this node.
-            accumulate_weights_batch (bool): A ``bool`` that marks whether the weight gradients
-                should be summed over the batch axis.
-        Returns:
-            A ``tuple`` of gradients. Starts with weights, then IndicatorLeaf  and the remainder corresponds
-            to ``value_tensors``.
-        """
-
-        reducible = self._compute_reducible(
-            w_tensor, latent_indicators_tensor, *value_tensors, weighted=True)
-
-        # Below exploits the memoization since _reduce_marginal_inference_log will
-        # always use keepdims=False, thus yielding the same tensor. One might otherwise
-        # be tempted to use keepdims=True and omit expand_dims here...
-        log_sum = tf.expand_dims(
-            self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
-
-        # A number - (-inf) is undefined. In fact, the gradient in those cases should be zero
-        log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
-        w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(reducible - log_sum)
-
-        value_grad_acc, value_grad_split = self._accumulate_and_split_to_children(w_grad)
-
-        if accumulate_weights_batch:
-            w_grad = tf.reduce_sum(w_grad, axis=0, keepdims=False)
-
-        return self._scatter_to_input_tensors(
-            (w_grad, w_tensor),
-            (value_grad_acc, latent_indicators_tensor),
-            *[(t, v) for t, v in zip(value_grad_split, value_tensors)])
-
     def _get_flat_value_scopes(self, weight_scopes, latent_indicators_scopes, *value_scopes):
         """Get a flat representation of the value scopes per sum.
 
@@ -562,7 +473,7 @@ class BaseSum(OpNode, abc.ABC):
     def _compute_valid(self, weight_scopes, latent_indicators_scopes, *value_scopes):
         # If already invalid, return None
         if (any(s is None for s in value_scopes)
-            or (self._latent_indicators and latent_indicators_scopes is None)):
+                or (self._latent_indicators and latent_indicators_scopes is None)):
             return None
         flat_value_scopes, latent_indicators_scopes_, *value_scopes_ = self._get_flat_value_scopes(
             weight_scopes, latent_indicators_scopes, *value_scopes)
@@ -593,8 +504,9 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.lru_cache
     def _prepare_component_wise_processing(
-        self, w_tensor, latent_indicators_tensor, *input_tensors, zero_prob_val=0.0):
-        """Gathers inputs and combines them so that the resulting tensor can be reduced over the
+            self, w_tensor, latent_indicators_tensor, *input_tensors, zero_prob_val=0.0):
+        """
+        Gathers inputs and combines them so that the resulting tensor can be reduced over the
         last axis to compute the (weighted) sums.
 
         Args:
@@ -610,15 +522,6 @@ class BaseSum(OpNode, abc.ABC):
             IndicatorLeaf ``Tensor`` that can be applied component-wise to the sums and a ``Tensor`` that
             holds the unweighted values of the sum inputs of shape [batch, num_sums, max_sum_size].
         """
-        # w_tensor, latent_indicators_tensor, *input_tensors = self._gather_input_tensors(
-        #     w_tensor, latent_indicators_tensor, *input_tensors)
-        # input_tensors = [tf.expand_dims(t, axis=self._op_axis) if len(t.shape) == 2 else t for
-        #                  t in input_tensors]
-        # w_tensor = tf.expand_dims(w_tensor, axis=self._batch_axis)
-        # reducible_inputs = tf.concat(input_tensors, axis=self._reduce_axis)
-        # if latent_indicators_tensor is not None:
-        #     latent_indicators_tensor = tf.reshape(latent_indicators_tensor,
-        #                                           shape=(-1, self._num_sums, self._max_sum_size))
 
         w_tensor, latent_indicators_tensor, *input_tensors = self._gather_input_tensors(
             w_tensor, latent_indicators_tensor, *input_tensors)
@@ -626,10 +529,7 @@ class BaseSum(OpNode, abc.ABC):
         reducible_inputs = tf.expand_dims(
             tf.concat(input_tensors, axis=self._reduce_axis - 1), axis=self._op_axis)
 
-        # input_tensors = [tf.expand_dims(t, axis=self._op_axis) if len(t.shape) == 2 else t for
-        #                  t in input_tensors]
         w_tensor = tf.expand_dims(w_tensor, axis=self._batch_axis)
-        # reducible_inputs = utils.concat_maybe(input_tensors, axis=self._reduce_axis)
         if latent_indicators_tensor is not None:
             latent_indicators_tensor = tf.reshape(
                 latent_indicators_tensor, shape=(-1, self._num_sums, self._max_sum_size))

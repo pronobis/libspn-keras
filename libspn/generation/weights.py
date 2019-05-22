@@ -1,7 +1,7 @@
 import tensorflow as tf
-from libspn.graph.algorithms import compute_graph_up
 from libspn.graph.op.block_sum import BlockSum
 from libspn.graph.op.base_sum import BaseSum
+from libspn.graph.algorithms import compute_graph_up
 
 
 class WeightsGenerator:

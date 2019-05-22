@@ -3,8 +3,6 @@ from types import MappingProxyType
 from libspn.graph.algorithms import compute_graph_up
 from libspn.graph.op.spatial_sums import SpatialSums
 from libspn.inference.type import InferenceType
-from libspn.graph.op.base_sum import BaseSum
-
 
 
 class LogValue:
@@ -80,8 +78,8 @@ class Value(LogValue):
             MPE inference will be used for all nodes.
     """
 
-    def __init__(self, inference_type=None, name="Value"):
-        super().__init__(inference_type=inference_type, name=name)
+    def __init__(self, inference_type=None, name="Value", matmul_or_conv=True):
+        super().__init__(inference_type=inference_type, name=name, matmul_or_conv=matmul_or_conv)
 
     def log(self):
         return False

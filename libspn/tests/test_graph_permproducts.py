@@ -4,10 +4,9 @@ import unittest
 import tensorflow as tf
 import numpy as np
 from context import libspn as spn
-from test import TestCase
 
-class TestNodesPermuteProducts(TestCase):
 
+class TestNodesPermuteProducts(tf.test.TestCase):
 
     def test_compute_value(self):
         """Calculating value of PermuteProducts"""
@@ -422,8 +421,7 @@ class TestNodesPermuteProducts(TestCase):
         v910 = spn.RawLeaf(num_vars=2)
         p1 = spn.PermuteProducts((v12, [0, 1]), (v12, [4, 5]))
         p2 = spn.PermuteProducts((v12, [3, 5]), (v345, [0, 1, 2]))
-        p3 = spn.PermuteProducts((v345, [0, 1, 2]), (v345, [3, 4, 5]),
-                              (v345, [6, 7, 8]))
+        p3 = spn.PermuteProducts((v345, [0, 1, 2]), (v345, [3, 4, 5]), (v345, [6, 7, 8]))
         p4 = spn.PermuteProducts((v345, [6, 8]), (v678, [0, 1]))
         p5 = spn.PermuteProducts((v678, [1]), v910)
         p6 = spn.PermuteProducts(v678, v910)

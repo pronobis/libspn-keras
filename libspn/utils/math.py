@@ -4,63 +4,6 @@ import tensorflow as tf
 import numpy as np
 import collections
 from libspn import utils as utils
-from tensorflow.python.framework import ops as tfops
-
-
-# def one_hot_conv2d(input, filter, strides=(1, 1), dilations=(1, 1), padding="VALID",
-#                    name=None):
-#     if padding != "VALID":
-#         raise NotImplementedError("Currently only supports padding == VALID")
-#     with tf.name_scope(name, "one_hot_conv2d", [input, filter]):
-#         input = tf.convert_to_tensor(input, name="input")
-#         filter = tf.convert_to_tensor(filter, name="filter")
-#         # Check input dims
-#         if len(input.shape) != 4:
-#             raise ValueError("Input rank must be 4")
-#         if len(filter.shape) != 3:
-#             raise ValueError("Filter rank must be 3")
-#
-#         return ops.one_hot_conv2d(input, filter, strides=strides, dilations=dilations)
-#
-#
-# def one_hot_conv2d_backprop(input, filter, grad, strides=(1, 1), dilations=(1, 1),
-#                             padding="VALID", name=None):
-#     # TODO should be a way to only specify the input shape...
-#     if padding != "VALID":
-#         raise NotImplementedError("Currently only supports padding == VALID")
-#     with tf.name_scope(name, "one_hot_conv2d_backprop", [input, filter]):
-#         input = tf.convert_to_tensor(input, name="input")
-#         filter = tf.convert_to_tensor(filter, name="filter")
-#         # Check input dims
-#         if len(input.shape) != 4:
-#             raise ValueError("Input rank must be 4")
-#         if len(filter.shape) != 3:
-#             raise ValueError("Filter rank must be 3")
-#
-#         return ops.one_hot_conv2d_backprop(
-#             input, filter, grad, strides=strides, dilations=dilations)
-
-
-def logtensordot(a, b, axes, name=None):
-    with tf.name_scope(name, "logtensordot", [a, b]):
-        if isinstance(axes, int):
-            axes = [[axes], [axes]]
-        reduce_axis_a = axes[0]
-        reduce_axis_b = axes[1]
-
-        max_a = replace_infs_with_zeros(
-            tf.stop_gradient(tf.reduce_max(a, axis=reduce_axis_a, keepdims=True)))
-
-        max_b = replace_infs_with_zeros(
-            tf.stop_gradient(tf.reduce_max(b, axis=reduce_axis_b, keepdims=True)))
-
-        a -= max_a
-        b -= max_b
-
-        out = tf.log(tf.tensordot(tf.exp(a), tf.exp(b), axes=axes))
-        out += max_a
-        out += max_b
-    return out
 
 
 def logmatmul(a, b, transpose_a=False, transpose_b=False, name=None):
