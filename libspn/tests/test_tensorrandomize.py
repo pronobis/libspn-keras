@@ -20,8 +20,8 @@ class TestTensorRandomize(tf.test.TestCase):
         s0 = BlockSum(p0, num_sums_per_block=3)
         p1 = BlockPermuteProduct(s0, num_factors=2)
         s1 = BlockSum(p1, num_sums_per_block=3)
-        p2 = BlockReduceProduct(s1, num_subsets=2)
-        m = BlockMergeDecompositions(p2, num_decomps=2)
+        p2 = BlockReduceProduct(s1, num_factors=2)
+        m = BlockMergeDecompositions(p2, num_decomps=1)
         root = BlockRootSum(m)
 
         latent = root.generate_latent_indicators(name="Latent")
