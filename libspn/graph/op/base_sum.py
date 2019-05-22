@@ -10,7 +10,6 @@ import libspn.utils as utils
 from libspn.log import get_logger
 from itertools import chain
 import tensorflow as tf
-from tensorflow_probability import distributions as tfd
 
 
 @utils.register_serializable
@@ -48,8 +47,7 @@ class BaseSum(OpNode, abc.ABC):
 
     def __init__(self, *values, num_sums, weights=None, latent_indicators=None, sum_sizes=None,
                  inference_type=InferenceType.MARGINAL, batch_axis=0, op_axis=1,
-                 reduce_axis=2, masked=False, sample_prob=None,
-                 dropconnect_keep_prob=None, name="Sum"):
+                 reduce_axis=2, masked=False, sample_prob=None, name="Sum"):
         super().__init__(inference_type=inference_type, name=name)
 
         self.set_values(*values)
@@ -69,9 +67,6 @@ class BaseSum(OpNode, abc.ABC):
 
         # Set the sampling probability and sampling type
         self._sample_prob = sample_prob
-
-        # Set dropconnect keep probability
-        self._dropconnect_keep_prob = dropconnect_keep_prob
 
     def _get_sum_sizes(self, num_sums):
         """Computes a list of sum sizes given the number of sums and the currently attached input
@@ -109,7 +104,6 @@ class BaseSum(OpNode, abc.ABC):
         data['op_axis'] = self._op_axis
         data['reduce_axis'] = self._reduce_axis
         data['batch_axis'] = self._batch_axis
-        data['dropconnect_keep_prob'] = self._dropconnect_keep_prob
         data['sample_prob'] = self._sample_prob
         return data
 
@@ -119,7 +113,6 @@ class BaseSum(OpNode, abc.ABC):
         self.set_values()
         self.set_weights()
         self.set_latent_indicators()
-        self._dropconnect_keep_prob = data['dropconnect_keep_prob']
         self._sample_prob = data['sample_prob']
         self._num_sums = data['num_sums']
         self._sum_sizes = data['sum_sizes']
@@ -148,13 +141,6 @@ class BaseSum(OpNode, abc.ABC):
     @utils.docinherit(OpNode)
     def inputs(self):
         return (self._weights, self._latent_indicators) + self._values
-
-    @property
-    def dropconnect_keep_prob(self):
-        return self._dropconnect_keep_prob
-
-    def set_dropconnect_keep_prob(self, p):
-        self._dropconnect_keep_prob = p
 
     @property
     def weights(self):
@@ -300,9 +286,7 @@ class BaseSum(OpNode, abc.ABC):
         return latent_indicators
 
     @utils.lru_cache
-    def _compute_reducible(
-        self, w_tensor, latent_indicators_tensor, *input_tensors, weighted=True,
-        dropconnect_keep_prob=None):
+    def _compute_reducible(self, w_tensor, latent_indicators_tensor, *input_tensors, weighted=True):
         """Computes a reducible ``Tensor`` so that reducing it over the last axis can be used for
         marginal inference, MPE inference and MPE path computation.
 
@@ -314,9 +298,6 @@ class BaseSum(OpNode, abc.ABC):
             input_tensors (tuple): A ``tuple`` of ``Tensors``s with the values of the children of
                 this node.
             weighted (bool): Whether to apply the weights to the reducible values if possible.
-            dropconnect_keep_prob (Tensor or float): A scalar ``Tensor`` or float that holds the
-                dropconnect keep probability. By default it is None, in which case no dropconnect
-                is being used.
 
         Returns:
             A ``Tensor`` of shape ``[batch, num_sums, max_sum_size]`` that can be used for computing
@@ -337,23 +318,6 @@ class BaseSum(OpNode, abc.ABC):
 
         # Apply weights
         if weighted:
-            # Maybe apply dropconnect
-            dropconnect_keep_prob = utils.maybe_first(
-                dropconnect_keep_prob, self._dropconnect_keep_prob)
-
-            if dropconnect_keep_prob is not None and dropconnect_keep_prob != 1.0:
-                if self._latent_indicators:
-                    self.logger.warn(
-                        "Using dropconnect and latent IndicatorLeaf simultaneously. "
-                        "This might result in zero probabilities throughout and unpredictable "
-                        "behavior of learning. Therefore, dropconnect is turned off for node {}."
-                            .format(self))
-                else:
-                    mask = self._create_dropout_mask(
-                        dropconnect_keep_prob, tf.shape(reducible), log=True)
-                    w_tensor = utils.cwise_add(w_tensor, mask)
-                    if conf.renormalize_dropconnect:
-                        w_tensor = tf.nn.log_softmax(w_tensor, axis=-1)
             reducible = utils.cwise_add(reducible, w_tensor)
 
         return reducible
@@ -365,33 +329,7 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_value(self, w_tensor, latent_indicators_tensor, *value_tensors,
-                           dropconnect_keep_prob=None):
-
-        # Defines soft-gradient for the log value
-        def custom_grad(grad):
-            # Use the _compute_log_gradient method to compute the gradient w.r.t. to the
-            # inputs of this node.
-            scattered_grads = self._compute_log_gradient(
-                grad, w_tensor, latent_indicators_tensor, *value_tensors,
-                accumulate_weights_batch=True, dropconnect_keep_prob=dropconnect_keep_prob)
-
-            return [sg for sg in scattered_grads if sg is not None]
-
-        # Wrap the log value with its custom gradient
-        @tf.custom_gradient
-        def _log_value(*input_tensors):
-            # First reduce over last axis
-            val = self._reduce_marginal_inference_log(self._compute_reducible(
-                w_tensor, latent_indicators_tensor, *value_tensors, weighted=True,
-                dropconnect_keep_prob=dropconnect_keep_prob))
-
-            return val, custom_grad
-
-        # if conf.custom_gradient:
-        #     return _log_value(*self._get_differentiable_inputs(
-        #         w_tensor, latent_indicators_tensor, *value_tensors))
-        # else:
+    def _compute_log_value(self, w_tensor, latent_indicators_tensor, *value_tensors):
         return self._reduce_marginal_inference_log(self._compute_reducible(
             w_tensor, latent_indicators_tensor, *value_tensors, weighted=True))
 
@@ -410,31 +348,9 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
-    def _compute_log_mpe_value(self, w_tensor, latent_indicators_tensor, *value_tensors,
-                               dropconnect_keep_prob=None):
-
-        # Defines hard-gradient for the log-mpe
-        def custom_grad(grad):
-            scattered_grads = self._compute_log_mpe_path(
-                grad, w_tensor, latent_indicators_tensor, *value_tensors)
-
-            return [sg for sg in scattered_grads if sg is not None]
-
-        # Wrap the log value with its custom gradient
-        @tf.custom_gradient
-        def _log_mpe_value(*input_tensors):
-            val = self._reduce_mpe_inference_log(self._compute_reducible(
-                w_tensor, latent_indicators_tensor, *value_tensors, weighted=True,
-                dropconnect_keep_prob=dropconnect_keep_prob))
-            return val, custom_grad
-
-        if conf.custom_gradient:
-            return _log_mpe_value(*self._get_differentiable_inputs(
-                w_tensor, latent_indicators_tensor, *value_tensors))
-        else:
-            return self._reduce_mpe_inference_log(self._compute_reducible(
-                w_tensor, latent_indicators_tensor, *value_tensors, weighted=True,
-                dropconnect_keep_prob=dropconnect_keep_prob))
+    def _compute_log_mpe_value(self, w_tensor, latent_indicators_tensor, *value_tensors):
+        return self._reduce_mpe_inference_log(self._compute_reducible(
+            w_tensor, latent_indicators_tensor, *value_tensors, weighted=True))
 
     @utils.lru_cache
     def _compute_mpe_path_common(
@@ -460,10 +376,12 @@ class BaseSum(OpNode, abc.ABC):
             tuples correspond to the nodes in ``self._values``.
         """
         sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
+        num_samples = 1 if reducible_tensor.shape[self._reduce_axis] != 1 else self._num_sums
         if sample:
-            max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
+            max_indices = self._reduce_sample_log(
+                reducible_tensor, sample_prob=sample_prob, num_samples=num_samples)
         else:
-            max_indices = self._reduce_argmax(reducible_tensor)
+            max_indices = self._reduce_argmax(reducible_tensor, num_samples=num_samples)
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_acc, max_counts_split = self._accumulate_and_split_to_children(
@@ -497,75 +415,25 @@ class BaseSum(OpNode, abc.ABC):
             x_acc = tf.squeeze(x, axis=self._op_axis)
 
         _, _, *value_sizes = self.get_input_sizes()
-        return x_acc, tf.split(x_acc, value_sizes, axis=self._op_axis)
+        return x_acc, tf.split(x_acc, value_sizes, axis=self._batch_axis + 1)
 
     @utils.docinherit(OpNode)
     @utils.lru_cache
     def _compute_log_mpe_path(self, counts, w_tensor, latent_indicators_tensor, *input_tensors,
-                              use_unweighted=False, add_random=None,
-                              accumulate_weights_batch=False, sample=False, sample_prob=None,
-                              dropconnect_keep_prob=None):
+                              use_unweighted=False,
+                              accumulate_weights_batch=False, sample=False, sample_prob=None):
         weighted = not use_unweighted or any(v.node.is_var for v in self._values)
         reducible = self._compute_reducible(
-            w_tensor, latent_indicators_tensor, *input_tensors, weighted=weighted,
-            dropconnect_keep_prob=dropconnect_keep_prob)
-        if not weighted and self._num_sums > 1 and reducible.shape[self._op_axis].value == 1:
-            reducible = tf.tile(reducible, (1, self._num_sums, 1))
-        # Add random
-        if add_random is not None:
-            reducible += tf.random_uniform(
-                tf.shape(reducible), minval=0.0, maxval=add_random, dtype=conf.dtype)
+            w_tensor, latent_indicators_tensor, *input_tensors, weighted=weighted)
 
         return self._compute_mpe_path_common(
             reducible, counts, w_tensor, latent_indicators_tensor, *input_tensors,
             accumulate_weights_batch=accumulate_weights_batch, sample=sample,
             sample_prob=sample_prob)
 
-    @utils.lru_cache
-    def _compute_log_gradient(
-        self, gradients, w_tensor, latent_indicators_tensor, *value_tensors,
-        accumulate_weights_batch=False, dropconnect_keep_prob=None):
-        """Computes gradient for log probabilities.
-
-        Args:
-            gradients (Tensor): A ``Tensor`` of shape [batch, num_sums] that contains the
-                                accumulated backpropagated gradient coming from this node's parents.
-            w_tensor (Tensor): A ``Tensor`` of shape [num_sums, max_sum_size] that contains the
-                               weights corresponding to this node.
-            latent_indicators_tensor (Tensor): A ``Tensor`` of shape [batch, num_sums, max_sum_size] that
-                                 corresponds to the IndicatorLeaf of this node.
-            value_tensors (tuple): A ``tuple`` of ``Tensor``s that correspond to the values of the
-                                   children of this node.
-            accumulate_weights_batch (bool): A ``bool`` that marks whether the weight gradients should be
-                                     summed over the batch axis.
-        Returns:
-            A ``tuple`` of gradients. Starts with weights, then IndicatorLeaf  and the remainder corresponds
-            to ``value_tensors``.
-        """
-
-        reducible = self._compute_reducible(
-            w_tensor, latent_indicators_tensor, *value_tensors, weighted=True,
-            dropconnect_keep_prob=dropconnect_keep_prob)
-
-        # Below exploits the memoization since _reduce_marginal_inference_log will
-        # always use keepdims=False, thus yielding the same tensor. One might otherwise
-        # be tempted to use keepdims=True and omit expand_dims here...
-        log_sum = tf.expand_dims(
-            self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
-
-        # A number - (-inf) is undefined. In fact, the gradient in those cases should be zero
-        log_sum = tf.where(tf.is_inf(log_sum), tf.zeros_like(log_sum), log_sum)
-        w_grad = tf.expand_dims(gradients, axis=self._reduce_axis) * tf.exp(reducible - log_sum)
-
-        value_grad_acc, value_grad_split = self._accumulate_and_split_to_children(w_grad)
-
-        if accumulate_weights_batch:
-            w_grad = tf.reduce_sum(w_grad, axis=0, keepdims=False)
-
-        return self._scatter_to_input_tensors(
-            (w_grad, w_tensor),
-            (value_grad_acc, latent_indicators_tensor),
-            *[(t, v) for t, v in zip(value_grad_split, value_tensors)])
+    @property
+    def _tile_unweighted_size(self):
+        return self._num_sums
 
     def _get_flat_value_scopes(self, weight_scopes, latent_indicators_scopes, *value_scopes):
         """Get a flat representation of the value scopes per sum.
@@ -605,7 +473,7 @@ class BaseSum(OpNode, abc.ABC):
     def _compute_valid(self, weight_scopes, latent_indicators_scopes, *value_scopes):
         # If already invalid, return None
         if (any(s is None for s in value_scopes)
-            or (self._latent_indicators and latent_indicators_scopes is None)):
+                or (self._latent_indicators and latent_indicators_scopes is None)):
             return None
         flat_value_scopes, latent_indicators_scopes_, *value_scopes_ = self._get_flat_value_scopes(
             weight_scopes, latent_indicators_scopes, *value_scopes)
@@ -636,8 +504,9 @@ class BaseSum(OpNode, abc.ABC):
 
     @utils.lru_cache
     def _prepare_component_wise_processing(
-        self, w_tensor, latent_indicators_tensor, *input_tensors, zero_prob_val=0.0):
-        """Gathers inputs and combines them so that the resulting tensor can be reduced over the
+            self, w_tensor, latent_indicators_tensor, *input_tensors, zero_prob_val=0.0):
+        """
+        Gathers inputs and combines them so that the resulting tensor can be reduced over the
         last axis to compute the (weighted) sums.
 
         Args:
@@ -653,15 +522,18 @@ class BaseSum(OpNode, abc.ABC):
             IndicatorLeaf ``Tensor`` that can be applied component-wise to the sums and a ``Tensor`` that
             holds the unweighted values of the sum inputs of shape [batch, num_sums, max_sum_size].
         """
+
         w_tensor, latent_indicators_tensor, *input_tensors = self._gather_input_tensors(
             w_tensor, latent_indicators_tensor, *input_tensors)
-        input_tensors = [tf.expand_dims(t, axis=self._op_axis) if len(t.shape) == 2 else t for
-                         t in input_tensors]
+
+        reducible_inputs = tf.expand_dims(
+            tf.concat(input_tensors, axis=self._reduce_axis - 1), axis=self._op_axis)
+
         w_tensor = tf.expand_dims(w_tensor, axis=self._batch_axis)
-        reducible_inputs = tf.concat(input_tensors, axis=self._reduce_axis)
         if latent_indicators_tensor is not None:
-            latent_indicators_tensor = tf.reshape(latent_indicators_tensor,
-                                                  shape=(-1, self._num_sums, self._max_sum_size))
+            latent_indicators_tensor = tf.reshape(
+                latent_indicators_tensor, shape=(-1, self._num_sums, self._max_sum_size))
+
         return w_tensor, latent_indicators_tensor, reducible_inputs
 
     @utils.lru_cache
@@ -704,7 +576,7 @@ class BaseSum(OpNode, abc.ABC):
         return self._reduce_mpe_inference(x)
 
     @utils.lru_cache
-    def _reduce_argmax(self, x):
+    def _reduce_argmax(self, x, num_samples=1):
         """Reduces a tensor by argmax(x, axis=reduce_axis)).
 
         Args:
@@ -716,7 +588,11 @@ class BaseSum(OpNode, abc.ABC):
         """
         if conf.argmax_zero:
             # If true, uses TensorFlow's argmax directly, yielding a bias towards the zeroth index
-            return tf.argmax(x, axis=self._reduce_axis)
+            argmax = tf.argmax(x, axis=self._reduce_axis)
+            if num_samples == 1:
+                return argmax
+            return tf.tile(tf.expand_dims(
+                argmax, axis=-1), [1] * (len(argmax.shape) - 1) + [self._tile_unweighted_size])
 
         # Return random index in case multiple values equal max
         x_max = tf.expand_dims(self._reduce_mpe_inference(x), self._reduce_axis)
@@ -724,12 +600,19 @@ class BaseSum(OpNode, abc.ABC):
         if self._masked:
             x_eq_max *= tf.expand_dims(tf.cast(self._build_mask(), tf.float32),
                                        axis=self._batch_axis)
-        x_eq_max /= tf.reduce_sum(x_eq_max, axis=self._reduce_axis, keepdims=True)
+        sample = self.multinomial_sample(tf.log(x_eq_max), num_samples)
+        return sample
 
-        return tfd.Categorical(probs=x_eq_max, name="StochasticArgMax", dtype=tf.int64).sample()
+    @staticmethod
+    def sample_and_transpose(d, sample_shape):
+        sample = d.sample(sample_shape=sample_shape)
+        if sample_shape == ():
+            return sample
+        else:
+            return tf.transpose(sample, list(range(1, len(sample.shape))) + [0])
 
     @utils.lru_cache
-    def _reduce_sample_log(self, logits, sample_prob=None):
+    def _reduce_sample_log(self, logits, sample_prob=None, num_samples=1):
         """Samples a tensor with log likelihoods, i.e. sample(x, axis=reduce_axis)).
 
         Args:
@@ -745,13 +628,12 @@ class BaseSum(OpNode, abc.ABC):
         # Categorical eventually uses non-log probabilities, so here we reuse as much as we can to
         # predetermine it
         def _sample():
-            logits_sum = self._reduce_marginal_inference_log(logits)
-            log_prob = tf.exp(logits - tf.expand_dims(logits_sum, axis=self._reduce_axis))
-            return tfd.Categorical(probs=tf.exp(log_prob), dtype=tf.int64).sample()
+            sample = self.multinomial_sample(logits, num_samples=num_samples)
+            return sample
 
         def _select_sample_or_argmax(x):
-            mask = tfd.Bernoulli(probs=sample_prob, dtype=tf.bool).sample(sample_shape=tf.shape(x))
-            return tf.where(mask, x, self._reduce_argmax(logits))
+            mask = tf.less(tf.random_uniform(tf.shape(x)), sample_prob)
+            return tf.where(mask, x, self._reduce_argmax(logits, num_samples=num_samples))
 
         if sample_prob is not None:
             if isinstance(sample_prob, (float, int)):
@@ -767,3 +649,16 @@ class BaseSum(OpNode, abc.ABC):
             return _select_sample_or_argmax(_sample())
         else:
             return _sample()
+
+    @utils.lru_cache
+    def multinomial_sample(self, logits, num_samples):
+        shape = tf.shape(logits)
+        last_dim = shape[-1]
+        logits = tf.reshape(logits, (-1, last_dim))
+        sample = tf.multinomial(logits, num_samples)
+
+        if self._tile_unweighted_size == num_samples and self._max_sum_size > 1:
+            shape = tf.concat((shape[:-1], [num_samples]), axis=0)
+            return tf.squeeze(tf.reshape(sample, shape), axis=self._reduce_axis - 1)
+
+        return tf.reshape(sample, shape[:-1])

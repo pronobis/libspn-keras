@@ -93,9 +93,9 @@ class Input():
             # Check for duplicates - duplicated indices cannot be handled
             # properly during the downward pass since integrating multiple
             # parents happens only on the level of inputs, not indices.
-            if len(set(indices)) != len(indices):
-                raise ValueError("Indices %s for node %s contain duplicates"
-                                 % (indices, node))
+            # if len(set(indices)) != len(indices):
+            #     raise ValueError("Indices %s for node %s contain duplicates"
+            #                      % (indices, node))
         elif indices is not None:
             raise TypeError("Invalid indices %s for node %s" % (indices, node))
         self.indices = indices
@@ -139,10 +139,6 @@ class Input():
     def is_var(self):
         """Returns ``True`` if the input is connected to a variable node."""
         return isinstance(self.node, VarNode)
-
-    @property
-    def is_distribution(self):
-        return isinstance(self.node, DistributionNode)
 
     def get_size(self, input_tensor):
         """Get the size of the input.
@@ -206,6 +202,10 @@ class Node(ABC):
         self.inference_type = inference_type
         with tf.name_scope(self._name + "/"):
             self._create()
+
+    @property
+    def is_layer(self):
+        return False
 
     @abstractmethod
     def serialize(self):
@@ -274,7 +274,9 @@ class Node(ABC):
         return nodes
 
     def get_num_nodes(self, skip_params=False, node_type=None):
-        """Get the number of nodes in the SPN graph for which this node is root.
+        """
+        Get the number of nodes in the SPN graph for which this node is root.
+
         Args:
             skip_params (bool): If ``True`` don't count param nodes.
             node_type: Type of node in the SPN graph to be counted. If 'None' count
@@ -728,23 +730,6 @@ class OpNode(Node):
             second dimension is the size of the output of the input node.
         """
 
-    @utils.lru_cache
-    def _create_dropout_mask(self, keep_prob, shape, log=True, name="DropoutMask"):
-        """Creates a dropout mask with values drawn from a Bernoulli distribution with parameter
-        ``keep_prob``.
-
-        Args:
-            keep_prob (Tensor): A float ``Tensor`` indicating the probability of keeping an element
-                active.
-            shape (Tensor): A 1D ``Tensor`` specifying the shape of the
-
-        """
-        with tf.name_scope(name):
-            mask = tfd.Bernoulli(probs=keep_prob, dtype=conf.dtype, name="DropoutMaskBernoulli")\
-                .sample(sample_shape=shape)
-            return tf.log(mask) if log else mask
-
-
 class VarNode(Node):
     """An abstract class defining a variable node of the SPN graph.
 
@@ -992,3 +977,74 @@ class ParamNode(Node):
         Returns:
             Update operation.
         """
+
+
+class BlockNode(OpNode, abc.ABC):
+
+    """
+    Abstract node in which probabilities are computed in blocks where each block corresponds to
+    a specific (i) scope and (ii) decomposition. Apart from a node axis, these layers also have
+    a (i) batch, (ii) scope and (iii) a decomposition axis.
+
+    Args:
+        num_decomps (int): Number of decompositions modeled by this node.
+        num_scopes (int): Number of scopes modeled by this node
+        name (str): Name of the node.
+
+    Attributes:
+        inference_type(InferenceType): Flag indicating the preferred inference
+                                       type for this node that will be used
+                                       during value calculation and learning.
+                                       Can be changed at any time and will be
+                                       used during the next inference/learning
+                                       op generation.
+    """
+
+    def __init__(self, num_decomps=None, num_scopes=None, inference_type=InferenceType.MARGINAL,
+                 name="BlockNode"):
+        super().__init__(inference_type=inference_type, name=name)
+        self._num_decomps = num_decomps
+        self._num_scopes = num_scopes
+
+        self._scope_axis = 0
+        self._decomp_axis = 1
+        self._batch_axis = 2
+        self._node_axis = 3
+
+    def describe(self):
+        """Describes the dimensionality of this node """
+        return "{}: [{} x {} x ? x {}]".format(
+            self._name, self.dim_scope, self.dim_decomps, self.dim_nodes)
+
+    @abstractmethod
+    def dim_nodes(self):
+        """Number of nodes per decomposition and scope. """
+
+    @property
+    def dim_scope(self):
+        """Number of scopes """
+        return self._num_scopes
+
+    @property
+    def dim_decomps(self):
+        """Number of decompositions """
+        return self._num_decomps
+
+    def set_values(self, *values):
+        """Set the inputs providing input values to this node. If no arguments
+        are given, all existing value inputs get disconnected.
+
+        Args:
+            *values (input_like): Inputs providing input values to this node.
+                See :meth:`~libspn.Input.as_input` for possible values.
+        """
+        if len(values) > 1:
+            raise NotImplementedError("Can only deal with single inputs")
+        if not isinstance(values[0], BlockNode):
+            raise NotImplementedError("Inputs must be TensorNode")
+        self._values = self._parse_inputs(*values)
+
+    @property
+    def child(self):
+        """Child node"""
+        return self._values[0].node

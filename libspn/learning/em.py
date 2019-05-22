@@ -24,20 +24,20 @@ class EMLearning:
         "LocationScaleLeafNode", ["node", "name_scope", "accum", "sum_data", "sum_data_squared"])
 
     def __init__(self, root, mpe_path=None, log=True, value_inference_type=None,
-                 additive_smoothing=None, add_random=None, initial_accum_value=1.0,
-                 use_unweighted=False, sample=False, sample_prob=None,
-                 dropconnect_keep_prob=None):
+                 additive_smoothing=None, initial_accum_value=1.0,
+                 use_unweighted=False, sample_winner=False, sample_prob=None,
+                 matmul_or_conv=False):
         self._root = root
         self._log = log
         self._additive_smoothing = additive_smoothing
         self._initial_accum_value = initial_accum_value
-        self._sample = sample
+        self._sample_winner = sample_winner
         # Create internal MPE path generator
         if mpe_path is None:
             self._mpe_path = MPEPath(
-                log=log, value_inference_type=value_inference_type, add_random=add_random,
-                use_unweighted=use_unweighted, sample=sample, sample_prob=sample_prob,
-                dropconnect_keep_prob=dropconnect_keep_prob)
+                log=log, value_inference_type=value_inference_type,
+                use_unweighted=use_unweighted, sample=sample_winner, sample_prob=sample_prob,
+                matmul_or_conv=matmul_or_conv)
         else:
             self._mpe_path = mpe_path
         # Create a name scope
@@ -55,13 +55,6 @@ class EMLearning:
     def value(self):
         """Value or LogValue: Computed SPN values."""
         return self._mpe_path.value
-
-    # TODO: For testing only
-    def root_accum(self):
-        for pn in self._param_nodes:
-            if pn.node == self._root.weights.node:
-                return pn.accum
-        return None
 
     @utils.lru_cache
     def reset_accumulators(self):
@@ -93,10 +86,6 @@ class EMLearning:
             assign_ops = []
             for pn in self._param_nodes:
                 with tf.name_scope(pn.name_scope):
-                    # counts = self._mpe_path.counts[pn.node]
-                    # update_value = pn.node._compute_hard_em_update(counts)
-                    # with tf.control_dependencies([update_value]):
-                    # op = tf.assign_add(pn.accum, self._mpe_path.counts[pn.node])
                     counts_summed_batch = pn.node._compute_hard_em_update(
                         self._mpe_path.counts[pn.node])
                     assign_ops.append(tf.assign_add(pn.accum, counts_summed_batch))
@@ -106,10 +95,15 @@ class EMLearning:
                     counts = self._mpe_path.counts[dn.node]
                     update_value = dn.node._compute_hard_em_update(counts)
                     with tf.control_dependencies(update_value.values()):
-                        assign_ops.append(tf.assign_add(dn.accum, update_value['accum']))
-                        assign_ops.append(tf.assign_add(dn.sum_data, update_value['sum_data']))
-                        assign_ops.append(tf.assign_add(
-                            dn.sum_data_squared, update_value['sum_data_squared']))
+                        if dn.node.dimensionality > 1:
+                            accum = tf.squeeze(update_value['accum'], axis=-1)
+                        else:
+                            accum = update_value['accum']
+                        assign_ops.extend(
+                            [tf.assign_add(dn.accum, accum),
+                             tf.assign_add(dn.sum_data, update_value['sum_data']),
+                             tf.assign_add(
+                                 dn.sum_data_squared, update_value['sum_data_squared'])])
 
             return tf.group(*assign_ops, name="accumulate_updates")
 

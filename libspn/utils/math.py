@@ -6,6 +6,96 @@ import collections
 from libspn import utils as utils
 
 
+def logmatmul(a, b, transpose_a=False, transpose_b=False, name=None):
+    with tf.name_scope(name, "logmatmul", [a, b]):
+        # Number of outer dimensions
+        num_outer_a = len(a.shape) - 2
+        num_outer_b = len(b.shape) - 2
+
+        # Reduction axis
+        reduce_axis_a = num_outer_a if transpose_a else num_outer_a + 1
+        reduce_axis_b = num_outer_b + 1 if transpose_b else num_outer_b
+
+        # Compute max for each tensor for numerical stability
+        max_a = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(a, axis=reduce_axis_a, keepdims=True)))
+        max_b = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(b, axis=reduce_axis_b, keepdims=True)))
+
+        # Subtract
+        a -= max_a
+        b -= max_b
+
+        # Compute logsumexp using matrix mutiplication
+        out = tf.log(tf.matmul(
+            tf.exp(a), tf.exp(b), transpose_a=transpose_a, transpose_b=transpose_b))
+
+        # If necessary, transpose max_a or max_b
+        if transpose_a:
+            max_a = tf.transpose(
+                max_a, list(range(num_outer_a)) + [num_outer_a + 1, num_outer_a])
+        if transpose_b:
+            max_b = tf.transpose(
+                max_b, list(range(num_outer_b)) + [num_outer_b + 1, num_outer_b])
+        out += max_a
+        out += max_b
+    return out
+
+
+def logconv_1x1(input, filter, name=None):
+    with tf.name_scope(name, "logconv_1x1", [input, filter]):
+        filter_max = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(filter, axis=-2, keepdims=True)))
+        input_max = replace_infs_with_zeros(
+            tf.stop_gradient(tf.reduce_max(input, axis=-1, keepdims=True)))
+
+        filter -= filter_max
+        input -= input_max
+
+        out = tf.log(tf.nn.convolution(
+            input=tf.exp(input), filter=tf.exp(filter), padding="SAME"))
+        out += filter_max + input_max
+
+    return out
+
+
+def replace_infs_with_zeros(x):
+    return tf.where(tf.is_inf(x), tf.zeros_like(x), x)
+
+
+def maybe_random_0toN_permutations(range_sizes, max_size):
+    total_possibilities = int(np.prod(range_sizes))
+    if total_possibilities > max_size:
+        if total_possibilities < 1e6:
+            r = np.random.choice(total_possibilities, size=max_size, replace=False)
+        else:
+            r = np.random.randint(total_possibilities, size=max_size)
+    else:
+        r = np.arange(total_possibilities)
+    indices = []
+    for s in range_sizes:
+        indices.append(r % s)
+        r //= s
+    return np.stack(indices, axis=1)
+
+
+def pow2_combinations(n):
+    rows = 2 ** n
+    pow2 = np.power(2, np.arange(n)).reshape(1, n)
+    return np.greater(np.bitwise_and(
+        np.arange(rows).reshape(rows, 1), pow2), 0)
+
+
+@utils.lru_cache
+def transpose_channel_last_to_first(t):
+    return tf.transpose(t, (0, 3, 1, 2))
+
+
+@utils.lru_cache
+def transpose_channel_first_to_last(t):
+    return tf.transpose(t, (0, 2, 3, 1))
+
+
 def gather_cols_3d(params, indices, pad_elem=0, name=None):
     """Gather columns of a 2D tensor or values of a 1D tensor into a 1D, 2D or 3D
        tensor, based on the dimension of params and list size of indices.
@@ -206,6 +296,50 @@ def scatter_cols(params, indices, num_out_cols, name=None):
                 return tf.gather(with_zeros, gather_indices, axis=1)
 
 
+@utils.lru_cache
+def multinomial_sample(logits, num_samples, name="MultinomialSample"):
+    with tf.name_scope(name):
+        shape = tf.shape(logits)
+        last_dim = shape[-1]
+        logits = tf.reshape(logits, (-1, last_dim))
+        sample = tf.multinomial(logits, num_samples)
+        return tf.reshape(sample, tf.concat([shape[:-1], [num_samples]], axis=0))
+
+
+@utils.lru_cache
+def argmax_breaking_ties(x, num_samples=1, keepdims=False, name="ArgMaxBreakingTies", axis=-1):
+    with tf.name_scope(name):
+        axis = (axis + len(x.shape)) % len(x.shape)
+        if axis != len(x.shape) - 1:
+            permutation = [i if i != axis else len(x.shape) - 1
+                           for i in range(len(x.shape) - 1)] + [axis]
+            x = tf.transpose(x, permutation)
+            permutation_inverse = tf.invert_permutation(permutation)
+        else:
+            permutation_inverse = None
+        eq_max = tf.equal(x, tf.reduce_max(x, axis=-1, keepdims=True))
+        logits = tf.log(tf.to_float(eq_max))
+        argmax = multinomial_sample(logits, num_samples)
+        if keepdims:
+            if permutation_inverse is not None:
+                return tf.transpose(argmax, permutation_inverse)
+            return argmax
+        elif num_samples != 1:
+            raise ValueError("Cannot take out last dim if num_samples > 1")
+        return tf.squeeze(argmax, axis=-1)
+
+
+def scatter_values_nd(params, indices, depth, name="ScatterValuesND"):
+
+    with tf.name_scope(name):
+        last_dim = params.shape[-1].value
+        shape = (-1, last_dim)
+        out_shape = tf.concat([tf.shape(params), [depth]], axis=0)
+        scattered = scatter_values(
+            tf.reshape(params, shape), tf.reshape(indices, shape), num_out_cols=depth)
+        return tf.reshape(scattered, out_shape)
+
+
 def scatter_values(params, indices, num_out_cols, name=None):
     """Scatter values of a rank R (1D or 2D) tensor into a rank R+1 (2D or 3D)
     tensor, with the inner-most dimensions having size ``num_out_cols``.
@@ -263,12 +397,8 @@ def scatter_values(params, indices, num_out_cols, name=None):
             # and forward the tensor.
             return tf.expand_dims(params, axis=-1)
         else:
-            if param_dims == 1:
-                return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
-                       * tf.expand_dims(params, axis=1)
-            else:
-                return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
-                       * tf.expand_dims(params, axis=2)
+            return tf.one_hot(indices, num_out_cols, dtype=params.dtype) \
+                   * tf.expand_dims(params, axis=param_dims)
 
 
 def print_tensor(*tensors):
@@ -289,3 +419,14 @@ def cwise_add(a, b):
     """
     return a + b
 
+
+def non_batch_dim_prod(t):
+    """Computes the product of the non-batch dimensions to be used for reshaping purposes.
+
+    Args:
+        t (Tensor): A ``Tensor`` for which to compute the product.
+
+    Returns:
+        An ``int``: product of non-batch dimensions.
+    """
+    return int(np.prod(t.shape.as_list()[1:]))

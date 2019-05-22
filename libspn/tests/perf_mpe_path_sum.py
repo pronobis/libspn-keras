@@ -12,7 +12,7 @@ from libspn.tests.abstract_performance_profiling import AbstractPerformanceTest,
     AbstractPerformanceUnit, PerformanceTestArgs, ConfigGenerator
 from libspn.tests.perf_sum_value_varying_sizes import sums_layer_numpy_common
 
-MPEPathPerformanceInput = namedtuple("MPEPathPerformanceInput",
+MPEPathPerformanceInput = namedtuple("LogMatMulInput",
                                      ["values", "indices", "num_parallel", "sum_sizes", "num_sums",
                                       "weights", "latent_indicators"])
 
@@ -130,10 +130,10 @@ class SumsLayerUnit(AbstractSumUnit):
         return true_out
 
 
-class ParSumsUnit(AbstractSumUnit):
+class ParallelSumsUnit(AbstractSumUnit):
 
     def __init__(self, name, dtype):
-        super(ParSumsUnit, self).__init__(name, dtype)
+        super(ParallelSumsUnit, self).__init__(name, dtype)
 
     def _build_placeholders(self, inputs):
         return [spn.RawLeaf(num_vars=inputs.values[0].shape[1])]
@@ -148,8 +148,8 @@ class ParSumsUnit(AbstractSumUnit):
 
         parallel_sum_nodes = []
         for ind in sum_indices:
-            parallel_sum_nodes.append(spn.ParSums((placeholders[0], ind),
-                                                  num_sums=inputs.num_parallel))
+            parallel_sum_nodes.append(spn.ParallelSums((placeholders[0], ind),
+                                                       num_sums=inputs.num_parallel))
 
         weight_nodes = [self._generate_weights(node, w.tolist()) for node, w in
                         zip(parallel_sum_nodes, weights)]
@@ -166,7 +166,7 @@ class ParSumsUnit(AbstractSumUnit):
         return tf.tuple(path_op + input_counts)[:len(path_op)], self._initialize_from(root)
 
     def true_out(self, inputs, conf):
-        true_out = super(ParSumsUnit, self).true_out(inputs, conf)
+        true_out = super(ParallelSumsUnit, self).true_out(inputs, conf)
         true_out = [np.concatenate(true_out[i:i + inputs.num_parallel], axis=1)
                     .reshape((true_out[0].shape[0], inputs.num_parallel, -1))
                     for i in range(0, len(true_out), inputs.num_parallel)]
@@ -211,7 +211,7 @@ def main():
         SumsLayerUnit("LayerCountMatmul", tf.float32, "matmul"),
         SumsLayerUnit("LayerCountGather", tf.float32, "gather"),
         SumsLayerUnit("LayerCountSegmented", tf.float32, "segmented"),
-        ParSumsUnit("ParSums", tf.float32)
+        ParallelSumsUnit("ParallelSums", tf.float32)
     ]
     # Select the device
     gpu = [False, True]

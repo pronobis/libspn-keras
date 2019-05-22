@@ -36,7 +36,7 @@ class MultivariateNormalDiagLeaf(LocationScaleLeaf):
     """
 
     def __init__(self, feed=None, num_vars=1, num_components=2, dimensionality=2,
-                 name="MultivariateNormalDiagLeaf", total_counts_init=1,
+                 name="MultivariateNormalDiagLeaf", total_counts_init=1.0,
                  trainable_scale=True, trainable_loc=True,
                  loc_init=tf.initializers.random_uniform(0.0, 1.0),
                  scale_init=1.0, min_scale=1e-2, evidence_indicator_feed=None,

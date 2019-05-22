@@ -8,7 +8,7 @@ import tensorflow as tf
 from libspn.graph.scope import Scope
 from libspn.inference.type import InferenceType
 from libspn.graph.weights import Weights
-from libspn.graph.op.basesum import BaseSum
+from libspn.graph.op.base_sum import BaseSum
 from libspn import utils
 from libspn.exceptions import StructureError
 from libspn import conf
@@ -50,7 +50,7 @@ class SumsLayer(BaseSum):
 
     def __init__(self, *values, num_or_size_sums=None, weights=None, latent_indicators=None,
                  inference_type=InferenceType.MARGINAL, sample_prob=None,
-                 dropconnect_keep_prob=None, name="SumsLayer"):
+                 name="SumsLayer"):
         if isinstance(num_or_size_sums, int) or num_or_size_sums is None:
             num_sums = num_or_size_sums
             sum_sizes = None
@@ -60,8 +60,11 @@ class SumsLayer(BaseSum):
         super().__init__(
             *values, num_sums=num_sums, sum_sizes=sum_sizes, weights=weights,
             latent_indicators=latent_indicators, inference_type=inference_type,
-            sample_prob=sample_prob, dropconnect_keep_prob=dropconnect_keep_prob,
-            name=name, masked=True)
+            sample_prob=sample_prob, name=name, masked=True)
+
+    @property
+    def is_layer(self):
+        return True
 
     @utils.docinherit(BaseSum)
     def _reset_sum_sizes(self, num_sums=None, sum_sizes=None):
@@ -95,10 +98,12 @@ class SumsLayer(BaseSum):
         self._max_sum_size = max(sum_sizes) if sum_sizes else 0
 
     def set_sum_sizes(self, sizes):
-        """Sets the sum sizes. The sum of the sizes given should match the total number of inputs.
+        """
+        Sets the sum sizes. The sum of the sizes given should match the total number of inputs.
 
         Args:
             sizes (list): A ``list`` of ``int``s corresponding to the sizes of the sums.
+
         """
         self._reset_sum_sizes(sum_sizes=sizes)
 
@@ -297,10 +302,13 @@ class SumsLayer(BaseSum):
     def _compute_mpe_path_common(
             self, reducible_tensor, counts, w_tensor, latent_indicators_tensor, *input_tensors,
             accumulate_weights_batch=False, sample=False, sample_prob=None):
+        sample_prob = utils.maybe_first(sample_prob, self._sample_prob)
+        num_samples = 1 if reducible_tensor.shape[1] != 1 else self._num_sums
         if sample:
-            max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob)
+            max_indices = self._reduce_sample_log(reducible_tensor, sample_prob=sample_prob,
+                                                  num_samples=num_samples)
         else:
-            max_indices = self._reduce_argmax(reducible_tensor)
+            max_indices = self._reduce_argmax(reducible_tensor, num_samples=num_samples)
         max_counts = utils.scatter_values(
             params=counts, indices=max_indices, num_out_cols=self._max_sum_size)
         max_counts_split = self._accumulate_and_split_to_children(max_counts, *input_tensors)
@@ -317,10 +325,8 @@ class SumsLayer(BaseSum):
     @utils.docinherit(BaseSum)
     @utils.lru_cache
     def _compute_log_gradient(self, gradients, w_tensor, latent_indicators_tensor, *value_tensors,
-                              accumulate_weights_batch=False, dropconnect_keep_prob=None):
-        reducible = self._compute_reducible(
-            w_tensor, latent_indicators_tensor, *value_tensors,
-            dropconnect_keep_prob=dropconnect_keep_prob)
+                              accumulate_weights_batch=False):
+        reducible = self._compute_reducible(w_tensor, latent_indicators_tensor, *value_tensors)
         log_sum = tf.expand_dims(
             self._reduce_marginal_inference_log(reducible), axis=self._reduce_axis)
 

@@ -95,8 +95,7 @@ class Product(OpNode):
         flat_value_scopes = list(chain.from_iterable(value_scopes_))
         for s1, s2 in combinations(flat_value_scopes, 2):
             if s1 & s2:
-                self.__info("%s is not decomposable with input value scopes %s",
-                            self, flat_value_scopes)
+                self.__info("%s is not decomposable", self)
                 return None
         return self._compute_scope(*value_scopes)
 
@@ -137,8 +136,8 @@ class Product(OpNode):
         return self._compute_log_value(*value_tensors)
 
     @utils.lru_cache
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
-                          use_unweighted=False, sample=False, sample_prob=None):
+    def _compute_log_mpe_path(self, counts, *value_values, use_unweighted=False,
+                              sample=False, sample_prob=None):
         # Check inputs
         if not self._values:
             raise StructureError("%s is missing input values." % self)

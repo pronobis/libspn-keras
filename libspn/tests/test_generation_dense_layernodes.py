@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
-from context import libspn as spn
-from libspn import conf
-from test import TestCase
+import libspn as spn
 import itertools
 import tensorflow as tf
 import numpy as np
 from libspn.tests.test import argsprod
+
 
 def printc(string):
     COLOR = '\033[1m\033[93m'
@@ -14,50 +13,7 @@ def printc(string):
     print(COLOR + string + ENDC)
 
 
-class TestDenseSPNGenerator(TestCase):
-
-    def test_generte_set(self):
-        """Generation of sets of inputs with __generate_set"""
-        gen = spn.DenseSPNGenerator(num_decomps=2,
-                                              num_subsets=3,
-                                              num_mixtures=2)
-        v1 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
-        v2 = spn.RawLeaf(num_vars=3, name="RawLeaf1")
-        v3 = spn.RawLeaf(num_vars=2, name="RawLeaf2")
-        s1 = spn.Sum(v3)
-        n1 = spn.Concat(v2)
-        out = gen._DenseSPNGenerator__generate_set([spn.Input(v1, [0, 3, 2, 6, 7]),
-                                                              spn.Input(v2, [1, 2]),
-                                                              spn.Input(s1, None),
-                                                              spn.Input(n1, None)])
-        # Since order is undetermined, we check items
-        self.assertEqual(len(out), 6)
-        self.assertIn(tuple(sorted([(v2, 1), (n1, 1)])), out)
-        self.assertIn(tuple(sorted([(v2, 2), (n1, 2)])), out)
-        self.assertIn(tuple(sorted([(n1, 0)])), out)
-        self.assertIn(tuple(sorted([(v1, 0), (v1, 2), (v1, 3)])), out)
-        self.assertIn(tuple(sorted([(v1, 6), (v1, 7)])), out)
-        self.assertIn(tuple(sorted([(s1, 0)])), out)
-
-    def test_generte_set_errors(self):
-        """Detecting structure errors in __generate_set"""
-        gen = spn.DenseSPNGenerator(num_decomps=2,
-                                              num_subsets=3,
-                                              num_mixtures=2)
-        v1 = spn.IndicatorLeaf(num_vars=2, num_vals=4)
-        v2 = spn.RawLeaf(num_vars=3, name="RawLeaf1")
-        v3 = spn.RawLeaf(num_vars=2, name="RawLeaf2")
-        s1 = spn.Sum(v3, v2)
-        n1 = spn.Concat(v2)
-
-        with self.assertRaises(spn.StructureError):
-            gen._DenseSPNGenerator__generate_set([spn.Input(v1, [0, 3, 2, 6, 7]),
-                                                            spn.Input(v2, [1, 2]),
-                                                            spn.Input(s1, None),
-                                                            spn.Input(n1, None)])
-
-    def tearDown(self):
-        tf.reset_default_graph()
+class TestDenseSPNGenerator(tf.test.TestCase):
 
     @argsprod([1, 2], [2, 4], [1, 2], [1, 2], [[2, 2], [1, 1]],
               [spn.DenseSPNGenerator.InputDist.MIXTURE,
@@ -101,12 +57,12 @@ class TestDenseSPNGenerator(TestCase):
                   for i in range(num_inputs)]
 
         gen = spn.DenseSPNGenerator(num_decomps=num_decomps,
-                                              num_subsets=num_subsets,
-                                              num_mixtures=num_mixtures,
-                                              input_dist=input_dist,
-                                              balanced=balanced,
-                                              num_input_mixtures=num_input_mixtures,
-                                              node_type=node_type)
+                                    num_subsets=num_subsets,
+                                    num_mixtures=num_mixtures,
+                                    input_dist=input_dist,
+                                    balanced=balanced,
+                                    num_input_mixtures=num_input_mixtures,
+                                    node_type=node_type)
 
         # Generate Sub-SPNs
         sub_spns = [gen.generate(*inputs, root_name=("sub_root_%d" % (i+1)))
@@ -154,7 +110,7 @@ class TestDenseSPNGenerator(TestCase):
             if node_type == spn.DenseSPNGenerator.NodeType.SINGLE:
                 sums_lower.append([spn.Sum(*prods) for _ in range(num_top_mix)])
             elif node_type == spn.DenseSPNGenerator.NodeType.BLOCK:
-                sums_lower.append([spn.ParSums(*prods, num_sums=num_top_mix)])
+                sums_lower.append([spn.ParallelSums(*prods, num_sums=num_top_mix)])
             else:
                 sums_lower.append([spn.SumsLayer(*prods * num_top_mix,
                                                  num_or_size_sums=num_top_mix)])

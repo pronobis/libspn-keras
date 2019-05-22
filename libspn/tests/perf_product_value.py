@@ -81,9 +81,9 @@ class Ops:
                       in zip(inputs, indices)]
 
         if isinstance(inputs, list):  # Is a list of RawLeaf inputs - Multiple inputs
-            # Generate 'len(inputs)' PermProducts nodes, modeling 'n_prods' products
+            # Generate 'len(inputs)' PermuteProducts nodes, modeling 'n_prods' products
             # within each
-            p = [spn.PermProducts(*inps) for inps in inputs]
+            p = [spn.PermuteProducts(*inps) for inps in inputs]
         else:  # Is a single input of type RawLeaf - A single input
             num_inputs_array = np.array(num_inputs)
             num_input_cols_array = np.array(num_input_cols)
@@ -99,12 +99,12 @@ class Ops:
                            for start, stop in zip(num_inputs_cumsum[:-1],
                                                   num_inputs_cumsum[1:])]
 
-            # Generate 'len(inputs)' PermProducts nodes, modeling 'n_prods'
+            # Generate 'len(inputs)' PermuteProducts nodes, modeling 'n_prods'
             # products within each, and inputs for each node emination from a
             # commoninput source
-            p = [spn.PermProducts(*inps) for inps in inputs_list]
+            p = [spn.PermuteProducts(*inps) for inps in inputs_list]
 
-        # Connect all PermProducts nodes to a single root Sum node and generate
+        # Connect all PermuteProducts nodes to a single root Sum node and generate
         # its weights
         root = spn.Sum(*p)
         root.generate_weights()
@@ -462,7 +462,7 @@ class PerformanceTest:
                   log):
         """Run a single test for multiple ops and devices."""
 
-        # Atleast two inputs are needed for modelling multiple products in PermProducts
+        # Atleast two inputs are needed for modelling multiple products in PermuteProducts
         if not all(n_inp >= 2 for n_inp in num_inputs):
             sys.exit('ERROR: All num_inputs must be >= 2')
 
@@ -629,7 +629,7 @@ def main():
     args = parser.parse_args()
 
     # Atleast two columns per input are needed for modelling multiple products
-    # in PermProducts
+    # in PermuteProducts
     if not all(n_inp_cols >= 2 for n_inp_cols in args.num_input_cols):
         sys.exit('ERROR: All num_input_cols must be >= 2')
 

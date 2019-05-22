@@ -172,8 +172,7 @@ class ProductsLayer(OpNode):
         for scopes in value_scopes_lists:
             for s1, s2 in combinations(scopes, 2):
                 if s1 & s2:
-                    ProductsLayer.info("%s is not decomposable with input value scopes %s",
-                                       self, flat_value_scopes)
+                    ProductsLayer.info("%s is not decomposable", self)
                     return None
         return self._compute_scope(*value_scopes)
 
@@ -356,7 +355,7 @@ class ProductsLayer(OpNode):
         return gather_counts_indices, unique_inps
 
     @utils.lru_cache
-    def _compute_log_mpe_path(self, counts, *value_values, add_random=False,
+    def _compute_log_mpe_path(self, counts, *value_values,
                               use_unweighted=False, sample=False, sample_prob=None):
         # Check inputs
         if not self._values:
@@ -407,3 +406,7 @@ class ProductsLayer(OpNode):
 
     def disconnect_inputs(self):
         self._values = None
+
+    @property
+    def is_layer(self):
+        return True

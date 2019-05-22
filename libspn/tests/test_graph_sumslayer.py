@@ -89,7 +89,7 @@ def sumslayer_numpy_prepare_sums(inputs, latent_indicators, sums_sizes, weights)
 
 def build_iv_mask(inputs_selected, inputs_to_reduce, latent_indicators, sums_sizes):
     """
-    Creates concatenated IV matrix with boolean values that can be multiplied with the
+    Creates concatenated Indicator matrix with boolean values that can be multiplied with the
     reducible values for masking
     """
     if not latent_indicators:

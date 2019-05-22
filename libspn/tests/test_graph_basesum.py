@@ -7,31 +7,6 @@ from unittest.mock import MagicMock
 
 class TestBaseSum(tf.test.TestCase):
 
-    def test_dropconnect(self):
-        latent_indicators = spn.IndicatorLeaf(num_vals=2, num_vars=4)
-        s = spn.Sum(latent_indicators, dropconnect_keep_prob=0.5)
-        spn.generate_weights(s)
-        init = spn.initialize_weights(s)
-
-        mask = [
-            [0., 1., 0., 1., 1., 1., 0., 1.],
-            [1., 0., 0., 0., 0., 0., 1., 0.]
-        ]
-        s._create_dropout_mask = MagicMock(
-            return_value=tf.expand_dims(tf.log(mask), 1))
-
-        val_op = tf.exp(s.get_log_value())
-
-        mask = tf.constant(mask, dtype=tf.float32)
-        truth = tf.reduce_mean(mask, axis=-1, keepdims=True)
-
-        with self.test_session() as sess:
-            sess.run(init)
-            dropconnect_out, truth_out = sess.run(
-                [val_op, truth], feed_dict={latent_indicators: -np.ones((2, 4), dtype=np.int32)})
-
-        self.assertAllClose(dropconnect_out, truth_out)
-
     @argsprod([False, True])
     def test_stochastic_argmax(self, argmax_zero):
         spn.conf.argmax_zero = argmax_zero

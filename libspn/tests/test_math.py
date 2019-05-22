@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 
-from context import libspn as spn
-from test import TestCase
+import libspn as spn
 import tensorflow as tf
 import numpy as np
 import collections
 from random import shuffle
-from parameterized import parameterized
-import itertools
 
 
 def _broadcast_to_2D(test_inputs, subset_indices=None, n_stack=2):
@@ -23,7 +20,20 @@ def _broadcast_to_2D(test_inputs, subset_indices=None, n_stack=2):
     return ret
 
 
-class TestMath(TestCase):
+class TestMath(tf.test.TestCase):
+
+
+    def test_logmatmul(self):
+        a = tf.random_uniform(shape=(8, 150))
+        b = tf.random_uniform(shape=(150, 9))
+
+        ab_linear = tf.matmul(a, b)
+        ab_log = tf.exp(spn.utils.logmatmul(tf.log(a), tf.log(b)))
+
+        with self.test_session() as sess:
+            ab_linear_out, ab_log_out = sess.run([ab_linear, ab_log])
+
+        self.assertAllClose(ab_linear_out, ab_log_out)
 
     def test_gather_columns_3d_not_padded(self):
         def assert_output(params, indices, params_dtype, output, output_shape):

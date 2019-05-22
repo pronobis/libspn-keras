@@ -60,9 +60,9 @@ class Ops:
                     log=False, output=None):
 
         # Build a POON-like network with multi-op nodes
-        subsets = [spn.ParSums((inputs, list(range(i*num_vals, (i+1)*num_vals))),
-                               num_sums=num_mixtures) for i in range(num_subsets)]
-        products = spn.PermProducts(*subsets)
+        subsets = [spn.ParallelSums((inputs, list(range(i*num_vals, (i+1)*num_vals))),
+                                    num_sums=num_mixtures) for i in range(num_subsets)]
+        products = spn.PermuteProducts(*subsets)
         root = spn.Sum(products, name="root")
 
         # Generate dense SPN and all weights in the network
