@@ -56,7 +56,7 @@ from libspn.inference.value import Value
 from libspn.inference.value import LogValue
 from libspn.inference.mpe_path import MPEPath
 from libspn.inference.mpe_state import MPEState
-from libspn.learning.em import EMLearning
+from libspn.learning.em import HardEMLearning
 from libspn.learning.gd import GDLearning
 from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
@@ -103,9 +103,6 @@ from libspn.log import DEBUG2
 from libspn import conf
 from libspn import utils
 
-# App
-from libspn.app import App
-
 # Exceptions
 from libspn.exceptions import StructureError
 
@@ -139,7 +136,7 @@ __all__ = [
     'WeightsGenerator', 'generate_weights',
     # Inference and learning
     'InferenceType', 'Value', 'LogValue', 'MPEPath',
-    'MPEState', 'EMLearning', 'GDLearning', 'LearningTaskType',
+    'MPEState', 'HardEMLearning', 'GDLearning', 'LearningTaskType',
     'LearningMethodType',
     # Data
     'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',

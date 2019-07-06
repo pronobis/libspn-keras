@@ -377,7 +377,7 @@ def setup_learning(args, in_var, root):
         no_labels_llh = val_gen.get_value(root_marginalized) if args.supervised else labels_llh
 
     if args.learning_algo == "em":
-        em_learning = spn.EMLearning(
+        em_learning = spn.HardEMLearning(
             root, value_inference_type=inference_type,
             initial_accum_value=args.initial_accum_value, sample_winner=args.sample_path,
             sample_prob=args.sample_prob, use_unweighted=args.use_unweighted)

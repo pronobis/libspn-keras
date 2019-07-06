@@ -74,7 +74,7 @@ class TestGaussianQuantile(tf.test.TestCase):
     #
     #     value_inference_type = spn.InferenceType.MARGINAL
     #     init_weights = spn.initialize_weights(root)
-    #     learning = spn.EMLearning(root, log=True, value_inference_type=value_inference_type,
+    #     learning = spn.HardEMLearning(root, log=True, value_inference_type=value_inference_type,
     #                               use_unweighted=True)
     #     reset_accumulators = learning.reset_accumulators()
     #     accumulate_updates = learning.accumulate_updates()
@@ -229,7 +229,7 @@ class TestGaussianQuantile(tf.test.TestCase):
     #     # Setup learning Ops
     #     value_inference_type = spn.InferenceType.MARGINAL
     #     init_weights = spn.initialize_weights(root)
-    #     learning = spn.EMLearning(root, log=True, value_inference_type=value_inference_type)
+    #     learning = spn.HardEMLearning(root, log=True, value_inference_type=value_inference_type)
     #     reset_accumulators = learning.reset_accumulators()
     #     accumulate_updates = learning.accumulate_updates()
     #     update_spn = learning.update_spn()
@@ -274,9 +274,9 @@ class TestGaussianQuantile(tf.test.TestCase):
     #         sess.run(reset_accumulators)
     #
     #         # data_per_component_op = graph.get_tensor_by_name(
-    #         #     "EMLearning/NormalLeaf/DataPerComponent:0")
+    #         #     "HardEMLearning/NormalLeaf/DataPerComponent:0")
     #         # squared_data_per_component_op = graph.get_tensor_by_name(
-    #         #     "EMLearning/NormalLeaf/SquaredDataPerComponent:0")
+    #         #     "HardEMLearning/NormalLeaf/SquaredDataPerComponent:0")
     #         #
     #         # update_vals, data_per_component_out, squared_data_per_component_out = sess.run(
     #         #     [accumulate_updates, data_per_component_op, squared_data_per_component_op], fd)

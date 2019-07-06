@@ -62,7 +62,7 @@ class Ops:
 
         # Add EM Learning
         additive_smoothing_var = tf.Variable(additive_smoothing, dtype=spn.conf.dtype)
-        learning = spn.EMLearning(root, log=log, value_inference_type=inf_type,
+        learning = spn.HardEMLearning(root, log=log, value_inference_type=inf_type,
                                   additive_smoothing=additive_smoothing_var)
 
         return root, latent, learning, additive_smoothing, min_additive_smoothing, \
@@ -102,7 +102,7 @@ class Ops:
 
         # Add EM Learning
         additive_smoothing_var = tf.Variable(additive_smoothing, dtype=spn.conf.dtype)
-        learning = spn.EMLearning(root, log=log, value_inference_type=inf_type,
+        learning = spn.HardEMLearning(root, log=log, value_inference_type=inf_type,
                                   additive_smoothing=additive_smoothing_var,
                                   initial_accum_value=initial_accum_value,
                                   use_unweighted=use_unweighted)

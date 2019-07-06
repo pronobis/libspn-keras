@@ -8,7 +8,7 @@ from libspn.graph.leaf.location_scale import LocationScaleLeaf
 from libspn import utils
 
 
-class EMLearning:
+class HardEMLearning:
     """Assembles TF operations performing EM learning of an SPN.
 
     Args:
@@ -41,7 +41,7 @@ class EMLearning:
         else:
             self._mpe_path = mpe_path
         # Create a name scope
-        with tf.name_scope("EMLearning") as self._name_scope:
+        with tf.name_scope("HardEMLearning") as self._name_scope:
             pass
         # Create accumulators
         self._create_accumulators()
@@ -138,23 +138,20 @@ class EMLearning:
                     if self._initial_accum_value is not None:
                         if node.mask and not all(node.mask):
                             accum = tf.Variable(tf.cast(tf.reshape(node.mask,
-                                                node.variable.shape),
-                                                dtype=conf.dtype) *
+                                                                   node.variable.shape),
+                                                        dtype=conf.dtype) *
                                                 self._initial_accum_value,
-                                                dtype=conf.dtype,
-                                                collections=['em_accumulators'])
+                                                dtype=conf.dtype)
                         else:
                             accum = tf.Variable(tf.ones_like(node.variable,
                                                              dtype=conf.dtype) *
                                                 self._initial_accum_value,
-                                                dtype=conf.dtype,
-                                                collections=['em_accumulators'])
+                                                dtype=conf.dtype)
                     else:
                         accum = tf.Variable(tf.zeros_like(node.variable,
                                                           dtype=conf.dtype),
-                                            dtype=conf.dtype,
-                                            collections=['em_accumulators'])
-                    param_node = EMLearning.ParamNode(node=node, accum=accum,
+                                            dtype=conf.dtype)
+                    param_node = HardEMLearning.ParamNode(node=node, accum=accum,
                                                       name_scope=scope)
                     self._param_nodes.append(param_node)
             if isinstance(node, LocationScaleLeaf) and (node.trainable_scale or node.trainable_loc):
@@ -162,22 +159,18 @@ class EMLearning:
                     if self._initial_accum_value is not None:
                         accum = tf.Variable(tf.ones_like(node.loc_variable, dtype=conf.dtype) *
                                             self._initial_accum_value,
-                                            dtype=conf.dtype,
-                                            collections=['em_accumulators'])
+                                            dtype=conf.dtype)
                         sum_x = tf.Variable(node.loc_variable * self._initial_accum_value,
-                                            dtype=conf.dtype, collections=['em_accumulators'])
+                                            dtype=conf.dtype)
                         sum_x2 = tf.Variable(tf.square(node.loc_variable) *
                                              self._initial_accum_value,
-                                             dtype=conf.dtype, collections=['em_accumulators'])
+                                             dtype=conf.dtype)
                     else:
                         accum = tf.Variable(tf.zeros_like(node.loc_variable, dtype=conf.dtype),
-                                            dtype=conf.dtype,
-                                            collections=['em_accumulators'])
-                        sum_x = tf.Variable(tf.zeros_like(node.loc_variable), dtype=conf.dtype,
-                                            collections=['em_accumulators'])
-                        sum_x2 = tf.Variable(tf.zeros_like(node.loc_variable), dtype=conf.dtype,
-                                             collections=['em_accumulators'])
-                    loc_scale_node = EMLearning.LocationScaleLeafNode(
+                                            dtype=conf.dtype)
+                        sum_x = tf.Variable(tf.zeros_like(node.loc_variable), dtype=conf.dtype)
+                        sum_x2 = tf.Variable(tf.zeros_like(node.loc_variable), dtype=conf.dtype)
+                    loc_scale_node = HardEMLearning.LocationScaleLeafNode(
                         node=node, accum=accum, sum_data=sum_x, sum_data_squared=sum_x2,
                         name_scope=scope)
                     self._loc_scale_leaf_nodes.append(loc_scale_node)
