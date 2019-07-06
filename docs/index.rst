@@ -1,4 +1,4 @@
-.. include:: ../README.rst
+.. mdinclude:: ../README.md
 
 .. toctree::
    :hidden:
@@ -22,6 +22,5 @@
    api/visual
    api/utils
    api/log
-   api/app
    api/config
    api/exceptions

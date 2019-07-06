@@ -34,7 +34,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.imgmath',
     'sphinx.ext.viewcode',
-    'sphinxcontrib.napoleon'
+    'sphinxcontrib.napoleon',
+    'm2r'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -44,9 +45,9 @@ templates_path = ['_templates']
 # inline markup and directives. However, it works for basic prose content.
 # Regarding adding markdown support and its limitations, read
 # http://blog.readthedocs.com/adding-markdown-support/
-source_parsers = {
-    '.md': 'recommonmark.parser.CommonMarkParser',
-}
+# source_parsers = {
+#     '.md': 'recommonmark.parser.CommonMarkParser',
+# }
 
 # The suffix of source filenames.
 source_suffix = ['.rst', '.md']
