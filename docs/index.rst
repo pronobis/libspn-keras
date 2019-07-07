@@ -15,10 +15,8 @@
 
    api/graph
    api/generation
-   api/data
    api/inference
    api/learning
-   api/session
    api/visual
    api/utils
    api/log
