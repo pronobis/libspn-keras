@@ -33,6 +33,7 @@ setup(
     description='LibSPN is a TensorFlow-based library for building and training '
                 'Sum-Product Networks.',
     long_description=get_readme(),
+    long_description_content_type='text/markdown',
     setup_requires=[
         # For building docs:
         'sphinx',
