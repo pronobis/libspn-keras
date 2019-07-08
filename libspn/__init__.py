@@ -56,38 +56,19 @@ from libspn.inference.value import Value
 from libspn.inference.value import LogValue
 from libspn.inference.mpe_path import MPEPath
 from libspn.inference.mpe_state import MPEState
-from libspn.learning.em import EMLearning
+from libspn.learning.em import HardEMLearning
 from libspn.learning.gd import GDLearning
 from libspn.learning.type import LearningTaskType
 from libspn.learning.type import LearningMethodType
 
-# Data
-from libspn.data.dataset import Dataset
-from libspn.data.file import FileDataset
-from libspn.data.csv import CSVFileDataset
-from libspn.data.generated import GaussianMixtureDataset
-from libspn.data.generated import IntGridDataset
-from libspn.data.image import ImageFormat
-from libspn.data.image import ImageShape
-from libspn.data.image import ImageDatasetBase
-from libspn.data.image import ImageDataset
-from libspn.data.mnist import MNISTDataset
-from libspn.data.cifar import CIFAR10Dataset
-from libspn.data.writer import DataWriter
-from libspn.data.writer import CSVDataWriter
-from libspn.data.writer import ImageDataWriter
 
 # Models
 from libspn.models.model import Model
 from libspn.models.discrete_dense import DiscreteDenseModel
 from libspn.models.test import Poon11NaiveMixtureModel
 
-# Session
-from libspn.session import session
-
 # Visualization
 from libspn.visual.plot import plot_2d
-from libspn.visual.image import show_image
 from libspn.visual.tf_graph import display_tf_graph
 from libspn.visual.spn_graph import display_spn_graph
 
@@ -102,9 +83,6 @@ from libspn.log import DEBUG2
 # Utils and config
 from libspn import conf
 from libspn import utils
-
-# App
-from libspn.app import App
 
 # Exceptions
 from libspn.exceptions import StructureError
@@ -139,23 +117,16 @@ __all__ = [
     'WeightsGenerator', 'generate_weights',
     # Inference and learning
     'InferenceType', 'Value', 'LogValue', 'MPEPath',
-    'MPEState', 'EMLearning', 'GDLearning', 'LearningTaskType',
+    'MPEState', 'HardEMLearning', 'GDLearning', 'LearningTaskType',
     'LearningMethodType',
-    # Data
-    'Dataset', 'FileDataset', 'CSVFileDataset', 'GaussianMixtureDataset',
-    'IntGridDataset', 'ImageFormat', 'ImageShape', 'ImageDatasetBase',
-    'ImageDataset', 'MNISTDataset', 'CIFAR10Dataset',
-    'DataWriter', 'CSVDataWriter', 'ImageDataWriter',
     # Models
     'Model', 'DiscreteDenseModel', 'Poon11NaiveMixtureModel',
-    # Session
-    'session',
     # Visualization
-    'plot_2d', 'show_image', 'display_tf_graph', 'display_spn_graph',
+    'plot_2d', 'display_tf_graph', 'display_spn_graph',
     # Logging
     'config_logger', 'get_logger', 'WARNING', 'INFO', 'DEBUG1', 'DEBUG2',
     # Custom ops, utils and config
-    'conf', 'utils', 'App',
+    'conf', 'utils',
     # Exceptions
     'StructureError',
     # Initializers

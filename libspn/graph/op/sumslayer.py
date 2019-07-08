@@ -102,8 +102,7 @@ class SumsLayer(BaseSum):
         Sets the sum sizes. The sum of the sizes given should match the total number of inputs.
 
         Args:
-            sizes (list): A ``list`` of ``int``s corresponding to the sizes of the sums.
-
+            sizes (list): A ``list`` of ints corresponding to the sizes of the sums.
         """
         self._reset_sum_sizes(sum_sizes=sizes)
 

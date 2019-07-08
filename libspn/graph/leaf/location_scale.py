@@ -60,9 +60,6 @@ class LocationScaleLeaf(ContinuousLeafBase, abc.ABC):
             shape_kwarg = dict(shape=shape) if callable(self._loc_init) else dict()
             self._loc_variable = tf.get_variable(
                 "Loc", initializer=self._loc_init, dtype=conf.dtype,
-                collections=[SPNGraphKeys.DIST_LOC, SPNGraphKeys.DIST_PARAMETERS,
-                             tf.GraphKeys.GLOBAL_VARIABLES] +
-                            ([tf.GraphKeys.TRAINABLE_VARIABLES] if self._trainable_loc else []),
                 trainable=self._trainable_loc, **shape_kwarg)
 
             # Initialize scale
@@ -74,9 +71,6 @@ class LocationScaleLeaf(ContinuousLeafBase, abc.ABC):
             self._scale_variable = tf.get_variable(
                 "Scale", initializer=tf.maximum(self._scale_init, self._min_scale),
                 dtype=conf.dtype,
-                collections=[SPNGraphKeys.DIST_SCALE, SPNGraphKeys.DIST_PARAMETERS,
-                             tf.GraphKeys.GLOBAL_VARIABLES] +
-                            ([tf.GraphKeys.TRAINABLE_VARIABLES] if self._trainable_scale else []),
                 trainable=self._trainable_scale, **shape_kwarg)
 
     def _variable_shape(self, num_vars, num_components, dimensionality):

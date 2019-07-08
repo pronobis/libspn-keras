@@ -118,7 +118,7 @@ print("Number of sums layers: {}".format(root.get_num_nodes(node_type=spn.SumsLa
 
 
 # ### Defining the TensorFlow graph
-# Now that we have defined the SPN graph we can declare the TensorFlow operations needed for training and evaluation. We use the `EMLearning` class to help us out. The `MPEState` class can be used to find the MPE state of any node in the graph. In this case we might be interested in generating images or finding the most likely class based on the evidence elsewhere. These correspond to finding the MPE state for `leaf_indicators` and `class_indicators` respectively.
+# Now that we have defined the SPN graph we can declare the TensorFlow operations needed for training and evaluation. We use the `HardEMLearning` class to help us out. The `MPEState` class can be used to find the MPE state of any node in the graph. In this case we might be interested in generating images or finding the most likely class based on the evidence elsewhere. These correspond to finding the MPE state for `leaf_indicators` and `class_indicators` respectively.
 
 # In[ ]:
 
@@ -129,7 +129,7 @@ weight_init_op = spn.initialize_weights(root)
 root_log_prob = root.get_log_value(inference_type=inference_type)
 
 # Helper for constructing EM learning ops
-em_learning = spn.EMLearning(
+em_learning = spn.HardEMLearning(
     initial_accum_value=initial_accum_value, root=root, value_inference_type=inference_type,
     sample_prob=0.2, sample_winner=True, use_unweighted=True)
 

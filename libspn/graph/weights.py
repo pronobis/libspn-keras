@@ -217,10 +217,7 @@ class Weights(ParamNode):
         if self._log:
             init_val = tf.log(init_val)
 
-        self._variable = tf.Variable(
-            init_val, dtype=conf.dtype,
-            collections=[SPNGraphKeys.SPN_PARAMETERS, tf.GraphKeys.WEIGHTS,
-                         tf.GraphKeys.TRAINABLE_VARIABLES, tf.GraphKeys.GLOBAL_VARIABLES])
+        self._variable = tf.Variable(init_val, dtype=conf.dtype)
 
 
     @utils.lru_cache

@@ -1,39 +1,24 @@
 #!/usr/bin/env python3
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 def get_readme():
     """Read readme file."""
-    with open('README.rst') as f:
+    with open('README.md') as f:
         return f.read()
 
 
-_VERSION = '0.1'
+_VERSION = '0.1.2'
 
-
-_packages = {
-    'tensorflow': 'tensorflow>=1.12.0',
-    'tensorflow-gpu': 'tensorflow-gpu>=1.12.0',
-}
-
-
-EXTRA_PACKAGES = {
-    'cpu': [_packages['tensorflow']],
-    'gpu': [_packages['tensorflow-gpu']],
-}
 
 REQUIRED_PACKAGES = [
     'tqdm',
     'numpy',
     'scipy',
     'matplotlib',
-    'parameterized',
-    'tensorflow-probability',
     'pillow',
     'pyyaml',
-    'tqdm',
-    'colorama'  # For color output in tests
 ]
 
 ###############################
@@ -49,19 +34,14 @@ setup(
                 'Sum-Product Networks.',
     long_description=get_readme(),
     setup_requires=[
-        'setuptools_scm',  # Use version from SCM using setuptools_scm
-        'setuptools_git >= 0.3',  # Ship files tracked by git in src dist
-        'colorama',  # For color output
         # For building docs:
         'sphinx',
         'recommonmark',
         'sphinxcontrib-napoleon',
         'sphinxcontrib-websupport',
         'sphinx_rtd_theme',
-        # For testing
-        'flake8'
+        'm2r'
     ],
-    use_scm_version=True,  # Use version from SCM using setuptools_scm
     classifiers=[
         'Development Status :: 4 - Beta',
         'Programming Language :: Python :: 3',
@@ -88,15 +68,6 @@ setup(
     ################
     # Installation
     ################
-    packages=['libspn'],
+    packages=find_packages(),
     install_requires=REQUIRED_PACKAGES,
-    extras_require=EXTRA_PACKAGES,
-    zip_safe=False,
-    # Stuff in git repo will be included in source dist
-    include_package_data=True,
-    ################
-    # Tests
-    ################
-    test_suite='nose2.collector.collector',
-    tests_require=['nose2']
 )

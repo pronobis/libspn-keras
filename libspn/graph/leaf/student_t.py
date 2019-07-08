@@ -72,8 +72,6 @@ class StudentTLeaf(LocationScaleLeaf):
             shape_kwarg = dict(shape=shape) if callable(self._df_init) else dict()
             self._df_variable = tf.get_variable(
                 "Df", initializer=self._df_init, dtype=conf.dtype,
-                collections=[SPNGraphKeys.DIST_DF, SPNGraphKeys.DIST_PARAMETERS,
-                             tf.GraphKeys.GLOBAL_VARIABLES],
                 trainable=self._trainable_df, **shape_kwarg)
 
     @property
