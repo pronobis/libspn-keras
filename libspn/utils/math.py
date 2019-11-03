@@ -183,7 +183,6 @@ def gather_cols_3d(params, indices, pad_elem=0, name=None):
                     return tf.reshape(tf.tile(params, [1, indices_rows]),
                                       (-1, indices_rows, indices_cols))
             else:
-                pad_elem = np.array(pad_elem).astype(tf.DType(params.dtype).as_numpy_dtype)
                 if param_dims == 1:
                     axis = 0
                     if padding:
