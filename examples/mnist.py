@@ -1,0 +1,124 @@
+import argparse
+
+import tensorflow as tf
+from tensorflow import keras
+from libspn_keras.layers.across_scope_outer_product import AcrossScopeOuterProduct
+from libspn_keras.layers.root_sum import RootSum
+from libspn_keras.layers.undecompose import Undecompose
+from libspn_keras.losses.negative_log_likelihood import NegativeLogLikelihood
+from libspn_keras.metrics.log_likelihood import LogLikelihood
+from libspn_keras.models import build_sum_product_network
+from libspn_keras.layers.decompose import Decompose
+from libspn_keras.layers.normal_leaf import NormalLeaf
+from libspn_keras.layers.parallel_scope_sum import ParallelScopeSum
+import numpy as np
+
+
+def get_data():
+
+    (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
+    x_train, x_test = x_train / 255.0, x_test / 255.0
+
+    x_train = x_train.reshape(x_train.shape[0], -1)
+    x_test = x_test.reshape(x_test.shape[0], -1)
+
+    x_train = (x_train - np.mean(x_train, axis=1, keepdims=True)) / \
+              (np.std(x_train, axis=1, keepdims=True) + 1e-4)
+    x_test = (x_test - np.mean(x_test, axis=1, keepdims=True)) / \
+              (np.std(x_test, axis=1, keepdims=True) + 1e-4)
+
+    return x_train, y_train, x_test, y_test
+
+
+def get_mnist_model(num_vars, logspace_accumulators, hard_em_backward, return_weighted_child_logits):
+    sum_product_stack = []
+
+    weight_initializer = tf.initializers.TruncatedNormal(mean=0.5)
+
+    # The 'backbone' stack of alternating sums and products
+    for _ in range(int(np.floor(np.log2(num_vars)))):
+        sum_product_stack.extend([
+            AcrossScopeOuterProduct(
+                num_factors=2
+            ),
+            ParallelScopeSum(
+                num_sums=4,
+                logspace_accumulators=logspace_accumulators,
+                initializer=weight_initializer,
+                hard_em_backward=hard_em_backward
+            ),
+        ])
+
+    # Add another layer for joining the last two scopes to the final one, followed by a class-wise root layer
+    # which is then followed by undecomposing (combining decompositions) and finally followed
+    # by a root sum. In this case we return
+    sum_product_stack.extend([
+        AcrossScopeOuterProduct(
+            num_factors=2
+        ),
+        ParallelScopeSum(
+            num_sums=1,
+            logspace_accumulators=logspace_accumulators,
+            initializer=weight_initializer,
+            hard_em_backward=hard_em_backward
+        ),
+        Undecompose(),
+        RootSum(
+            logspace_accumulators=logspace_accumulators,
+            return_weighted_child_logits=return_weighted_child_logits,
+            hard_em_backward=hard_em_backward
+        )
+    ])
+
+    # Use helper function to build the actual SPN
+    return build_sum_product_network(
+        num_vars=num_vars,
+        decomposer=Decompose(num_decomps=10),
+        leaf=NormalLeaf(num_components=4),
+        sum_product_stack=keras.models.Sequential(sum_product_stack),
+    )
+
+
+def main(args):
+    if args.mode == "generative-hard-em":
+        logspace_accumulators = False
+        hard_em_backward = True
+        loss = NegativeLogLikelihood(name="NegativeLogLikelihood")
+        metrics = [LogLikelihood(name="LogLikelihood")]
+        optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
+        return_weighted_child_logits = False
+    elif args.mode == "generative-gd":
+        logspace_accumulators = True
+        hard_em_backward = False
+        loss = NegativeLogLikelihood(name="NegativeLogLikelihood")
+        metrics = [LogLikelihood(name="LogLikelihood")]
+        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+        return_weighted_child_logits = False
+    else:
+        logspace_accumulators = True
+        hard_em_backward = False
+        loss = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        metrics = [keras.metrics.SparseCategoricalAccuracy(name="Accuracy")]
+        optimizer = tf.keras.optimizers.Adam()
+        return_weighted_child_logits = True
+
+    x_train, y_train, x_test, y_test = get_data()
+
+    num_vars = x_train.shape[1]
+
+    model = get_mnist_model(num_vars, logspace_accumulators, hard_em_backward, return_weighted_child_logits)
+
+    # Important to use from_logits=True with the cross-entropy loss
+    model.compile(optimizer=optimizer, loss=loss,  metrics=metrics)
+
+    # Train
+    model.fit(x_train, y_train, epochs=5)
+
+    # Evaluate
+    model.evaluate(x_test,  y_test, verbose=2)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", choices=['generative-gd', 'generative-hard-em', 'discriminative'])
+    main(parser.parse_args())

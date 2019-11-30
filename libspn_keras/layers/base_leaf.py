@@ -1,10 +1,11 @@
 from tensorflow import keras
+import tensorflow as tf
 
 
 class BaseLeaf(keras.layers.Layer):
 
-    def __init__(self, num_components):
-        super(BaseLeaf, self).__init__()
+    def __init__(self, num_components, dtype=tf.float32):
+        super(BaseLeaf, self).__init__(dtype=dtype)
         self._num_components = num_components
         self._distribution = self._num_scopes = self._num_decomps = None
 
