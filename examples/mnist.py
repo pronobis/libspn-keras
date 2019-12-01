@@ -5,12 +5,13 @@ from tensorflow import keras
 from libspn_keras.layers.across_scope_outer_product import AcrossScopeOuterProduct
 from libspn_keras.layers.root_sum import RootSum
 from libspn_keras.layers.undecompose import Undecompose
-from libspn_keras.losses.negative_log_likelihood import NegativeLogLikelihood
-from libspn_keras.metrics.log_likelihood import LogLikelihood
+from libspn_keras.losses.negative_log_joint import NegativeLogJoint
+from libspn_keras.losses.negative_log_likelihood import NegativeLogMarginal
+from libspn_keras.metrics.log_likelihood import LogMarginal
 from libspn_keras.models import build_sum_product_network
 from libspn_keras.layers.decompose import Decompose
 from libspn_keras.layers.normal_leaf import NormalLeaf
-from libspn_keras.layers.parallel_scope_sum import ParallelScopeSum
+from libspn_keras.layers.scope_wise_sum import ScopeWiseSum
 import numpy as np
 
 
@@ -30,7 +31,8 @@ def get_data():
     return x_train, y_train, x_test, y_test
 
 
-def get_mnist_model(num_vars, logspace_accumulators, hard_em_backward, return_weighted_child_logits):
+def get_mnist_model(
+        num_vars, logspace_accumulators, hard_em_backward, soft_em_backward, return_weighted_child_logits):
     sum_product_stack = []
 
     weight_initializer = tf.initializers.TruncatedNormal(mean=0.5)
@@ -41,11 +43,12 @@ def get_mnist_model(num_vars, logspace_accumulators, hard_em_backward, return_we
             AcrossScopeOuterProduct(
                 num_factors=2
             ),
-            ParallelScopeSum(
+            ScopeWiseSum(
                 num_sums=4,
                 logspace_accumulators=logspace_accumulators,
                 initializer=weight_initializer,
-                hard_em_backward=hard_em_backward
+                hard_em_backward=hard_em_backward,
+                soft_em_backward=soft_em_backward
             ),
         ])
 
@@ -56,17 +59,19 @@ def get_mnist_model(num_vars, logspace_accumulators, hard_em_backward, return_we
         AcrossScopeOuterProduct(
             num_factors=2
         ),
-        ParallelScopeSum(
+        ScopeWiseSum(
             num_sums=1,
             logspace_accumulators=logspace_accumulators,
             initializer=weight_initializer,
-            hard_em_backward=hard_em_backward
+            hard_em_backward=hard_em_backward,
+            soft_em_backward=soft_em_backward
         ),
         Undecompose(),
         RootSum(
             logspace_accumulators=logspace_accumulators,
             return_weighted_child_logits=return_weighted_child_logits,
-            hard_em_backward=hard_em_backward
+            hard_em_backward=hard_em_backward,
+            soft_em_backward=soft_em_backward
         )
     ])
 
@@ -83,15 +88,35 @@ def main(args):
     if args.mode == "generative-hard-em":
         logspace_accumulators = False
         hard_em_backward = True
-        loss = NegativeLogLikelihood(name="NegativeLogLikelihood")
-        metrics = [LogLikelihood(name="LogLikelihood")]
+        soft_em_backward = False
+        loss = NegativeLogMarginal(name="NegativeLogMarginal")
+        metrics = [LogMarginal(name="LogMarginal")]
         optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
         return_weighted_child_logits = False
+    elif args.mode == "generative-soft-em":
+        logspace_accumulators = False
+        hard_em_backward = False
+        soft_em_backward = True
+        loss = NegativeLogMarginal(name="NegativeLogMarginal")
+        metrics = [LogMarginal(name="LogMarginal")]
+        optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
+        return_weighted_child_logits = False
+    elif args.mode == "generative-hard-em-supervised":
+        # TODO Still need to verify the performance of this, accuracy seems very low, but only had the chance to
+        #  use CPU so far
+        logspace_accumulators = False
+        hard_em_backward = True
+        soft_em_backward = False
+        loss = NegativeLogJoint()
+        metrics = [LogMarginal(name="LogMarginal"), keras.metrics.SparseCategoricalAccuracy(name="Accuracy")]
+        optimizer = tf.keras.optimizers.SGD(learning_rate=1.0, nestorov=True, momentum=0.9)
+        return_weighted_child_logits = True
     elif args.mode == "generative-gd":
         logspace_accumulators = True
         hard_em_backward = False
-        loss = NegativeLogLikelihood(name="NegativeLogLikelihood")
-        metrics = [LogLikelihood(name="LogLikelihood")]
+        soft_em_backward = False
+        loss = NegativeLogMarginal(name="NegativeLogLikelihood")
+        metrics = [LogMarginal(name="LogMarginal")]
         optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
         return_weighted_child_logits = False
     else:
@@ -106,7 +131,8 @@ def main(args):
 
     num_vars = x_train.shape[1]
 
-    model = get_mnist_model(num_vars, logspace_accumulators, hard_em_backward, return_weighted_child_logits)
+    model = get_mnist_model(
+        num_vars, logspace_accumulators, hard_em_backward, soft_em_backward, return_weighted_child_logits)
 
     # Important to use from_logits=True with the cross-entropy loss
     model.compile(optimizer=optimizer, loss=loss,  metrics=metrics)
@@ -120,5 +146,10 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=['generative-gd', 'generative-hard-em', 'discriminative'])
+    parser.add_argument(
+        "--mode", choices=[
+            'generative-gd', 'generative-soft-em', 'generative-hard-em', 'generative-hard-em-supervised',
+            'discriminative'
+        ])
     main(parser.parse_args())
+
