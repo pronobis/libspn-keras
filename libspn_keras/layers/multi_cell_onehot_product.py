@@ -118,7 +118,7 @@ class PatchWiseProduct(keras.layers.Layer):
             pad_top = pad_bottom = kernel_height - 1
             pad_left = pad_right = kernel_width - 1
             return pad_left, pad_right, pad_top, pad_bottom
-        if self._padding == 'wicker_top':
+        if self._padding == 'final':
             kernel_height, kernel_width = self._effective_kernel_size()
             pad_top = (kernel_height - 1) * 2 - self._spatial_dim_sizes[0]
             pad_left = (kernel_width - 1) * 2 - self._spatial_dim_sizes[1]
@@ -127,24 +127,36 @@ class PatchWiseProduct(keras.layers.Layer):
             "{}: invalid padding algorithm. Use 'valid', 'full' or 'wicker_top', got '{}'"
             .format(self, self._padding))
 
+    def _compute_out_size_spatial(self, num_scopes_vertical_in, num_scopes_horizontal_in):
+        """Computes spatial output shape.
+
+        Returns:
+            A tuple with (num_rows, num_cols, num_channels).
+        """
+        kernel_size0, kernel_size1 = self._effective_kernel_size()
+
+        pad_left, pad_right, pad_top, pad_bottom = self.pad_sizes()
+
+        rows_post_pad = pad_top + pad_bottom + num_scopes_vertical_in - kernel_size0 + 1
+        cols_post_pad = pad_left + pad_right + num_scopes_horizontal_in - kernel_size1 + 1
+        out_rows = int(np.ceil(rows_post_pad / self._strides[0]))
+        out_cols = int(np.ceil(cols_post_pad / self._strides[1]))
+        return int(out_rows), int(out_cols)
+
     def call(self, x):
         # Split in list of tensors which will be added up using outer products
 
         conv_out = tf.nn.conv2d(
             x, self._onehot_kernels, strides=self._strides, padding=self._padding,
-
+            dilations=self._dilations
         )
 
-        return tf.reshape(
-            functools.reduce(operator.add, log_prob_per_in_scope),
-            [self._num_scopes, self._num_decomps, -1, self._num_products]
-        )
+        return conv_out
 
     def compute_output_shape(self, input_shape):
-        num_scopes_in, num_decomps, _, num_nodes_in = input_shape
-        return (
-            num_scopes_in // self._num_factors,
-            self._num_decomps,
-            None,
-            num_nodes_in ** self._num_factors
+        num_batch, num_scopes_vertical_in, num_scopes_horizontal_in, _ = input_shape
+        num_scopes_vertical_out, num_scopes_horizontal_out = self._compute_out_size_spatial(
+            num_scopes_vertical_in, num_scopes_horizontal_in
         )
+        return num_batch, num_scopes_vertical_out, num_scopes_horizontal_out, self._num_channels
+
