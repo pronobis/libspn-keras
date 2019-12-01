@@ -14,7 +14,8 @@ def build_sum_product_network(
     leaf: BaseLeaf,
     decomposer: Decompose,
     num_vars: int,
-    evidence_mask=False):
+    evidence_mask=False
+):
 
     factors = []
 

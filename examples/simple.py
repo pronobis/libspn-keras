@@ -48,7 +48,7 @@ def get_model(num_vars, logspace_accumulators, hard_em_backward, return_weighted
         ),
         ScopeWiseSum(
             num_sums=2, logspace_accumulators=False, hard_em_backward=True,
-            initializer=initializers.Constant(init_sum0)
+            accumulator_initializer=initializers.Constant(init_sum0)
         ),
         AcrossScopeOuterProduct(
             num_factors=2
@@ -56,7 +56,7 @@ def get_model(num_vars, logspace_accumulators, hard_em_backward, return_weighted
         Undecompose(),
         RootSum(
             logspace_accumulators=False, hard_em_backward=True,
-            initializer=initializers.Constant(init_sum1)
+            accumulator_initializer=initializers.Constant(init_sum1)
         ),
     ])
 

@@ -22,4 +22,4 @@ class IndicatorLeaf(BaseLeaf):
         super().__init__(num_components, dtype=dtype)
 
     def _build_distribution(self):
-        return _Indicator(self._num_components, dtype=self.dtype)
+        return _Indicator(self.num_components, dtype=self.dtype)

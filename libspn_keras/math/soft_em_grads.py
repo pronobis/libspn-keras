@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-def log_softmax_with_soft_em_grad(accumulator, axis=None):
+def log_softmax_from_accumulators_with_em_grad(accumulator, axis=None):
     """
     Implements custom gradient to pass on the weight grads to an accumulator
 

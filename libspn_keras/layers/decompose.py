@@ -7,7 +7,7 @@ class Decompose(keras.layers.Layer):
 
     def __init__(self, num_decomps, permutations=None):
         super(Decompose, self).__init__()
-        self._num_decomps = num_decomps
+        self.num_decomps = num_decomps
         self._num_nodes = self._num_scopes = self._permutations = None
         if permutations is not None:
             self._permutations = np.asarray(permutations)
@@ -29,7 +29,7 @@ class Decompose(keras.layers.Layer):
 
         # Now we generate the random index permutations
         perms = [np.random.permutation(num_vars_spn_input).astype(int).tolist()
-                 for _ in range(self._num_decomps)]
+                 for _ in range(self.num_decomps)]
 
         num_m1 = factor_prod - num_vars_spn_input
         if num_m1 > 0:
@@ -56,8 +56,15 @@ class Decompose(keras.layers.Layer):
 
     def compute_output_shape(self, input_shape):
 
-        _, num_in_scopes = input_shape
-        if self._num_scopes is None or self._num_decomps is None:
+        num_batch, num_in_scopes = input_shape
+        if self._num_scopes is None or self.num_decomps is None:
             raise ValueError("Number of scopes or decomps is yet unknown")
 
-        return (num_in_scopes, self._num_decomps, None, self._num_sums)
+        return num_in_scopes, self.num_decomps, num_batch, self._num_sums
+
+    def get_config(self):
+        config = dict(
+            num_decomps=self.num_decomps
+        )
+        base_config = super(Decompose, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
