@@ -23,4 +23,3 @@ class Undecompose(keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         num_scopes_in, num_decomps_in, _, nodes_in = input_shape
         return [1, 1, None, nodes_in * num_decomps_in]
-
