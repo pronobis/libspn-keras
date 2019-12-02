@@ -17,8 +17,8 @@ class NormalLeaf(BaseLeaf):
         self.scale_trainable = scale_trainable
         self._distribution = self._num_scopes = self._num_decomps = None
 
-    def _build_distribution(self):
-        shape = [self._num_scopes, self._num_decomps, 1, self.num_components]
+    def _build_distribution(self, shape):
+        # shape = [self._num_scopes, self._num_decomps, 1, self.num_components]
         loc = self.add_weight(
             name="location", shape=shape, initializer=self.location_initializer)
         scale = self.add_weight(

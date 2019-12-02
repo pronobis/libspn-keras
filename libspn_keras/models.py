@@ -9,7 +9,7 @@ import tensorflow as tf
 from libspn_keras.layers.indicator_leaf import IndicatorLeaf
 
 
-def build_sum_product_network(
+def build_ratspn(
     sum_product_stack: keras.models.Sequential,
     leaf: BaseLeaf,
     decomposer: Decompose,
@@ -41,5 +41,32 @@ def build_sum_product_network(
         inputs.append(evidence_mask_input)
 
     root_prob = sum_product_stack(leaf_prob)
+
+    return keras.models.Model(inputs=inputs, outputs=[root_prob])
+
+
+def build_dgcspn(
+    sum_product_stack: keras.models.Sequential,
+    leaf: BaseLeaf,
+    input_shape,
+    evidence_mask=False
+):
+    inputs = []
+
+    data_input = keras.layers.Input(
+        shape=input_shape, name='spn_data_input',
+        dtype=tf.int32 if isinstance(leaf, IndicatorLeaf) else tf.float32
+    )
+    leaf_out = leaf(data_input)
+
+    inputs.append(data_input)
+
+    if evidence_mask:
+        evidence_mask_input = keras.layers.Input(
+            shape=input_shape, name='spn_evidence_mask_input')
+        leaf_out = keras.layers.Multiply()([leaf_out, evidence_mask_input])
+        inputs.append(evidence_mask_input)
+
+    root_prob = sum_product_stack(leaf_out)
 
     return keras.models.Model(inputs=inputs, outputs=[root_prob])

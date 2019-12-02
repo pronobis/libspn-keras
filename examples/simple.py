@@ -4,7 +4,7 @@ from libspn_keras.layers.across_scope_outer_product import AcrossScopeOuterProdu
 from libspn_keras.layers.indicator_leaf import IndicatorLeaf
 from libspn_keras.layers.root_sum import RootSum
 from libspn_keras.layers.undecompose import Undecompose
-from libspn_keras.models import build_sum_product_network
+from libspn_keras.models import build_ratspn
 from libspn_keras.layers.decompose import Decompose
 from libspn_keras.layers.scope_wise_sum import ScopeWiseSum
 from tensorflow import initializers
@@ -61,7 +61,7 @@ def get_model(num_vars, logspace_accumulators, hard_em_backward, return_weighted
     ])
 
     # Use helper function to build the actual SPN
-    return build_sum_product_network(
+    return build_ratspn(
         num_vars=num_vars,
         decomposer=Decompose(num_decomps=1, permutations=[[0, 1, 2, 3]]),
         leaf=IndicatorLeaf(num_components=2),
