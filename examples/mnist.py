@@ -8,13 +8,15 @@ from libspn_keras.layers.across_scope_outer_product import AcrossScopeOuterProdu
 from libspn_keras.layers.root_sum import RootSum
 from libspn_keras.layers.undecompose import Undecompose
 from libspn_keras.losses.negative_log_joint import NegativeLogJoint
-from libspn_keras.losses.negative_log_likelihood import NegativeLogMarginal
+from libspn_keras.losses.negative_log_marginal import NegativeLogMarginal
 from libspn_keras.metrics.log_likelihood import LogMarginal
 from libspn_keras.models import build_sum_product_network
 from libspn_keras.layers.decompose import Decompose
 from libspn_keras.layers.normal_leaf import NormalLeaf
 from libspn_keras.layers.scope_wise_sum import ScopeWiseSum
 import numpy as np
+
+from libspn_keras.optimizers.online_expectation_maximization import OnlineExpectationMaximization
 
 
 def get_data():
@@ -88,14 +90,14 @@ def main(args):
         backprop_mode = BackpropMode.HARD_EM
         loss = NegativeLogMarginal(name="NegativeLogMarginal")
         metrics = [LogMarginal(name="LogMarginal")]
-        optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
+        optimizer = OnlineExpectationMaximization()
         return_weighted_child_logits = False
     elif args.mode == "generative-soft-em":
         logspace_accumulators = False
         backprop_mode = BackpropMode.EM
         loss = NegativeLogMarginal(name="NegativeLogMarginal")
         metrics = [LogMarginal(name="LogMarginal")]
-        optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
+        optimizer = OnlineExpectationMaximization()
         return_weighted_child_logits = False
     elif args.mode == "generative-hard-em-supervised":
         # TODO Still need to verify the performance of this, accuracy seems very low, but only had the chance to
@@ -104,14 +106,14 @@ def main(args):
         backprop_mode = BackpropMode.HARD_EM
         loss = NegativeLogJoint()
         metrics = [LogMarginal(name="LogMarginal"), keras.metrics.SparseCategoricalAccuracy(name="Accuracy")]
-        optimizer = tf.keras.optimizers.SGD(learning_rate=1.0, nestorov=True, momentum=0.9)
+        optimizer = OnlineExpectationMaximization()
         return_weighted_child_logits = True
     elif args.mode == "generative-gd":
         logspace_accumulators = True
         backprop_mode = BackpropMode.GRADIENT
         loss = NegativeLogMarginal(name="NegativeLogLikelihood")
         metrics = [LogMarginal(name="LogMarginal")]
-        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+        optimizer = tf.keras.optimizers.Adam()
         return_weighted_child_logits = False
     elif args.mode == "discriminative":
         logspace_accumulators = True
@@ -121,7 +123,7 @@ def main(args):
         optimizer = tf.keras.optimizers.Adam()
         return_weighted_child_logits = True
     else:
-        ValueError("Unknown mode: {}".format(args.mode))
+        raise ValueError("Unknown mode: {}".format(args.mode))
 
     x_train, y_train, x_test, y_test = get_data()
 
@@ -149,7 +151,8 @@ if __name__ == "__main__":
             'generative-hard-em',
             'generative-hard-em-supervised',
             'discriminative'
-        ]
+        ],
+        required=True
     )
     main(parser.parse_args())
 

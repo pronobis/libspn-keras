@@ -4,7 +4,8 @@ import tensorflow as tf
 
 class NegativeLogMarginal(keras.losses.Loss):
     """
-    Marginalizes over last dimension
+    Marginalizes logits over last dimension so that it computes -log(p(X)). This can be used for
+    unsupervised generative learning.
     """
 
     def call(self, _, y_pred):
