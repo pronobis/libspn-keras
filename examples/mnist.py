@@ -5,6 +5,7 @@ from tensorflow import keras
 
 from libspn_keras.backprop_mode import BackpropMode
 from libspn_keras.layers.dense_product import DenseProduct
+from libspn_keras.layers.log_dropout import LogDropout
 from libspn_keras.layers.spatial_product import PatchWiseProduct
 from libspn_keras.layers.root_sum import RootSum
 from libspn_keras.layers.spatial_local_sum import SpatialLocalSum
@@ -154,6 +155,7 @@ def get_dgcspn_model(
             accumulator_initializer=accumulator_initializer,
             backprop_mode=backprop_mode
         ),
+        LogDropout(rate=0.5),
         keras.layers.Flatten(),
         keras.layers.Lambda(
             lambda x: tf.reshape(x, tf.concat([[1, 1], tf.shape(x)], axis=0))
