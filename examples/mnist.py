@@ -102,7 +102,6 @@ def get_dgcspn_model(
     accumulator_initializer = tf.initializers.TruncatedNormal(mean=0.5)
 
     # The 'backbone' stack of alternating sums and products
-    stack_size = int(np.ceil(np.log2(spatial_dims)))
     for i in range(2):
         sum_product_stack.extend([
             PatchWiseProduct(
@@ -155,7 +154,7 @@ def get_dgcspn_model(
             accumulator_initializer=accumulator_initializer,
             backprop_mode=backprop_mode
         ),
-        LogDropout(rate=0.5),
+        LogDropout(rate=0.25),
         keras.layers.Flatten(),
         keras.layers.Lambda(
             lambda x: tf.reshape(x, tf.concat([[1, 1], tf.shape(x)], axis=0))

@@ -50,9 +50,8 @@ class LogDropout(keras.layers.Layer):
                 seed=self.seed,
                 rate=self.rate))
 
-        output = tf_utils.smart_cond(training,
-                                     dropped_inputs,
-                                     lambda: tf.identity(inputs))
+        output = tf_utils.smart_cond(
+            training, dropped_inputs, lambda: tf.identity(inputs))
         return output
 
     def get_config(self):
