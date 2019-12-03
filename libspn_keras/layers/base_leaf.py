@@ -6,8 +6,9 @@ from libspn_keras.dimension_permutation import DimensionPermutation, infer_dimen
 
 class BaseLeaf(keras.layers.Layer):
 
-    def __init__(self, num_components, dtype=tf.float32,
-                 dimension_permutation=DimensionPermutation.AUTO):
+    def __init__(
+        self, num_components, dtype=tf.float32, dimension_permutation=DimensionPermutation.AUTO
+    ):
         super(BaseLeaf, self).__init__(dtype=dtype)
         self.num_components = num_components
         self.dimension_permutation = dimension_permutation
@@ -28,7 +29,7 @@ class BaseLeaf(keras.layers.Layer):
         super(BaseLeaf, self).build(input_shape)
 
     def _build_distribution(self, shape):
-        raise NotImplementedError("Must implement in descendant class")
+        raise NotImplementedError()
 
     def call(self, x):
         return self._distribution.log_prob(x)

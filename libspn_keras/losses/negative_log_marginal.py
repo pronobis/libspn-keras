@@ -12,7 +12,7 @@ class NegativeLogMarginal(keras.losses.Loss):
         """
 
         Args:
-            y_true: True labels, ignored, but still provided to preserve Keras compatibility
+            _: True labels, ignored, but still provided to preserve Keras compatibility
             y_pred: Predicted logits (or already marginalized root value)
 
         Returns:

@@ -5,6 +5,11 @@ import functools
 
 
 class DenseProduct(keras.layers.Layer):
+    """
+    Computes products per decomposition and scope by an 'n-order' outer product. Assumes the
+    incoming tensor is of shape [num_scopes, num_decomps, num_batch, num_nodes] and produces an
+    output of [num_scopes // num_factors, num_decomps, num_batch, num_nodes ** num_factors].
+    """
 
     def __init__(self, num_factors):
         super(DenseProduct, self).__init__()
@@ -23,7 +28,6 @@ class DenseProduct(keras.layers.Layer):
     def call(self, x):
         # Split in list of tensors which will be added up using outer products
         shape = [self._num_scopes, self.num_factors, self._num_decomps, -1, self._num_nodes_in]
-
         log_prob_per_in_scope = tf.split(
             tf.reshape(x, shape=shape), axis=1, num_or_size_splits=self.num_factors)
 
@@ -38,18 +42,19 @@ class DenseProduct(keras.layers.Layer):
             )
             for i, log_prob in enumerate(log_prob_per_in_scope)
         ]
-        # Add up everything (effectively computing an outer product) and flatten
+        # Add up everything (effectively computing an outer product) and flatten the last
+        # num_factors dimensions.
         return tf.reshape(
             functools.reduce(operator.add, log_prob_per_in_scope),
             [self._num_scopes, self._num_decomps, -1, self._num_products]
         )
 
     def compute_output_shape(self, input_shape):
-        num_scopes_in, num_decomps, _, num_nodes_in = input_shape
+        num_scopes_in, num_decomps, num_batch, num_nodes_in = input_shape
         return (
             num_scopes_in // self.num_factors,
             self._num_decomps,
-            None,
+            num_batch,
             num_nodes_in ** self.num_factors
         )
 

@@ -198,6 +198,13 @@ def main(args):
         metrics = [LogMarginal(name="LogMarginal")]
         optimizer = OnlineExpectationMaximization()
         return_weighted_child_logits = False
+    elif args.mode == "generative-hard-em-unweighted":
+        logspace_accumulators = False
+        backprop_mode = BackpropMode.HARD_EM_UNWEIGHTED
+        loss = NegativeLogMarginal(name="NegativeLogMarginal")
+        metrics = [LogMarginal(name="LogMarginal")]
+        optimizer = OnlineExpectationMaximization()
+        return_weighted_child_logits = False
     elif args.mode == "generative-soft-em":
         logspace_accumulators = False
         backprop_mode = BackpropMode.EM
@@ -208,6 +215,16 @@ def main(args):
     elif args.mode == "generative-hard-em-supervised":
         logspace_accumulators = False
         backprop_mode = BackpropMode.HARD_EM
+        loss = NegativeLogJoint()
+        metrics = [
+            LogMarginal(name="LogMarginal"),
+            keras.metrics.SparseCategoricalAccuracy(name="Accuracy")
+        ]
+        optimizer = OnlineExpectationMaximization()
+        return_weighted_child_logits = True
+    elif args.mode == "generative-hard-em-unweighted-supervised":
+        logspace_accumulators = False
+        backprop_mode = BackpropMode.HARD_EM_UNWEIGHTED
         loss = NegativeLogJoint()
         metrics = [
             LogMarginal(name="LogMarginal"),
@@ -260,6 +277,8 @@ if __name__ == "__main__":
             'generative-soft-em',
             'generative-hard-em',
             'generative-hard-em-supervised',
+            'generative-hard-em-unweighted',
+            'generative-hard-em-supervised-unweighted',
             'discriminative'
         ],
         required=True

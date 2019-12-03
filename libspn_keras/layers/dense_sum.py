@@ -2,11 +2,10 @@ from libspn_keras.backprop_mode import BackpropMode
 from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.math.logmatmul import logmatmul
 from libspn_keras.math.hard_em_grads import logmatmul_hard_em_through_grads_from_accumulators
+from libspn_keras.math.soft_em_grads import log_softmax_from_accumulators_with_em_grad
 from tensorflow import keras
 from tensorflow import initializers
 import tensorflow as tf
-
-from libspn_keras.math.soft_em_grads import log_softmax_from_accumulators_with_em_grad
 
 
 class DenseSum(keras.layers.Layer):
@@ -54,11 +53,16 @@ class DenseSum(keras.layers.Layer):
         #            == dlogR / dlogW
         log_weights_unnormalized = self._accumulators
 
-        if not self.logspace_accumulators and self.backprop_mode == BackpropMode.HARD_EM:
-            return logmatmul_hard_em_through_grads_from_accumulators(x, self._accumulators)
+        if not self.logspace_accumulators and \
+                self.backprop_mode in [BackpropMode.HARD_EM, BackpropMode.HARD_EM_UNWEIGHTED]:
+            return logmatmul_hard_em_through_grads_from_accumulators(
+                x, self._accumulators,
+                unweighted=self.backprop_mode == BackpropMode.HARD_EM_UNWEIGHTED
+            )
 
         if not self.logspace_accumulators and self.backprop_mode == BackpropMode.EM:
-            log_weights_normalized = log_softmax_from_accumulators_with_em_grad(self._accumulators, axis=2)
+            log_weights_normalized = log_softmax_from_accumulators_with_em_grad(
+                self._accumulators, axis=2)
         elif not self.logspace_accumulators:
             log_weights_normalized = tf.nn.log_softmax(tf.math.log(log_weights_unnormalized), axis=2)
         else:

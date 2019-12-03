@@ -42,9 +42,12 @@ class SpatialLocalSum(keras.layers.Layer):
 
         log_weights_unnormalized = self._accumulators
 
-        if not self.logspace_accumulators and self.backprop_mode == BackpropMode.HARD_EM:
+        if not self.logspace_accumulators \
+                and self.backprop_mode in [BackpropMode.HARD_EM, BackpropMode.HARD_EM_UNWEIGHTED]:
             out_scopes_first = logmatmul_hard_em_through_grads_from_accumulators(
-                x_scopes_first, self._accumulators)
+                x_scopes_first, self._accumulators,
+                unweighted=self.backprop_mode == BackpropMode.HARD_EM_UNWEIGHTED
+            )
             return tf.transpose(out_scopes_first, (2, 0, 1, 3))
 
         if not self.logspace_accumulators and self.backprop_mode == BackpropMode.EM:
