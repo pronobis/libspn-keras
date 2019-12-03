@@ -1,12 +1,14 @@
 import tensorflow as tf
 from tensorflow import keras
-from libspn_keras.layers.across_scope_outer_product import AcrossScopeOuterProduct
+
+from libspn_keras.backprop_mode import BackpropMode
+from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.indicator_leaf import IndicatorLeaf
 from libspn_keras.layers.root_sum import RootSum
 from libspn_keras.layers.undecompose import Undecompose
 from libspn_keras.models import build_ratspn
 from libspn_keras.layers.decompose import Decompose
-from libspn_keras.layers.scope_wise_sum import ScopeWiseSum
+from libspn_keras.layers.dense_sum import DenseSum
 from tensorflow import initializers
 import numpy as np
 
@@ -43,19 +45,19 @@ def get_model(num_vars, logspace_accumulators, hard_em_backward, return_weighted
     init_sum1 = np.array([0.25, 0.15, 0.35, 0.25])
 
     sum_product_stack = keras.models.Sequential([
-        AcrossScopeOuterProduct(
+        DenseProduct(
             num_factors=2
         ),
-        ScopeWiseSum(
-            num_sums=2, logspace_accumulators=False, hard_em_backward=True,
+        DenseSum(
+            num_sums=2, logspace_accumulators=False, backprop_mode=BackpropMode.HARD_EM,
             accumulator_initializer=initializers.Constant(init_sum0)
         ),
-        AcrossScopeOuterProduct(
+        DenseProduct(
             num_factors=2
         ),
         Undecompose(),
         RootSum(
-            logspace_accumulators=False, hard_em_backward=True,
+            logspace_accumulators=False, backprop_mode=BackpropMode.HARD_EM,
             accumulator_initializer=initializers.Constant(init_sum1)
         ),
     ])
@@ -77,7 +79,8 @@ def main():
     num_vars = 4
     num_components = 2
 
-    model, sum_product_stack = get_model(num_vars, logspace_accumulators, hard_em_backward, return_weighted_child_logits)
+    model, sum_product_stack = get_model(
+        num_vars, logspace_accumulators, hard_em_backward, return_weighted_child_logits)
 
     # Train
     sum_weights0, sum_weights1 = sum_product_stack.trainable_variables

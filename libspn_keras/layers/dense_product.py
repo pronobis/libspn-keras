@@ -4,10 +4,10 @@ import operator
 import functools
 
 
-class AcrossScopeOuterProduct(keras.layers.Layer):
+class DenseProduct(keras.layers.Layer):
 
     def __init__(self, num_factors):
-        super(AcrossScopeOuterProduct, self).__init__()
+        super(DenseProduct, self).__init__()
         self.num_factors = num_factors
         self._num_decomps = self._num_scopes = self._num_scopes_in \
             = self._num_products = self._num_nodes_in = None
@@ -18,7 +18,7 @@ class AcrossScopeOuterProduct(keras.layers.Layer):
             raise ValueError("NUmber of input scopes is not divisible by factor")
         self._num_scopes = self._num_scopes_in // self.num_factors
         self._num_products = self._num_nodes_in ** self.num_factors
-        super(AcrossScopeOuterProduct, self).build(input_shape)
+        super(DenseProduct, self).build(input_shape)
 
     def call(self, x):
         # Split in list of tensors which will be added up using outer products
@@ -57,5 +57,5 @@ class AcrossScopeOuterProduct(keras.layers.Layer):
         config = dict(
             num_factors=self.num_factors,
         )
-        base_config = super(AcrossScopeOuterProduct, self).get_config()
+        base_config = super(DenseProduct, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))

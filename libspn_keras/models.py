@@ -1,6 +1,6 @@
 from tensorflow import keras
 
-from libspn_keras.layers.across_scope_outer_product import AcrossScopeOuterProduct
+from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.base_leaf import BaseLeaf
 from libspn_keras.layers.decompose import Decompose
 import numpy as np
@@ -20,7 +20,7 @@ def build_ratspn(
     factors = []
 
     for layer in sum_product_stack.layers:
-        if isinstance(layer, AcrossScopeOuterProduct):
+        if isinstance(layer, DenseProduct):
             factors.append(layer.num_factors)
 
     decomposer.generate_permutations(factors, num_vars_spn_input=num_vars)

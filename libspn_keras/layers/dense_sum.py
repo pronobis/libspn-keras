@@ -9,14 +9,14 @@ import tensorflow as tf
 from libspn_keras.math.soft_em_grads import log_softmax_from_accumulators_with_em_grad
 
 
-class ScopeWiseSum(keras.layers.Layer):
+class DenseSum(keras.layers.Layer):
 
     def __init__(
         self, num_sums, logspace_accumulators=False,
         accumulator_initializer=initializers.Constant(1),
         backprop_mode=BackpropMode.GRADIENT,
     ):
-        super(ScopeWiseSum, self).__init__()
+        super(DenseSum, self).__init__()
         self.num_sums = num_sums
         self.logspace_accumulators = logspace_accumulators
         self.accumulator_initializer = accumulator_initializer
@@ -38,7 +38,7 @@ class ScopeWiseSum(keras.layers.Layer):
 
         self._accumulators = self.add_weight(
             name='sum_weights', shape=weights_shape, initializer=initializer)
-        super(ScopeWiseSum, self).build(input_shape)
+        super(DenseSum, self).build(input_shape)
 
     def call(self, x):
 
@@ -77,5 +77,5 @@ class ScopeWiseSum(keras.layers.Layer):
             logspace_accumulators=self.logspace_accumulators,
             backprop_mode=self.backprop_mode
         )
-        base_config = super(ScopeWiseSum, self).get_config()
+        base_config = super(DenseSum, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))

@@ -15,7 +15,8 @@ def logmultiply_hard_em(child_log_prob, accumulators):
     return _inner_fn(child_log_prob, accumulators)
 
 
-def logmatmul_hard_em_through_grads_from_accumulators(child_log_prob, accumulators, accumulators_in_logspace=False):
+def logmatmul_hard_em_through_grads_from_accumulators(
+    child_log_prob, accumulators, accumulators_in_logspace=False):
     """
     Hard EM grads by passing the path accumulators down to the max weighted child. By doing so, we can
     conveniently use the graph built by tf.gradients(y, [xs], ...) to compute the updates needed for hard EM learning.

@@ -17,12 +17,12 @@ class RootSum(keras.layers.Layer):
 
     def __init__(
         self, return_weighted_child_logits=False, logspace_accumulators=False,
-        accumulator_initializer=initializers.Constant(1.0), backprop_mode=BackpropMode.GRADIENT,
+        accumulator_initializer=None, backprop_mode=BackpropMode.GRADIENT,
         dimension_permutation=DimensionPermutation.AUTO
     ):
         super(RootSum, self).__init__()
         self.return_weighted_child_logits = return_weighted_child_logits
-        self.accumulator_initializer = accumulator_initializer
+        self.accumulator_initializer = accumulator_initializer or initializers.Constant(1.0)
         self.logspace_accumulators = logspace_accumulators
         self.backprop_mode = backprop_mode
         self.dimension_permutation = dimension_permutation
@@ -64,9 +64,10 @@ class RootSum(keras.layers.Layer):
                     return logmultiply_hard_em(x_squeezed, self._accumulators)
 
                 logmatmul_out = logmatmul_hard_em_through_grads_from_accumulators(
-                    x_squeezed, tf.expand_dims(self._accumulators, 1))
-
-                return logmatmul_out
+                    tf.reshape(x, (1, 1, -1, self._num_nodes_in)),
+                    tf.reshape(self._accumulators, (1, 1, self._num_nodes_in, 1))
+                )
+                return tf.reshape(logmatmul_out, (-1, 1))
 
             log_weights_unnormalized = tf.math.log(log_weights_unnormalized)
 
