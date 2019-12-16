@@ -7,11 +7,13 @@ import tensorflow as tf
 class NormalLeaf(BaseLeaf):
 
     def __init__(
-            self, num_components, dtype=tf.float32, location_initializer=None,
-            location_trainable=True, scale_initializer=None, scale_trainable=False
+        self, num_components, dtype=tf.float32, location_initializer=None,
+        location_trainable=True, scale_initializer=None, scale_trainable=False,
+        use_cdf=False
     ):
-        super(NormalLeaf, self).__init__(num_components=num_components, dtype=dtype)
-        self.location_initializer = location_initializer or initializers.TruncatedNormal(stddev=0.5)
+        super(NormalLeaf, self).__init__(
+            num_components=num_components, dtype=dtype, use_cdf=use_cdf)
+        self.location_initializer = location_initializer or initializers.TruncatedNormal(stddev=1.0)
         self.location_trainable = location_trainable
         self.scale_initializer = scale_initializer or initializers.Ones()
         self.scale_trainable = scale_trainable

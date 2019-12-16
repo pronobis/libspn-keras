@@ -7,11 +7,13 @@ from libspn_keras.dimension_permutation import DimensionPermutation, infer_dimen
 class BaseLeaf(keras.layers.Layer):
 
     def __init__(
-        self, num_components, dtype=tf.float32, dimension_permutation=DimensionPermutation.AUTO
+        self, num_components, dtype=tf.float32, dimension_permutation=DimensionPermutation.AUTO,
+        use_cdf=False
     ):
         super(BaseLeaf, self).__init__(dtype=dtype)
         self.num_components = num_components
         self.dimension_permutation = dimension_permutation
+        self.use_cdf = use_cdf
         self._distribution = self._num_scopes = self._num_decomps = None
 
     def build(self, input_shape):
@@ -32,7 +34,7 @@ class BaseLeaf(keras.layers.Layer):
         raise NotImplementedError()
 
     def call(self, x):
-        return self._distribution.log_prob(x)
+        return self._distribution.log_cdf(x) if self.use_cdf else self._distribution.log_prob(x)
 
     def compute_output_shape(self, input_shape):
 

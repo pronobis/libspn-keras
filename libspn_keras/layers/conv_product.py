@@ -6,18 +6,15 @@ import functools
 import numpy as np
 
 
-class PatchWiseProduct(keras.layers.Layer):
+class ConvProduct(keras.layers.Layer):
 
-    def __init__(
-        self, strides, dilations, kernel_size, num_channels=None, depthwise=False, padding='valid'
-    ):
-        super(PatchWiseProduct, self).__init__()
+    def __init__(self, strides, dilations, kernel_size, num_channels=None, padding='valid'):
+        super(ConvProduct, self).__init__()
         self.strides = strides
         self.dilations = dilations
         self.num_channels = num_channels
         self.padding = padding
         self.kernel_size = kernel_size
-        self._depthwise = depthwise
         self._spatial_dim_sizes = None
 
     def build(self, input_shape):
@@ -34,7 +31,7 @@ class PatchWiseProduct(keras.layers.Layer):
             shape=onehot_kernels.shape
         )
 
-        super(PatchWiseProduct, self).build(input_shape)
+        super(ConvProduct, self).build(input_shape)
 
     def sparse_kernels_to_onehot(self, sparse_kernels, num_channels_in):
         """Converts an index-based representation of sparse kernels to a dense onehot
@@ -140,10 +137,10 @@ class PatchWiseProduct(keras.layers.Layer):
 
         rows_post_pad = pad_top + pad_bottom + num_scopes_vertical_in - kernel_size0 + 1
         cols_post_pad = pad_left + pad_right + num_scopes_horizontal_in - kernel_size1 + 1
-        return [
+        return tuple(
             int(np.ceil(post_pad / s))
             for post_pad, s in zip([rows_post_pad, cols_post_pad], self.strides)
-        ]
+        )
 
     def call(self, x):
         # Split in list of tensors which will be added up using outer products
