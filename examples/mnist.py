@@ -4,9 +4,11 @@ import tensorflow as tf
 from tensorflow import keras
 
 from libspn_keras.backprop_mode import BackpropMode
+from libspn_keras.layers.conv_product_depthwise import ConvProductDepthwise
 from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.log_dropout import LogDropout
-from libspn_keras.layers.spatial_product import PatchWiseProduct
+from libspn_keras.layers.conv_product import ConvProduct
+from libspn_keras.layers.reshape_saptial_to_dense import ReshapeSpatialToDense
 from libspn_keras.layers.root_sum import RootSum
 from libspn_keras.layers.spatial_local_sum import SpatialLocalSum
 from libspn_keras.layers.undecompose import Undecompose
@@ -47,7 +49,8 @@ def get_data(spatial):
 def get_ratspn_model(num_vars, logspace_accumulators, backprop_mode, return_weighted_child_logits):
     sum_product_stack = []
 
-    accumulator_initializer = tf.initializers.TruncatedNormal(mean=0.5)
+    accumulator_initializer = tf.initializers.TruncatedNormal(mean=0.5, stddev=args.weight_stddev)
+    location_initializer = tf.initializers.TruncatedNormal(mean=0, stddev=args.location_stddev)
 
     # The 'backbone' stack of alternating sums and products
     for _ in range(int(np.floor(np.log2(num_vars)))):
@@ -63,9 +66,6 @@ def get_ratspn_model(num_vars, logspace_accumulators, backprop_mode, return_weig
             ),
         ])
 
-    # Add another layer for joining the last two scopes to the final one, followed by a class-wise root layer
-    # which is then followed by undecomposing (combining decompositions) and finally followed
-    # by a root sum. In this case we return
     sum_product_stack.extend([
         DenseProduct(
             num_factors=2
@@ -88,7 +88,7 @@ def get_ratspn_model(num_vars, logspace_accumulators, backprop_mode, return_weig
     return build_ratspn(
         num_vars=num_vars,
         decomposer=Decompose(num_decomps=10),
-        leaf=NormalLeaf(num_components=4),
+        leaf=NormalLeaf(num_components=4, location_initializer=location_initializer),
         sum_product_stack=keras.models.Sequential(sum_product_stack),
     )
 
@@ -99,20 +99,21 @@ def get_dgcspn_model(
 
     spatial_dims = int(np.sqrt(np.prod(input_shape[0:2])))
 
-    accumulator_initializer = tf.initializers.TruncatedNormal(mean=0.5)
+    accumulator_initializer = tf.initializers.TruncatedNormal(mean=1.0, stddev=args.weight_stddev)
+    location_initializer = tf.initializers.TruncatedNormal(mean=0, stddev=args.location_stddev)
 
     # The 'backbone' stack of alternating sums and products
     for i in range(2):
         sum_product_stack.extend([
-            PatchWiseProduct(
+            ConvProduct(
                 strides=[2, 2],
                 dilations=[1, 1],
-                num_channels=16,
+                num_channels=32,
                 kernel_size=[2, 2],
                 padding='valid'
             ),
             SpatialLocalSum(
-                num_sums=16,
+                num_sums=32,
                 logspace_accumulators=logspace_accumulators,
                 accumulator_initializer=accumulator_initializer,
                 backprop_mode=backprop_mode
@@ -122,43 +123,37 @@ def get_dgcspn_model(
     stack_size = int(np.ceil(np.log2(spatial_dims // 4)))
     for i in range(stack_size):
         sum_product_stack.extend([
-            PatchWiseProduct(
+            ConvProductDepthwise(
                 strides=[1, 1],
                 dilations=[2 ** i, 2 ** i],
-                num_channels=16,
                 kernel_size=[2, 2],
                 padding='full'
             ),
             SpatialLocalSum(
-                num_sums=16,
+                num_sums=32,
                 logspace_accumulators=logspace_accumulators,
                 accumulator_initializer=accumulator_initializer,
                 backprop_mode=backprop_mode
             ),
         ])
 
-    # Add another layer for joining the last two scopes to the final one, followed by a
-    # class-wise root layer which is then followed by undecomposing (combining decompositions) and
-    # finally followed by a root sum. In this case we return
     sum_product_stack.extend([
-        PatchWiseProduct(
+        ConvProduct(
             strides=[1, 1],
             dilations=[2 ** stack_size, 2 ** stack_size],
-            num_channels=32,
             kernel_size=[2, 2],
-            padding='final'
+            padding='final',
+            num_channels=32
         ),
+        LogDropout(rate=0.2),
         SpatialLocalSum(
             num_sums=32,
             logspace_accumulators=logspace_accumulators,
             accumulator_initializer=accumulator_initializer,
             backprop_mode=backprop_mode
         ),
-        LogDropout(rate=0.25),
-        keras.layers.Flatten(),
-        keras.layers.Lambda(
-            lambda x: tf.reshape(x, tf.concat([[1, 1], tf.shape(x)], axis=0))
-        ),
+        LogDropout(rate=0.2),
+        ReshapeSpatialToDense(),
         DenseSum(
             num_sums=10,
             logspace_accumulators=logspace_accumulators,
@@ -175,12 +170,14 @@ def get_dgcspn_model(
     # Use helper function to build the actual SPN
     return build_dgcspn(
         input_shape=input_shape,
-        leaf=NormalLeaf(num_components=4),
+        leaf=NormalLeaf(num_components=4, location_initializer=location_initializer),
         sum_product_stack=keras.models.Sequential(sum_product_stack),
+        input_dropout_rate=args.input_dropout,
+        bounded_marginalization_rate=args.bounded_marginalization
     )
 
 
-def main(args):
+def main():
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if gpus:
         try:
@@ -250,7 +247,7 @@ def main(args):
     else:
         raise ValueError("Unknown mode: {}".format(args.mode))
 
-    x_train, y_train, x_test, y_test = get_data(args.model == 'dgcspn')
+    x_train, y_train, x_test, y_test = get_data(spatial=args.model == 'dgcspn')
 
     if args.model == 'ratspn':
         num_vars = x_train.shape[1]
@@ -264,7 +261,7 @@ def main(args):
     model.compile(optimizer=optimizer, loss=loss,  metrics=metrics, run_eagerly=False)
 
     # Train
-    model.fit(x_train, y_train, epochs=5)
+    model.fit(x_train, y_train, epochs=50, validation_split=1/6)
 
     # Evaluate
     model.evaluate(x_test,  y_test, verbose=2)
@@ -284,6 +281,11 @@ if __name__ == "__main__":
         ],
         required=True
     )
+    parser.add_argument("--input-dropout", default=None, type=float)
+    parser.add_argument("--bounded-marginalization", default=None, type=float)
+    parser.add_argument("--location-stddev", default=1.0, type=float)
+    parser.add_argument("--weight-stddev", default=0.1, type=float)
     parser.add_argument("--model", default='ratspn', choices=['ratspn', 'dgcspn'])
-    main(parser.parse_args())
+    args = parser.parse_args()
+    main()
 

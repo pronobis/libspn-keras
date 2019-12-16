@@ -13,7 +13,7 @@ class NormalLeaf(BaseLeaf):
     ):
         super(NormalLeaf, self).__init__(
             num_components=num_components, dtype=dtype, use_cdf=use_cdf)
-        self.location_initializer = location_initializer or initializers.TruncatedNormal(stddev=0.5)
+        self.location_initializer = location_initializer or initializers.TruncatedNormal(stddev=1.0)
         self.location_trainable = location_trainable
         self.scale_initializer = scale_initializer or initializers.Ones()
         self.scale_trainable = scale_trainable

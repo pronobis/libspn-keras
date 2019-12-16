@@ -10,6 +10,10 @@ from libspn_keras.math.soft_em_grads import log_softmax_from_accumulators_with_e
 
 
 class SpatialLocalSum(keras.layers.Layer):
+    """
+    Computes a spatial local sum, i.e. all cells will have unique weights (no weight sharing
+    across spatial access).
+    """
 
     def __init__(
         self, num_sums, logspace_accumulators=False, accumulator_initializer=None,

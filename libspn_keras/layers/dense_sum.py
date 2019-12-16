@@ -9,16 +9,20 @@ import tensorflow as tf
 
 
 class DenseSum(keras.layers.Layer):
+    """
+    Computes densely connected sums per scope and decomposition. Expects incoming Tensor to be of
+    shape [num_scopes, num_decomps, num_batch, num_nodes]. If your input is passed through a
+    Decompose node this is already taken care of.
+    """
 
     def __init__(
-        self, num_sums, logspace_accumulators=False,
-        accumulator_initializer=initializers.Constant(1),
+        self, num_sums, logspace_accumulators=False, accumulator_initializer=None,
         backprop_mode=BackpropMode.GRADIENT,
     ):
         super(DenseSum, self).__init__()
         self.num_sums = num_sums
         self.logspace_accumulators = logspace_accumulators
-        self.accumulator_initializer = accumulator_initializer
+        self.accumulator_initializer = accumulator_initializer or initializers.Constant(1)
         self.backprop_mode = backprop_mode
         self._num_decomps = self._num_scopes = self._accumulators = None
 
