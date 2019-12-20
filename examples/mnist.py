@@ -4,6 +4,7 @@ import tensorflow as tf
 from tensorflow import keras
 
 from libspn_keras.backprop_mode import BackpropMode
+from libspn_keras.initializers.equidistant import Equidistant
 from libspn_keras.layers.conv_product_depthwise import ConvProductDepthwise
 from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.log_dropout import LogDropout
@@ -50,7 +51,7 @@ def get_ratspn_model(num_vars, logspace_accumulators, backprop_mode, return_weig
     sum_product_stack = []
 
     accumulator_initializer = tf.initializers.TruncatedNormal(mean=0.5, stddev=args.weight_stddev)
-    location_initializer = tf.initializers.TruncatedNormal(mean=0, stddev=args.location_stddev)
+    location_initializer = Equidistant(minval=-2.0, maxval=2.0)
 
     # The 'backbone' stack of alternating sums and products
     for _ in range(int(np.floor(np.log2(num_vars)))):
@@ -100,7 +101,7 @@ def get_dgcspn_model(
     spatial_dims = int(np.sqrt(np.prod(input_shape[0:2])))
 
     accumulator_initializer = tf.initializers.TruncatedNormal(mean=1.0, stddev=args.weight_stddev)
-    location_initializer = tf.initializers.TruncatedNormal(mean=0, stddev=args.location_stddev)
+    location_initializer = Equidistant(minval=-2.0, maxval=2.0)
 
     # The 'backbone' stack of alternating sums and products
     for i in range(2):
@@ -108,7 +109,7 @@ def get_dgcspn_model(
             ConvProduct(
                 strides=[2, 2],
                 dilations=[1, 1],
-                num_channels=32,
+                num_channels=64,
                 kernel_size=[2, 2],
                 padding='valid'
             ),
@@ -118,6 +119,7 @@ def get_dgcspn_model(
                 accumulator_initializer=accumulator_initializer,
                 backprop_mode=backprop_mode
             ),
+            LogDropout(rate=args.dropout_rate)
         ])
 
     stack_size = int(np.ceil(np.log2(spatial_dims // 4)))
@@ -130,29 +132,28 @@ def get_dgcspn_model(
                 padding='full'
             ),
             SpatialLocalSum(
-                num_sums=32,
+                num_sums=64,
                 logspace_accumulators=logspace_accumulators,
                 accumulator_initializer=accumulator_initializer,
                 backprop_mode=backprop_mode
             ),
+            LogDropout(rate=args.dropout_rate)
         ])
 
     sum_product_stack.extend([
-        ConvProduct(
+        ConvProductDepthwise(
             strides=[1, 1],
             dilations=[2 ** stack_size, 2 ** stack_size],
             kernel_size=[2, 2],
-            padding='final',
-            num_channels=32
+            padding='final'
         ),
-        LogDropout(rate=0.2),
         SpatialLocalSum(
-            num_sums=32,
+            num_sums=128,
             logspace_accumulators=logspace_accumulators,
             accumulator_initializer=accumulator_initializer,
             backprop_mode=backprop_mode
         ),
-        LogDropout(rate=0.2),
+        LogDropout(rate=args.dropout_rate),
         ReshapeSpatialToDense(),
         DenseSum(
             num_sums=10,
@@ -242,7 +243,7 @@ def main():
         backprop_mode = BackpropMode.GRADIENT
         loss = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
         metrics = [keras.metrics.SparseCategoricalAccuracy(name="Accuracy")]
-        optimizer = tf.keras.optimizers.Adam(5e-3)
+        optimizer = tf.keras.optimizers.Adam(7e-3)
         return_weighted_child_logits = True
     else:
         raise ValueError("Unknown mode: {}".format(args.mode))

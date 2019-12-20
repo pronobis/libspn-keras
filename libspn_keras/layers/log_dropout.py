@@ -44,11 +44,9 @@ class LogDropout(keras.layers.Layer):
             training = K.learning_phase()
 
         def dropped_inputs():
-            return inputs + tf.math.log(tf.nn.dropout(
-                tf.ones_like(inputs),
-                noise_shape=self._get_noise_shape(inputs),
-                seed=self.seed,
-                rate=self.rate))
+            keep_tensor = tf.greater(
+                tf.random.uniform(shape=tf.shape(inputs), seed=self.seed), self.rate)
+            return tf.reshape(tf.where(keep_tensor, inputs, float('-inf')), shape=tf.shape(inputs))
 
         output = tf_utils.smart_cond(
             training, dropped_inputs, lambda: tf.identity(inputs))
