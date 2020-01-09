@@ -9,42 +9,35 @@ from libspn_keras.layers.conv_product_depthwise import ConvProductDepthwise
 from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.log_dropout import LogDropout
 from libspn_keras.layers.conv_product import ConvProduct
-from libspn_keras.layers.reshape_saptial_to_dense import ReshapeSpatialToDense
+from libspn_keras.layers.reshape_spatial_to_dense import ReshapeSpatialToDense
 from libspn_keras.layers.root_sum import RootSum
 from libspn_keras.layers.spatial_local_sum import SpatialLocalSum
 from libspn_keras.layers.undecompose import Undecompose
 from libspn_keras.losses.negative_log_joint import NegativeLogJoint
 from libspn_keras.losses.negative_log_marginal import NegativeLogMarginal
 from libspn_keras.metrics.log_likelihood import LogMarginal
-from libspn_keras.models import build_ratspn, build_dgcspn
+from libspn_keras.models import DenseSumProductNetwork, SpatialSumProductNetwork
 from libspn_keras.layers.decompose import Decompose
 from libspn_keras.layers.normal_leaf import NormalLeaf
 from libspn_keras.layers.dense_sum import DenseSum
 import numpy as np
 
+from libspn_keras.normalizationaxes import NormalizationAxes
 from libspn_keras.optimizers.online_expectation_maximization import OnlineExpectationMaximization
 
 
 def get_data(spatial):
 
     (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
-    x_train, x_test = x_train / 255.0, x_test / 255.0
 
     if not spatial:
         x_train = x_train.reshape(x_train.shape[0], -1)
         x_test = x_test.reshape(x_test.shape[0], -1)
-        reduce_axis = 1
     else:
         x_train = np.expand_dims(x_train, -1)
         x_test = np.expand_dims(x_test, -1)
-        reduce_axis = (1, 2, 3)
 
-    x_train = (x_train - np.mean(x_train, axis=reduce_axis, keepdims=True)) / \
-              (np.std(x_train, axis=reduce_axis, keepdims=True) + 1e-4)
-    x_test = (x_test - np.mean(x_test, axis=reduce_axis, keepdims=True)) / \
-              (np.std(x_test, axis=reduce_axis, keepdims=True) + 1e-4)
-
-    return x_train, y_train, x_test, y_test
+    return x_train.astype(np.float32), y_train, x_test.astype(np.float32), y_test
 
 
 def get_ratspn_model(num_vars, logspace_accumulators, backprop_mode, return_weighted_child_logits):
@@ -54,48 +47,62 @@ def get_ratspn_model(num_vars, logspace_accumulators, backprop_mode, return_weig
     location_initializer = Equidistant(minval=-2.0, maxval=2.0)
 
     # The 'backbone' stack of alternating sums and products
-    for _ in range(int(np.floor(np.log2(num_vars)))):
+    region_depth = int(np.floor(np.log2(num_vars)))
+    for i in range(region_depth):
         sum_product_stack.extend([
             DenseProduct(
-                num_factors=2
+                num_factors=2,
+                name=f"dense_product_{i}"
             ),
             DenseSum(
                 num_sums=4,
                 logspace_accumulators=logspace_accumulators,
                 accumulator_initializer=accumulator_initializer,
-                backprop_mode=backprop_mode
+                backprop_mode=backprop_mode,
+                name=f"dense_sum_{i}"
             ),
         ])
 
     sum_product_stack.extend([
         DenseProduct(
-            num_factors=2
+            num_factors=2,
+            name=f"dense_product_{region_depth}"
         ),
         DenseSum(
             num_sums=1,
             logspace_accumulators=logspace_accumulators,
             accumulator_initializer=accumulator_initializer,
-            backprop_mode=backprop_mode
+            backprop_mode=backprop_mode,
+            name=f"dense_sum_{region_depth}"
         ),
-        Undecompose(),
+        Undecompose(name="undecompose"),
         RootSum(
             logspace_accumulators=logspace_accumulators,
             return_weighted_child_logits=return_weighted_child_logits,
-            backprop_mode=backprop_mode
+            backprop_mode=backprop_mode,
+            name="root"
         )
     ])
 
-    # Use helper function to build the actual SPN
-    return build_ratspn(
-        num_vars=num_vars,
-        decomposer=Decompose(num_decomps=10),
-        leaf=NormalLeaf(num_components=4, location_initializer=location_initializer),
-        sum_product_stack=keras.models.Sequential(sum_product_stack),
+    return DenseSumProductNetwork(
+        decomposer=Decompose(num_decomps=10, name="decompose"),
+        leaf=NormalLeaf(
+            num_components=4, location_initializer=location_initializer, name="normal_leaf", input_shape=(num_vars,)
+        ),
+        sum_product_stack=sum_product_stack
     )
 
+    # # Use helper function to build the actual SPN
+    # return build_ratspn(
+    #     num_vars=num_vars,
+    #     decomposer=Decompose(num_decomps=10),
+    #     leaf=NormalLeaf(num_components=4, location_initializer=location_initializer),
+    #     sum_product_stack=keras.models.Sequential(sum_product_stack),
+    # )
 
-def get_dgcspn_model(
-        input_shape, logspace_accumulators, backprop_mode, return_weighted_child_logits):
+
+def get_dgcspn_model(input_shape, logspace_accumulators, backprop_mode, return_weighted_child_logits,
+                     completion_model=False):
     sum_product_stack = []
 
     spatial_dims = int(np.sqrt(np.prod(input_shape[0:2])))
@@ -169,13 +176,27 @@ def get_dgcspn_model(
     ])
 
     # Use helper function to build the actual SPN
-    return build_dgcspn(
-        input_shape=input_shape,
-        leaf=NormalLeaf(num_components=4, location_initializer=location_initializer),
-        sum_product_stack=keras.models.Sequential(sum_product_stack),
+    leaf = NormalLeaf(num_components=4, location_initializer=location_initializer)
+    spn = SpatialSumProductNetwork(
+        leaf=leaf,
+        sum_product_stack=sum_product_stack,
         input_dropout_rate=args.input_dropout,
-        bounded_marginalization_rate=args.bounded_marginalization
+        normalization_axes=NormalizationAxes.PER_SAMPLE,
+        cdf_rate=args.cdf_rate
     )
+
+    if completion_model:
+        spn_completion = SpatialSumProductNetwork(
+            leaf=leaf,
+            sum_product_stack=sum_product_stack,
+            input_dropout_rate=args.input_dropout,
+            normalization_axes=NormalizationAxes.PER_SAMPLE,
+            cdf_rate=args.cdf_rate,
+            completion_by_posterior_marginal=True
+        )
+        return spn, spn_completion
+
+    return spn
 
 
 def main():
@@ -255,17 +276,39 @@ def main():
         model = get_ratspn_model(
             num_vars, logspace_accumulators, backprop_mode, return_weighted_child_logits)
     else:
-        model = get_dgcspn_model(
-            x_train.shape[1:], logspace_accumulators, backprop_mode, return_weighted_child_logits)
+        if args.completion:
+            model, model_completion = get_dgcspn_model(
+                x_train.shape[1:], logspace_accumulators, backprop_mode, return_weighted_child_logits,
+                completion_model=True
+            )
+        else:
+            model = get_dgcspn_model(
+                x_train.shape[1:], logspace_accumulators, backprop_mode, return_weighted_child_logits)
 
     # Important to use from_logits=True with the cross-entropy loss
-    model.compile(optimizer=optimizer, loss=loss,  metrics=metrics, run_eagerly=False)
+    model.compile(optimizer=optimizer, loss=loss,  metrics=metrics)
 
     # Train
-    model.fit(x_train, y_train, epochs=50, validation_split=1/6)
+    model.fit(x_train, y_train, epochs=args.epochs, validation_split=1/6)
 
     # Evaluate
     model.evaluate(x_test,  y_test, verbose=2)
+
+    if args.completion:
+        completion_mask = np.ones_like(x_test)
+        completion_mask_left, completion_mask_right, completion_mask_top, completion_mask_bottom = \
+            [completion_mask.copy() for _ in range(4)]
+        mid = 28 // 2
+        completion_mask_left[:, :, mid:, :] = 0
+        completion_mask_right[:, :, :mid, :] = 0
+        completion_mask_top[:, :mid, :, :] = 0
+        completion_mask_bottom[:, mid:, :, :] = 0
+
+        model_completion.compile(metrics=[keras.metrics.MeanSquaredError()])
+        model_completion.evaluate([x_test, completion_mask_left], x_test)
+        model_completion.evaluate([x_test, completion_mask_right], x_test)
+        model_completion.evaluate([x_test, completion_mask_top], x_test)
+        model_completion.evaluate([x_test, completion_mask_bottom], x_test)
 
 
 if __name__ == "__main__":
@@ -283,10 +326,15 @@ if __name__ == "__main__":
         required=True
     )
     parser.add_argument("--input-dropout", default=None, type=float)
+    parser.add_argument("--dropout-rate", default=0.2, type=float)
+    parser.add_argument("--cdf-rate", default=None, type=float)
     parser.add_argument("--bounded-marginalization", default=None, type=float)
     parser.add_argument("--location-stddev", default=1.0, type=float)
     parser.add_argument("--weight-stddev", default=0.1, type=float)
     parser.add_argument("--model", default='ratspn', choices=['ratspn', 'dgcspn'])
+    parser.add_argument("--epochs", default=50, type=int)
+    parser.add_argument("--completion", action='store_true', dest='completion')
+    parser.set_defaults(completion=False)
     args = parser.parse_args()
     main()
 

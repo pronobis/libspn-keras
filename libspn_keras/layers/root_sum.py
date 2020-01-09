@@ -18,9 +18,9 @@ class RootSum(keras.layers.Layer):
     def __init__(
         self, return_weighted_child_logits=False, logspace_accumulators=False,
         accumulator_initializer=None, backprop_mode=BackpropMode.GRADIENT,
-        dimension_permutation=DimensionPermutation.AUTO
+        dimension_permutation=DimensionPermutation.AUTO, **kwargs
     ):
-        super(RootSum, self).__init__()
+        super(RootSum, self).__init__(**kwargs)
         self.return_weighted_child_logits = return_weighted_child_logits
         self.accumulator_initializer = accumulator_initializer or initializers.Constant(1.0)
         self.logspace_accumulators = logspace_accumulators

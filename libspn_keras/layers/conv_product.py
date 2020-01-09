@@ -8,8 +8,8 @@ import numpy as np
 
 class ConvProduct(keras.layers.Layer):
 
-    def __init__(self, strides, dilations, kernel_size, num_channels=None, padding='valid'):
-        super(ConvProduct, self).__init__()
+    def __init__(self, strides, dilations, kernel_size, num_channels=None, padding='valid', **kwargs):
+        super(ConvProduct, self).__init__(**kwargs)
         self.strides = strides
         self.dilations = dilations
         self.num_channels = num_channels

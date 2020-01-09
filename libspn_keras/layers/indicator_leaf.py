@@ -4,6 +4,15 @@ from tensorflow_probability import distributions
 import tensorflow as tf
 
 
+class IndicatorLeaf(BaseLeaf):
+
+    def __init__(self, num_components, dtype=tf.int32, **kwargs):
+        super().__init__(num_components, dtype=dtype, **kwargs)
+
+    def _build_distribution(self, shape):
+        return _Indicator(self.num_components, dtype=self.dtype)
+
+
 class _Indicator(distributions.Distribution):
 
     def __init__(self, num_components, dtype=tf.int32, name='Indicator'):
@@ -15,12 +24,3 @@ class _Indicator(distributions.Distribution):
     def _log_prob(self, value):
         return tf.squeeze(tf.one_hot(
             value, depth=self._num_components, on_value=0.0, off_value=float('-inf')), axis=3)
-
-
-class IndicatorLeaf(BaseLeaf):
-
-    def __init__(self, num_components, dtype=tf.int32):
-        super().__init__(num_components, dtype=dtype)
-
-    def _build_distribution(self, shape):
-        return _Indicator(self.num_components, dtype=self.dtype)

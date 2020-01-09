@@ -5,8 +5,8 @@ from tensorflow import keras
 
 class Decompose(keras.layers.Layer):
 
-    def __init__(self, num_decomps, permutations=None):
-        super(Decompose, self).__init__()
+    def __init__(self, num_decomps, permutations=None, **kwargs):
+        super(Decompose, self).__init__(**kwargs)
         self.num_decomps = num_decomps
         self._num_nodes = self._num_scopes = self._permutations = None
         if permutations is not None:

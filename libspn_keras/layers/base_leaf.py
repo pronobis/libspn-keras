@@ -8,9 +8,9 @@ class BaseLeaf(keras.layers.Layer):
 
     def __init__(
         self, num_components, dtype=tf.float32, dimension_permutation=DimensionPermutation.AUTO,
-        use_cdf=False
+        use_cdf=False, **kwargs
     ):
-        super(BaseLeaf, self).__init__(dtype=dtype)
+        super(BaseLeaf, self).__init__(dtype=dtype, **kwargs)
         self.num_components = num_components
         self.dimension_permutation = dimension_permutation
         self.use_cdf = use_cdf
@@ -56,3 +56,6 @@ class BaseLeaf(keras.layers.Layer):
         )
         base_config = super(BaseLeaf, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
+    def get_modes(self):
+        raise NotImplementedError(f"A {self.__class__.__name__} does not implement distribution modes.")

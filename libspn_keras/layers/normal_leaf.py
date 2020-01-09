@@ -9,10 +9,10 @@ class NormalLeaf(BaseLeaf):
     def __init__(
         self, num_components, dtype=tf.float32, location_initializer=None,
         location_trainable=True, scale_initializer=None, scale_trainable=False,
-        use_cdf=False
+        use_cdf=False, **kwargs
     ):
         super(NormalLeaf, self).__init__(
-            num_components=num_components, dtype=dtype, use_cdf=use_cdf)
+            num_components=num_components, dtype=dtype, use_cdf=use_cdf, **kwargs)
         self.location_initializer = location_initializer or initializers.TruncatedNormal(stddev=1.0)
         self.location_trainable = location_trainable
         self.scale_initializer = scale_initializer or initializers.Ones()
@@ -20,7 +20,6 @@ class NormalLeaf(BaseLeaf):
         self._distribution = self._num_scopes = self._num_decomps = None
 
     def _build_distribution(self, shape):
-        # shape = [self._num_scopes, self._num_decomps, 1, self.num_components]
         loc = self.add_weight(
             name="location", shape=shape, initializer=self.location_initializer)
         scale = self.add_weight(
@@ -36,3 +35,6 @@ class NormalLeaf(BaseLeaf):
         )
         base_config = super(NormalLeaf, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
+    def get_modes(self):
+        return self._distribution.mode()

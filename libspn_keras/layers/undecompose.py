@@ -4,8 +4,8 @@ from tensorflow import keras
 
 class Undecompose(keras.layers.Layer):
 
-    def __init__(self):
-        super(Undecompose, self).__init__()
+    def __init__(self, **kwargs):
+        super(Undecompose, self).__init__(**kwargs)
         self._num_decomps = 1
         self._num_scopes = 1
         self._num_nodes = self._num_decomps_in = None

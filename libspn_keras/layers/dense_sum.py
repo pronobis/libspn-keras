@@ -17,9 +17,9 @@ class DenseSum(keras.layers.Layer):
 
     def __init__(
         self, num_sums, logspace_accumulators=False, accumulator_initializer=None,
-        backprop_mode=BackpropMode.GRADIENT,
+        backprop_mode=BackpropMode.GRADIENT, **kwargs
     ):
-        super(DenseSum, self).__init__()
+        super(DenseSum, self).__init__(**kwargs)
         self.num_sums = num_sums
         self.logspace_accumulators = logspace_accumulators
         self.accumulator_initializer = accumulator_initializer or initializers.Constant(1)

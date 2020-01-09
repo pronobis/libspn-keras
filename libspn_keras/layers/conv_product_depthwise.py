@@ -10,8 +10,8 @@ class ConvProductDepthwise(ConvProduct):
     these convolutions as multiplications in linear space.
     """
 
-    def __init__(self, strides, dilations, kernel_size, padding='valid'):
-        super().__init__(strides, dilations, kernel_size, padding=padding)
+    def __init__(self, strides, dilations, kernel_size, padding='valid', **kwargs):
+        super().__init__(strides, dilations, kernel_size, padding=padding, **kwargs)
 
     def build(self, input_shape):
         num_batch, num_scopes_vertical, num_scopes_horizontal, num_channels_in = input_shape

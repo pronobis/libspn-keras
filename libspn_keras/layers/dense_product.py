@@ -11,8 +11,8 @@ class DenseProduct(keras.layers.Layer):
     output of [num_scopes // num_factors, num_decomps, num_batch, num_nodes ** num_factors].
     """
 
-    def __init__(self, num_factors):
-        super(DenseProduct, self).__init__()
+    def __init__(self, num_factors, **kwargs):
+        super(DenseProduct, self).__init__(**kwargs)
         self.num_factors = num_factors
         self._num_decomps = self._num_scopes = self._num_scopes_in \
             = self._num_products = self._num_nodes_in = None
