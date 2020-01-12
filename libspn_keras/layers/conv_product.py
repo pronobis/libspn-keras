@@ -1,9 +1,10 @@
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow import initializers
-import operator
-import functools
 import numpy as np
+import logging
+
+logger = logging.getLogger("libspn-keras")
 
 
 class ConvProduct(keras.layers.Layer):
@@ -72,7 +73,7 @@ class ConvProduct(keras.layers.Layer):
         total_possibilities = num_channels_in ** kernel_surface
         if num_channels_out >= total_possibilities:
             if num_channels_out > total_possibilities:
-                self.logger.warn("Number of channels exceeds total number of combinations.")
+                logger.warning("Number of channels exceeds total number of combinations.")
                 self.num_channels = total_possibilities
             p = np.arange(total_possibilities)
             kernel_cells = []

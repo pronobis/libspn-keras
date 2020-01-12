@@ -19,7 +19,7 @@ class SpatialLocalSum(keras.layers.Layer):
         self, num_sums, logspace_accumulators=False, accumulator_initializer=None,
         backprop_mode=BackpropMode.GRADIENT, **kwargs
     ):
-        super(SpatialLocalSum, self).__init__()
+        super(SpatialLocalSum, self).__init__(**kwargs)
         self.num_sums = num_sums
         self.logspace_accumulators = logspace_accumulators
         self.accumulator_initializer = accumulator_initializer or initializers.Constant(1)

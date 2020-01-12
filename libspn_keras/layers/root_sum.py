@@ -16,7 +16,7 @@ import numpy as np
 class RootSum(keras.layers.Layer):
 
     def __init__(
-        self, return_weighted_child_logits=False, logspace_accumulators=False,
+        self, return_weighted_child_logits=True, logspace_accumulators=False,
         accumulator_initializer=None, backprop_mode=BackpropMode.GRADIENT,
         dimension_permutation=DimensionPermutation.AUTO, **kwargs
     ):

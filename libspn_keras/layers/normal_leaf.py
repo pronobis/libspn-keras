@@ -21,7 +21,8 @@ class NormalLeaf(BaseLeaf):
 
     def _build_distribution(self, shape):
         loc = self.add_weight(
-            name="location", shape=shape, initializer=self.location_initializer)
+            name="location", shape=shape, initializer=self.location_initializer,
+            trainable=self.location_trainable)
         scale = self.add_weight(
             name="scale", shape=shape, initializer=self.scale_initializer, trainable=False)
         return tfp.distributions.Normal(loc=loc, scale=scale)

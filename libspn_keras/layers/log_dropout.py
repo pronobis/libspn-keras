@@ -48,6 +48,9 @@ class LogDropout(keras.layers.Layer):
                 tf.random.uniform(shape=tf.shape(inputs), seed=self.seed), self.rate)
             return tf.reshape(tf.where(keep_tensor, inputs, float('-inf')), shape=tf.shape(inputs))
 
+        if self.rate == 0.0:
+            return tf.identity(inputs)
+
         output = tf_utils.smart_cond(
             training, dropped_inputs, lambda: tf.identity(inputs))
         return output
@@ -56,7 +59,7 @@ class LogDropout(keras.layers.Layer):
         config = {'rate': self.rate,
                   'noise_shape': self.noise_shape,
                   'seed': self.seed}
-        base_config = super(Dropout, self).get_config()
+        base_config = super(LogDropout, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
     def compute_output_shape(self, input_shape):

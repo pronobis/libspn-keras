@@ -15,6 +15,7 @@ from libspn_keras.layers.spatial_local_sum import SpatialLocalSum
 from libspn_keras.layers.undecompose import Undecompose
 from libspn_keras.losses.negative_log_joint import NegativeLogJoint
 from libspn_keras.losses.negative_log_marginal import NegativeLogMarginal
+from libspn_keras.metrics.completion_mse import CompletionMSE
 from libspn_keras.metrics.log_likelihood import LogMarginal
 from libspn_keras.models import DenseSumProductNetwork, SpatialSumProductNetwork
 from libspn_keras.layers.decompose import Decompose
@@ -25,6 +26,7 @@ import numpy as np
 from libspn_keras.normalizationaxes import NormalizationAxes
 from libspn_keras.optimizers.online_expectation_maximization import OnlineExpectationMaximization
 
+# tf.config.experimental_run_functions_eagerly(True)
 
 def get_data(spatial):
 
@@ -52,28 +54,28 @@ def get_ratspn_model(num_vars, logspace_accumulators, backprop_mode, return_weig
         sum_product_stack.extend([
             DenseProduct(
                 num_factors=2,
-                name=f"dense_product_{i}"
+                name="dense_product_{}".format(i)
             ),
             DenseSum(
                 num_sums=4,
                 logspace_accumulators=logspace_accumulators,
                 accumulator_initializer=accumulator_initializer,
                 backprop_mode=backprop_mode,
-                name=f"dense_sum_{i}"
+                name="dense_sum_{}".format(i)
             ),
         ])
 
     sum_product_stack.extend([
         DenseProduct(
             num_factors=2,
-            name=f"dense_product_{region_depth}"
+            name="dense_product_{}".format(region_depth)
         ),
         DenseSum(
             num_sums=1,
             logspace_accumulators=logspace_accumulators,
             accumulator_initializer=accumulator_initializer,
             backprop_mode=backprop_mode,
-            name=f"dense_sum_{region_depth}"
+            name="dense_sum_{}".format(region_depth)
         ),
         Undecompose(name="undecompose"),
         RootSum(
@@ -92,14 +94,6 @@ def get_ratspn_model(num_vars, logspace_accumulators, backprop_mode, return_weig
         sum_product_stack=sum_product_stack
     )
 
-    # # Use helper function to build the actual SPN
-    # return build_ratspn(
-    #     num_vars=num_vars,
-    #     decomposer=Decompose(num_decomps=10),
-    #     leaf=NormalLeaf(num_components=4, location_initializer=location_initializer),
-    #     sum_product_stack=keras.models.Sequential(sum_product_stack),
-    # )
-
 
 def get_dgcspn_model(input_shape, logspace_accumulators, backprop_mode, return_weighted_child_logits,
                      completion_model=False):
@@ -107,27 +101,49 @@ def get_dgcspn_model(input_shape, logspace_accumulators, backprop_mode, return_w
 
     spatial_dims = int(np.sqrt(np.prod(input_shape[0:2])))
 
-    accumulator_initializer = tf.initializers.TruncatedNormal(mean=1.0, stddev=args.weight_stddev)
     location_initializer = Equidistant(minval=-2.0, maxval=2.0)
+    leaf = NormalLeaf(
+        num_components=4, location_initializer=location_initializer,
+        location_trainable=args.mode == 'discriminative',
+        scale_trainable=False
+    )
+
+    accumulator_initializer = (
+        tf.initializers.TruncatedNormal(mean=1.0, stddev=args.weight_stddev)
+        if logspace_accumulators
+        else tf.initializers.Ones()
+    )
 
     # The 'backbone' stack of alternating sums and products
-    for i in range(2):
-        sum_product_stack.extend([
-            ConvProduct(
-                strides=[2, 2],
-                dilations=[1, 1],
-                num_channels=64,
-                kernel_size=[2, 2],
-                padding='valid'
-            ),
-            SpatialLocalSum(
-                num_sums=32,
-                logspace_accumulators=logspace_accumulators,
-                accumulator_initializer=accumulator_initializer,
-                backprop_mode=backprop_mode
-            ),
-            LogDropout(rate=args.dropout_rate)
-        ])
+    sum_product_stack.extend([
+        ConvProduct(
+            strides=[2, 2],
+            dilations=[1, 1],
+            num_channels=64,
+            kernel_size=[2, 2],
+            padding='valid',
+        ),
+        LogDropout(rate=args.dropout_rate),
+        SpatialLocalSum(
+            num_sums=32,
+            logspace_accumulators=logspace_accumulators,
+            accumulator_initializer=accumulator_initializer,
+            backprop_mode=backprop_mode
+        ),
+        ConvProductDepthwise(
+            strides=[2, 2],
+            dilations=[1, 1],
+            kernel_size=[2, 2],
+            padding='valid'
+        ),
+        LogDropout(rate=args.dropout_rate),
+        SpatialLocalSum(
+            num_sums=32,
+            logspace_accumulators=logspace_accumulators,
+            accumulator_initializer=accumulator_initializer,
+            backprop_mode=backprop_mode
+        )
+    ])
 
     stack_size = int(np.ceil(np.log2(spatial_dims // 4)))
     for i in range(stack_size):
@@ -138,13 +154,13 @@ def get_dgcspn_model(input_shape, logspace_accumulators, backprop_mode, return_w
                 kernel_size=[2, 2],
                 padding='full'
             ),
+            LogDropout(rate=args.dropout_rate),
             SpatialLocalSum(
                 num_sums=64,
                 logspace_accumulators=logspace_accumulators,
                 accumulator_initializer=accumulator_initializer,
                 backprop_mode=backprop_mode
-            ),
-            LogDropout(rate=args.dropout_rate)
+            )
         ])
 
     sum_product_stack.extend([
@@ -154,35 +170,40 @@ def get_dgcspn_model(input_shape, logspace_accumulators, backprop_mode, return_w
             kernel_size=[2, 2],
             padding='final'
         ),
-        SpatialLocalSum(
-            num_sums=128,
-            logspace_accumulators=logspace_accumulators,
-            accumulator_initializer=accumulator_initializer,
-            backprop_mode=backprop_mode
-        ),
         LogDropout(rate=args.dropout_rate),
-        ReshapeSpatialToDense(),
-        DenseSum(
-            num_sums=10,
+        SpatialLocalSum(
+            num_sums=64,
             logspace_accumulators=logspace_accumulators,
             accumulator_initializer=accumulator_initializer,
             backprop_mode=backprop_mode
         ),
+        ReshapeSpatialToDense()
+    ])
+
+    if args.mode == 'discriminative':
+        sum_product_stack.append(
+            DenseSum(
+                num_sums=10,
+                logspace_accumulators=logspace_accumulators,
+                accumulator_initializer=accumulator_initializer,
+                backprop_mode=backprop_mode
+            )
+        )
+
+    sum_product_stack.append(
         RootSum(
             logspace_accumulators=logspace_accumulators,
             return_weighted_child_logits=return_weighted_child_logits,
             backprop_mode=backprop_mode
         )
-    ])
+    )
 
-    # Use helper function to build the actual SPN
-    leaf = NormalLeaf(num_components=4, location_initializer=location_initializer)
     spn = SpatialSumProductNetwork(
         leaf=leaf,
         sum_product_stack=sum_product_stack,
         input_dropout_rate=args.input_dropout,
         normalization_axes=NormalizationAxes.PER_SAMPLE,
-        cdf_rate=args.cdf_rate
+        cdf_rate=args.cdf_rate,
     )
 
     if completion_model:
@@ -214,14 +235,16 @@ def main():
     if args.mode == "generative-hard-em":
         logspace_accumulators = False
         backprop_mode = BackpropMode.HARD_EM
-        loss = NegativeLogMarginal(name="NegativeLogMarginal")
+        loss = NegativeLogMarginal(
+            name="NegativeLogMarginal", reduction=keras.losses.Reduction.SUM)
         metrics = [LogMarginal(name="LogMarginal")]
         optimizer = OnlineExpectationMaximization()
         return_weighted_child_logits = False
     elif args.mode == "generative-hard-em-unweighted":
         logspace_accumulators = False
         backprop_mode = BackpropMode.HARD_EM_UNWEIGHTED
-        loss = NegativeLogMarginal(name="NegativeLogMarginal")
+        loss = NegativeLogMarginal(
+            name="NegativeLogMarginal", reduction=keras.losses.Reduction.SUM)
         metrics = [LogMarginal(name="LogMarginal")]
         optimizer = OnlineExpectationMaximization()
         return_weighted_child_logits = False
@@ -289,7 +312,9 @@ def main():
     model.compile(optimizer=optimizer, loss=loss,  metrics=metrics)
 
     # Train
-    model.fit(x_train, y_train, epochs=args.epochs, validation_split=1/6)
+    model.fit(
+        x_train, y_train, epochs=args.epochs, validation_split=1/6, batch_size=args.batch_size
+    )
 
     # Evaluate
     model.evaluate(x_test,  y_test, verbose=2)
@@ -304,11 +329,11 @@ def main():
         completion_mask_top[:, :mid, :, :] = 0
         completion_mask_bottom[:, mid:, :, :] = 0
 
-        model_completion.compile(metrics=[keras.metrics.MeanSquaredError()])
-        model_completion.evaluate([x_test, completion_mask_left], x_test)
-        model_completion.evaluate([x_test, completion_mask_right], x_test)
-        model_completion.evaluate([x_test, completion_mask_top], x_test)
-        model_completion.evaluate([x_test, completion_mask_bottom], x_test)
+        model_completion.compile(metrics=[CompletionMSE()], loss=loss)
+        model_completion.evaluate([x_test, completion_mask_left], x_test, verbose=2)
+        model_completion.evaluate([x_test, completion_mask_right], x_test, verbose=2)
+        model_completion.evaluate([x_test, completion_mask_top], x_test, verbose=2)
+        model_completion.evaluate([x_test, completion_mask_bottom], x_test, verbose=2)
 
 
 if __name__ == "__main__":
@@ -326,7 +351,7 @@ if __name__ == "__main__":
         required=True
     )
     parser.add_argument("--input-dropout", default=None, type=float)
-    parser.add_argument("--dropout-rate", default=0.2, type=float)
+    parser.add_argument("--dropout-rate", default=0.0, type=float)
     parser.add_argument("--cdf-rate", default=None, type=float)
     parser.add_argument("--bounded-marginalization", default=None, type=float)
     parser.add_argument("--location-stddev", default=1.0, type=float)
@@ -334,6 +359,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", default='ratspn', choices=['ratspn', 'dgcspn'])
     parser.add_argument("--epochs", default=50, type=int)
     parser.add_argument("--completion", action='store_true', dest='completion')
+    parser.add_argument("--batch-size", default=32, type=int)
     parser.set_defaults(completion=False)
     args = parser.parse_args()
     main()

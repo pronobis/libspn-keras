@@ -58,4 +58,4 @@ class BaseLeaf(keras.layers.Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
     def get_modes(self):
-        raise NotImplementedError(f"A {self.__class__.__name__} does not implement distribution modes.")
+        raise NotImplementedError("A {} does not implement distribution modes.".format(self.__class__.__name__))
