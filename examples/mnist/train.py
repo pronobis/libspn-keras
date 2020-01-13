@@ -15,7 +15,6 @@ from libspn_keras.layers.spatial_local_sum import SpatialLocalSum
 from libspn_keras.layers.undecompose import Undecompose
 from libspn_keras.losses.negative_log_joint import NegativeLogJoint
 from libspn_keras.losses.negative_log_marginal import NegativeLogMarginal
-from libspn_keras.metrics.completion_mse import CompletionMSE
 from libspn_keras.metrics.log_likelihood import LogMarginal
 from libspn_keras.models import DenseSumProductNetwork, SpatialSumProductNetwork
 from libspn_keras.layers.decompose import Decompose
@@ -26,7 +25,6 @@ import numpy as np
 from libspn_keras.normalizationaxes import NormalizationAxes
 from libspn_keras.optimizers.online_expectation_maximization import OnlineExpectationMaximization
 
-# tf.config.experimental_run_functions_eagerly(True)
 
 def get_data(spatial):
 
@@ -96,7 +94,7 @@ def get_ratspn_model(num_vars, logspace_accumulators, backprop_mode, return_weig
 
 
 def get_dgcspn_model(input_shape, logspace_accumulators, backprop_mode, return_weighted_child_logits,
-                     completion_model=False):
+                     completion_by_posterior_marginal=False):
     sum_product_stack = []
 
     spatial_dims = int(np.sqrt(np.prod(input_shape[0:2])))
@@ -119,7 +117,7 @@ def get_dgcspn_model(input_shape, logspace_accumulators, backprop_mode, return_w
         ConvProduct(
             strides=[2, 2],
             dilations=[1, 1],
-            num_channels=64,
+            num_channels=32,
             kernel_size=[2, 2],
             padding='valid',
         ),
@@ -156,7 +154,7 @@ def get_dgcspn_model(input_shape, logspace_accumulators, backprop_mode, return_w
             ),
             LogDropout(rate=args.dropout_rate),
             SpatialLocalSum(
-                num_sums=64,
+                num_sums=32,
                 logspace_accumulators=logspace_accumulators,
                 accumulator_initializer=accumulator_initializer,
                 backprop_mode=backprop_mode
@@ -172,7 +170,7 @@ def get_dgcspn_model(input_shape, logspace_accumulators, backprop_mode, return_w
         ),
         LogDropout(rate=args.dropout_rate),
         SpatialLocalSum(
-            num_sums=64,
+            num_sums=32,
             logspace_accumulators=logspace_accumulators,
             accumulator_initializer=accumulator_initializer,
             backprop_mode=backprop_mode
@@ -198,26 +196,14 @@ def get_dgcspn_model(input_shape, logspace_accumulators, backprop_mode, return_w
         )
     )
 
-    spn = SpatialSumProductNetwork(
+    return SpatialSumProductNetwork(
         leaf=leaf,
         sum_product_stack=sum_product_stack,
         input_dropout_rate=args.input_dropout,
         normalization_axes=NormalizationAxes.PER_SAMPLE,
         cdf_rate=args.cdf_rate,
+        completion_by_posterior_marginal=completion_by_posterior_marginal
     )
-
-    if completion_model:
-        spn_completion = SpatialSumProductNetwork(
-            leaf=leaf,
-            sum_product_stack=sum_product_stack,
-            input_dropout_rate=args.input_dropout,
-            normalization_axes=NormalizationAxes.PER_SAMPLE,
-            cdf_rate=args.cdf_rate,
-            completion_by_posterior_marginal=True
-        )
-        return spn, spn_completion
-
-    return spn
 
 
 def main():
@@ -299,14 +285,15 @@ def main():
         model = get_ratspn_model(
             num_vars, logspace_accumulators, backprop_mode, return_weighted_child_logits)
     else:
-        if args.completion:
-            model, model_completion = get_dgcspn_model(
-                x_train.shape[1:], logspace_accumulators, backprop_mode, return_weighted_child_logits,
-                completion_model=True
-            )
-        else:
-            model = get_dgcspn_model(
-                x_train.shape[1:], logspace_accumulators, backprop_mode, return_weighted_child_logits)
+        model = get_dgcspn_model(
+            x_train.shape[1:], logspace_accumulators, backprop_mode, return_weighted_child_logits,
+            completion_by_posterior_marginal=False
+        )
+        model_completion = get_dgcspn_model(
+            x_train.shape[1:], logspace_accumulators, BackpropMode.GRADIENT,
+            return_weighted_child_logits, completion_by_posterior_marginal=True
+        )
+        model_completion.set_weights(model.get_weights())
 
     # Important to use from_logits=True with the cross-entropy loss
     model.compile(optimizer=optimizer, loss=loss,  metrics=metrics)
@@ -316,24 +303,28 @@ def main():
         x_train, y_train, epochs=args.epochs, validation_split=1/6, batch_size=args.batch_size
     )
 
-    # Evaluate
-    model.evaluate(x_test,  y_test, verbose=2)
-
     if args.completion:
-        completion_mask = np.ones_like(x_test)
+        completion_mask = np.ones_like(x_test).astype(bool)
         completion_mask_left, completion_mask_right, completion_mask_top, completion_mask_bottom = \
             [completion_mask.copy() for _ in range(4)]
         mid = 28 // 2
-        completion_mask_left[:, :, mid:, :] = 0
-        completion_mask_right[:, :, :mid, :] = 0
-        completion_mask_top[:, :mid, :, :] = 0
-        completion_mask_bottom[:, mid:, :, :] = 0
+        completion_mask_left[:, :, mid:, :] = False
+        completion_mask_right[:, :, :mid, :] = False
+        completion_mask_top[:, :mid, :, :] = False
+        completion_mask_bottom[:, mid:, :, :] = False
 
-        model_completion.compile(metrics=[CompletionMSE()], loss=loss)
-        model_completion.evaluate([x_test, completion_mask_left], x_test, verbose=2)
-        model_completion.evaluate([x_test, completion_mask_right], x_test, verbose=2)
-        model_completion.evaluate([x_test, completion_mask_top], x_test, verbose=2)
-        model_completion.evaluate([x_test, completion_mask_bottom], x_test, verbose=2)
+        model_completion.compile(loss=loss)
+        model_completion.evaluate(
+            [x_test, completion_mask_left], x_test, verbose=2)
+        model_completion.evaluate(
+            [x_test, completion_mask_right], x_test, verbose=2)
+        model_completion.evaluate(
+            [x_test, completion_mask_top], x_test, verbose=2)
+        model_completion.evaluate(
+            [x_test, completion_mask_bottom], x_test, verbose=2)
+    else:
+        # Evaluate
+        model.evaluate(x_test,  y_test, verbose=2)
 
 
 if __name__ == "__main__":

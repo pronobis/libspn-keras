@@ -165,8 +165,16 @@ class SpatialSumProductNetwork(keras.models.Model):
             completion_out = tf.where(
                 evidence_mask_input, normalized_input, completion_nominator / completion_denominator)
 
-            if mean is not None and stddev is not None:
-                return completion_out * (stddev + self.normalization_epsilon) + mean
+            completion_out = completion_out * (stddev + self.normalization_epsilon) + mean
+
+            completion_out_completed_only = \
+                tf.boolean_mask(completion_out, tf.logical_not(evidence_mask_input))
+            input_completed_only = \
+                tf.boolean_mask(data_input, tf.logical_not(evidence_mask_input))
+            self.add_metric(tf.math.squared_difference(
+                completion_out_completed_only, input_completed_only),
+                name='completion_mse', aggregation='mean'
+            )
             return completion_out
 
         return sum_product_stack_out
