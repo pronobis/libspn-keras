@@ -9,7 +9,7 @@ def get_readme():
         return f.read()
 
 
-_VERSION = '0.1.2'
+_VERSION = '0.1.3'
 
 
 REQUIRED_PACKAGES = [
