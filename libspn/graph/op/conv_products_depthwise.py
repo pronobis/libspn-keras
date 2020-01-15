@@ -59,9 +59,9 @@ class ConvProductsDepthwise(ConvProducts):
             input=self._channels_to_batch(concat_inp),
             filter=tf.ones(self._kernel_size + [1, 1]),
             padding='VALID',
-            strides=[1, 1] + self._strides,
-            dilations=[1, 1] + self._dilation_rate,
-            data_format='NCHW'
+            strides=[1] + self._strides + [1],
+            dilations=[1] + self._dilation_rate + [1],
+            data_format='NHWC'
         )
         conv_out = self._batch_to_channels(conv_out)
         return self._flatten(conv_out)
@@ -69,13 +69,13 @@ class ConvProductsDepthwise(ConvProducts):
     @utils.lru_cache
     def _channels_to_batch(self, t):
         gd = t.shape.as_list()[1:3]
-        return tf.reshape(self._transpose_channel_last_to_first(t), [-1, 1] + gd)
-    
+        return tf.reshape(self._transpose_channel_last_to_first(t), [-1] + gd + [1])
+
     @utils.lru_cache
     def _batch_to_channels(self, t):
-        gd = t.shape.as_list()[2:]
+        gd = t.shape.as_list()[1:3]
         return self._transpose_channel_first_to_last(tf.reshape(t, [-1, self._num_channels] + gd))
-    
+
     def _compute_mpe_path_common(self, counts, *input_values):
         if not self._values:
             raise StructureError("{} is missing input values.".format(self))
@@ -85,15 +85,15 @@ class ConvProductsDepthwise(ConvProducts):
 
         inp_concat = self._channels_to_batch(inp_concat)
         spatial_counts = self._channels_to_batch(spatial_counts)
-        
+
         input_counts = tf.nn.conv2d_backprop_input(
             input_sizes=tf.shape(inp_concat),
             filter=tf.ones(self._kernel_size + [1, 1]),
             out_backprop=spatial_counts,
-            strides=[1, 1] + self._strides,
+            strides=[1] + self._strides + [1],
             padding='VALID',
-            dilations=[1, 1] + self._dilation_rate,
-            data_format="NCHW")
+            dilations=[1] + self._dilation_rate + [1],
+            data_format="NHWC")
 
         input_counts = self._batch_to_channels(input_counts)
 
