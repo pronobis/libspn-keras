@@ -59,6 +59,7 @@ class RootSum(keras.layers.Layer):
         log_weights_unnormalized = self._accumulators
         x_squeezed = tf.reshape(x, (-1, self._num_nodes_in))
         if not self.logspace_accumulators:
+
             if self.backprop_mode in [BackpropMode.HARD_EM, BackpropMode.HARD_EM_UNWEIGHTED]:
                 if self.return_weighted_child_logits:
                     return logmultiply_hard_em(x_squeezed, self._accumulators)

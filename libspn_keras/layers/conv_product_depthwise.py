@@ -21,7 +21,7 @@ class ConvProductDepthwise(ConvProduct):
 
         sparse_kernels = self._create_sparse_kernels(1, 1)
 
-        onehot_kernels = self.sparse_kernels_to_onehot(sparse_kernels, 1)
+        onehot_kernels = self._sparse_kernels_to_onehot(sparse_kernels, 1)
 
         self._onehot_kernels = self.add_weight(
             "onehot_kernel", initializer=initializers.Constant(onehot_kernels), trainable=False,
@@ -30,7 +30,7 @@ class ConvProductDepthwise(ConvProduct):
 
     def call(self, x):
         # Split in list of tensors which will be added up using outer products
-        pad_left, pad_right, pad_top, pad_bottom = self.pad_sizes()
+        pad_left, pad_right, pad_top, pad_bottom = self._pad_sizes()
         channels_first = tf.reshape(
             tf.transpose(x, (0, 3, 1, 2)),
             (-1,) + self._spatial_dim_sizes + (1,)

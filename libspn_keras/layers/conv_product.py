@@ -9,32 +9,103 @@ logger = logging.getLogger("libspn-keras")
 
 class ConvProduct(keras.layers.Layer):
 
-    def __init__(self, strides, dilations, kernel_size, num_channels=None, padding='valid', **kwargs):
+    def __init__(
+        self, strides, dilations, kernel_size, num_channels=None, padding='valid', depthwise=False,
+        **kwargs
+    ):
         super(ConvProduct, self).__init__(**kwargs)
         self.strides = strides
         self.dilations = dilations
         self.num_channels = num_channels
         self.padding = padding
         self.kernel_size = kernel_size
+        self.depthwise = depthwise
         self._spatial_dim_sizes = None
 
     def build(self, input_shape):
+        if self.depthwise:
+            self._build_depthwise(input_shape)
+        else:
+            self._build_onehot_kernels(input_shape)
+        super(ConvProduct, self).build(input_shape)
+
+    def _build_onehot_kernels(self, input_shape):
         num_batch, num_scopes_vertical, num_scopes_horizontal, num_channels_in = input_shape
 
         self._spatial_dim_sizes = num_scopes_vertical, num_scopes_horizontal
 
+        if self.num_channels is None:
+            self.num_channels = int(num_channels_in ** np.prod(self.kernel_size))
+
         sparse_kernels = self._create_sparse_kernels(num_channels_in, self.num_channels)
 
-        onehot_kernels = self.sparse_kernels_to_onehot(sparse_kernels, num_channels_in)
+        onehot_kernels = self._sparse_kernels_to_onehot(sparse_kernels, num_channels_in)
 
         self._onehot_kernels = self.add_weight(
             "onehot_kernel", initializer=initializers.Constant(onehot_kernels), trainable=False,
             shape=onehot_kernels.shape
         )
 
-        super(ConvProduct, self).build(input_shape)
+    def _build_depthwise(self, input_shape):
+        num_batch, num_scopes_vertical, num_scopes_horizontal, num_channels_in = input_shape
 
-    def sparse_kernels_to_onehot(self, sparse_kernels, num_channels_in):
+        self._spatial_dim_sizes = num_scopes_vertical, num_scopes_horizontal
+        self.num_channels = num_channels_in
+
+        sparse_kernels = self._create_sparse_kernels(1, 1)
+
+        onehot_kernels = self._sparse_kernels_to_onehot(sparse_kernels, 1)
+
+        self._onehot_kernels = self.add_weight(
+            "onehot_kernel", initializer=initializers.Constant(onehot_kernels), trainable=False,
+            shape=onehot_kernels.shape
+        )
+
+    def call(self, x):
+        if self.depthwise:
+            return self._call_depthwise(x)
+        else:
+            return self._call_onehot_kernels(x)
+
+    def _call_onehot_kernels(self, x):
+        # Split in list of tensors which will be added up using outer products
+        pad_left, pad_right, pad_top, pad_bottom = self._pad_sizes()
+        x_padded = tf.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]])
+        out = tf.nn.conv2d(
+            x_padded, self._onehot_kernels, strides=self.strides, padding='VALID',
+            dilations=self.dilations
+        )
+        return out
+
+    def _call_depthwise(self, x):
+        # Split in list of tensors which will be added up using outer products
+        pad_left, pad_right, pad_top, pad_bottom = self._pad_sizes()
+        channels_first = tf.reshape(
+            tf.transpose(x, (0, 3, 1, 2)),
+            (-1,) + self._spatial_dim_sizes + (1,)
+        )
+        x_padded = tf.pad(
+            channels_first, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]])
+        out = tf.nn.conv2d(
+            x_padded, self._onehot_kernels, strides=self.strides, padding='VALID',
+            dilations=self.dilations
+        )
+
+        spatial_dim_sizes_out = self._compute_out_size_spatial(*self._spatial_dim_sizes)
+
+        return tf.transpose(
+            tf.reshape(out, (-1, self.num_channels) + spatial_dim_sizes_out),
+            (0, 2, 3, 1)
+        )
+
+    def compute_output_shape(self, input_shape):
+        num_batch, num_scopes_vertical_in, num_scopes_horizontal_in, _ = input_shape
+        num_scopes_vertical_out, num_scopes_horizontal_out = self._compute_out_size_spatial(
+            num_scopes_vertical_in, num_scopes_horizontal_in
+        )
+        return num_batch, num_scopes_vertical_out, num_scopes_horizontal_out, self.num_channels
+
+    def _sparse_kernels_to_onehot(self, sparse_kernels, num_channels_in):
         """Converts an index-based representation of sparse kernels to a dense onehot
         representation.
 
@@ -103,7 +174,7 @@ class ConvProduct(keras.layers.Layer):
         kernel_sizes = [(ks - 1) * d + 1 for ks, d in zip(self.kernel_size, self.dilations)]
         return kernel_sizes
 
-    def pad_sizes(self):
+    def _pad_sizes(self):
         """Determines the pad sizes. Possibly adds up explicit padding and padding through SAME
         padding algorithm of `tf.nn.convolution`.
 
@@ -134,7 +205,7 @@ class ConvProduct(keras.layers.Layer):
         """
         kernel_size0, kernel_size1 = self._effective_kernel_size()
 
-        pad_left, pad_right, pad_top, pad_bottom = self.pad_sizes()
+        pad_left, pad_right, pad_top, pad_bottom = self._pad_sizes()
 
         rows_post_pad = pad_top + pad_bottom + num_scopes_vertical_in - kernel_size0 + 1
         cols_post_pad = pad_left + pad_right + num_scopes_horizontal_in - kernel_size1 + 1
@@ -142,21 +213,3 @@ class ConvProduct(keras.layers.Layer):
             int(np.ceil(post_pad / s))
             for post_pad, s in zip([rows_post_pad, cols_post_pad], self.strides)
         )
-
-    def call(self, x):
-        # Split in list of tensors which will be added up using outer products
-        pad_left, pad_right, pad_top, pad_bottom = self.pad_sizes()
-        x_padded = tf.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]])
-        out = tf.nn.conv2d(
-            x_padded, self._onehot_kernels, strides=self.strides, padding='VALID',
-            dilations=self.dilations
-        )
-        return out
-
-    def compute_output_shape(self, input_shape):
-        num_batch, num_scopes_vertical_in, num_scopes_horizontal_in, _ = input_shape
-        num_scopes_vertical_out, num_scopes_horizontal_out = self._compute_out_size_spatial(
-            num_scopes_vertical_in, num_scopes_horizontal_in
-        )
-        return num_batch, num_scopes_vertical_out, num_scopes_horizontal_out, self.num_channels
-

@@ -1,5 +1,7 @@
 import tensorflow as tf
 
+from libspn_keras.math.logmatmul import logmatmul
+
 
 def logmultiply_hard_em(child_log_prob, linear_accumulators):
     """
@@ -50,40 +52,54 @@ def logmatmul_hard_em_through_grads_from_accumulators(
         # Normalized
         weights = tf.nn.log_softmax(log_accumulators, axis=2)
 
-        # Pairwise product in forward pass
-        # [scopes, decomps, batch, 1, num_in]
-        # [scopes, decomps, 1, num_out, num_in]
-        child_log_prob = tf.expand_dims(child_log_prob, axis=3)
-        weights = tf.expand_dims(tf.transpose(weights, (0, 1, 3, 2)), axis=2)
-
-        # TODO this could be done more efficiently by sampling from the children directly
-        pairwise_product = child_log_prob + weights
         if unweighted:
-            pairwise_product_backprop = child_log_prob + tf.zeros_like(weights)
+            pairwise_product_backprop = tf.expand_dims(child_log_prob, axis=3)
+            out = logmatmul(child_log_prob, weights)
         else:
-            pairwise_product_backprop = pairwise_product
+            # Pairwise product in forward pass
+            # [scopes, decomps, batch, 1, num_in]
+            child_log_prob = tf.expand_dims(child_log_prob, axis=3)
+            # [scopes, decomps, 1, num_out, num_in]
+            weights = tf.expand_dims(tf.transpose(weights, (0, 1, 3, 2)), axis=2)
 
-        # Max per sum for determining winning child + choosing the constant for numerical stability
-        max_per_sum = tf.stop_gradient(tf.reduce_max(pairwise_product, axis=-1, keepdims=True))
+            pairwise_product = child_log_prob + weights
+
+            # Max per sum for determining winning child + choosing the constant for numerical
+            # stability
+            max_per_sum = tf.stop_gradient(tf.reduce_max(pairwise_product, axis=-1, keepdims=True))
+            pairwise_product_backprop = child_log_prob + weights
+
+            # Perform log(sum(exp(...))) with the numerical stability trick
+            out = tf.math.log(tf.reduce_sum(tf.exp(
+                pairwise_product - max_per_sum), axis=-1)) + tf.squeeze(max_per_sum, axis=-1)
 
         def grad(dy):
             # Determine winning child
-            equal_to_max = tf.cast(tf.equal(pairwise_product_backprop, max_per_sum), tf.float32)
-            num_sums = tf.shape(equal_to_max)[-1]
+            if unweighted:
+                max_per_sum_backprop = tf.reduce_max(
+                    pairwise_product_backprop, axis=-1, keepdims=True)
+                equal_to_max = tf.cast(
+                    tf.equal(pairwise_product_backprop, max_per_sum_backprop), tf.float32)
+            else:
+                equal_to_max = tf.cast(tf.equal(pairwise_product_backprop, max_per_sum), tf.float32)
+
+            num_in = tf.shape(child_log_prob)[-1]
+            num_out = tf.shape(out)[-1]
             equal_to_max_flat_outer = tf.reshape(
                 equal_to_max,
-                tf.concat([[-1], [num_sums]], axis=0)
+                tf.concat([[-1], [num_in]], axis=0)
             )
 
             # Holds the index of the winning child per sum
+            num_samples = num_out if unweighted else 1
             winning_child_per_sum = tf.reshape(
-                tf.random.categorical(tf.math.log(equal_to_max_flat_outer), num_samples=1),
-                tf.shape(equal_to_max)[:-1]
+                tf.random.categorical(
+                    tf.math.log(equal_to_max_flat_outer), num_samples=num_samples),
+                tf.shape(out)
             )
 
             # Pass on the counts to the edges between child and parent
-            edge_counts = \
-                tf.expand_dims(dy, axis=-1) * tf.one_hot(winning_child_per_sum, depth=num_sums)
+            edge_counts = tf.expand_dims(dy, -1) * tf.one_hot(winning_child_per_sum, depth=num_in)
 
             # Sum over parents to get counts per child
             child_counts = tf.reduce_sum(edge_counts, axis=3)
@@ -92,10 +108,6 @@ def logmatmul_hard_em_through_grads_from_accumulators(
             weight_counts = tf.reduce_sum(edge_counts, axis=2)
 
             return child_counts, tf.transpose(weight_counts, (0, 1, 3, 2))
-
-        # Perform log(sum(exp(...))) with the numerical stability trick
-        out = tf.math.log(tf.reduce_sum(tf.exp(
-            pairwise_product - max_per_sum), axis=-1)) + tf.squeeze(max_per_sum, axis=-1)
 
         return out, grad
 

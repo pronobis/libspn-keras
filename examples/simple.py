@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow import keras
 
+import examples.mnist.data
 from libspn_keras.backprop_mode import BackpropMode
 from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.indicator_leaf import IndicatorLeaf
@@ -17,7 +18,7 @@ tf.config.experimental_run_functions_eagerly(True)
 
 def get_data():
 
-    (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
+    (x_train, y_train), (x_test, y_test) = examples.mnist.data.load_data()
     x_train, x_test = x_train / 255.0, x_test / 255.0
 
     x_train = x_train.reshape(x_train.shape[0], -1)

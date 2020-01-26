@@ -198,3 +198,4 @@ dmypy.json
 .idea/
 
 venv/
+*.png

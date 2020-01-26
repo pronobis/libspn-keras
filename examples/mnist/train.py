@@ -1,43 +1,26 @@
 import argparse
 
+import skimage.io as skio
 import tensorflow as tf
 from tensorflow import keras
 
+from examples.mnist.architectures import get_dgcspn_model
+from examples.mnist.data import load_data
 from libspn_keras.backprop_mode import BackpropMode
 from libspn_keras.initializers.equidistant import Equidistant
-from libspn_keras.layers.conv_product_depthwise import ConvProductDepthwise
 from libspn_keras.layers.dense_product import DenseProduct
-from libspn_keras.layers.log_dropout import LogDropout
-from libspn_keras.layers.conv_product import ConvProduct
-from libspn_keras.layers.reshape_spatial_to_dense import ReshapeSpatialToDense
 from libspn_keras.layers.root_sum import RootSum
-from libspn_keras.layers.spatial_local_sum import SpatialLocalSum
 from libspn_keras.layers.undecompose import Undecompose
 from libspn_keras.losses.negative_log_joint import NegativeLogJoint
 from libspn_keras.losses.negative_log_marginal import NegativeLogMarginal
 from libspn_keras.metrics.log_likelihood import LogMarginal
-from libspn_keras.models import DenseSumProductNetwork, SpatialSumProductNetwork
+from libspn_keras.models import DenseSumProductNetwork
 from libspn_keras.layers.decompose import Decompose
 from libspn_keras.layers.normal_leaf import NormalLeaf
 from libspn_keras.layers.dense_sum import DenseSum
 import numpy as np
 
-from libspn_keras.normalizationaxes import NormalizationAxes
 from libspn_keras.optimizers.online_expectation_maximization import OnlineExpectationMaximization
-
-
-def get_data(spatial):
-
-    (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
-
-    if not spatial:
-        x_train = x_train.reshape(x_train.shape[0], -1)
-        x_test = x_test.reshape(x_test.shape[0], -1)
-    else:
-        x_train = np.expand_dims(x_train, -1)
-        x_test = np.expand_dims(x_test, -1)
-
-    return x_train.astype(np.float32), y_train, x_test.astype(np.float32), y_test
 
 
 def get_ratspn_model(num_vars, logspace_accumulators, backprop_mode, return_weighted_child_logits):
@@ -93,120 +76,10 @@ def get_ratspn_model(num_vars, logspace_accumulators, backprop_mode, return_weig
     )
 
 
-def get_dgcspn_model(input_shape, logspace_accumulators, backprop_mode, return_weighted_child_logits,
-                     completion_by_posterior_marginal=False):
-    sum_product_stack = []
-
-    spatial_dims = int(np.sqrt(np.prod(input_shape[0:2])))
-
-    location_initializer = Equidistant(minval=-2.0, maxval=2.0)
-    leaf = NormalLeaf(
-        num_components=4, location_initializer=location_initializer,
-        location_trainable=args.mode == 'discriminative',
-        scale_trainable=False
-    )
-
-    accumulator_initializer = (
-        tf.initializers.TruncatedNormal(mean=1.0, stddev=args.weight_stddev)
-        if logspace_accumulators
-        else tf.initializers.Ones()
-    )
-
-    # The 'backbone' stack of alternating sums and products
-    sum_product_stack.extend([
-        ConvProduct(
-            strides=[2, 2],
-            dilations=[1, 1],
-            num_channels=32,
-            kernel_size=[2, 2],
-            padding='valid',
-        ),
-        LogDropout(rate=args.dropout_rate),
-        SpatialLocalSum(
-            num_sums=32,
-            logspace_accumulators=logspace_accumulators,
-            accumulator_initializer=accumulator_initializer,
-            backprop_mode=backprop_mode
-        ),
-        ConvProductDepthwise(
-            strides=[2, 2],
-            dilations=[1, 1],
-            kernel_size=[2, 2],
-            padding='valid'
-        ),
-        LogDropout(rate=args.dropout_rate),
-        SpatialLocalSum(
-            num_sums=32,
-            logspace_accumulators=logspace_accumulators,
-            accumulator_initializer=accumulator_initializer,
-            backprop_mode=backprop_mode
-        )
-    ])
-
-    stack_size = int(np.ceil(np.log2(spatial_dims // 4)))
-    for i in range(stack_size):
-        sum_product_stack.extend([
-            ConvProductDepthwise(
-                strides=[1, 1],
-                dilations=[2 ** i, 2 ** i],
-                kernel_size=[2, 2],
-                padding='full'
-            ),
-            LogDropout(rate=args.dropout_rate),
-            SpatialLocalSum(
-                num_sums=32,
-                logspace_accumulators=logspace_accumulators,
-                accumulator_initializer=accumulator_initializer,
-                backprop_mode=backprop_mode
-            )
-        ])
-
-    sum_product_stack.extend([
-        ConvProductDepthwise(
-            strides=[1, 1],
-            dilations=[2 ** stack_size, 2 ** stack_size],
-            kernel_size=[2, 2],
-            padding='final'
-        ),
-        LogDropout(rate=args.dropout_rate),
-        SpatialLocalSum(
-            num_sums=32,
-            logspace_accumulators=logspace_accumulators,
-            accumulator_initializer=accumulator_initializer,
-            backprop_mode=backprop_mode
-        ),
-        ReshapeSpatialToDense()
-    ])
-
-    if args.mode == 'discriminative':
-        sum_product_stack.append(
-            DenseSum(
-                num_sums=10,
-                logspace_accumulators=logspace_accumulators,
-                accumulator_initializer=accumulator_initializer,
-                backprop_mode=backprop_mode
-            )
-        )
-
-    sum_product_stack.append(
-        RootSum(
-            logspace_accumulators=logspace_accumulators,
-            return_weighted_child_logits=return_weighted_child_logits,
-            backprop_mode=backprop_mode
-        )
-    )
-
-    return SpatialSumProductNetwork(
-        leaf=leaf,
-        sum_product_stack=sum_product_stack,
-        input_dropout_rate=args.input_dropout,
-        normalization_axes=NormalizationAxes.PER_SAMPLE,
-        cdf_rate=args.cdf_rate,
-        completion_by_posterior_marginal=completion_by_posterior_marginal
-    )
-
-
 def main():
+    if args.eager:
+        tf.config.experimental_run_functions_eagerly(True)
+
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if gpus:
         try:
@@ -278,7 +151,8 @@ def main():
     else:
         raise ValueError("Unknown mode: {}".format(args.mode))
 
-    x_train, y_train, x_test, y_test = get_data(spatial=args.model == 'dgcspn')
+    x_train, y_train, x_test, y_test = load_data(
+        spatial=args.model == 'dgcspn', dataset=args.dataset)
 
     if args.model == 'ratspn':
         num_vars = x_train.shape[1]
@@ -287,44 +161,82 @@ def main():
     else:
         model = get_dgcspn_model(
             x_train.shape[1:], logspace_accumulators, backprop_mode, return_weighted_child_logits,
-            completion_by_posterior_marginal=False
+            completion_by_posterior_marginal=False, initialization_data=x_train,
+            dropout_rate=args.dropout_rate, input_dropout_rate=args.input_dropout_rate,
+            cdf_rate=args.cdf_rate, config_name=args.dataset,
+            discriminative=args.mode == 'discriminative'
         )
-        model_completion = get_dgcspn_model(
-            x_train.shape[1:], logspace_accumulators, BackpropMode.GRADIENT,
-            return_weighted_child_logits, completion_by_posterior_marginal=True
-        )
-        model_completion.set_weights(model.get_weights())
 
     # Important to use from_logits=True with the cross-entropy loss
     model.compile(optimizer=optimizer, loss=loss,  metrics=metrics)
 
     # Train
-    model.fit(
-        x_train, y_train, epochs=args.epochs, validation_split=1/6, batch_size=args.batch_size
-    )
+    model.evaluate(x_train, y_train, verbose=2)
+    model.summary()
+    model.fit(x_train, y_train, epochs=args.epochs, batch_size=args.batch_size)
 
     if args.completion:
-        completion_mask = np.ones_like(x_test).astype(bool)
-        completion_mask_left, completion_mask_right, completion_mask_top, completion_mask_bottom = \
-            [completion_mask.copy() for _ in range(4)]
-        mid = 28 // 2
-        completion_mask_left[:, :, mid:, :] = False
-        completion_mask_right[:, :, :mid, :] = False
-        completion_mask_top[:, :mid, :, :] = False
-        completion_mask_bottom[:, mid:, :, :] = False
-
+        model_completion = get_dgcspn_model(
+            x_train.shape[1:], logspace_accumulators, BackpropMode.GRADIENT,
+            return_weighted_child_logits,
+            completion_by_posterior_marginal=True, initialization_data=x_train,
+            dropout_rate=args.dropout_rate, input_dropout_rate=args.input_dropout_rate,
+            cdf_rate=args.cdf_rate, config_name=args.dataset,
+            discriminative=args.mode == 'discriminative'
+        )
         model_completion.compile(loss=loss)
-        model_completion.evaluate(
-            [x_test, completion_mask_left], x_test, verbose=2)
-        model_completion.evaluate(
-            [x_test, completion_mask_right], x_test, verbose=2)
-        model_completion.evaluate(
-            [x_test, completion_mask_top], x_test, verbose=2)
-        model_completion.evaluate(
-            [x_test, completion_mask_bottom], x_test, verbose=2)
+        model_completion.predict([x_test[:1], np.ones_like(x_test[:1])])
+        model_completion.set_weights(model.get_weights())
+
+        evaluate_completion(model_completion, x_test)
+
     else:
         # Evaluate
         model.evaluate(x_test,  y_test, verbose=2)
+
+
+def evaluate_completion(model_completion, x_test):
+    # Build masks
+    mask_bottom, mask_left, mask_right, mask_top = build_completion_masks(x_test)
+
+    kwargs = dict(verbose=2, batch_size=args.batch_size)
+    model_completion.evaluate([x_test, mask_left], x_test, **kwargs)
+    model_completion.evaluate([x_test, mask_right], x_test, **kwargs)
+    model_completion.evaluate([x_test, mask_top], x_test, **kwargs)
+    model_completion.evaluate([x_test, mask_bottom], x_test, **kwargs)
+
+    if args.model == 'dgcspn' and args.saveimg:
+        im_grid = make_image_grid(x_test, num_rows=5)
+        skio.imsave('test_data.png', arr=im_grid.astype(np.uint8))
+
+        kwargs = dict(batch_size=args.batch_size)
+        left_completion = model_completion.predict([x_test, mask_left], **kwargs)
+        right_completion = model_completion.predict([x_test, mask_right], **kwargs)
+        top_completion = model_completion.predict([x_test, mask_top], **kwargs)
+        bottom_completion = model_completion.predict([x_test, mask_bottom], **kwargs)
+
+        skio.imsave('comp_left.png', make_image_grid(left_completion, 5).astype(np.uint8))
+        skio.imsave('comp_right.png', make_image_grid(right_completion, 5).astype(np.uint8))
+        skio.imsave('comp_top.png', make_image_grid(top_completion, 5).astype(np.uint8))
+        skio.imsave('comp_bottom.png', make_image_grid(bottom_completion, 5).astype(np.uint8))
+
+
+def build_completion_masks(x_test):
+    mask = np.ones_like(x_test).astype(bool)
+    mask_left, mask_right, mask_top, mask_bottom = [mask.copy() for _ in range(4)]
+    mid = int(np.sqrt(np.prod(x_test.shape[1:3]))) // 2
+    mask_left[:, :, :mid, :] = False
+    mask_right[:, :, mid:, :] = False
+    mask_top[:, :mid, :, :] = False
+    mask_bottom[:, mid:, :, :] = False
+    return mask_bottom, mask_left, mask_right, mask_top
+
+
+def make_image_grid(images, num_rows):
+    images_per_row = np.split(images, axis=0, indices_or_sections=num_rows)
+    rows = [np.concatenate(imgs, axis=1) for imgs in images_per_row]
+    full_grid = np.concatenate(rows, axis=0)
+    return full_grid
 
 
 if __name__ == "__main__":
@@ -341,17 +253,19 @@ if __name__ == "__main__":
         ],
         required=True
     )
-    parser.add_argument("--input-dropout", default=None, type=float)
-    parser.add_argument("--dropout-rate", default=0.0, type=float)
+    parser.add_argument("--input-dropout-rate", default=None, type=float)
+    parser.add_argument("--dropout-rate", default=None, type=float)
     parser.add_argument("--cdf-rate", default=None, type=float)
-    parser.add_argument("--bounded-marginalization", default=None, type=float)
     parser.add_argument("--location-stddev", default=1.0, type=float)
     parser.add_argument("--weight-stddev", default=0.1, type=float)
     parser.add_argument("--model", default='ratspn', choices=['ratspn', 'dgcspn'])
     parser.add_argument("--epochs", default=50, type=int)
     parser.add_argument("--completion", action='store_true', dest='completion')
-    parser.add_argument("--batch-size", default=32, type=int)
-    parser.set_defaults(completion=False)
+    parser.add_argument("--batch-size", default=16, type=int)
+    parser.add_argument("--dataset", default='olivetti', type=str, choices=['mnist', 'olivetti'])
+    parser.add_argument("--saveimg", action='store_true', dest='saveimg')
+    parser.add_argument("--eager", action='store_true', dest='eager')
+    parser.set_defaults(completion=False, saveimg=False, eager=False)
     args = parser.parse_args()
     main()
 

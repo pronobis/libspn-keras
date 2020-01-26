@@ -44,17 +44,6 @@ class DenseSum(keras.layers.Layer):
         super(DenseSum, self).build(input_shape)
 
     def call(self, x):
-
-        # TODO make the control flow more readable e.g. implement _call_backprop_gradient, _call_backprop_em
-        # dlogR / dW == dlogR / dlogW * dlogW / dW vs. dlogR / dlogW == dlogR / dlogW
-        # dlogR / dW == dlogR / dlogW * 1 / W
-        # dlogR / dW == dlogR / dS * w * C
-        # dlogR / dW == dlogR / dlogS * w * C
-
-        # dlogR / dW == dlogR / dR * dR / dS * C * w
-        #            == dlogR / dW * w
-        #            == dlogR / dlogW * dlogW / dW * w
-        #            == dlogR / dlogW
         log_weights_unnormalized = self._accumulators
 
         if not self.logspace_accumulators and \
