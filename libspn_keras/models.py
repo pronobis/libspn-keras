@@ -43,9 +43,13 @@ class SumProductNetworkBase(keras.models.Model):
         mean = stddev = None
         if self.normalization_axes == NormalizationAxes.PER_SAMPLE:
             normalization_axes_indices = tf.range(1, tf.rank(data_input))
-            n = tf.reduce_sum(tf.cast(evidence_mask, data_input.dtype)) \
-                if evidence_mask is not None \
-                else tf.cast(tf.reduce_prod(tf.shape(data_input)[1:]), data_input.dtype)
+            if evidence_mask is None:
+                n = tf.cast(tf.reduce_prod(tf.shape(data_input)[1:]), data_input.dtype)
+            else:
+                n = tf.reduce_sum(
+                    tf.cast(evidence_mask, data_input.dtype),
+                    axis=normalization_axes_indices, keepdims=True
+                )
 
             if evidence_mask is not None:
                 data_input *= tf.cast(evidence_mask, data_input.dtype)
@@ -146,7 +150,8 @@ class SpatialSumProductNetwork(SumProductNetworkBase):
     def call(self, inputs):
         data_input, evidence_mask_input = self._parse_inputs(inputs)
 
-        mean, normalized_input, stddev = self._maybe_normalize_input(data_input)
+        mean, normalized_input, stddev = self._maybe_normalize_input(
+            data_input, evidence_mask_input)
 
         leaf_out = self.leaf(normalized_input)
         leaf_out = self._maybe_apply_cdf(leaf_out, normalized_input)
