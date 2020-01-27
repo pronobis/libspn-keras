@@ -91,28 +91,28 @@ def main():
         except RuntimeError as e:
             # Memory growth must be set before GPUs have been initialized
             print(e)
+
+    accumulator_regularizer = keras.regularizers.l1_l2(l1=args.l1, l2=args.l2)
     if args.mode == "generative-hard-em":
         logspace_accumulators = False
         backprop_mode = BackpropMode.HARD_EM
-        loss = NegativeLogMarginal(
-            name="NegativeLogMarginal", reduction=keras.losses.Reduction.SUM)
+        loss = NegativeLogMarginal(name="NegativeLogMarginal")
         metrics = [LogMarginal(name="LogMarginal")]
-        optimizer = OnlineExpectationMaximization()
+        optimizer = tf.keras.optimizers.SGD(lr=args.lr)
         return_weighted_child_logits = False
     elif args.mode == "generative-hard-em-unweighted":
         logspace_accumulators = False
         backprop_mode = BackpropMode.HARD_EM_UNWEIGHTED
-        loss = NegativeLogMarginal(
-            name="NegativeLogMarginal", reduction=keras.losses.Reduction.SUM)
+        loss = NegativeLogMarginal(name="NegativeLogMarginal")
         metrics = [LogMarginal(name="LogMarginal")]
-        optimizer = OnlineExpectationMaximization()
+        optimizer = tf.keras.optimizers.SGD(lr=args.lr)
         return_weighted_child_logits = False
     elif args.mode == "generative-soft-em":
         logspace_accumulators = False
         backprop_mode = BackpropMode.EM
         loss = NegativeLogMarginal(name="NegativeLogMarginal")
         metrics = [LogMarginal(name="LogMarginal")]
-        optimizer = OnlineExpectationMaximization()
+        optimizer = tf.keras.optimizers.SGD(lr=args.lr)
         return_weighted_child_logits = False
     elif args.mode == "generative-hard-em-supervised":
         logspace_accumulators = False
@@ -122,7 +122,7 @@ def main():
             LogMarginal(name="LogMarginal"),
             keras.metrics.SparseCategoricalAccuracy(name="Accuracy")
         ]
-        optimizer = OnlineExpectationMaximization()
+        optimizer = tf.keras.optimizers.SGD(lr=args.lr)
         return_weighted_child_logits = True
     elif args.mode == "generative-hard-em-unweighted-supervised":
         logspace_accumulators = False
@@ -132,7 +132,7 @@ def main():
             LogMarginal(name="LogMarginal"),
             keras.metrics.SparseCategoricalAccuracy(name="Accuracy")
         ]
-        optimizer = OnlineExpectationMaximization()
+        optimizer = tf.keras.optimizers.SGD(lr=args.lr)
         return_weighted_child_logits = True
     elif args.mode == "generative-gd":
         logspace_accumulators = True
@@ -162,8 +162,12 @@ def main():
         model = get_dgcspn_model(
             x_train.shape[1:], logspace_accumulators, backprop_mode, return_weighted_child_logits,
             completion_by_posterior_marginal=False, initialization_data=x_train,
+            weight_stddev=args.weight_stddev,
             dropout_rate=args.dropout_rate, input_dropout_rate=args.input_dropout_rate,
             cdf_rate=args.cdf_rate, config_name=args.dataset,
+            normalization_epsilon=args.normalization_epsilon,
+            accumulator_regularizer=accumulator_regularizer,
+            accumulator_init_epsilon=args.accumulator_init_epsilon,
             discriminative=args.mode == 'discriminative'
         )
 
@@ -174,6 +178,7 @@ def main():
     model.evaluate(x_train, y_train, verbose=2)
     model.summary()
     model.fit(x_train, y_train, epochs=args.epochs, batch_size=args.batch_size)
+    model.evaluate(x_test, y_test, verbose=2)
 
     if args.completion:
         model_completion = get_dgcspn_model(
@@ -182,7 +187,9 @@ def main():
             completion_by_posterior_marginal=True, initialization_data=x_train,
             dropout_rate=args.dropout_rate, input_dropout_rate=args.input_dropout_rate,
             cdf_rate=args.cdf_rate, config_name=args.dataset,
-            discriminative=args.mode == 'discriminative'
+            discriminative=args.mode == 'discriminative',
+            normalization_epsilon=args.normalization_epsilon,
+            accumulator_regularizer=accumulator_regularizer
         )
         model_completion.compile(loss=loss)
         model_completion.predict([x_test[:1], np.ones_like(x_test[:1])])
@@ -265,6 +272,11 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", default='olivetti', type=str, choices=['mnist', 'olivetti'])
     parser.add_argument("--saveimg", action='store_true', dest='saveimg')
     parser.add_argument("--eager", action='store_true', dest='eager')
+    parser.add_argument("--normalization-epsilon", type=float, default=1e-8)
+    parser.add_argument("--accumulator-init-epsilon", type=float, default=1e-8)
+    parser.add_argument("--lr", type=float, default=1e-2)
+    parser.add_argument("--l2", type=float, default=0.0)
+    parser.add_argument("--l1", type=float, default=0.0)
     parser.set_defaults(completion=False, saveimg=False, eager=False)
     args = parser.parse_args()
     main()

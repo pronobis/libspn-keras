@@ -6,7 +6,7 @@ import tensorflow as tf
 class PoonDomingosMeanOfQuantileSplit(initializers.Initializer):
 
     def __init__(self, data=None, samplewise_normalization=True, dtype=None,
-                 normalization_epsilon=1e-10):
+                 normalization_epsilon=1e-2):
         self.dtype = dtype
         self._data = data
         self.samplewise_normalization = samplewise_normalization

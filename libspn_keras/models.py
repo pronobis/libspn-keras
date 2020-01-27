@@ -39,13 +39,26 @@ class SumProductNetworkBase(keras.models.Model):
             return x
         return tf.where(evidence_mask, x, tf.zeros_like(x))
 
-    def _maybe_normalize_input(self, data_input):
+    def _maybe_normalize_input(self, data_input, evidence_mask=None):
         mean = stddev = None
         if self.normalization_axes == NormalizationAxes.PER_SAMPLE:
             normalization_axes_indices = tf.range(1, tf.rank(data_input))
-            mean = tf.reduce_mean(data_input, axis=normalization_axes_indices, keepdims=True)
-            stddev = tf.math.reduce_std(data_input, axis=normalization_axes_indices,
-                                        keepdims=True)
+            n = tf.reduce_sum(tf.cast(evidence_mask, data_input.dtype)) \
+                if evidence_mask is not None \
+                else tf.cast(tf.reduce_prod(tf.shape(data_input)[1:]), data_input.dtype)
+
+            if evidence_mask is not None:
+                data_input *= tf.cast(evidence_mask, data_input.dtype)
+
+            mean = tf.reduce_sum(
+                data_input, axis=normalization_axes_indices, keepdims=True) / n
+
+            sq_diff = tf.math.squared_difference(data_input, mean)
+            if evidence_mask is not None:
+                sq_diff *= tf.cast(evidence_mask, data_input.dtype)
+
+            stddev = tf.sqrt(
+                tf.reduce_sum(sq_diff, axis=normalization_axes_indices, keepdims=True) / n)
             normalized_input = (data_input - mean) / (stddev + self.normalization_epsilon)
         elif self.normalization_axes is None:
             normalized_input = data_input

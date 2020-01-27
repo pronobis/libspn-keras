@@ -1,4 +1,5 @@
 from libspn_keras.backprop_mode import BackpropMode
+from libspn_keras.contraints.greater_than_epsilon import GreaterThanEpsilon
 from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.math.logmatmul import logmatmul
 from libspn_keras.math.hard_em_grads import logmatmul_hard_em_through_grads_from_accumulators
@@ -17,13 +18,16 @@ class DenseSum(keras.layers.Layer):
 
     def __init__(
         self, num_sums, logspace_accumulators=False, accumulator_initializer=None,
-        backprop_mode=BackpropMode.GRADIENT, **kwargs
+        backprop_mode=BackpropMode.GRADIENT, accumulator_regularizer=None,
+        accumulator_constraint=GreaterThanEpsilon(1e-10), **kwargs
     ):
         super(DenseSum, self).__init__(**kwargs)
         self.num_sums = num_sums
         self.logspace_accumulators = logspace_accumulators
         self.accumulator_initializer = accumulator_initializer or initializers.Constant(1)
         self.backprop_mode = backprop_mode
+        self.accumulator_regularizer = accumulator_regularizer
+        self.accumulator_constraint = accumulator_constraint
         self._num_decomps = self._num_scopes = self._accumulators = None
 
         if backprop_mode != BackpropMode.GRADIENT and logspace_accumulators:
@@ -36,11 +40,15 @@ class DenseSum(keras.layers.Layer):
         weights_shape = (self._num_scopes, self._num_decomps, num_nodes_in, self.num_sums)
 
         initializer = self.accumulator_initializer
+        accumulator_constraint = self.accumulator_constraint
         if self.logspace_accumulators:
             initializer = logspace_wrapper_initializer(self.accumulator_initializer)
+            accumulator_constraint = None
 
         self._accumulators = self.add_weight(
-            name='sum_weights', shape=weights_shape, initializer=initializer)
+            name='sum_weights', shape=weights_shape, initializer=initializer,
+            regularizer=self.accumulator_regularizer, constraint=accumulator_constraint
+        )
         super(DenseSum, self).build(input_shape)
 
     def call(self, x):

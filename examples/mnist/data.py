@@ -9,7 +9,7 @@ def load_olivetti(test_size=50):
     train_x = x[:-test_size]
     test_x = x[-test_size:]
     train_y = y[:-test_size]
-    test_y = y[:-test_size]
+    test_y = y[-test_size:]
     return train_x * 255, train_y, test_x * 255, test_y
 
 

@@ -9,7 +9,7 @@ class Equidistant(initializers.Initializer):
     Args:
       minval: A python scalar or a scalar tensor. Lower bound of the range
         of random values to generate.
-      maxval: A python scalar or a scalar tensor. Upper bound of the range
+      maxval: fA python scalar or a scalar tensor. Upper bound of the range
         of random values to generate.  Defaults to 1 for float types.
       seed: A Python integer. Used to create random seeds. See
         @{tf.set_random_seed}

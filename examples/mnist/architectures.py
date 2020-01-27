@@ -18,24 +18,27 @@ from itertools import cycle
 
 class ArchConfig:
 
-    def __init__(self, depthwise, num_non_overlapping, sum_num_channels):
+    def __init__(self, depthwise, num_non_overlapping, sum_num_channels, num_components):
         self.depthwise = depthwise
         self.num_non_overlapping = num_non_overlapping
         self.sum_num_channels = sum_num_channels
+        self.num_components = num_components
 
 
 def get_config(name):
     if name == "olivetti":
         return ArchConfig(
-            depthwise=iter([False, False, False, False, False, False, True]),
+            depthwise=cycle([True]),
             num_non_overlapping=0,
-            sum_num_channels=iter([4, 4, 2, 2, 2, 16])
+            sum_num_channels=cycle([8]),
+            num_components=8
         )
     if name == "mnist":
         ArchConfig(
             depthwise=iter([False, True, True, True, True, True]),
             num_non_overlapping=2,
-            sum_num_channels=cycle([32])
+            sum_num_channels=cycle([32]),
+            num_components=32
         )
     else:
         raise ValueError("Unknown config")
@@ -46,19 +49,21 @@ def get_dgcspn_model(
     completion_by_posterior_marginal=False, initialization_data=None,
     location_trainable=False, weight_stddev=0.1, discriminative=False,
     dropout_rate=None, cdf_rate=None, input_dropout_rate=None, accumulator_init_epsilon=1e-4,
-    config_name='olivetti'
+    config_name='olivetti', normalization_epsilon=1e-8, accumulator_regularizer=None
 ):
     sum_product_stack = []
 
     spatial_dims = int(np.sqrt(np.prod(input_shape[0:2])))
 
     if initialization_data is not None:
-        location_initializer = PoonDomingosMeanOfQuantileSplit(data=initialization_data.squeeze())
+        location_initializer = PoonDomingosMeanOfQuantileSplit(
+            data=initialization_data.squeeze(), normalization_epsilon=normalization_epsilon)
     else:
         location_initializer = Equidistant(minval=-2.0, maxval=2.0)
 
+    config = get_config(config_name)
     leaf = NormalLeaf(
-        num_components=4, location_initializer=location_initializer,
+        num_components=config.num_components, location_initializer=location_initializer,
         location_trainable=location_trainable,
         scale_trainable=False
     )
@@ -72,8 +77,8 @@ def get_dgcspn_model(
         logspace_accumulators=logspace_accumulators,
         accumulator_initializer=accumulator_initializer,
         backprop_mode=backprop_mode,
+        accumulator_regularizer=accumulator_regularizer
     )
-    config = get_config(config_name)
 
     # The 'backbone' stack of alternating sums and products
     for _ in range(config.num_non_overlapping):
@@ -138,5 +143,6 @@ def get_dgcspn_model(
         input_dropout_rate=input_dropout_rate,
         normalization_axes=NormalizationAxes.PER_SAMPLE,
         cdf_rate=cdf_rate,
-        completion_by_posterior_marginal=completion_by_posterior_marginal
+        completion_by_posterior_marginal=completion_by_posterior_marginal,
+        normalization_epsilon=normalization_epsilon
     )
