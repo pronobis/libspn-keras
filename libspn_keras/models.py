@@ -60,7 +60,7 @@ class SumProductNetworkBase(keras.models.Model, abc.ABC):
         self.input_dropout_rate = input_dropout_rate
         self.normalization_axes = normalization_axes
         self.normalization_epsilon = normalization_epsilon
-        self.use_evidence_mask_for_completion = with_evidence_mask_for_normalization
+        self.use_evidence_mask_for_normalization = with_evidence_mask_for_normalization
 
     def _maybe_apply_evidence_mask(self, x, evidence_mask):
         if evidence_mask is None:
@@ -71,10 +71,12 @@ class SumProductNetworkBase(keras.models.Model, abc.ABC):
         if self.normalization_axes is None:
             return data_input, None, None
         else:
-            evidence_mask = evidence_mask if self.use_evidence_mask_for_completion \
-                else tf.ones_like(evidence_mask)
-            return self.normalize([data_input, evidence_mask]) if evidence_mask is not None else \
-                self.normalize(data_input)
+            if evidence_mask is not None:
+                evidence_mask = evidence_mask if self.use_evidence_mask_for_normalization \
+                    else tf.ones_like(evidence_mask)
+                return self.normalize([data_input, evidence_mask])
+            else:
+                return self.normalize(data_input)
 
     def _parse_inputs(self, inputs):
         require_evidence_mask = self.completion_by_posterior_marginal or self.evidence_mask

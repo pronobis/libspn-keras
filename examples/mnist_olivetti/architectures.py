@@ -6,13 +6,16 @@ from libspn_keras.initializers.epsilon_inverse_fan_in import EpsilonInverseFanIn
 from libspn_keras.initializers.equidistant import Equidistant
 from libspn_keras.initializers.poon_domingos import PoonDomingosMeanOfQuantileSplit
 from libspn_keras.layers.conv_product import ConvProduct
+from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.dense_sum import DenseSum
 from libspn_keras.layers.log_dropout import LogDropout
 from libspn_keras.layers.normal_leaf import NormalLeaf
+from libspn_keras.layers.random_decompositions import RandomDecompositions
 from libspn_keras.layers.reshape_spatial_to_dense import ReshapeSpatialToDense
 from libspn_keras.layers.root_sum import RootSum
 from libspn_keras.layers.spatial_local_sum import SpatialLocalSum
-from libspn_keras.models import SpatialSumProductNetwork
+from libspn_keras.layers.undecompose import Undecompose
+from libspn_keras.models import SpatialSumProductNetwork, DenseSumProductNetwork
 from libspn_keras.normalizationaxes import NormalizationAxes
 from itertools import cycle
 
@@ -155,5 +158,62 @@ def construct_dgcspn_model(
         cdf_rate=cdf_rate,
         completion_by_posterior_marginal=completion_by_posterior_marginal,
         normalization_epsilon=normalization_epsilon,
-        with_evidence_mask=with_evidence_mask
+        with_evidence_mask=with_evidence_mask,
+        with_evidence_mask_for_normalization=False
+    )
+
+
+def construct_ratspn_model(
+    num_vars, logspace_accumulators, backprop_mode, return_weighted_child_logits, weight_stddev
+):
+    sum_product_stack = []
+
+    accumulator_initializer = tf.initializers.TruncatedNormal(mean=0.5, stddev=weight_stddev)
+    location_initializer = Equidistant(minval=-2.0, maxval=2.0)
+
+    # The 'backbone' stack of alternating sums and products
+    region_depth = int(np.floor(np.log2(num_vars)))
+    for i in range(region_depth):
+        sum_product_stack.extend([
+            DenseProduct(
+                num_factors=2,
+                name="dense_product_{}".format(i)
+            ),
+            DenseSum(
+                num_sums=4,
+                logspace_accumulators=logspace_accumulators,
+                accumulator_initializer=accumulator_initializer,
+                backprop_mode=backprop_mode,
+                name="dense_sum_{}".format(i)
+            ),
+        ])
+
+    sum_product_stack.extend([
+        DenseProduct(
+            num_factors=2,
+            name="dense_product_{}".format(region_depth)
+        ),
+        DenseSum(
+            num_sums=1,
+            logspace_accumulators=logspace_accumulators,
+            accumulator_initializer=accumulator_initializer,
+            backprop_mode=backprop_mode,
+            name="dense_sum_{}".format(region_depth)
+        ),
+        Undecompose(name="undecompose"),
+        RootSum(
+            logspace_accumulators=logspace_accumulators,
+            return_weighted_child_logits=return_weighted_child_logits,
+            backprop_mode=backprop_mode,
+            name="root"
+        )
+    ])
+
+    return DenseSumProductNetwork(
+        decomposer=RandomDecompositions(num_decomps=10, name="decompose"),
+        leaf=NormalLeaf(
+            num_components=4, location_initializer=location_initializer, name="normal_leaf",
+            input_shape=(num_vars,)
+        ),
+        sum_product_stack=sum_product_stack
     )
