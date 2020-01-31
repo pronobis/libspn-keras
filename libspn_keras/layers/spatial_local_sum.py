@@ -11,16 +11,35 @@ from libspn_keras.math.soft_em_grads import log_softmax_from_accumulators_with_e
 
 
 class SpatialLocalSum(keras.layers.Layer):
-    """
-    Computes a spatial local sum, i.e. all cells will have unique weights (no weight sharing
-    across spatial access).
-    """
 
     def __init__(
         self, num_sums, logspace_accumulators=False, accumulator_initializer=None,
         backprop_mode=BackpropMode.GRADIENT, accumulator_regularizer=None,
         accumulator_constraint=GreaterThanEpsilon(1e-10), **kwargs
     ):
+        """
+        Computes a spatial local sum, i.e. all cells will have unique weights (no weight sharing
+        across spatial access).
+
+        Args:
+            num_sums: Number of sums per spatial cell. Corresponds to the number of channels in
+                the output
+            logspace_accumulators: Whether to represent the child accumulators in log-space or
+                linear-space. Set this to True when using BackpropMode.GRADIENT
+            accumulator_initializer: Initializer for accumulator
+            backprop_mode: Backpropagation mode. Can be either GRADIENT, HARD_EM, SOFT_EM or
+                HARD_EM_UNWEIGHTED
+            accumulator_regularizer: Regularizer for accumulators
+            accumulator_constraint: Constraint for accumulators
+            **kwargs: kwargs to pass on to the keras.Layer super class
+        """
+        # TODO make docstrings more consistent across different sum instances
+
+        # TODO automatically infer value of logspace_accumulator from the backprop mode
+
+        # TODO verify compatibility of backprop mode and logspace_accumulator
+
+        # TODO consider renaming 'accumulator' to 'child_counts'
         super(SpatialLocalSum, self).__init__(**kwargs)
         self.num_sums = num_sums
         self.logspace_accumulators = logspace_accumulators

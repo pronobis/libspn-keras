@@ -10,7 +10,6 @@ class BernoulliCondition(keras.layers.Layer):
         super(BernoulliCondition, self).__init__(**kwargs)
         self.rate = min(1., max(0., rate))
         self.seed = seed
-        self.supports_masking = True
 
     def call(self, inputs, training=None):
         if_val, else_val = inputs
@@ -29,3 +28,11 @@ class BernoulliCondition(keras.layers.Layer):
 
     def compute_output_shape(self, input_shape):
         return input_shape
+
+    def get_config(self):
+        config = dict(
+            seed=self.seed,
+            rate=self.rate,
+        )
+        base_config = super(BernoulliCondition, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))

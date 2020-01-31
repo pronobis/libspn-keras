@@ -7,12 +7,23 @@ import tensorflow as tf
 class NormalLeaf(BaseLeaf):
 
     def __init__(
-        self, num_components, dtype=tf.float32, location_initializer=None,
+        self, num_components, location_initializer=None,
         location_trainable=True, scale_initializer=None, scale_trainable=False,
-        use_cdf=False, **kwargs
+        compute_cdf=False, **kwargs
     ):
-        super(NormalLeaf, self).__init__(
-            num_components=num_components, dtype=dtype, use_cdf=use_cdf, **kwargs)
+        """
+        Computes the log probability of multiple components per variable along the final axis. 
+        
+        Args:
+            num_components: Number of components per variable
+            location_initializer: Initializer for location variable
+            location_trainable: Boolean that indicates whether location is trainable
+            scale_initializer: Initializer for scale variable
+            scale_trainable: Boolean that indicates whether scale is trainable
+            compute_cdf: If True, computes the log cumulative distribution function (cdf)
+            **kwargs: kwargs to pass on to the keras.Layer super class
+        """
+        super(NormalLeaf, self).__init__(num_components=num_components, use_cdf=compute_cdf, **kwargs)
         self.location_initializer = location_initializer or initializers.TruncatedNormal(stddev=1.0)
         self.location_trainable = location_trainable
         self.scale_initializer = scale_initializer or initializers.Ones()

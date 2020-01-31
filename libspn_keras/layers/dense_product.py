@@ -5,13 +5,17 @@ import functools
 
 
 class DenseProduct(keras.layers.Layer):
-    """
-    Computes products per decomposition and scope by an 'n-order' outer product. Assumes the
-    incoming tensor is of shape [num_scopes, num_decomps, num_batch, num_nodes] and produces an
-    output of [num_scopes // num_factors, num_decomps, num_batch, num_nodes ** num_factors].
-    """
 
     def __init__(self, num_factors, **kwargs):
+        """
+        Computes products per decomposition and scope by an 'n-order' outer product. Assumes the
+        incoming tensor is of shape [num_scopes, num_decomps, num_batch, num_nodes] and produces an
+        output of [num_scopes // num_factors, num_decomps, num_batch, num_nodes ** num_factors].
+
+        Args:
+            num_factors: Number of factors per product
+            **kwargs: kwargs to pass on to the keras.Layer super class
+        """
         super(DenseProduct, self).__init__(**kwargs)
         self.num_factors = num_factors
         self._num_decomps = self._num_scopes = self._num_scopes_in \

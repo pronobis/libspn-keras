@@ -5,6 +5,10 @@ import tensorflow as tf
 
 
 class IndicatorLeaf(BaseLeaf):
+    """
+    Indicator leaf distribution that takes integer inputs and simply copmutes a one-hot
+    representation of it.
+    """
 
     def __init__(self, num_components, dtype=tf.int32, **kwargs):
         super().__init__(num_components, dtype=dtype, **kwargs)

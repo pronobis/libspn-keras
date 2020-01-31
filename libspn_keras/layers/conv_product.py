@@ -13,6 +13,25 @@ class ConvProduct(keras.layers.Layer):
         self, strides, dilations, kernel_size, num_channels=None, padding='valid', depthwise=False,
         **kwargs
     ):
+        """
+        Convolutional product as described in [Van de Wolfshaar, Pronobis (2019)]. Expects
+        log-space inputs and produces log-space outputs.
+
+        Args:
+            strides: A tuple or list of strides
+            dilations: A tuple or list of dilations
+            kernel_size: A tuple or list of kernel sizes
+            num_channels: Number of channels. If None, will be set to
+                num_in_channels ** prod(kernel_sizes). This can be source of OOM problems quickly.
+            padding: Can be either 'full', 'valid' or 'final'. Use 'final' for the top ConvProduct
+                of a DGC-SPN. The other choices have the standard interpretation. Valid padding
+                usually requires non-overlapping patches, whilst full padding is used with
+                overlapping patches and expontentially increasing dilation rates, see also
+                [Van de Wolfshaar, Pronobis (2019)].
+            depthwise: Whether to use depthwise convolutions. If True, the value of num_channels
+                will be ignored
+            **kwargs: Keyword arguments to pass on to the keras.Layer superclass.
+        """
         super(ConvProduct, self).__init__(**kwargs)
         self.strides = strides
         self.dilations = dilations
@@ -213,3 +232,15 @@ class ConvProduct(keras.layers.Layer):
             int(np.ceil(post_pad / s))
             for post_pad, s in zip([rows_post_pad, cols_post_pad], self.strides)
         )
+
+    def get_config(self):
+        config = dict(
+            strides=self.strides,
+            dilations=self.dilations,
+            num_channels=self.num_channels,
+            padding=self.padding,
+            kernel_size=self.kernel_size,
+            depthwise=self.depthwise
+        )
+        base_config = super(ConvProduct, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))

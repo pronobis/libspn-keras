@@ -1,14 +1,14 @@
 import tensorflow as tf
 from tensorflow import keras
 
-import examples.mnist.data
+import examples.mnist_olivetti.data
 from libspn_keras.backprop_mode import BackpropMode
 from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.indicator_leaf import IndicatorLeaf
 from libspn_keras.layers.root_sum import RootSum
 from libspn_keras.layers.undecompose import Undecompose
 from libspn_keras.models import build_ratspn
-from libspn_keras.layers.decompose import Decompose
+from libspn_keras.layers.random_decompositions import RandomDecompositions
 from libspn_keras.layers.dense_sum import DenseSum
 from tensorflow import initializers
 import numpy as np
@@ -18,7 +18,7 @@ tf.config.experimental_run_functions_eagerly(True)
 
 def get_data():
 
-    (x_train, y_train), (x_test, y_test) = examples.mnist.data.load_data()
+    (x_train, y_train), (x_test, y_test) = examples.mnist_olivetti.data.load_data()
     x_train, x_test = x_train / 255.0, x_test / 255.0
 
     x_train = x_train.reshape(x_train.shape[0], -1)
@@ -66,7 +66,7 @@ def get_model(num_vars, logspace_accumulators, hard_em_backward, return_weighted
     # Use helper function to build the actual SPN
     return build_ratspn(
         num_vars=num_vars,
-        decomposer=Decompose(num_decomps=1, permutations=[[0, 1, 2, 3]]),
+        decomposer=RandomDecompositions(num_decomps=1, permutations=[[0, 1, 2, 3]]),
         leaf=IndicatorLeaf(num_components=2),
         sum_product_stack=sum_product_stack
     ), sum_product_stack

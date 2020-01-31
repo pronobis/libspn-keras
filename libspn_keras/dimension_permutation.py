@@ -26,4 +26,5 @@ def infer_dimension_permutation(shape):
     elif none_index == 2:
         return DimensionPermutation.SCOPES_DECOMPS_FIRST
     else:
-        raise ValueError("Could not find None index.")
+        raise ValueError("Index of dynamically sized dimension was neither 0 (BATCH_FIRST) "
+                         "nor 2 (SCOPES_DECOMPS_FIRST).")
