@@ -99,24 +99,6 @@ def main():
     show_summary(spn, x_train)
     spn.evaluate(x_test, y_test, verbose=2)
 
-    if args.completion and args.model == "dgcspn":
-        model_completion = construct_dgcspn_model(
-            x_train.shape[1:], logspace_accumulators, BackpropMode.GRADIENT,
-            return_weighted_child_logits,
-            completion_by_posterior_marginal=True, initialization_data=x_train,
-            dropout_rate=args.dropout_rate, input_dropout_rate=args.input_dropout_rate,
-            cdf_rate=args.cdf_rate, config_name=args.dataset,
-            discriminative=args.mode == 'discriminative-gd',
-            normalization_epsilon=args.normalization_epsilon,
-            accumulator_regularizer=accumulator_regularizer,
-            with_evidence_mask=True
-        )
-        model_completion.compile(loss=loss)
-        model_completion.predict([x_test[:1], np.ones_like(x_test[:1])])
-        model_completion.set_weights(spn.get_weights())
-
-        evaluate_completion(model_completion, x_test)
-
     # Train
     # Note that y_train and y_test are effectively ignored if the learning mode is anything
     # different from 'discriminative-gd'
@@ -124,29 +106,36 @@ def main():
     spn.evaluate(x_test, y_test, verbose=2)
 
     if args.completion:
-        model_completion = construct_dgcspn_model(
-            x_train.shape[1:], logspace_accumulators, BackpropMode.GRADIENT,
-            return_weighted_child_logits,
-            completion_by_posterior_marginal=True, initialization_data=x_train,
-            dropout_rate=args.dropout_rate, input_dropout_rate=args.input_dropout_rate,
-            cdf_rate=args.cdf_rate, config_name=args.dataset,
-            discriminative=args.mode == 'discriminative',
-            normalization_epsilon=args.normalization_epsilon,
-            accumulator_regularizer=accumulator_regularizer,
-            with_evidence_mask=True
+        spn_for_completion = construct_spn(
+            accumulator_regularizer, BackpropMode.GRADIENT, logspace_accumulators,
+            return_weighted_child_logits, x_train, with_evidence_mask=True, completion=True
         )
-        model_completion.compile(loss=loss)
-        model_completion.predict([x_test[:1], np.ones_like(x_test[:1])])
-        model_completion.set_weights(spn.get_weights())
+        spn_for_completion.compile(loss=loss)
+        spn_for_completion.predict([x_test[:1], np.ones_like(x_test[:1])])
+        spn_for_completion.set_weights(spn.get_weights())
 
-        evaluate_completion(model_completion, x_test)
+        evaluate_completion(spn_for_completion, x_test)
     else:
         # Evaluate
         spn.evaluate(x_test,  y_test, verbose=2)
 
+    spn.save_weights('spn.h5')
+
+    spn_loaded = construct_spn(
+        accumulator_regularizer, backprop_mode, logspace_accumulators,
+        return_weighted_child_logits, x_train
+    )
+    # Important to use from_logits=True with the cross-entropy loss
+    spn_loaded.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+    show_summary(spn_loaded, x_train)
+    spn_loaded.load_weights('spn.h5')
+
+    print("Evaluating model that was loaded from disk")
+    spn_loaded.evaluate(x_test, y_test, verbose=2)
+
 
 def construct_spn(accumulator_regularizer, backprop_mode, logspace_accumulators,
-                  return_weighted_child_logits, x_train):
+                  return_weighted_child_logits, x_train, completion=False, with_evidence_mask=False):
     if args.model == 'ratspn':
         num_vars = x_train.shape[1]
         model = construct_ratspn_model(
@@ -156,7 +145,7 @@ def construct_spn(accumulator_regularizer, backprop_mode, logspace_accumulators,
     else:
         model = construct_dgcspn_model(
             x_train.shape[1:], logspace_accumulators, backprop_mode, return_weighted_child_logits,
-            completion_by_posterior_marginal=False, initialization_data=x_train,
+            completion_by_posterior_marginal=completion, initialization_data=x_train,
             weight_stddev=args.weight_stddev,
             dropout_rate=args.dropout_rate, input_dropout_rate=args.input_dropout_rate,
             cdf_rate=args.cdf_rate, config_name=args.dataset,
@@ -164,7 +153,7 @@ def construct_spn(accumulator_regularizer, backprop_mode, logspace_accumulators,
             accumulator_regularizer=accumulator_regularizer,
             accumulator_init_epsilon=args.accumulator_init_epsilon,
             discriminative=args.mode == 'discriminative-gd',
-            with_evidence_mask=False
+            with_evidence_mask=with_evidence_mask
         )
     return model
 

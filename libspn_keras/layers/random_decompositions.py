@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from tensorflow import keras
+from tensorflow.keras import initializers
 
 
 class RandomDecompositions(keras.layers.Layer):
@@ -18,9 +19,11 @@ class RandomDecompositions(keras.layers.Layer):
         """
         super(RandomDecompositions, self).__init__(**kwargs)
         self.num_decomps = num_decomps
-        self._num_nodes = self._num_scopes = self._permutations = None
+        self.permutations = None
+        self._num_nodes = self._num_scopes = self.permutations = None
         if permutations is not None:
-            self._permutations = np.asarray(permutations)
+            self.permutations = self.add_weight(
+                initializers.Constant(permutations), trainable=False)
 
     def generate_permutations(self, factors, num_vars_spn_input):
         if not factors:
@@ -50,15 +53,16 @@ class RandomDecompositions(keras.layers.Layer):
             for p in perms:
                 for i in range(num_m1):
                     p.insert(i * rate_m1, -1)
-        self._permutations = perms = np.asarray(perms)
+        self.permutations = self.add_weight(
+            initializer=initializers.Constant(perms), trainable=False)
         return perms
 
     def call(self, x):
 
-        if self._permutations is None:
+        if self.permutations is None:
             raise ValueError("First need to determine permutations")
         zero_padded = tf.pad(x, [[0, 0], [1, 0]])
-        gather_indices = self._permutations + 1
+        gather_indices = self.permutations + 1
         return tf.expand_dims(tf.transpose(
             tf.gather(zero_padded, gather_indices, axis=1),
             (2, 1, 0)

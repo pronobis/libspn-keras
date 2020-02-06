@@ -52,7 +52,9 @@ class BaseLeaf(keras.layers.Layer):
 
     def get_config(self):
         config = dict(
-            num_components=self.num_components
+            num_components=self.num_components,
+            dimension_permutation=self.dimension_permutation,
+            use_cdf=self.use_cdf
         )
         base_config = super(BaseLeaf, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))

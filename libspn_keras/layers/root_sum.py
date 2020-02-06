@@ -8,7 +8,9 @@ from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.math.logmatmul import logmatmul
 from libspn_keras.math.hard_em_grads import \
     logmatmul_hard_em_through_grads_from_accumulators, logmultiply_hard_em
-from tensorflow import initializers
+from tensorflow.keras import initializers
+from tensorflow.keras import regularizers
+from tensorflow.keras import constraints
 
 from libspn_keras.math.soft_em_grads import log_softmax_from_accumulators_with_em_grad
 import numpy as np
@@ -127,12 +129,13 @@ class RootSum(keras.layers.Layer):
             return [num_batch, 1]
 
     def get_config(self):
-        # TODO serialization of regularizer if needed and perhaps more in the init function
         config = dict(
             accumulator_initializer=initializers.serialize(self.accumulator_initializer),
             logspace_accumulators=self.logspace_accumulators,
             return_weighted_child_logits=self.return_weighted_child_logits,
-            backprop_mode=self.backprop_mode
+            backprop_mode=self.backprop_mode,
+            accumulator_regularizer=regularizers.serialize(self.accumulator_regularizer),
+            linear_accumulator_constraint=constraints.serialize(self.linear_accumulator_constraint)
         )
         base_config = super(RootSum, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))

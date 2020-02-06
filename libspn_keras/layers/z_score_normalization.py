@@ -20,8 +20,6 @@ class ZScoreNormalization(keras.layers.Layer):
                 also be used a 'smoothing' factor.
             **kwargs: kwargs to pass on to the keras.Layer super class
         """
-        # TODO add get_config method
-
         # TODO verify whether value of axes is allowed or just omit it alltogether
         super(ZScoreNormalization, self).__init__(**kwargs)
         self.axes = axes
@@ -71,3 +69,12 @@ class ZScoreNormalization(keras.layers.Layer):
             return data_shape, stats_shape, stats_shape
         else:
             ValueError("Unknown normalization axes")
+
+    def get_config(self):
+        config = dict(
+            normalization_epsilon=self.normalization_epsilon,
+            with_evidence_mask=self.with_evidence_mask,
+            axes=self.axes
+        )
+        base_config = super(ZScoreNormalization, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
