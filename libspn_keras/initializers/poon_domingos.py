@@ -22,7 +22,7 @@ class PoonDomingosMeanOfQuantileSplit(initializers.Initializer):
         if dtype is None:
             dtype = self.dtype
 
-        num_quantiles = shape[-1]
+        num_quantiles = shape[-2]
 
         if self.samplewise_normalization:
             axes = tuple(range(1, len(self._data.shape)))
@@ -38,7 +38,7 @@ class PoonDomingosMeanOfQuantileSplit(initializers.Initializer):
         values_per_quantile = np.split(
             sorted_features, indices_or_sections=quantile_sections, axis=0)
         means_per_quantile = [np.mean(v, axis=0, keepdims=True) for v in values_per_quantile]
-        return tf.cast(np.stack(means_per_quantile, axis=-1), dtype=dtype)
+        return tf.expand_dims(tf.cast(np.stack(means_per_quantile, axis=-1), dtype=dtype), axis=-1)
 
     def get_config(self):
         return {

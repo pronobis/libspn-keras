@@ -222,14 +222,18 @@ class SpatialSumProductNetwork(SumProductNetworkBase):
                 sum_product_stack_out = self._apply_stack(leaf_out)
             dlog_root_dlog_leaf = g.gradient(sum_product_stack_out, leaf_out)
             leaf_modes = self.leaf.get_modes()
+            dlog_root_dlog_leaf = tf.expand_dims(dlog_root_dlog_leaf, axis=-1)
             completion_nominator = tf.reduce_sum(
-                leaf_modes * dlog_root_dlog_leaf, axis=-1, keepdims=True)
+                leaf_modes * dlog_root_dlog_leaf, axis=-2)
             completion_denominator = tf.reduce_sum(
-                dlog_root_dlog_leaf, axis=-1, keepdims=True)
+                dlog_root_dlog_leaf, axis=-2)
             completion_out = completion_nominator / completion_denominator
             completion_out = completion_out * (stddev + self.normalization_epsilon) + mean
             completion_out = tf.where(evidence_mask_input, data_input, completion_out)
 
+            multiples = tf.cast(tf.concat(
+                [tf.ones([tf.rank(data_input) - 1]), [tf.shape(data_input)[-1]]], axis=0), tf.int32)
+            evidence_mask_input = tf.tile(evidence_mask_input, multiples=multiples)
             completion_out_completed_only = \
                 tf.boolean_mask(completion_out, tf.logical_not(evidence_mask_input))
             input_completed_only = \

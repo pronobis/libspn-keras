@@ -92,7 +92,7 @@ def main():
         spatial=args.model == 'dgcspn', dataset=args.dataset)
 
     spn = construct_spn(accumulator_regularizer, backprop_mode, logspace_accumulators,
-                        return_weighted_child_logits, x_train)
+                        return_weighted_child_logits, x_train, leaf=args.leaf)
 
     # Important to use from_logits=True with the cross-entropy loss
     spn.compile(optimizer=optimizer, loss=loss,  metrics=metrics)
@@ -108,10 +108,11 @@ def main():
     if args.completion:
         spn_for_completion = construct_spn(
             accumulator_regularizer, BackpropMode.GRADIENT, logspace_accumulators,
-            return_weighted_child_logits, x_train, with_evidence_mask=True, completion=True
+            return_weighted_child_logits, x_train, with_evidence_mask=True, completion=True,
+            leaf=args.leaf
         )
         spn_for_completion.compile(loss=loss)
-        spn_for_completion.predict([x_test[:1], np.ones_like(x_test[:1])])
+        spn_for_completion.predict([x_test[:1], np.ones(x_test[:1].shape[:-1] + (1,))])
         spn_for_completion.set_weights(spn.get_weights())
 
         evaluate_completion(spn_for_completion, x_test)
@@ -135,7 +136,8 @@ def main():
 
 
 def construct_spn(accumulator_regularizer, backprop_mode, logspace_accumulators,
-                  return_weighted_child_logits, x_train, completion=False, with_evidence_mask=False):
+                  return_weighted_child_logits, x_train, completion=False, with_evidence_mask=False,
+                  leaf='normal'):
     if args.model == 'ratspn':
         num_vars = x_train.shape[1]
         model = construct_ratspn_model(
@@ -152,8 +154,9 @@ def construct_spn(accumulator_regularizer, backprop_mode, logspace_accumulators,
             normalization_epsilon=args.normalization_epsilon,
             accumulator_regularizer=accumulator_regularizer,
             accumulator_init_epsilon=args.accumulator_init_epsilon,
+            location_trainable=args.location_trainable,
             discriminative=args.mode == 'discriminative-gd',
-            with_evidence_mask=with_evidence_mask
+            with_evidence_mask=with_evidence_mask, leaf_type=leaf
         )
     return model
 
@@ -184,10 +187,13 @@ def evaluate_completion(model_completion, x_test):
         skio.imsave('test_data.png', arr=im_grid.astype(np.uint8))
 
         kwargs = dict(batch_size=args.batch_size)
-        bottom_completion = model_completion.predict([x_test, mask_bottom], **kwargs)
-        left_completion = model_completion.predict([x_test, mask_left], **kwargs)
-        right_completion = model_completion.predict([x_test, mask_right], **kwargs)
-        top_completion = model_completion.predict([x_test, mask_top], **kwargs)
+
+        ind = np.sort(np.random.choice(len(x_test), size=50, replace=False))
+
+        bottom_completion = model_completion.predict([x_test[ind], mask_bottom[ind]], **kwargs)
+        left_completion = model_completion.predict([x_test[ind], mask_left[ind]], **kwargs)
+        right_completion = model_completion.predict([x_test[ind], mask_right[ind]], **kwargs)
+        top_completion = model_completion.predict([x_test[ind], mask_top[ind]], **kwargs)
 
         skio.imsave('comp_left.png', make_image_grid(left_completion, 5).astype(np.uint8))
         skio.imsave('comp_right.png', make_image_grid(right_completion, 5).astype(np.uint8))
@@ -196,7 +202,7 @@ def evaluate_completion(model_completion, x_test):
 
 
 def build_completion_masks(x_test):
-    mask = np.ones_like(x_test).astype(bool)
+    mask = np.ones(x_test.shape[:-1] + (1,)).astype(bool)
     mask_left, mask_right, mask_top, mask_bottom = [mask.copy() for _ in range(4)]
     mid = int(np.sqrt(np.prod(x_test.shape[1:3]))) // 2
     mask_left[:, :, :mid, :] = False
@@ -235,15 +241,18 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", default=50, type=int)
     parser.add_argument("--completion", action='store_true', dest='completion')
     parser.add_argument("--batch-size", default=16, type=int)
-    parser.add_argument("--dataset", default='olivetti', type=str, choices=['mnist', 'olivetti'])
+    parser.add_argument("--dataset", default='olivetti', type=str,
+                        choices=['mnist', 'olivetti', 'cifar10'])
     parser.add_argument("--saveimg", action='store_true', dest='saveimg')
     parser.add_argument("--eager", action='store_true', dest='eager')
     parser.add_argument("--normalization-epsilon", type=float, default=1e-8)
     parser.add_argument("--accumulator-init-epsilon", type=float, default=1e-8)
+    parser.add_argument("--location-trainable", dest='location_trainable', action='store_true')
+    parser.add_argument("--leaf", choices=['normal', 'cauchy', 'laplace'], default='normal')
     parser.add_argument("--lr", type=float, default=1e-2)
     parser.add_argument("--l2", type=float, default=0.0)
     parser.add_argument("--l1", type=float, default=0.0)
-    parser.set_defaults(completion=False, saveimg=False, eager=False)
+    parser.set_defaults(completion=False, saveimg=False, eager=False, location_trainable=False)
     args = parser.parse_args()
     main()
 

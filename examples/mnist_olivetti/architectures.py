@@ -9,7 +9,7 @@ from libspn_keras.layers.conv_product import ConvProduct
 from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.dense_sum import DenseSum
 from libspn_keras.layers.log_dropout import LogDropout
-from libspn_keras.layers.normal_leaf import NormalLeaf
+from libspn_keras.layers.location_scale_leaf import NormalLeaf, CauchyLeaf, LaplaceLeaf
 from libspn_keras.layers.random_decompositions import RandomDecompositions
 from libspn_keras.layers.reshape_spatial_to_dense import ReshapeSpatialToDense
 from libspn_keras.layers.root_sum import RootSum
@@ -17,6 +17,7 @@ from libspn_keras.layers.spatial_local_sum import SpatialLocalSum
 from libspn_keras.layers.undecompose import Undecompose
 from libspn_keras.models import SpatialSumProductNetwork, DenseSumProductNetwork
 from libspn_keras.normalizationaxes import NormalizationAxes
+from tensorflow.keras import initializers
 from itertools import cycle
 
 
@@ -50,6 +51,14 @@ def get_config(name):
             num_components=8,
             prod_num_channels=cycle([None])
         )
+    if name == "cifar10":
+        return ArchConfig(
+            depthwise=iter([True, True, True, True, True, True]),
+            num_non_overlapping=1,
+            sum_num_channels=iter([32, 32, 64, 64, 64]),
+            num_components=32,
+            prod_num_channels=cycle([None])
+        )
     else:
         raise ValueError("Unknown config")
 
@@ -60,25 +69,26 @@ def construct_dgcspn_model(
     location_trainable=False, weight_stddev=0.1, discriminative=False,
     dropout_rate=None, cdf_rate=None, input_dropout_rate=None, accumulator_init_epsilon=1e-4,
     config_name='olivetti', normalization_epsilon=1e-8, accumulator_regularizer=None,
-    with_evidence_mask=False
+    with_evidence_mask=False, leaf_type=None
 ):
     sum_product_stack = []
 
     spatial_dims = int(np.sqrt(np.prod(input_shape[0:2])))
 
-    if initialization_data is not None:
+    if input_shape[-1] > 1:
+        location_initializer = initializers.TruncatedNormal(stddev=1.0)
+    elif initialization_data is not None:
         location_initializer = PoonDomingosMeanOfQuantileSplit(
             data=initialization_data.squeeze(), normalization_epsilon=normalization_epsilon)
     else:
         location_initializer = Equidistant(minval=-2.0, maxval=2.0)
 
     config = get_config(config_name)
-    leaf = NormalLeaf(
+    leaf = dict(normal=NormalLeaf, cauchy=CauchyLeaf, laplace=LaplaceLeaf)[leaf_type](
         num_components=config.num_components, location_initializer=location_initializer,
         location_trainable=location_trainable,
         scale_trainable=False, dimension_permutation=DimensionPermutation.BATCH_FIRST
     )
-
     accumulator_initializer = (
         tf.initializers.TruncatedNormal(mean=1.0, stddev=weight_stddev)
         if logspace_accumulators
