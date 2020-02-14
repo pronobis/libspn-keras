@@ -1,4 +1,0 @@
-Exceptions
-==========
-
-.. autoclass:: libspn.StructureError
