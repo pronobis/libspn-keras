@@ -108,7 +108,7 @@ sum_product_network = keras.Sequential([
       padding='full'
   ),
   layers.SpatialLocalSum(num_sums=64, **sum_kwargs),
-  # Overlapping products, with dilations [2, 2] and full padding
+  # Overlapping products, with dilations [4, 4] and full padding
   layers.ConvProduct(
       depthwise=True, 
       strides=[1, 1], 
@@ -117,7 +117,7 @@ sum_product_network = keras.Sequential([
       padding='full'
   ),
   layers.SpatialLocalSum(num_sums=64, **sum_kwargs),
-  # Overlapping products, with dilations [2, 2] and 'final' padding to combine 
+  # Overlapping products, with dilations [8, 8] and 'final' padding to combine 
   # all scopes
   layers.ConvProduct(
       depthwise=True, 
