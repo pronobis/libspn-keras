@@ -1,5 +1,4 @@
 import numpy as np
-from sklearn.datasets import _olivetti_faces as olivetti_faces
 from tensorflow import keras
 
 

@@ -57,7 +57,7 @@ class RootSum(keras.layers.Layer):
         self.backprop_mode = backprop_mode
         self.dimension_permutation = dimension_permutation
         self.accumulator_regularizer = accumulator_regularizer
-        self.accumulator_constraint = linear_accumulator_constraint
+        self.linear_accumulator_constraint = linear_accumulator_constraint
         self.accumulators = self._num_nodes_in = self._inferred_dimension_permutation = None
 
         if backprop_mode != BackpropMode.GRADIENT and logspace_accumulators:
@@ -81,7 +81,7 @@ class RootSum(keras.layers.Layer):
                 raise ValueError("Number of scopes and decomps must both be 1")
 
         initializer = self.accumulator_initializer
-        accumulator_constraint = self.accumulator_constraint
+        accumulator_constraint = self.linear_accumulator_constraint
         if self.logspace_accumulators:
             initializer = logspace_wrapper_initializer(initializer)
             accumulator_constraint = None
