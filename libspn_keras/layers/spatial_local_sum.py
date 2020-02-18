@@ -17,7 +17,7 @@ class SpatialLocalSum(keras.layers.Layer):
     def __init__(
         self, num_sums, logspace_accumulators=False, accumulator_initializer=None,
         backprop_mode=BackpropMode.GRADIENT, accumulator_regularizer=None,
-        accumulator_constraint=GreaterThanEpsilon(1e-10), **kwargs
+        linear_accumulator_constraint=GreaterThanEpsilon(1e-10), **kwargs
     ):
         """
         Computes a spatial local sum, i.e. all cells will have unique weights (no weight sharing
@@ -32,7 +32,8 @@ class SpatialLocalSum(keras.layers.Layer):
             backprop_mode: Backpropagation mode. Can be either GRADIENT, HARD_EM, SOFT_EM or
                 HARD_EM_UNWEIGHTED
             accumulator_regularizer: Regularizer for accumulators
-            accumulator_constraint: Constraint for accumulators
+            linear_accumulator_constraint: Constraint for accumulators (only applied if
+                log_space_accumulators==False)
             **kwargs: kwargs to pass on to the keras.Layer super class
         """
         # TODO make docstrings more consistent across different sum instances
@@ -48,7 +49,7 @@ class SpatialLocalSum(keras.layers.Layer):
         self.accumulator_initializer = accumulator_initializer or initializers.Constant(1)
         self.backprop_mode = backprop_mode
         self.accumulator_regularizer = accumulator_regularizer
-        self.accumulator_constraint = accumulator_constraint
+        self.linear_accumulator_constraint = linear_accumulator_constraint
         self.accumulators = None
 
     def build(self, input_shape):
@@ -58,7 +59,7 @@ class SpatialLocalSum(keras.layers.Layer):
         weights_shape = (num_scopes_vertical, num_scopes_horizontal, num_channels_in, self.num_sums)
 
         initializer = self.accumulator_initializer
-        accumulator_contraint = self.accumulator_constraint
+        accumulator_contraint = self.linear_accumulator_constraint
         if self.logspace_accumulators:
             initializer = logspace_wrapper_initializer(initializer)
             accumulator_contraint = None

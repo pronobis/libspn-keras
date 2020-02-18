@@ -9,7 +9,7 @@ from examples.mnist_olivetti.data import load_data
 from libspn_keras.backprop_mode import BackpropMode
 from libspn_keras.losses.negative_log_joint import NegativeLogJoint
 from libspn_keras.losses.negative_log_marginal import NegativeLogMarginal
-from libspn_keras.metrics.log_likelihood import LogMarginal
+from libspn_keras.metrics.log_marginal_likelihood import LogMarginalLikelihood
 import numpy as np
 
 
@@ -34,21 +34,21 @@ def main():
         logspace_accumulators = False
         backprop_mode = BackpropMode.HARD_EM
         loss = NegativeLogMarginal(name="NegativeLogMarginal")
-        metrics = [LogMarginal(name="LogMarginal")]
+        metrics = [LogMarginalLikelihood(name="LogMarginal")]
         optimizer = tf.keras.optimizers.SGD(lr=args.lr)
         return_weighted_child_logits = False
     elif args.mode == "generative-hard-em-unweighted":
         logspace_accumulators = False
         backprop_mode = BackpropMode.HARD_EM_UNWEIGHTED
         loss = NegativeLogMarginal(name="NegativeLogMarginal")
-        metrics = [LogMarginal(name="LogMarginal")]
+        metrics = [LogMarginalLikelihood(name="LogMarginal")]
         optimizer = tf.keras.optimizers.SGD(lr=args.lr)
         return_weighted_child_logits = False
     elif args.mode == "generative-soft-em":
         logspace_accumulators = False
         backprop_mode = BackpropMode.EM
         loss = NegativeLogMarginal(name="NegativeLogMarginal")
-        metrics = [LogMarginal(name="LogMarginal")]
+        metrics = [LogMarginalLikelihood(name="LogMarginal")]
         optimizer = tf.keras.optimizers.SGD(lr=args.lr)
         return_weighted_child_logits = False
     elif args.mode == "generative-hard-em-supervised":
@@ -56,7 +56,7 @@ def main():
         backprop_mode = BackpropMode.HARD_EM
         loss = NegativeLogJoint()
         metrics = [
-            LogMarginal(name="LogMarginal"),
+            LogMarginalLikelihood(name="LogMarginal"),
             keras.metrics.SparseCategoricalAccuracy(name="Accuracy")
         ]
         optimizer = tf.keras.optimizers.SGD(lr=args.lr)
@@ -66,7 +66,7 @@ def main():
         backprop_mode = BackpropMode.HARD_EM_UNWEIGHTED
         loss = NegativeLogJoint()
         metrics = [
-            LogMarginal(name="LogMarginal"),
+            LogMarginalLikelihood(name="LogMarginal"),
             keras.metrics.SparseCategoricalAccuracy(name="Accuracy")
         ]
         optimizer = tf.keras.optimizers.SGD(lr=args.lr)
@@ -75,7 +75,7 @@ def main():
         logspace_accumulators = True
         backprop_mode = BackpropMode.GRADIENT
         loss = NegativeLogMarginal(name="NegativeLogLikelihood")
-        metrics = [LogMarginal(name="LogMarginal")]
+        metrics = [LogMarginalLikelihood(name="LogMarginal")]
         optimizer = tf.keras.optimizers.Adam()
         return_weighted_child_logits = False
     elif args.mode == "discriminative-gd":
