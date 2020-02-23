@@ -13,7 +13,7 @@ class SumProductNetworkBase(keras.models.Model, abc.ABC):
 
     def __init__(
         self, leaf: BaseLeaf, sum_product_stack: typing.List[keras.layers.Layer],
-        with_evidence_mask=False, input_dropout_rate=None, cdf_rate=False,
+        with_evidence_mask=False, input_dropout_rate=None, cdf_rate=None,
         completion_by_posterior_marginal=False, normalization_axes=None,
         normalization_epsilon=1e-10, with_evidence_mask_for_normalization=False, **kwargs
     ):

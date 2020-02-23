@@ -2,7 +2,7 @@ from tensorflow import keras
 import tensorflow as tf
 
 from libspn_keras.backprop_mode import BackpropMode
-from libspn_keras.contraints.greater_than_epsilon import GreaterThanEpsilon
+from libspn_keras.constraints.greater_than_epsilon import GreaterThanEpsilon
 from libspn_keras.dimension_permutation import DimensionPermutation, infer_dimension_permutation
 from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.math.logmatmul import logmatmul

@@ -5,9 +5,7 @@ import tensorflow as tf
 
 class PoonDomingosMeanOfQuantileSplit(initializers.Initializer):
 
-    def __init__(self, data=None, samplewise_normalization=True, dtype=None,
-                 normalization_epsilon=1e-2):
-        self.dtype = dtype
+    def __init__(self, data=None, samplewise_normalization=True, normalization_epsilon=1e-2):
         self._data = data
         self.samplewise_normalization = samplewise_normalization
         self.normalization_epsilon = normalization_epsilon
@@ -18,9 +16,6 @@ class PoonDomingosMeanOfQuantileSplit(initializers.Initializer):
     def __call__(self, shape, dtype=None, partition_info=None):
         if self._data is None:
             raise ValueError("Must have data before calling Poon&Domingos initializer")
-
-        if dtype is None:
-            dtype = self.dtype
 
         num_quantiles = shape[-2]
 
@@ -42,7 +37,6 @@ class PoonDomingosMeanOfQuantileSplit(initializers.Initializer):
 
     def get_config(self):
         return {
-            "dtype": self.dtype.name,
             "samplewise_normalization": self.samplewise_normalization,
             "normalization_epsilon": self.normalization_epsilon
         }

@@ -9,8 +9,7 @@ class LocationScaleLeafBase(BaseLeaf):
 
     def __init__(
         self, num_components, location_initializer=None,
-        location_trainable=True, scale_initializer=None, scale_trainable=False,
-        compute_cdf=False, **kwargs
+        location_trainable=True, scale_initializer=None, scale_trainable=False, **kwargs
     ):
         """
         Computes the log probability of multiple components per variable along the final axis.
@@ -21,11 +20,9 @@ class LocationScaleLeafBase(BaseLeaf):
             location_trainable: Boolean that indicates whether location is trainable
             scale_initializer: Initializer for scale variable
             scale_trainable: Boolean that indicates whether scale is trainable
-            compute_cdf: If True, computes the log cumulative distribution function (cdf)
             **kwargs: kwargs to pass on to the keras.Layer super class
         """
-        super(LocationScaleLeafBase, self).__init__(
-            num_components=num_components, use_cdf=compute_cdf, **kwargs)
+        super(LocationScaleLeafBase, self).__init__(num_components=num_components, **kwargs)
         self.location_initializer = location_initializer or initializers.TruncatedNormal(stddev=1.0)
         self.location_trainable = location_trainable
         self.scale_initializer = scale_initializer or initializers.Ones()
@@ -73,7 +70,6 @@ class NormalLeaf(LocationScaleLeafBase):
         location_trainable: Boolean that indicates whether location is trainable
         scale_initializer: Initializer for scale variable
         scale_trainable: Boolean that indicates whether scale is trainable
-        compute_cdf: If True, computes the log cumulative distribution function (cdf)
         **kwargs: kwargs to pass on to the keras.Layer super class
     """
 
@@ -92,7 +88,6 @@ class CauchyLeaf(LocationScaleLeafBase):
         location_trainable: Boolean that indicates whether location is trainable
         scale_initializer: Initializer for scale variable
         scale_trainable: Boolean that indicates whether scale is trainable
-        compute_cdf: If True, computes the log cumulative distribution function (cdf)
         **kwargs: kwargs to pass on to the keras.Layer super class
     """
 
@@ -111,7 +106,6 @@ class LaplaceLeaf(LocationScaleLeafBase):
         location_trainable: Boolean that indicates whether location is trainable
         scale_initializer: Initializer for scale variable
         scale_trainable: Boolean that indicates whether scale is trainable
-        compute_cdf: If True, computes the log cumulative distribution function (cdf)
         **kwargs: kwargs to pass on to the keras.Layer super class
     """
 

@@ -1,5 +1,5 @@
 from libspn_keras.backprop_mode import BackpropMode
-from libspn_keras.contraints.greater_than_epsilon import GreaterThanEpsilon
+from libspn_keras.constraints.greater_than_epsilon import GreaterThanEpsilon
 from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.math.hard_em_grads import logmatmul_hard_em_through_grads_from_accumulators
 from libspn_keras.math.logmatmul import logmatmul

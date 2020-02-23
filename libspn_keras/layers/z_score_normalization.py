@@ -6,8 +6,8 @@ from libspn_keras.normalizationaxes import NormalizationAxes
 
 class ZScoreNormalization(keras.layers.Layer):
 
-    def __init__(self, with_evidence_mask=False, axes=NormalizationAxes.PER_SAMPLE,
-                 normalization_epsilon=1e-8, **kwargs):
+    def __init__(self, axes=NormalizationAxes.PER_SAMPLE, with_evidence_mask=False,
+                 normalization_epsilon=1e-8, return_mean_and_stddev=False, **kwargs):
         """
         Normalizes the input along the specified axes. Currently only supports PER_SAMPLE axes. This
         can be used to achieve the same kind of normalization as used in [Poon and Domingos (2011)]
@@ -25,6 +25,7 @@ class ZScoreNormalization(keras.layers.Layer):
         self.axes = axes
         self.with_evidence_mask = with_evidence_mask
         self.normalization_epsilon = normalization_epsilon
+        self.return_mean_and_stddev = return_mean_and_stddev
 
     def call(self, x):
         if self.with_evidence_mask:
@@ -74,7 +75,8 @@ class ZScoreNormalization(keras.layers.Layer):
         config = dict(
             normalization_epsilon=self.normalization_epsilon,
             with_evidence_mask=self.with_evidence_mask,
-            axes=self.axes
+            axes=self.axes,
+            return_mean_and_stddev=self.return_mean_and_stddev
         )
         base_config = super(ZScoreNormalization, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
