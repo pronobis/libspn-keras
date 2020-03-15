@@ -16,7 +16,7 @@ class DenseSum(keras.layers.Layer):
     def __init__(
         self, num_sums, logspace_accumulators=False, accumulator_initializer=None,
         backprop_mode=BackpropMode.GRADIENT, accumulator_regularizer=None,
-        linear_accumulator_constraint=GreaterThanEpsilon(1e-10), **kwargs
+        linear_accumulator_constraint=None, **kwargs
     ):
         """
         Computes densely connected sums per scope and decomposition. Expects incoming Tensor to be of
@@ -44,7 +44,8 @@ class DenseSum(keras.layers.Layer):
         self.accumulator_initializer = accumulator_initializer or initializers.Constant(1)
         self.backprop_mode = backprop_mode
         self.accumulator_regularizer = accumulator_regularizer
-        self.linear_accumulator_constraint = linear_accumulator_constraint
+        self.linear_accumulator_constraint = \
+            linear_accumulator_constraint or GreaterThanEpsilon(1e-10)
         self._num_decomps = self._num_scopes = self._accumulators = None
 
         if backprop_mode != BackpropMode.GRADIENT and logspace_accumulators:

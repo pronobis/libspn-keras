@@ -36,8 +36,8 @@ def load_data(dataset, spatial):
         x_train, y_train, x_test, y_test = load_olivetti()
 
     if not spatial:
-        x_train = x_train.reshape(x_train.shape[0], -1)
-        x_test = x_test.reshape(x_test.shape[0], -1)
+        x_train = x_train.reshape(x_train.shape[0], -1, 1)
+        x_test = x_test.reshape(x_test.shape[0], -1, 1)
     elif dataset != 'cifar10':
         x_train = np.expand_dims(x_train, -1)
         x_test = np.expand_dims(x_test, -1)

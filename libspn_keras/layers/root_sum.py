@@ -22,7 +22,7 @@ class RootSum(keras.layers.Layer):
         self, return_weighted_child_logits=True, logspace_accumulators=False,
         accumulator_initializer=None, backprop_mode=BackpropMode.GRADIENT,
         dimension_permutation=DimensionPermutation.AUTO, accumulator_regularizer=None,
-        linear_accumulator_constraint=GreaterThanEpsilon(1e-10), **kwargs
+        linear_accumulator_constraint=None, **kwargs
     ):
         """
         Final sum of an SPN. Expects input to be in log-space and produces log-space output.
@@ -57,7 +57,8 @@ class RootSum(keras.layers.Layer):
         self.backprop_mode = backprop_mode
         self.dimension_permutation = dimension_permutation
         self.accumulator_regularizer = accumulator_regularizer
-        self.linear_accumulator_constraint = linear_accumulator_constraint
+        self.linear_accumulator_constraint = \
+            linear_accumulator_constraint or GreaterThanEpsilon(1e-10)
         self.accumulators = self._num_nodes_in = self._inferred_dimension_permutation = None
 
         if backprop_mode != BackpropMode.GRADIENT and logspace_accumulators:

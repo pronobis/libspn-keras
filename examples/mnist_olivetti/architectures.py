@@ -10,7 +10,6 @@ from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.dense_sum import DenseSum
 from libspn_keras.layers.log_dropout import LogDropout
 from libspn_keras.layers.location_scale_leaf import NormalLeaf, CauchyLeaf, LaplaceLeaf
-from libspn_keras.layers.random_decompositions import RandomDecompositions
 from libspn_keras.layers.reshape_spatial_to_dense import ReshapeSpatialToDense
 from libspn_keras.layers.root_sum import RootSum
 from libspn_keras.layers.spatial_local_sum import SpatialLocalSum
@@ -174,15 +173,25 @@ def construct_dgcspn_model(
 
 
 def construct_ratspn_model(
-    num_vars, logspace_accumulators, backprop_mode, return_weighted_child_logits, weight_stddev
+    num_vars, logspace_accumulators, backprop_mode, return_weighted_child_logits, weight_stddev,
+    initialization_data=None, normalization_epsilon=1e-4, discriminative=False,
+    completion_by_posterior_marginal=False, with_evidence_mask=False,
 ):
     sum_product_stack = []
 
-    accumulator_initializer = tf.initializers.TruncatedNormal(mean=0.5, stddev=weight_stddev)
-    location_initializer = Equidistant(minval=-2.0, maxval=2.0)
+
+    if num_vars > 1:
+        location_initializer = initializers.TruncatedNormal(stddev=1.0)
+    elif initialization_data is not None:
+        location_initializer = PoonDomingosMeanOfQuantileSplit(
+            data=initialization_data.squeeze(), normalization_epsilon=normalization_epsilon)
+    else:
+        location_initializer = Equidistant(minval=-2.0, maxval=2.0)
+
+    accumulator_initializer = tf.initializers.TruncatedNormal(mean=1.0, stddev=weight_stddev)
 
     # The 'backbone' stack of alternating sums and products
-    region_depth = int(np.floor(np.log2(num_vars)))
+    region_depth = int(np.ceil(np.log2(num_vars))) - 1
     for i in range(region_depth):
         sum_product_stack.extend([
             DenseProduct(
@@ -198,32 +207,42 @@ def construct_ratspn_model(
             ),
         ])
 
-    sum_product_stack.extend([
+    sum_product_stack.append(
         DenseProduct(
             num_factors=2,
             name="dense_product_{}".format(region_depth)
-        ),
-        DenseSum(
+        )
+    )
+    if discriminative:
+        sum_product_stack.append(DenseSum(
             num_sums=1,
             logspace_accumulators=logspace_accumulators,
             accumulator_initializer=accumulator_initializer,
             backprop_mode=backprop_mode,
             name="dense_sum_{}".format(region_depth)
-        ),
+        ))
+
+    sum_product_stack.extend([
         Undecompose(name="undecompose"),
         RootSum(
             logspace_accumulators=logspace_accumulators,
             return_weighted_child_logits=return_weighted_child_logits,
             backprop_mode=backprop_mode,
+            dimension_permutation=DimensionPermutation.SCOPES_DECOMPS_FIRST,
             name="root"
         )
     ])
 
     return DenseSumProductNetwork(
-        decomposer=RandomDecompositions(num_decomps=10, name="decompose"),
+        num_decomps=10,
+        normalization_axes=NormalizationAxes.PER_SAMPLE,
         leaf=NormalLeaf(
             num_components=4, location_initializer=location_initializer, name="normal_leaf",
-            input_shape=(num_vars,)
+            input_shape=(num_vars,), dimension_permutation=DimensionPermutation.SCOPES_DECOMPS_FIRST
         ),
-        sum_product_stack=sum_product_stack
+        sum_product_stack=sum_product_stack,
+        completion_by_posterior_marginal=completion_by_posterior_marginal,
+        normalization_epsilon=normalization_epsilon,
+        with_evidence_mask=with_evidence_mask,
+        with_evidence_mask_for_normalization=False
     )

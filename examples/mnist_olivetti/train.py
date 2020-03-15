@@ -112,7 +112,10 @@ def main():
             leaf=args.leaf
         )
         spn_for_completion.compile(loss=loss)
-        spn_for_completion.predict([x_test[:1], np.ones(x_test[:1].shape[:-1] + (1,))])
+        if args.model == 'dgcspn':
+            spn_for_completion.predict([x_test[:1], np.ones(x_test[:1].shape[:-1] + (1,))])
+        else:
+            spn_for_completion.predict([x_test[:1], np.ones_like(x_test[:1])])
         spn_for_completion.set_weights(spn.get_weights())
 
         evaluate_completion(spn_for_completion, x_test)
@@ -142,7 +145,8 @@ def construct_spn(accumulator_regularizer, backprop_mode, logspace_accumulators,
         num_vars = x_train.shape[1]
         model = construct_ratspn_model(
             num_vars, logspace_accumulators, backprop_mode, return_weighted_child_logits,
-            args.weight_stddev
+            args.weight_stddev, completion_by_posterior_marginal=completion,
+            with_evidence_mask=with_evidence_mask, normalization_epsilon=args.normalization_epsilon
         )
     else:
         model = construct_dgcspn_model(
@@ -202,6 +206,14 @@ def evaluate_completion(model_completion, x_test):
 
 
 def build_completion_masks(x_test):
+
+    in_shape = x_test.shape
+    flatten_at_end = False
+    if len(x_test.shape) == 3:
+        side = int(np.sqrt(x_test.shape[1]))
+        flatten_at_end = True
+        x_test = x_test.reshape(x_test.shape[0], side, side, x_test.shape[-1])
+
     mask = np.ones(x_test.shape[:-1] + (1,)).astype(bool)
     mask_left, mask_right, mask_top, mask_bottom = [mask.copy() for _ in range(4)]
     mid = int(np.sqrt(np.prod(x_test.shape[1:3]))) // 2
@@ -209,6 +221,11 @@ def build_completion_masks(x_test):
     mask_right[:, :, mid:, :] = False
     mask_top[:, :mid, :, :] = False
     mask_bottom[:, mid:, :, :] = False
+
+    if flatten_at_end:
+        s = in_shape[:-1] + (1,)
+        return mask_bottom.reshape(s), mask_left.reshape(s), \
+           mask_right.reshape(s), mask_top.reshape(s)
     return mask_bottom, mask_left, mask_right, mask_top
 
 
