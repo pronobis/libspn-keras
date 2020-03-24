@@ -2,18 +2,17 @@ from tensorflow import keras
 import tensorflow as tf
 
 
-class LeadingScopesAndDecomps(keras.layers.Layer):
+class ToRegions(keras.layers.Layer):
+    """
+    Reshapes a flat input of shape [batch, num_vars[, var_dimensionality]]
+        to [num_vars == scopes, decomp, batch, var_dimensionality]
 
+    Args:
+        **kwargs: Keyword arguments to pass on the keras.Layer super class
+    """
     def __init__(self, num_decomps, **kwargs):
-        """
-        Reshapes a flat input of shape [batch, num_vars[, var_dimensionality]]
-            to [num_vars == scopes, decomp, batch, var_dimensionality]
-
-        Args:
-            **kwargs: Keyword arguments to pass on the keras.Layer super class
-        """
         self.num_decomps = num_decomps
-        super(LeadingScopesAndDecomps, self).__init__(**kwargs)
+        super(ToRegions, self).__init__(**kwargs)
 
     def call(self, inputs):
         if len(inputs.shape) == 2:
@@ -36,5 +35,5 @@ class LeadingScopesAndDecomps(keras.layers.Layer):
         config = dict(
             num_decomps=self.num_decomps
         )
-        base_config = super(LeadingScopesAndDecomps, self).get_config()
+        base_config = super(ToRegions, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))

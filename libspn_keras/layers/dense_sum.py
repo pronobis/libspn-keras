@@ -12,32 +12,31 @@ import tensorflow as tf
 
 
 class DenseSum(keras.layers.Layer):
+    """
+    Computes densely connected sums per scope and decomposition. Expects incoming Tensor to be of
+    shape [num_scopes, num_decomps, num_batch, num_nodes]. If your input is passed through a
+    Decompose node this is already taken care of.
 
+    Args:
+        num_sums: Number of sums per scope
+        logspace_accumulators: Whether to use a log-space representation in the trainable
+            accumulators. Should be set to False when using EM backpropgation modes. Should
+            be set to True for Gradient backpropagation.
+        accumulator_initializer: Initializer for accumulator. Will automatically be converted
+            to log-space values if ``logspace_accumulators`` is enabled.
+        backprop_mode: Backpropagation mode can be BackpropMode.GRADIENT, BackpropMode.HARD_EM,
+            BackpropMode.HARD_EM_UNWEIGHTED or BackpropMode.SOFT_EM.
+        accumulator_regularizer: Regularizer for accumulator (experimental)
+        linear_accumulator_constraint: Constraint for accumulator defaults to constraint that
+            ensures small positive constant at minimum. Will be ignored if logspace_accumulators
+            is set to True.
+        **kwargs: kwargs to pass on to keras.Layer super class
+    """
     def __init__(
         self, num_sums, logspace_accumulators=False, accumulator_initializer=None,
         backprop_mode=BackpropMode.GRADIENT, accumulator_regularizer=None,
         linear_accumulator_constraint=None, **kwargs
     ):
-        """
-        Computes densely connected sums per scope and decomposition. Expects incoming Tensor to be of
-        shape [num_scopes, num_decomps, num_batch, num_nodes]. If your input is passed through a
-        Decompose node this is already taken care of.
-
-        Args:
-            num_sums: Number of sums per scope
-            logspace_accumulators: Whether to use a log-space representation in the trainable
-                accumulators. Should be set to False when using EM backpropgation modes. Should
-                be set to True for Gradient backpropagation.
-            accumulator_initializer: Initializer for accumulator. Will automatically be converted
-                to log-space values if ``logspace_accumulators`` is enabled.
-            backprop_mode: Backpropagation mode can be BackpropMode.GRADIENT, BackpropMode.HARD_EM,
-                BackpropMode.HARD_EM_UNWEIGHTED or BackpropMode.SOFT_EM.
-            accumulator_regularizer: Regularizer for accumulator (experimental)
-            linear_accumulator_constraint: Constraint for accumulator defaults to constraint that
-                ensures small positive constant at minimum. Will be ignored if logspace_accumulators
-                is set to True.
-            **kwargs: kwargs to pass on to keras.Layer super class
-        """
         super(DenseSum, self).__init__(**kwargs)
         self.num_sums = num_sums
         self.logspace_accumulators = logspace_accumulators
@@ -94,7 +93,6 @@ class DenseSum(keras.layers.Layer):
         return num_scopes, num_decomps, num_batch, self.num_sums
 
     def get_config(self):
-        # TODO serialize regularizer and more of the init class
         config = dict(
             num_sums=self.num_sums,
             accumulator_initializer=initializers.serialize(self.accumulator_initializer),

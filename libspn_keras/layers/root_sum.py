@@ -17,39 +17,38 @@ import numpy as np
 
 
 class RootSum(keras.layers.Layer):
+    """
+    Final sum of an SPN. Expects input to be in log-space and produces log-space output.
 
+    Args:
+        return_weighted_child_logits: If True, returns a weighted child log probability, which
+            can be used for e.g. (Sparse)CategoricalCrossEntropy losses. If False, computes
+            the weighted sum of the input, which effectively is the log probability of the
+            distribution defined by the SPN.
+        logspace_accumulators: If True, accumulators will be represented in log-space which
+            is typically used with BackpropMode.GRADIENT. If False, accumulators will be
+            represented in linear space. Weights are computed by normalizing the accumulators
+            per sum, so that we always end up with a normalized SPN.
+        accumulator_initializer: Initializer for accumulator. If None, defaults to
+            initializers.Constant(1.0)
+        backprop_mode: Backpropagation mode. Can be either BackpropMode.GRADIENT,
+            BackpropMode.HARD_EM, BackpropMode.SOFT_EM or BackpropMode.HARD_EM_UNWEIGHTED
+        dimension_permutation: Dimension permutation. If DimensionPermutation.AUTO, the layer
+            will try to infer it from the input tensors during the graph build phase. If needed,
+            it can be changed to DimensionPermutation.BATCH_FIRST for e.g. spatial SPNs or
+            DimensionPermutation.SCOPES_DECOMPS_FIRST for dense SPNs.
+        accumulator_regularizer: Regularizer for accumulator.
+        linear_accumulator_constraint: Constraint for linear accumulators. Defaults to a
+            constraint that ensures a minimum of a small positive constant. If
+            logspace_accumulators is set to True, this constraint wil be ignored
+        **kwargs: kwargs to pass on to the keras.Layer super class
+    """
     def __init__(
         self, return_weighted_child_logits=True, logspace_accumulators=False,
         accumulator_initializer=None, backprop_mode=BackpropMode.GRADIENT,
         dimension_permutation=DimensionPermutation.AUTO, accumulator_regularizer=None,
         linear_accumulator_constraint=None, **kwargs
     ):
-        """
-        Final sum of an SPN. Expects input to be in log-space and produces log-space output.
-
-        Args:
-            return_weighted_child_logits: If True, returns a weighted child log probability, which
-                can be used for e.g. (Sparse)CategoricalCrossEntropy losses. If False, computes
-                the weighted sum of the input, which effectively is the log probability of the
-                distribution defined by the SPN.
-            logspace_accumulators: If True, accumulators will be represented in log-space which
-                is typically used with BackpropMode.GRADIENT. If False, accumulators will be
-                represented in linear space. Weights are computed by normalizing the accumulators
-                per sum, so that we always end up with a normalized SPN.
-            accumulator_initializer: Initializer for accumulator. If None, defaults to
-                initializers.Constant(1.0)
-            backprop_mode: Backpropagation mode. Can be either BackpropMode.GRADIENT,
-                BackpropMode.HARD_EM, BackpropMode.SOFT_EM or BackpropMode.HARD_EM_UNWEIGHTED
-            dimension_permutation: Dimension permutation. If DimensionPermutation.AUTO, the layer
-                will try to infer it from the input tensors during the graph build phase. If needed,
-                it can be changed to DimensionPermutation.BATCH_FIRST for e.g. spatial SPNs or
-                DimensionPermutation.SCOPES_DECOMPS_FIRST for dense SPNs.
-            accumulator_regularizer: Regularizer for accumulator.
-            linear_accumulator_constraint: Constraint for linear accumulators. Defaults to a
-                constraint that ensures a minimum of a small positive constant. If
-                logspace_accumulators is set to True, this constraint wil be ignored
-            **kwargs: kwargs to pass on to the keras.Layer super class
-        """
         super(RootSum, self).__init__(**kwargs)
         self.return_weighted_child_logits = return_weighted_child_logits
         self.accumulator_initializer = accumulator_initializer or initializers.Constant(1.0)
@@ -123,7 +122,16 @@ class RootSum(keras.layers.Layer):
                 x_squeezed, tf.expand_dims(log_weights_normalized, axis=1))
 
     def compute_output_shape(self, input_shape):
-        num_batch, num_nodes_in = input_shape
+        if len(input_shape) == 2:
+            num_batch, num_nodes_in = input_shape
+        else:
+            inferred_dimension_permutation = infer_dimension_permutation(input_shape) \
+                if self.dimension_permutation == DimensionPermutation.AUTO \
+                else self.dimension_permutation
+            if inferred_dimension_permutation == DimensionPermutation.BATCH_FIRST:
+                num_batch, _, _, num_nodes_in = input_shape
+            else:
+                _, _, num_batch, num_nodes_in = input_shape
         if self.return_weighted_child_logits:
             return [num_batch, num_nodes_in]
         else:

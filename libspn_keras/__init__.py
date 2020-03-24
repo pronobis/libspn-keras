@@ -8,6 +8,10 @@ from libspn_keras import metrics
 from libspn_keras import losses
 from libspn_keras import layers
 from libspn_keras import constraints
+from libspn_keras.region import RegionNode
+from libspn_keras.region import RegionVariable
+from libspn_keras.region import region_graph_to_dense_spn
+from libspn_keras.visualize import visualize_dense_spn
 
 __all__ = [
     'BackpropMode',
@@ -20,5 +24,9 @@ __all__ = [
     'metrics',
     'losses',
     'layers',
-    'constraints'
+    'constraints',
+    'RegionNode',
+    'RegionVariable',
+    'region_graph_to_dense_spn',
+    'visualize_dense_spn'
 ]

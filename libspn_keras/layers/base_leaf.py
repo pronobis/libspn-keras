@@ -51,10 +51,10 @@ class BaseLeaf(keras.layers.Layer):
             else self.dimension_permutation
         if inferred_dimension_permutation == DimensionPermutation.BATCH_FIRST:
             _, *scope_and_decomp_dims, _ = input_shape
-            out_shape = (None,) + scope_and_decomp_dims + (self.num_components,)
+            out_shape = [None] + scope_and_decomp_dims + [self.num_components]
         else:
             *scope_and_decomp_dims, _, _ = input_shape
-            out_shape = scope_and_decomp_dims + (None, self.num_components,)
+            out_shape = scope_and_decomp_dims + [None, self.num_components]
 
         return out_shape
 
