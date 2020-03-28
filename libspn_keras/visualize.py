@@ -4,7 +4,7 @@ import operator
 from collections import OrderedDict
 import numpy as np
 
-from libspn_keras.layers import DenseSum, DenseProduct, RootSum, ToRegions, PermuteAndPadScopes
+from libspn_keras.layers import DenseSum, DenseProduct, RootSum, FlatToRegions, PermuteAndPadScopes
 import colorlover as cl
 import plotly.graph_objects as go
 
@@ -37,7 +37,7 @@ def _assemble_dense_spn_figure(dense_spn, show_padding=True):
     names = []
     for layer_index, layer in enumerate(dense_spn.layers):
 
-        if isinstance(layer, ToRegions):
+        if isinstance(layer, FlatToRegions):
             continue
 
         if isinstance(layer, RootSum):

@@ -57,7 +57,7 @@ def build_sum_product_network(backprop_mode):
             num_components=4,
             location_trainable=False,
             scale_trainable=False,
-            dimension_permutation=spn.DimensionPermutation.BATCH_FIRST,
+            dimension_permutation=spn.DimensionPermutation.SPATIAL,
             location_initializer=location_initializer
         ),
         # Non-overlapping products
@@ -122,12 +122,12 @@ def build_sum_product_network(backprop_mode):
             kernel_size=[2, 2],
             padding='final'
         ),
-        layers.ReshapeSpatialToDense(),
+        layers.SpatialToRegions(),
         layers.RootSum(
             return_weighted_child_logits=False,
             logspace_accumulators=False,
             backprop_mode=backprop_mode,
-            dimension_permutation=spn.dimension_permutation.DimensionPermutation.SCOPES_DECOMPS_FIRST,
+            dimension_permutation=spn.dimension_permutation.DimensionPermutation.REGIONS,
             accumulator_initializer=initializers.EpsilonInverseFanIn(
                 axis=0, epsilon=1e-4)
         )

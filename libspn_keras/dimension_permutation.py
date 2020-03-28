@@ -1,7 +1,7 @@
 class DimensionPermutation:
     AUTO = 'auto'
-    BATCH_FIRST = 'batch_first'
-    SCOPES_DECOMPS_FIRST = 'scopes_decomps_first'
+    SPATIAL = 'spatial'
+    REGIONS = 'regions'
 
 
 def infer_dimension_permutation(shape):
@@ -22,9 +22,9 @@ def infer_dimension_permutation(shape):
     none_index = list(shape).index(None)
 
     if none_index == 0:
-        return DimensionPermutation.BATCH_FIRST
+        return DimensionPermutation.SPATIAL
     elif none_index == 2:
-        return DimensionPermutation.SCOPES_DECOMPS_FIRST
+        return DimensionPermutation.REGIONS
     else:
-        raise ValueError("Index of dynamically sized dimension was neither 0 (BATCH_FIRST) "
-                         "nor 2 (SCOPES_DECOMPS_FIRST).")
+        raise ValueError("Index of dynamically sized dimension was neither 0 (SPATIAL) "
+                         "nor 2 (REGIONS).")

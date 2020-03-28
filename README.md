@@ -128,7 +128,7 @@ sum_product_network = keras.Sequential([
       kernel_size=[2, 2],
       padding='final'
   ),
-  layers.ReshapeSpatialToDense(),
+  layers.SpatialToRegions(),
   # Class roots
   layers.DenseSum(num_sums=10, **sum_kwargs),
   layers.RootSum(

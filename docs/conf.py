@@ -34,7 +34,7 @@ author = 'Jos van de Wolfshaar, Andrzej Pronobis'
 # The full version, including alpha/beta/rc tags
 release = '0.1.0'
 
-sys.path.append(os.path.abspath('sphinxext'))
+# sys.path.append(os.path.abspath('sphinxext'))
 
 
 # -- General configuration ---------------------------------------------------
@@ -55,7 +55,7 @@ templates_path = ['_templates']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
+exclude_patterns = ['requirements.txt']
 
 
 # -- Options for HTML output -------------------------------------------------

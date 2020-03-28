@@ -10,7 +10,7 @@ from tensorflow_core.python.keras.constraints import Constraint
 
 from libspn_keras import BackpropMode
 from libspn_keras.layers import DenseSum, DenseProduct, RootSum, BaseLeaf
-from libspn_keras.layers.to_regions import ToRegions
+from libspn_keras.layers.flat_to_regions import FlatToRegions
 from libspn_keras.layers.permute_and_pad_scopes import PermuteAndPadScopes
 import tensorflow as tf
 
@@ -135,7 +135,7 @@ def region_graph_to_dense_spn(
         ))
 
     pre_stack = [
-        ToRegions(num_decomps=1, input_shape=[len(_collect_variable_nodes(region_graph_root))]),
+        FlatToRegions(num_decomps=1, input_shape=[len(_collect_variable_nodes(region_graph_root))]),
         leaf_node,
         PermuteAndPadScopes(num_decomps=1, permutations=np.asarray([permutation]))
     ]
