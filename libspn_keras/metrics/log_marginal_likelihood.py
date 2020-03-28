@@ -4,8 +4,9 @@ import tensorflow as tf
 
 class LogMarginalLikelihood(keras.metrics.Mean):
     """
-    Computes log marginal log(p(X)) assuming that the last layer of the SPN is a RootSum. It ignores
-    the y_true argument, as a target for Y is absent in generative learning.
+    Computes log marginal :math:`1/N \sum \log(p(X))` assuming that the last layer of the SPN
+    is a ``RootSum``. It ignores the ``y_true`` argument, as a target for :math:`Y` is absent in
+    generative learning.
     """
 
     def __init__(self, name='log_marginal', **kwargs):

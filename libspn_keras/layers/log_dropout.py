@@ -8,7 +8,10 @@ class LogDropout(keras.layers.Layer):
     """
     Log dropout layer. Applies dropout in log-space. Should not precede product layers in an
     SPN, since their scope probability then potentially becomes -inf, resulting in NaN-values
-    during training. Expects inputs to be in log-space and produces log-space outputs.
+    during training.
+
+    Notes:
+        Expects inputs to be in log-space and produces log-space outputs.
 
     Args:
         rate: Rate at which to randomly dropout inputs.

@@ -2,7 +2,7 @@ from tensorflow import keras
 import tensorflow as tf
 
 from libspn_keras.backprop_mode import BackpropMode
-from libspn_keras.constraints.greater_than_epsilon import GreaterThanEpsilon
+from libspn_keras.constraints.greater_equal_epsilon import GreaterEqualEpsilon
 from libspn_keras.dimension_permutation import DimensionPermutation, infer_dimension_permutation
 from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.math.logmatmul import logmatmul
@@ -19,6 +19,9 @@ import numpy as np
 class RootSum(keras.layers.Layer):
     """
     Final sum of an SPN. Expects input to be in log-space and produces log-space output.
+
+    Notes:
+        Expects inputs to be in log-space and produces log-space outputs.
 
     Args:
         return_weighted_child_logits: If True, returns a weighted child log probability, which
@@ -57,7 +60,7 @@ class RootSum(keras.layers.Layer):
         self.dimension_permutation = dimension_permutation
         self.accumulator_regularizer = accumulator_regularizer
         self.linear_accumulator_constraint = \
-            linear_accumulator_constraint or GreaterThanEpsilon(1e-10)
+            linear_accumulator_constraint or GreaterEqualEpsilon(1e-10)
         self.accumulators = self._num_nodes_in = self._inferred_dimension_permutation = None
 
         if backprop_mode != BackpropMode.GRADIENT and logspace_accumulators:

@@ -5,12 +5,15 @@ from tensorflow import keras
 class ReduceProduct(keras.layers.Layer):
     """
     Computes products per decomposition and scope by reduction. Assumes the
-    incoming tensor is of shape [num_scopes, num_decomps, num_batch, num_nodes] and produces an
-    output of [num_scopes // num_factors, num_decomps, num_batch, num_nodes].
+    incoming tensor is of shape ``[num_scopes, num_decomps, num_batch, num_nodes]`` and produces an
+    output of ``[num_scopes // num_factors, num_decomps, num_batch, num_nodes]``.
+
+    Notes:
+        Expects inputs to be in log-space and produces log-space outputs.
 
     Args:
         num_factors: Number of factors per product
-        **kwargs: kwargs to pass on to the keras.Layer super class
+        **kwargs: kwargs to pass on to the keras.Layer super class.
     """
     def __init__(self, num_factors, **kwargs):
         super(ReduceProduct, self).__init__(**kwargs)

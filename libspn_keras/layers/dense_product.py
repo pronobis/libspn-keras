@@ -8,11 +8,13 @@ class DenseProduct(keras.layers.Layer):
 
     """
     Computes products per decomposition and scope by an 'n-order' outer product. Assumes the
-    incoming tensor is of shape [num_scopes, num_decomps, num_batch, num_nodes] and produces an
-    output of [num_scopes // num_factors, num_decomps, num_batch, num_nodes ** num_factors].
+    incoming tensor is of shape ``[num_scopes, num_decomps, num_batch, num_nodes]`` and produces an
+    output of ``[num_scopes // num_factors, num_decomps, num_batch, num_nodes ** num_factors]``. It
+    can be considered a *dense* product as it computes all possible products given the scopes it has
+    to merge.
 
     Args:
-        num_factors: Number of factors per product
+        num_factors (int): Number of factors per product
         **kwargs: kwargs to pass on to the keras.Layer super class
     """
     def __init__(self, num_factors, **kwargs):

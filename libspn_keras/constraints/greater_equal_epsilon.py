@@ -2,15 +2,14 @@ from tensorflow.keras.constraints import Constraint
 import tensorflow as tf
 
 
-class GreaterThanEpsilon(Constraint):
+class GreaterEqualEpsilon(Constraint):
+    """
+    Constraints the weight to be greater than or equal to epsilon.
 
-    def __init__(self, epsilon=1e-8):
-        """
-        Constraints the weight to be greater than some small non zero epsilon
-
-        Args:
-            epsilon: Small non-zero constant
-        """
+    Args:
+        epsilon: Constant, usually small non-zero
+    """
+    def __init__(self, epsilon: float = 1e-8):
         self.epsilon = epsilon
 
     def __call__(self, w):

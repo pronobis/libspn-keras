@@ -5,7 +5,7 @@ from libspn_keras.math.logmatmul import logmatmul
 
 def logmultiply_hard_em(child_log_prob, linear_accumulators):
     """
-    Log multiplication (i.e. addition) for a root sum node where we pass on
+    Log multiplication (i.e. addition) for a region_graph_root sum node where we pass on
     Args:
         child_log_prob: Log probability of child
         linear_accumulators: accumulator in linear space.

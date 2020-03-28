@@ -6,8 +6,14 @@ import tensorflow as tf
 
 class IndicatorLeaf(BaseLeaf):
     """
-    Indicator leaf distribution that takes integer inputs and simply copmutes a one-hot
-    representation of it.
+    Indicator leaf distribution that takes integer inputs and computes a discrete indicator
+    representation. This effectively comes down to computing a one-hot representation along the
+    final axis.
+
+    Args:
+        num_components (int): Number of components, or indicators in this context.
+        dtype: Dtype of input
+        **kwargs: Kwargs to pass onto the ``keras.layers.Layer`` superclass.
     """
 
     def __init__(self, num_components, dtype=tf.int32, **kwargs):

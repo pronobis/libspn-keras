@@ -3,8 +3,22 @@ import tensorflow as tf
 
 
 class EpsilonInverseFanIn(initializers.Initializer):
+    """
+    Initializes all values in a tensor with
+    :math:`\epsilon K^{-1}`
+    where :math:`K` is the dimension at ``axis``.
 
-    def __init__(self, axis, epsilon=1e-3, dtype=None):
+    This is particularly useful for (unweighted) hard EM learning and should generally be avoided
+    otherwise.
+
+    Args:
+        axis: The axis for input nodes so that :math:`K^{-1}` is the inverse fan in. Usually,
+            this is ``-2``.
+        epsilon: A small non-zero constant
+        dtype: dtype of initial values
+    """
+
+    def __init__(self, axis: int, epsilon: float = 1e-3, dtype=None):
         self.dtype = dtype
         self.axis = axis
         self.epsilon = epsilon

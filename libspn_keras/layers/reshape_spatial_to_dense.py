@@ -5,15 +5,8 @@ import tensorflow as tf
 class ReshapeSpatialToDense(keras.layers.Layer):
     """
     Reshapes spatial SPN layer to a dense layer. The dense output has leading dimensions for
-    scopes and decomps (which will be [1, 1]).
-
-    Args:
-        **kwargs: Keyword arguments to pass on the keras.Layer super class
+    scopes and decomps (which will be ``[1, 1]``).
     """
-    def __init__(self, **kwargs):
-
-        super(ReshapeSpatialToDense, self).__init__(**kwargs)
-
     def call(self, inputs):
         return tf.reshape(inputs, [1, 1, -1, self._num_nodes_out])
 

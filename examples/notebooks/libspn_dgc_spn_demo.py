@@ -36,45 +36,45 @@ spn = keras.Sequential([
       location_initializer=keras.initializers.TruncatedNormal(
           stddev=1.0, mean=0.0)
   ),
-  layers.ConvProduct(
+  layers.Conv2DProduct(
       depthwise=True, 
       strides=[2, 2], 
       dilations=[1, 1], 
       kernel_size=[2, 2]
   ),
-  layers.SpatialLocalSum(num_sums=16, **sum_kwargs),
-  layers.ConvProduct(
+  layers.Local2DSum(num_sums=16, **sum_kwargs),
+  layers.Conv2DProduct(
       depthwise=True, 
       strides=[2, 2], 
       dilations=[1, 1], 
       kernel_size=[2, 2]
   ),
-  layers.SpatialLocalSum(num_sums=32, **sum_kwargs),
-  layers.ConvProduct(
+  layers.Local2DSum(num_sums=32, **sum_kwargs),
+  layers.Conv2DProduct(
       depthwise=True, 
       strides=[1, 1], 
       dilations=[1, 1], 
       kernel_size=[2, 2],
       padding='full'
   ),
-  layers.SpatialLocalSum(num_sums=32, **sum_kwargs),
-  layers.ConvProduct(
+  layers.Local2DSum(num_sums=32, **sum_kwargs),
+  layers.Conv2DProduct(
       depthwise=True, 
       strides=[1, 1], 
       dilations=[2, 2], 
       kernel_size=[2, 2],
       padding='full'
   ),
-  layers.SpatialLocalSum(num_sums=64, **sum_kwargs),
-  layers.ConvProduct(
+  layers.Local2DSum(num_sums=64, **sum_kwargs),
+  layers.Conv2DProduct(
       depthwise=True, 
       strides=[1, 1], 
       dilations=[4, 4], 
       kernel_size=[2, 2],
       padding='full'
   ),
-  layers.SpatialLocalSum(num_sums=64, **sum_kwargs),
-  layers.ConvProduct(
+  layers.Local2DSum(num_sums=64, **sum_kwargs),
+  layers.Conv2DProduct(
       depthwise=True, 
       strides=[1, 1], 
       dilations=[8, 8], 

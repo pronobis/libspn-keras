@@ -5,7 +5,7 @@ from tensorflow.keras import initializers
 
 class PermuteAndPadScopes(keras.layers.Layer):
     """
-    Permutes scopes, usually applied after a ToRegions and a BaseLeaf layer.
+    Permutes scopes, usually applied after a ``ToRegions`` and a ``BaseLeaf`` layer.
 
     Args:
         num_decomps: Number of decompositions

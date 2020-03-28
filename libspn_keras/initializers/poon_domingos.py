@@ -4,18 +4,32 @@ import tensorflow as tf
 
 
 class PoonDomingosMeanOfQuantileSplit(initializers.Initializer):
+    """
+    Initializes the data according to the algorithm described in (Poon and Domingos, 2011).
+
+    The data is divided over :math:`K` quantiles where :math:`K` is the number of nodes along
+    the last axis of the tensor to be initialized. The quantiles are computed over all samples
+    in the provided ``data``. Then, the mean per quantile is taken as the value for
+    initialization.
+
+    Args:
+        data (numpy.ndarray): Data to compute quantiles over
+        samplewise_normalization: Whether to 'Z-score normalize' the data sample-wise before
+            computing the quantiles and means.
+        normalization_epsilon: Non-zero constant to account for near-zero standard deviations in
+            normalizations.
+
+    References:
+        Sum-Product Networks, a New Deep Architecture
+        `Poon and Domingos, 2011 <https://arxiv.org/abs/1202.3732>`_
+    """
 
     def __init__(self, data=None, samplewise_normalization=True, normalization_epsilon=1e-2):
         self._data = data
         self.samplewise_normalization = samplewise_normalization
         self.normalization_epsilon = normalization_epsilon
 
-    def feed_data(self, data):
-        self._data = data
-
     def __call__(self, shape, dtype=None, partition_info=None):
-        if self._data is None:
-            raise ValueError("Must have data before calling Poon&Domingos initializer")
 
         num_quantiles = shape[-2]
 

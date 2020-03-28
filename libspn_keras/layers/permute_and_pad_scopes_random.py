@@ -11,11 +11,17 @@ logger = logging.getLogger('libspn-keras')
 
 class PermuteAndPadScopesRandom(PermuteAndPadScopes):
     """
-    Permutes scopes, usually applied after a ReshapeFlatToScopeDecompFirst and a BaseLeaf layer.
+    Permutes scopes, usually applied after a ``ToRegions`` and a ``BaseLeaf`` layer.
 
     Args:
-        permutations: If not None, will override random permutations
-        **kwargs: kwargs to pass on to the keras.Layer superclass.
+        num_decomps: Number of decompositions to generate permutations for
+        factors (list of ints): Number of factors in preceding product layers. Needed to compute
+            the effective number of scopes, including padded nodes. Can be applied at later stage
+            through ``generate_factors``.
+        **kwargs: kwargs to pass on to the ``keras.Layer`` superclass.
+
+    Notes:
+        Expects inputs to be in log-space and produces log-space outputs.
     """
     def __init__(self, num_decomps, factors=None, num_vars_spn_input=None, **kwargs):
         super(PermuteAndPadScopesRandom, self).__init__(num_decomps, **kwargs)

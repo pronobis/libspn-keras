@@ -7,9 +7,9 @@ import logging
 logger = logging.getLogger("libspn-keras")
 
 
-class ConvProduct(keras.layers.Layer):
+class Conv2DProduct(keras.layers.Layer):
     """
-    Convolutional product as described in [Van de Wolfshaar, Pronobis (2019)]. Expects
+    Convolutional product as described in (Van de Wolfshaar and Pronobis, 2019). Expects
     log-space inputs and produces log-space outputs.
 
     Args:
@@ -26,12 +26,16 @@ class ConvProduct(keras.layers.Layer):
         depthwise: Whether to use depthwise convolutions. If True, the value of num_channels
             will be ignored
         **kwargs: Keyword arguments to pass on to the keras.Layer superclass.
+
+    References:
+        Deep Generalized Convolutional Sum-Product Networks for Probabilistic Image Representations,
+        `Van de Wolfshaar, Pronobis (2019) <https://arxiv.org/abs/1902.06155>`_
     """
     def __init__(
         self, strides, dilations, kernel_size, num_channels=None, padding='valid', depthwise=False,
         **kwargs
     ):
-        super(ConvProduct, self).__init__(**kwargs)
+        super(Conv2DProduct, self).__init__(**kwargs)
         self.strides = strides
         self.dilations = dilations
         self.num_channels = num_channels
@@ -45,7 +49,7 @@ class ConvProduct(keras.layers.Layer):
             self._build_depthwise(input_shape)
         else:
             self._build_onehot_kernels(input_shape)
-        super(ConvProduct, self).build(input_shape)
+        super(Conv2DProduct, self).build(input_shape)
 
     def _build_onehot_kernels(self, input_shape):
         num_batch, num_scopes_vertical, num_scopes_horizontal, num_channels_in = input_shape
@@ -241,5 +245,5 @@ class ConvProduct(keras.layers.Layer):
             kernel_size=self.kernel_size,
             depthwise=self.depthwise
         )
-        base_config = super(ConvProduct, self).get_config()
+        base_config = super(Conv2DProduct, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))

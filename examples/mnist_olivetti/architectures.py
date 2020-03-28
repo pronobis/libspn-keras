@@ -5,14 +5,14 @@ from libspn_keras.dimension_permutation import DimensionPermutation
 from libspn_keras.initializers.epsilon_inverse_fan_in import EpsilonInverseFanIn
 from libspn_keras.initializers.equidistant import Equidistant
 from libspn_keras.initializers.poon_domingos import PoonDomingosMeanOfQuantileSplit
-from libspn_keras.layers.conv_product import ConvProduct
+from libspn_keras.layers.conv2d_product import Conv2DProduct
 from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.dense_sum import DenseSum
 from libspn_keras.layers.log_dropout import LogDropout
 from libspn_keras.layers.location_scale_leaf import NormalLeaf, CauchyLeaf, LaplaceLeaf
 from libspn_keras.layers.reshape_spatial_to_dense import ReshapeSpatialToDense
 from libspn_keras.layers.root_sum import RootSum
-from libspn_keras.layers.spatial_local_sum import SpatialLocalSum
+from libspn_keras.layers.local2d_sum import Local2DSum
 from libspn_keras.layers.undecompose import Undecompose
 from libspn_keras.models import SpatialSumProductNetwork, DenseSumProductNetwork
 from libspn_keras.normalizationaxes import NormalizationAxes
@@ -103,7 +103,7 @@ def construct_dgcspn_model(
     # The 'backbone' stack of alternating sums and products
     for _ in range(config.num_non_overlapping):
         sum_product_stack.append(
-            ConvProduct(
+            Conv2DProduct(
                 strides=[2, 2], dilations=[1, 1], kernel_size=[2, 2], padding='valid',
                 depthwise=next(config.depthwise), num_channels=next(config.prod_num_channels)
             )
@@ -112,13 +112,13 @@ def construct_dgcspn_model(
             sum_product_stack.append(LogDropout(rate=dropout_rate))
 
         sum_product_stack.append(
-            SpatialLocalSum(num_sums=next(config.sum_num_channels), **sum_kwargs)
+            Local2DSum(num_sums=next(config.sum_num_channels), **sum_kwargs)
         )
 
     stack_size = int(np.ceil(np.log2(spatial_dims // 2 ** config.num_non_overlapping)))
     for i in range(stack_size):
         sum_product_stack.append(
-            ConvProduct(
+            Conv2DProduct(
                 strides=[1, 1], dilations=[2 ** i, 2 ** i], kernel_size=[2, 2], padding='full',
                 depthwise=next(config.depthwise), num_channels=next(config.prod_num_channels)
             ),
@@ -128,11 +128,11 @@ def construct_dgcspn_model(
             sum_product_stack.append(LogDropout(rate=dropout_rate))
 
         sum_product_stack.append(
-            SpatialLocalSum(num_sums=next(config.sum_num_channels), **sum_kwargs)
+            Local2DSum(num_sums=next(config.sum_num_channels), **sum_kwargs)
         )
 
     sum_product_stack.append(
-        ConvProduct(
+        Conv2DProduct(
             strides=[1, 1], dilations=[2 ** stack_size, 2 ** stack_size], kernel_size=[2, 2],
             padding='final', depthwise=next(config.depthwise),
             num_channels=next(config.prod_num_channels)
@@ -229,7 +229,7 @@ def construct_ratspn_model(
             return_weighted_child_logits=return_weighted_child_logits,
             backprop_mode=backprop_mode,
             dimension_permutation=DimensionPermutation.SCOPES_DECOMPS_FIRST,
-            name="root"
+            name="region_graph_root"
         )
     ])
 
