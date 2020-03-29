@@ -7,6 +7,9 @@ a straightforward Keras-compatible interface.
 
 ![](logo.png "LibSPN Keras logo")
 
+## Documentation
+The documentation of the library is hosted on [ReadTheDocs](https://libspn-keras.readthedocs.io/en/latest/README.html).
+
 ## What are SPNs?
 
 Sum-Product Networks (SPNs) are a probabilistic deep architecture with solid theoretical 
