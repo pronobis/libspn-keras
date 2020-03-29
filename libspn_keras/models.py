@@ -5,7 +5,7 @@ from tensorflow import keras
 from libspn_keras.layers.bernoulli_condition import BernoulliCondition
 from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.base_leaf import BaseLeaf
-from libspn_keras.layers.to_regions import ToRegions
+from libspn_keras.layers.flat_to_regions import FlatToRegions
 from libspn_keras.layers.permute_and_pad_scopes import PermuteAndPadScopes
 from libspn_keras.layers.z_score_normalization import ZScoreNormalization
 import tensorflow as tf
@@ -171,7 +171,7 @@ class DenseSumProductNetwork(SumProductNetworkBase):
                          completion_by_posterior_marginal, normalization_axes,
                          normalization_epsilon, with_evidence_mask_for_normalization, **kwargs)
         self.scope_permuter = PermuteAndPadScopes(num_decomps=num_decomps)
-        self.leading_scopes_and_decomps = ToRegions(num_decomps=num_decomps)
+        self.leading_scopes_and_decomps = FlatToRegions(num_decomps=num_decomps)
 
     def _maybe_apply_input_dropout(self, leaf_out):
         if self.input_dropout_rate is not None:

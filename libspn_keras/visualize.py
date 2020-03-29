@@ -4,9 +4,89 @@ import operator
 from collections import OrderedDict
 import numpy as np
 
-from libspn_keras.layers import DenseSum, DenseProduct, RootSum, ToRegions, PermuteAndPadScopes
+from libspn_keras.layers import DenseSum, DenseProduct, RootSum, FlatToRegions, PermuteAndPadScopes
 import colorlover as cl
 import plotly.graph_objects as go
+
+
+def visualize_dense_spn(dense_spn, show_legend=False, show_padding=True, transparent=False,
+                        node_size=30):
+    """
+    Visualize dense SPN, consisting of ``DenseSum``, ``DenseProduct``, ``RootSum`` and leaf layers.
+
+    Args:
+        dense_spn: An SPN of type ``tensorflow.keras.Sequential``
+        show_legend: Whether to show legend of scopes and layers on the right
+        show_padding: Whether to show padded nodes
+        node_size: Size of the nodes drawn in the graph. Adjust to avoid clutter.
+
+    Returns:
+        A ``plotly.graph_objects.Figure`` instance. Use ``.show()`` to render the visualization.
+    """
+
+    nodes, edges, colors, symbols, scopes, node_group_sizes, names = \
+        _assemble_dense_spn_figure(dense_spn, show_padding=show_padding)
+
+    hovertext = ['{' + ', '.join(str(s) for s in sorted(scope)) + '}'
+                 for scope in scopes.values()]
+
+    y_n, x_n = zip(*nodes.values())
+
+    # Build figure
+    fig = go.Figure(
+        layout=go.Layout(
+            plot_bgcolor='rgb(255,255,255,0)',
+            xaxis=go.layout.XAxis(ticks="", tickvals=[]),
+            yaxis=go.layout.YAxis(ticks="", tickvals=[]),
+            legend=dict(traceorder='reversed', font=dict(size=18))
+        ))
+    if transparent:
+        fig.layout.paper_bgcolor = 'rgb(255,255,255,0)'
+
+    y_e, x_e = zip(*np.asarray(edges).transpose(0, 2, 1))
+
+    x_e_flat = list(x_e[0]) + functools.reduce(
+        operator.concat, [[None] + list(x_ei) for x_ei in x_e])
+    y_e_flat = list(y_e[0]) + functools.reduce(
+        operator.concat, [[None] + list(y_ei) for y_ei in y_e])
+
+    fig.add_trace(
+        go.Scatter(
+            mode='lines',
+            x=x_e_flat,
+            y=y_e_flat,
+            showlegend=False,
+            line=dict(color='gray')
+        )
+    )
+
+    # Add scatter trace with medium sized markers
+    offset = 0
+    for group_size, name in zip(node_group_sizes, names):
+        group_ind = slice(offset, offset + group_size)
+        offset += group_size
+        if not show_padding and all(s == 'asterisk' for s in symbols[group_ind]):
+            continue
+        fig.add_trace(
+            go.Scatter(
+                mode='markers',
+                x=x_n[group_ind],
+                y=y_n[group_ind],
+                hovertext=hovertext[group_ind],
+                hoverinfo='text',
+                marker=dict(
+                    color=colors[group_ind],
+                    size=node_size,
+                    symbol=symbols[group_ind],
+                    line=dict(
+                        width=2
+                    )
+                ),
+                showlegend=show_legend,
+                name=name
+            )
+        )
+    return fig
 
 
 def _assemble_dense_spn_figure(dense_spn, show_padding=True):
@@ -37,7 +117,7 @@ def _assemble_dense_spn_figure(dense_spn, show_padding=True):
     names = []
     for layer_index, layer in enumerate(dense_spn.layers):
 
-        if isinstance(layer, ToRegions):
+        if isinstance(layer, FlatToRegions):
             continue
 
         if isinstance(layer, RootSum):
@@ -126,81 +206,3 @@ def _assemble_dense_spn_figure(dense_spn, show_padding=True):
         last_num_nodes = num_scopes * num_nodes
 
     return node_yx, edges_yx, colors, symbols, scopes, node_group_sizes, names
-
-
-def visualize_dense_spn(dense_spn, show_legend=False, show_padding=True, node_size=30):
-    """
-    Visualize dense SPN, consisting of ``DenseSum``, ``DenseProduct``, ``RootSum`` and leaf layers.
-
-    Args:
-        dense_spn: An SPN of type ``tensorflow.keras.Sequential``
-        show_legend: Whether to show legend of scopes and layers on the right
-        show_padding: Whether to show padded nodes
-        node_size: Size of the nodes drawn in the graph. Adjust to avoid clutter.
-
-    Returns:
-        A ``plotly.graph_objects.Figure`` instance. Use ``.show()`` to render the visualization.
-    """
-
-    nodes, edges, colors, symbols, scopes, node_group_sizes, names = \
-        _assemble_dense_spn_figure(dense_spn, show_padding=show_padding)
-
-    hovertext = ['{' + ', '.join(str(s) for s in sorted(scope)) + '}'
-                 for scope in scopes.values()]
-
-    y_n, x_n = zip(*nodes.values())
-
-    # Build figure
-    fig = go.Figure(
-        layout=go.Layout(
-            plot_bgcolor='rgb(255,255,255,0)',
-            paper_bgcolor='rgb(255,255,255,0)',
-            xaxis=go.layout.XAxis(ticks="", tickvals=[]),
-            yaxis=go.layout.YAxis(ticks="", tickvals=[]),
-            legend=dict(traceorder='reversed', font=dict(size=18))
-        ))
-
-    y_e, x_e = zip(*np.asarray(edges).transpose(0, 2, 1))
-
-    x_e_flat = list(x_e[0]) + functools.reduce(
-        operator.concat, [[None] + list(x_ei) for x_ei in x_e])
-    y_e_flat = list(y_e[0]) + functools.reduce(
-        operator.concat, [[None] + list(y_ei) for y_ei in y_e])
-
-    fig.add_trace(
-        go.Scatter(
-            mode='lines',
-            x=x_e_flat,
-            y=y_e_flat,
-            showlegend=False,
-            line=dict(color='gray')
-        )
-    )
-
-    # Add scatter trace with medium sized markers
-    offset = 0
-    for group_size, name in zip(node_group_sizes, names):
-        group_ind = slice(offset, offset + group_size)
-        offset += group_size
-        if not show_padding and all(s == 'asterisk' for s in symbols[group_ind]):
-            continue
-        fig.add_trace(
-            go.Scatter(
-                mode='markers',
-                x=x_n[group_ind],
-                y=y_n[group_ind],
-                hovertext=hovertext[group_ind],
-                hoverinfo='text',
-                marker=dict(
-                    color=colors[group_ind],
-                    size=node_size,
-                    symbol=symbols[group_ind],
-                    line=dict(
-                        width=2
-                    )
-                ),
-                showlegend=show_legend,
-                name=name
-            )
-        )
-    return fig

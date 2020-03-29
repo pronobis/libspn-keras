@@ -5,7 +5,6 @@
 
 .. toctree::
     :hidden:
-    :numbered:
     :caption: API
 
     api/layers

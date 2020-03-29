@@ -2,17 +2,19 @@ from tensorflow import keras
 import tensorflow as tf
 
 
-class ToRegions(keras.layers.Layer):
+class FlatToRegions(keras.layers.Layer):
     """
-    Reshapes a flat input of shape [batch, num_vars[, var_dimensionality]]
-        to [num_vars == scopes, decomp, batch, var_dimensionality]
+    Reshapes a flat input of shape ``[batch, num_vars[, var_dimensionality]]``
+    to ``[num_vars == scopes, decomp, batch, var_dimensionality]``
+
+    If ``var_dimensionality`` is 1, the shape can also be ``[batch, num_vars]``.
 
     Args:
         **kwargs: Keyword arguments to pass on the keras.Layer super class
     """
     def __init__(self, num_decomps, **kwargs):
         self.num_decomps = num_decomps
-        super(ToRegions, self).__init__(**kwargs)
+        super(FlatToRegions, self).__init__(**kwargs)
 
     def call(self, inputs):
         if len(inputs.shape) == 2:
@@ -35,5 +37,5 @@ class ToRegions(keras.layers.Layer):
         config = dict(
             num_decomps=self.num_decomps
         )
-        base_config = super(ToRegions, self).get_config()
+        base_config = super(FlatToRegions, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))

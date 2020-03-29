@@ -8,9 +8,6 @@ class ReduceProduct(keras.layers.Layer):
     incoming tensor is of shape ``[num_scopes, num_decomps, num_batch, num_nodes]`` and produces an
     output of ``[num_scopes // num_factors, num_decomps, num_batch, num_nodes]``.
 
-    Notes:
-        Expects inputs to be in log-space and produces log-space outputs.
-
     Args:
         num_factors: Number of factors per product
         **kwargs: kwargs to pass on to the keras.Layer super class.

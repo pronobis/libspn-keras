@@ -10,7 +10,7 @@ from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.dense_sum import DenseSum
 from libspn_keras.layers.log_dropout import LogDropout
 from libspn_keras.layers.location_scale_leaf import NormalLeaf, CauchyLeaf, LaplaceLeaf
-from libspn_keras.layers.reshape_spatial_to_dense import ReshapeSpatialToDense
+from libspn_keras.layers.spatial_to_regions import SpatialToRegions
 from libspn_keras.layers.root_sum import RootSum
 from libspn_keras.layers.local2d_sum import Local2DSum
 from libspn_keras.layers.undecompose import Undecompose
@@ -86,7 +86,7 @@ def construct_dgcspn_model(
     leaf = dict(normal=NormalLeaf, cauchy=CauchyLeaf, laplace=LaplaceLeaf)[leaf_type](
         num_components=config.num_components, location_initializer=location_initializer,
         location_trainable=location_trainable,
-        scale_trainable=False, dimension_permutation=DimensionPermutation.BATCH_FIRST
+        scale_trainable=False, dimension_permutation=DimensionPermutation.SPATIAL
     )
     accumulator_initializer = (
         tf.initializers.TruncatedNormal(mean=1.0, stddev=weight_stddev)
@@ -142,7 +142,7 @@ def construct_dgcspn_model(
         LogDropout(rate=dropout_rate),
 
     sum_product_stack.extend([
-        ReshapeSpatialToDense()
+        SpatialToRegions()
     ])
 
     if discriminative:
@@ -156,7 +156,7 @@ def construct_dgcspn_model(
     sum_kwargs['accumulator_initializer'] = accumulator_initializer
     sum_product_stack.append(
         RootSum(return_weighted_child_logits=return_weighted_child_logits,
-                dimension_permutation=DimensionPermutation.SCOPES_DECOMPS_FIRST, **sum_kwargs)
+                dimension_permutation=DimensionPermutation.REGIONS, **sum_kwargs)
     )
 
     return SpatialSumProductNetwork(
@@ -228,7 +228,7 @@ def construct_ratspn_model(
             logspace_accumulators=logspace_accumulators,
             return_weighted_child_logits=return_weighted_child_logits,
             backprop_mode=backprop_mode,
-            dimension_permutation=DimensionPermutation.SCOPES_DECOMPS_FIRST,
+            dimension_permutation=DimensionPermutation.REGIONS,
             name="region_graph_root"
         )
     ])
@@ -238,7 +238,7 @@ def construct_ratspn_model(
         normalization_axes=NormalizationAxes.PER_SAMPLE,
         leaf=NormalLeaf(
             num_components=4, location_initializer=location_initializer, name="normal_leaf",
-            input_shape=(num_vars,), dimension_permutation=DimensionPermutation.SCOPES_DECOMPS_FIRST
+            input_shape=(num_vars,), dimension_permutation=DimensionPermutation.REGIONS
         ),
         sum_product_stack=sum_product_stack,
         completion_by_posterior_marginal=completion_by_posterior_marginal,

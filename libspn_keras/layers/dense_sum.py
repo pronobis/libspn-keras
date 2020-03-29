@@ -13,9 +13,9 @@ import tensorflow as tf
 
 class DenseSum(keras.layers.Layer):
     """
-    Computes densely connected sums per scope and decomposition. Expects incoming Tensor to be of
+    Computes densely connected sums per scope and decomposition. Expects incoming ``Tensor`` to be of
     shape [num_scopes, num_decomps, num_batch, num_nodes]. If your input is passed through a
-    Decompose node this is already taken care of.
+    ``FlatToRegions`` layer this is already taken care of.
 
     Args:
         num_sums: Number of sums per scope

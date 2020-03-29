@@ -11,7 +11,7 @@ logger = logging.getLogger('libspn-keras')
 
 class PermuteAndPadScopesRandom(PermuteAndPadScopes):
     """
-    Permutes scopes, usually applied after a ``ToRegions`` and a ``BaseLeaf`` layer.
+    Permutes scopes, usually applied after a ``FlatToRegions`` and a ``BaseLeaf`` layer.
 
     Args:
         num_decomps: Number of decompositions to generate permutations for
@@ -20,8 +20,6 @@ class PermuteAndPadScopesRandom(PermuteAndPadScopes):
             through ``generate_factors``.
         **kwargs: kwargs to pass on to the ``keras.Layer`` superclass.
 
-    Notes:
-        Expects inputs to be in log-space and produces log-space outputs.
     """
     def __init__(self, num_decomps, factors=None, num_vars_spn_input=None, **kwargs):
         super(PermuteAndPadScopesRandom, self).__init__(num_decomps, **kwargs)

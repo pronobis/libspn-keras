@@ -2,7 +2,7 @@ from tensorflow import keras
 import tensorflow as tf
 
 
-class ReshapeSpatialToDense(keras.layers.Layer):
+class SpatialToRegions(keras.layers.Layer):
     """
     Reshapes spatial SPN layer to a dense layer. The dense output has leading dimensions for
     scopes and decomps (which will be ``[1, 1]``).

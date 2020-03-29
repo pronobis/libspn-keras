@@ -81,7 +81,7 @@ spn = keras.Sequential([
       kernel_size=[2, 2],
       padding='final'
   ),
-  layers.ReshapeSpatialToDense(),
+  layers.SpatialToRegions(),
   layers.DenseSum(num_sums=10, **sum_kwargs),
   layers.RootSum(
       return_weighted_child_logits=True, 

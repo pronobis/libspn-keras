@@ -22,7 +22,7 @@ class BaseLeaf(keras.layers.Layer):
             if self.dimension_permutation == DimensionPermutation.AUTO \
             else self.dimension_permutation
 
-        if effective_dimension_permutation == DimensionPermutation.BATCH_FIRST:
+        if effective_dimension_permutation == DimensionPermutation.SPATIAL:
             _, *scope_and_decomp_dims, multivariate_size = input_shape
             distribution_shape = [1] + scope_and_decomp_dims + [
                 self.num_components, multivariate_size]
@@ -49,7 +49,7 @@ class BaseLeaf(keras.layers.Layer):
         inferred_dimension_permutation = infer_dimension_permutation(input_shape) \
             if self.dimension_permutation == DimensionPermutation.AUTO \
             else self.dimension_permutation
-        if inferred_dimension_permutation == DimensionPermutation.BATCH_FIRST:
+        if inferred_dimension_permutation == DimensionPermutation.SPATIAL:
             _, *scope_and_decomp_dims, _ = input_shape
             out_shape = [None] + scope_and_decomp_dims + [self.num_components]
         else:

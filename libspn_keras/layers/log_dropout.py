@@ -10,9 +10,6 @@ class LogDropout(keras.layers.Layer):
     SPN, since their scope probability then potentially becomes -inf, resulting in NaN-values
     during training.
 
-    Notes:
-        Expects inputs to be in log-space and produces log-space outputs.
-
     Args:
         rate: Rate at which to randomly dropout inputs.
         noise_shape: Shape of dropout noise tensor
