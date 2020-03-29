@@ -51,8 +51,8 @@ Currently, the repo is in an alpha state. Hence, one can expect some sporadic br
 univariate as well as *multivariate* inputs.
 
 ## Examples / Tutorials
-1. [**Image Classification**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab](https://colab.research.google.com/drive/10AXL7oo8LBCTnw7NrJ_zTph9X7J8XRdj)
-2. [**Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab.](https://colab.research.google.com/drive/1S3JdntlAGYE16QhAKltNYPgyMV8jW4Nv)
+1. [**Image Classification**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab](https://colab.research.google.com/drive/1LUuZ7TBKQIma9IUkkBNbB99hlK_4ccMJ)
+2. [**Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab.](https://colab.research.google.com/drive/1XXAWoVLMkdxR7Wu4GsJnXrixTgAPZsSb)
 3. [**Randomly structured SPNs** for image classification](https://colab.research.google.com/drive/1uvJd1Q6wUdEkM2dpT4wkZfNT6lgj-2u3)
 4. [**Understanding region SPNs**](https://colab.research.google.com/drive/1QMEFEjb7jZdOtuo5OT5J2HVhNOE_3xmc)
 5. More to come, and if you would like to see a tutorial on anything in particular 
