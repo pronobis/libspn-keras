@@ -20,7 +20,7 @@ TensorFlow and Keras, two frameworks already in use by a large community of rese
 developers in multiple domains.
 
 ## Dependencies
-Currently, LibSPN Keras is tested with `tensorflow==2.0` and `tensorflow-probability==0.8.0`.
+Currently, LibSPN Keras is tested with `tensorflow>=2.0` and `tensorflow-probability>=0.8.0`.
 
 ## Installation
 
@@ -44,7 +44,7 @@ Currently, the repo is in an alpha state. Hence, one can expect some sporadic br
 - Image completion
 - Model saving
 - Discrete inputs through an `IndicatorLeaf` node
-- Continuous inputs through `NormalLeaf`, `CauchyLeaf` or `LaplaceLeaf`. All of those support both 
+- Continuous inputs through `NormalLeaf`, `CauchyLeaf` or `LaplaceLeaf`. Each of these distributions support both 
 univariate as well as *multivariate* inputs.
 
 ## Examples / Tutorials
