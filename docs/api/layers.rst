@@ -5,7 +5,7 @@ This submodule contains Keras layers for building SPNs. Besides leaf layers and 
 layers, there are two main groups of layers:
 
 - Region layers for arbitrary decompositions of variables. Must be preceded with a
-  ``[ToRegions, BaseLeaf, PermuteAndPadScopes]`` block. Regions are arbitrary sets of variables. A
+  ``[FlatToRegions, BaseLeaf, PermuteAndPadScopes]`` block. Regions are arbitrary sets of variables. A
   region graph describes how these sets of variables hierarchically define a probability
   distribution.
 - Spatial layers for `Deep Generalized Convolutional Sum Product Networks <https://arxiv.org/abs/1902.06155>`_
@@ -61,10 +61,8 @@ from a spatial SPN to a region SPN.
 
 Regularization layers
 ---------------------
-
 .. autoclass:: libspn_keras.layers.LogDropout
 
 Miscellaneous
 ---------------------
-
 .. autoclass:: libspn_keras.layers.BernoulliCondition

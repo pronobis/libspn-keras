@@ -13,7 +13,8 @@
     api/optimizers
     api/metrics
     api/constraints
-    api/root
+    api/region_graph
+    api/visualization
 
 
 Indices and tables

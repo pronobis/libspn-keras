@@ -4,7 +4,7 @@ import tensorflow as tf
 
 class NegativeLogJoint(keras.losses.Loss):
     """
-    Computes :math:`-\log(p(X,Y))` assuming that its input is :math:`-log(p(X|Y))` where Y is indexed
+    Computes :math:`-\log(p(X,Y))` assuming that its input is :math:`-\log(p(X|Y))` where Y is indexed
     on the second axis. This can be used for supervised generative learning with gradient-based
     optimizers or (hard) expectation maximization.
     """

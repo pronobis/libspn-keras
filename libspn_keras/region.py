@@ -98,8 +98,6 @@ def region_graph_to_dense_spn(
         with_root: If ``True``, sets a ``RootSum`` as the final layer.
         return_weighted_child_logits: Whether to return weighted child logits. If ``
 
-    Returns:
-
     """
     permutation, num_factors_leaf_to_root = _region_graph_to_permutations_and_prods_per_depth(
         region_graph_root)
