@@ -5,6 +5,16 @@ from tensorflow.python.keras import backend as K
 
 
 class BernoulliCondition(keras.layers.Layer):
+    """
+    Applies ``tf.cond`` element-wise where its condition argument is a boolean drawn from a
+    Bernoulli distribution with :math:`p=` ``rate``. This can be useful to compute probabilistic
+    dropout at input layers. This layer expects two input tensors.
+
+    Args:
+        rate (float): Rate at which to take elements of the first input tensor.
+        seed: Random seed
+        **kwargs: Parameters passed on to ``tf.keras.Layer``
+    """
 
     def __init__(self, rate, seed=None, **kwargs):
         super(BernoulliCondition, self).__init__(**kwargs)

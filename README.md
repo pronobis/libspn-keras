@@ -1,8 +1,11 @@
 # LibSPN Keras
+
 LibSPN Keras is a library for constructing and training Sum-Product Networks. By leveraging the 
 Keras framework with a TensorFlow backend, it offers both ease-of-use and scalability. Whereas the 
 previously available `libspn` focused on scalability, `libspn-keras` offers scalability **and** 
 a straightforward Keras-compatible interface.
+
+![](logo.png "LibSPN Keras logo")
 
 ## What are SPNs?
 
@@ -44,19 +47,17 @@ Currently, the repo is in an alpha state. Hence, one can expect some sporadic br
 - Continuous inputs through `NormalLeaf`, `CauchyLeaf` or `LaplaceLeaf`. Each of these distributions support both 
 univariate as well as *multivariate* inputs.
 
-## Examples
-1. [A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab for
- **image classification**](https://colab.research.google.com/drive/10AXL7oo8LBCTnw7NrJ_zTph9X7J8XRdj)
-2. [A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab for 
-**image completion**.](https://colab.research.google.com/drive/1S3JdntlAGYE16QhAKltNYPgyMV8jW4Nv)
-3. More to come, and if you would like to see a tutorial on anything in particular 
+## Examples / Tutorials
+1. [**Image Classification**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab](https://colab.research.google.com/drive/10AXL7oo8LBCTnw7NrJ_zTph9X7J8XRdj)
+2. [**Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab.](https://colab.research.google.com/drive/1S3JdntlAGYE16QhAKltNYPgyMV8jW4Nv)
+3. [**Randomly structured SPNs** for image classification](https://colab.research.google.com/drive/1uvJd1Q6wUdEkM2dpT4wkZfNT6lgj-2u3)
+4. [**Understanding region SPNs**](https://colab.research.google.com/drive/1QMEFEjb7jZdOtuo5OT5J2HVhNOE_3xmc)
+5. More to come, and if you would like to see a tutorial on anything in particular 
 please raise an issue!
 
-To get a sense of the simplicity, check out the way we can build complex DGC-SPNs in a layer-wise 
-fashion:
+Check out the way we can build complex DGC-SPNs in a layer-wise fashion:
 ```python
-import libspn_keras as spn
-from libspn_keras import layers, initializers
+from libspn_keras import layers
 from tensorflow import keras
 
 sum_kwargs = dict(
@@ -74,60 +75,60 @@ sum_product_network = keras.Sequential([
           stddev=1.0, mean=0.0)
   ),
   # Non-overlapping products
-  layers.ConvProduct(
+  layers.Conv2DProduct(
       depthwise=True, 
       strides=[2, 2], 
       dilations=[1, 1], 
       kernel_size=[2, 2],
       padding='valid'
   ),
-  layers.SpatialLocalSum(num_sums=16, **sum_kwargs),
+  layers.Local2DSum(num_sums=16, **sum_kwargs),
   # Non-overlapping products
-  layers.ConvProduct(
+  layers.Conv2DProduct(
       depthwise=True, 
       strides=[2, 2], 
       dilations=[1, 1], 
       kernel_size=[2, 2],
       padding='valid'
   ),
-  layers.SpatialLocalSum(num_sums=32, **sum_kwargs),
+  layers.Local2DSum(num_sums=32, **sum_kwargs),
   # Overlapping products, starting at dilations [1, 1]
-  layers.ConvProduct(
+  layers.Conv2DProduct(
       depthwise=True, 
       strides=[1, 1], 
       dilations=[1, 1], 
       kernel_size=[2, 2],
       padding='full'
   ),
-  layers.SpatialLocalSum(num_sums=32, **sum_kwargs),
+  layers.Local2DSum(num_sums=32, **sum_kwargs),
   # Overlapping products, with dilations [2, 2] and full padding
-  layers.ConvProduct(
+  layers.Conv2DProduct(
       depthwise=True, 
       strides=[1, 1], 
       dilations=[2, 2], 
       kernel_size=[2, 2],
       padding='full'
   ),
-  layers.SpatialLocalSum(num_sums=64, **sum_kwargs),
+  layers.Local2DSum(num_sums=64, **sum_kwargs),
   # Overlapping products, with dilations [4, 4] and full padding
-  layers.ConvProduct(
+  layers.Conv2DProduct(
       depthwise=True, 
       strides=[1, 1], 
       dilations=[4, 4], 
       kernel_size=[2, 2],
       padding='full'
   ),
-  layers.SpatialLocalSum(num_sums=64, **sum_kwargs),
+  layers.Local2DSum(num_sums=64, **sum_kwargs),
   # Overlapping products, with dilations [8, 8] and 'final' padding to combine 
   # all scopes
-  layers.ConvProduct(
+  layers.Conv2DProduct(
       depthwise=True, 
       strides=[1, 1], 
       dilations=[8, 8], 
       kernel_size=[2, 2],
       padding='final'
   ),
-  layers.ReshapeSpatialToDense(),
+  layers.SpatialToRegions(),
   # Class roots
   layers.DenseSum(num_sums=10, **sum_kwargs),
   layers.RootSum(
@@ -148,29 +149,29 @@ Layer (type)                 Output Shape              Param #
 =================================================================
 normal_leaf (NormalLeaf)     (None, 28, 28, 16)        25088     
 _________________________________________________________________
-conv_product (ConvProduct)   (None, 14, 14, 16)        4         
+conv2d_product (Conv2DProduc (None, 14, 14, 16)        4         
 _________________________________________________________________
-spatial_local_sum (SpatialLo (None, 14, 14, 16)        50176     
+local2d_sum (Local2DSum)     (None, 14, 14, 16)        50176     
 _________________________________________________________________
-conv_product_1 (ConvProduct) (None, 7, 7, 16)          4         
+conv2d_product_1 (Conv2DProd (None, 7, 7, 16)          4         
 _________________________________________________________________
-spatial_local_sum_1 (Spatial (None, 7, 7, 32)          25088     
+local2d_sum_1 (Local2DSum)   (None, 7, 7, 32)          25088     
 _________________________________________________________________
-conv_product_2 (ConvProduct) (None, 8, 8, 32)          4         
+conv2d_product_2 (Conv2DProd (None, 8, 8, 32)          4         
 _________________________________________________________________
-spatial_local_sum_2 (Spatial (None, 8, 8, 32)          65536     
+local2d_sum_2 (Local2DSum)   (None, 8, 8, 32)          65536     
 _________________________________________________________________
-conv_product_3 (ConvProduct) (None, 10, 10, 32)        4         
+conv2d_product_3 (Conv2DProd (None, 10, 10, 32)        4         
 _________________________________________________________________
-spatial_local_sum_3 (Spatial (None, 10, 10, 64)        204800    
+local2d_sum_3 (Local2DSum)   (None, 10, 10, 64)        204800    
 _________________________________________________________________
-conv_product_4 (ConvProduct) (None, 14, 14, 64)        4         
+conv2d_product_4 (Conv2DProd (None, 14, 14, 64)        4         
 _________________________________________________________________
-spatial_local_sum_4 (Spatial (None, 14, 14, 64)        802816    
+local2d_sum_4 (Local2DSum)   (None, 14, 14, 64)        802816    
 _________________________________________________________________
-conv_product_5 (ConvProduct) (None, 8, 8, 64)          4         
+conv2d_product_5 (Conv2DProd (None, 8, 8, 64)          4         
 _________________________________________________________________
-reshape_spatial_to_dense (Re (1, 1, None, 4096)        0         
+spatial_to_regions (SpatialT (1, 1, None, 4096)        0         
 _________________________________________________________________
 dense_sum (DenseSum)         (1, 1, None, 10)          40960     
 _________________________________________________________________
@@ -183,7 +184,6 @@ _________________________________________________________________
 ```
 
 ## TODOs
-- Create docs
 - Structure learning
 - Advanced regularization e.g. pruning or auxiliary losses on weight accumulators
 

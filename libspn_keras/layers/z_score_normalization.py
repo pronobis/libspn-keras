@@ -5,21 +5,25 @@ from libspn_keras.normalizationaxes import NormalizationAxes
 
 
 class ZScoreNormalization(keras.layers.Layer):
+    """
+    Normalizes the input along the specified axes. Currently only supports ``PER_SAMPLE`` axes. This
+    can be used to achieve the same kind of normalization as used in (Poon and Domingos, 2011)
+
+    Args:
+        with_evidence_mask: If True, will account for the evidence as given as the second
+            input of this layer when computing the mean and stddev.
+        axes: Normalization axes. Currently only supports ``NormalizationAxes.PER_SAMPLE``
+        normalization_epsilon: Small positive constant to prevent division by zero, but could
+            also be used a 'smoothing' factor.
+        **kwargs: kwargs to pass on to the keras.Layer super class
+
+    References:
+        Sum-Product Networks, a New Deep Architecture
+        `Poon and Domingos, 2011 <https://arxiv.org/abs/1202.3732>`_
+    """
 
     def __init__(self, axes=NormalizationAxes.PER_SAMPLE, with_evidence_mask=False,
                  normalization_epsilon=1e-8, return_mean_and_stddev=False, **kwargs):
-        """
-        Normalizes the input along the specified axes. Currently only supports PER_SAMPLE axes. This
-        can be used to achieve the same kind of normalization as used in [Poon and Domingos (2011)]
-
-        Args:
-            with_evidence_mask: If True, will account for the evidence as given as the second
-                input of this layer when computing the mean and stddev.
-            axes: Normalization axes. Currently only supports NormalizationAxes.PER_SAMPLE
-            normalization_epsilon: Small positive constant to prevent division by zero, but could
-                also be used a 'smoothing' factor.
-            **kwargs: kwargs to pass on to the keras.Layer super class
-        """
         # TODO verify whether value of axes is allowed or just omit it alltogether
         super(ZScoreNormalization, self).__init__(**kwargs)
         self.axes = axes

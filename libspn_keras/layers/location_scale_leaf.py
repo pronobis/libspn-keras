@@ -6,22 +6,21 @@ from tensorflow import initializers
 
 
 class LocationScaleLeafBase(BaseLeaf):
+    """
+    Computes the log probability of multiple components per variable along the final axis.
 
+    Args:
+        num_components: Number of components per variable
+        location_initializer: Initializer for location variable
+        location_trainable: Boolean that indicates whether location is trainable
+        scale_initializer: Initializer for scale variable
+        scale_trainable: Boolean that indicates whether scale is trainable
+        **kwargs: kwargs to pass on to the keras.Layer super class
+    """
     def __init__(
         self, num_components, location_initializer=None,
         location_trainable=True, scale_initializer=None, scale_trainable=False, **kwargs
     ):
-        """
-        Computes the log probability of multiple components per variable along the final axis.
-
-        Args:
-            num_components: Number of components per variable
-            location_initializer: Initializer for location variable
-            location_trainable: Boolean that indicates whether location is trainable
-            scale_initializer: Initializer for scale variable
-            scale_trainable: Boolean that indicates whether scale is trainable
-            **kwargs: kwargs to pass on to the keras.Layer super class
-        """
         super(LocationScaleLeafBase, self).__init__(num_components=num_components, **kwargs)
         self.location_initializer = location_initializer or initializers.TruncatedNormal(stddev=1.0)
         self.location_trainable = location_trainable

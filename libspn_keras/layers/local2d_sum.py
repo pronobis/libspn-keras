@@ -1,5 +1,5 @@
 from libspn_keras.backprop_mode import BackpropMode
-from libspn_keras.constraints.greater_than_epsilon import GreaterThanEpsilon
+from libspn_keras.constraints.greater_equal_epsilon import GreaterEqualEpsilon
 from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.math.hard_em_grads import logmatmul_hard_em_through_grads_from_accumulators
 from libspn_keras.math.logmatmul import logmatmul
@@ -12,30 +12,30 @@ import tensorflow as tf
 from libspn_keras.math.soft_em_grads import log_softmax_from_accumulators_with_em_grad
 
 
-class SpatialLocalSum(keras.layers.Layer):
+class Local2DSum(keras.layers.Layer):
+    """
+    Computes a spatial local sum, i.e. all cells will have unique weights (no weight sharing
+    across spatial access).
+
+    Args:
+        num_sums: Number of sums per spatial cell. Corresponds to the number of channels in
+            the output
+        logspace_accumulators: Whether to represent the child accumulators in log-space or
+            linear-space. Set this to True when using BackpropMode.GRADIENT
+        accumulator_initializer: Initializer for accumulator
+        backprop_mode: Backpropagation mode. Can be either GRADIENT, HARD_EM, SOFT_EM or
+            HARD_EM_UNWEIGHTED
+        accumulator_regularizer: Regularizer for accumulators
+        linear_accumulator_constraint: Constraint for accumulators (only applied if
+            log_space_accumulators==False)
+        **kwargs: kwargs to pass on to the keras.Layer super class
+    """
 
     def __init__(
         self, num_sums, logspace_accumulators=False, accumulator_initializer=None,
         backprop_mode=BackpropMode.GRADIENT, accumulator_regularizer=None,
-        linear_accumulator_constraint=GreaterThanEpsilon(1e-10), **kwargs
+        linear_accumulator_constraint=GreaterEqualEpsilon(1e-10), **kwargs
     ):
-        """
-        Computes a spatial local sum, i.e. all cells will have unique weights (no weight sharing
-        across spatial access).
-
-        Args:
-            num_sums: Number of sums per spatial cell. Corresponds to the number of channels in
-                the output
-            logspace_accumulators: Whether to represent the child accumulators in log-space or
-                linear-space. Set this to True when using BackpropMode.GRADIENT
-            accumulator_initializer: Initializer for accumulator
-            backprop_mode: Backpropagation mode. Can be either GRADIENT, HARD_EM, SOFT_EM or
-                HARD_EM_UNWEIGHTED
-            accumulator_regularizer: Regularizer for accumulators
-            linear_accumulator_constraint: Constraint for accumulators (only applied if
-                log_space_accumulators==False)
-            **kwargs: kwargs to pass on to the keras.Layer super class
-        """
         # TODO make docstrings more consistent across different sum instances
 
         # TODO automatically infer value of logspace_accumulator from the backprop mode
@@ -43,7 +43,7 @@ class SpatialLocalSum(keras.layers.Layer):
         # TODO verify compatibility of backprop mode and logspace_accumulator
 
         # TODO consider renaming 'accumulator' to 'child_counts'
-        super(SpatialLocalSum, self).__init__(**kwargs)
+        super(Local2DSum, self).__init__(**kwargs)
         self.num_sums = num_sums
         self.logspace_accumulators = logspace_accumulators
         self.accumulator_initializer = accumulator_initializer or initializers.Constant(1)
@@ -68,7 +68,7 @@ class SpatialLocalSum(keras.layers.Layer):
             name='sum_weights', shape=weights_shape, initializer=initializer,
             regularizer=self.accumulator_regularizer, constraint=accumulator_contraint
         )
-        super(SpatialLocalSum, self).build(input_shape)
+        super(Local2DSum, self).build(input_shape)
 
     def call(self, x):
 
@@ -110,5 +110,5 @@ class SpatialLocalSum(keras.layers.Layer):
             accumulator_regularizer=regularizers.serialize(self.accumulator_regularizer),
             linear_accumulator_constraint=constraints.serialize(self.linear_accumulator_constraint)
         )
-        base_config = super(SpatialLocalSum, self).get_config()
+        base_config = super(Local2DSum, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))

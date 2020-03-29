@@ -5,19 +5,19 @@ from tensorflow.python.keras import backend as K
 
 
 class LogDropout(keras.layers.Layer):
+    """
+    Log dropout layer. Applies dropout in log-space. Should not precede product layers in an
+    SPN, since their scope probability then potentially becomes -inf, resulting in NaN-values
+    during training.
 
+    Args:
+        rate: Rate at which to randomly dropout inputs.
+        noise_shape: Shape of dropout noise tensor
+        seed: Random seed
+        **kwargs: kwargs to pass on to the keras.Layer super class
+    """
     def __init__(self, rate, noise_shape=None, seed=None, **kwargs):
-        """
-        Log dropout layer. Applies dropout in log-space. Should not precede product layers in an
-        SPN, since their scope probability then potentially becomes -inf, resulting in NaN-values
-        during training. Expects inputs to be in log-space and produces log-space outputs.
 
-        Args:
-            rate: Rate at which to randomly dropout inputs.
-            noise_shape: Shape of dropout noise tensor
-            seed: Random seed
-            **kwargs: kwargs to pass on to the keras.Layer super class
-        """
         super(LogDropout, self).__init__(**kwargs)
         self.rate = min(1., max(0., rate))
         self.noise_shape = noise_shape

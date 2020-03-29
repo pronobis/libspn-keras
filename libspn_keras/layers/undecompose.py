@@ -3,16 +3,14 @@ from tensorflow import keras
 
 
 class Undecompose(keras.layers.Layer):
+    """
+    Undecomposes the incoming tensor by aligning the decomposition axis on the final node axis.
+    Can only be done if the number of scopes (at the very first dimension of the input) is 1.
 
+    Args:
+        **kwargs: kwargs to pass onto the keras.Layer super class
+    """
     def __init__(self, **kwargs):
-        """
-        Undecomposes the incoming tensor by aligning the decomposition axis on the final node axis.
-        Can only be done if the number of scopes (at the very first dimension of the input) is 1.
-
-        Args:
-            **kwargs: kwargs to pass onto the keras.Layer super class
-        """
-
         # TODO undecompose to an arbitrary number of decompositions
         super(Undecompose, self).__init__(**kwargs)
         self._num_decomps = 1
