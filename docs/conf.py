@@ -76,6 +76,9 @@ autodoc_mock_imports = [
     "numpy"
 ]
 
+# The master toctree document.
+master_doc = 'index'
+
 # html_theme = 'bootstrap'
 # html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 #
