@@ -11,7 +11,7 @@ from libspn_keras.layers.z_score_normalization import ZScoreNormalization
 import tensorflow as tf
 
 
-class SumProductNetworkBase(keras.models.Model, abc.ABC):
+class SumProductNetworkBase(keras.models.Model):
 
     def __init__(
         self, leaf: BaseLeaf, sum_product_stack: typing.List[keras.layers.Layer],
