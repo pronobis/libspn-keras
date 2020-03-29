@@ -68,7 +68,13 @@ html_theme = "sphinx_rtd_theme"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-autodoc_mock_imports = ["tensorflow", "plotly", "tensorflow_probability", "colorlover"]
+autodoc_mock_imports = [
+    "tensorflow",
+    "plotly",
+    "tensorflow_probability",
+    "colorlover",
+    "numpy"
+]
 
 # html_theme = 'bootstrap'
 # html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
