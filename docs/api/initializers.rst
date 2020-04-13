@@ -9,6 +9,7 @@ Location initializers
 For a leaf distribution of the location scale family, the following initializers are useful
 
 .. autoclass:: libspn_keras.initializers.PoonDomingosMeanOfQuantileSplit
+.. autoclass:: libspn_keras.initializers.KMeans
 .. autoclass:: libspn_keras.initializers.Equidistant
 
 Weight initializers

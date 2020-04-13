@@ -30,7 +30,7 @@ copyright = '2020, Jos van de Wolfshaar, Andrzej Pronobis'
 author = 'Jos van de Wolfshaar, Andrzej Pronobis'
 
 # The full version, including alpha/beta/rc tags
-release = "0.1.0"
+release = "0.1.2"
 
 # sys.path.append(os.path.abspath('sphinxext'))
 

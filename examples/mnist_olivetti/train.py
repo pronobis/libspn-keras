@@ -116,6 +116,7 @@ def main():
             spn_for_completion.predict([x_test[:1], np.ones(x_test[:1].shape[:-1] + (1,))])
         else:
             spn_for_completion.predict([x_test[:1], np.ones_like(x_test[:1])])
+
         spn_for_completion.set_weights(spn.get_weights())
 
         evaluate_completion(spn_for_completion, x_test)

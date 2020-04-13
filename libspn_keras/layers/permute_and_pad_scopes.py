@@ -15,7 +15,7 @@ class PermuteAndPadScopes(keras.layers.Layer):
     def __init__(self, num_decomps, permutations=None, **kwargs):
         super(PermuteAndPadScopes, self).__init__(**kwargs)
         self.num_decomps = num_decomps
-        self._num_nodes = self._num_scopes = self.permutations = None
+        self.permutations = None
         if permutations is not None:
             self.set_permutations(permutations)
 
@@ -31,9 +31,16 @@ class PermuteAndPadScopes(keras.layers.Layer):
         gather_indices = self.permutations + 1
 
         if self.permutations is None:
-            raise ValueError("First need to determine permutations")
+            raise ValueError("First need to set permutations")
         permuted = tf.gather(decomps_first_padded, gather_indices, axis=1, batch_dims=1)
         return tf.transpose(permuted, (1, 0, 2, 3))
 
     def compute_output_shape(self, input_shape):
         return input_shape
+
+    def get_config(self):
+        config = dict(
+            num_decomps=self.num_decomps,
+        )
+        base_config = super(PermuteAndPadScopes, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))

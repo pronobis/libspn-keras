@@ -15,8 +15,10 @@ from libspn_keras.layers.z_score_normalization import ZScoreNormalization
 from libspn_keras.layers.base_leaf import BaseLeaf
 from libspn_keras.layers.permute_and_pad_scopes import PermuteAndPadScopes
 from libspn_keras.layers.reduce_product import ReduceProduct
+from libspn_keras.layers.temporal_dense_product import TemporalDenseProduct
 from libspn_keras.layers.flat_to_regions import FlatToRegions
 from libspn_keras.layers.permute_and_pad_scopes_random import PermuteAndPadScopesRandom
+from libspn_keras.layers.conv2d_sum import Conv2DSum
 
 __all__ = [
     'BernoulliCondition',
@@ -38,5 +40,7 @@ __all__ = [
     'PermuteAndPadScopes',
     'FlatToRegions',
     'ReduceProduct',
-    'PermuteAndPadScopesRandom'
+    'PermuteAndPadScopesRandom',
+    'TemporalDenseProduct',
+    'Conv2DSum'
 ]

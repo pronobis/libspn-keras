@@ -16,7 +16,7 @@ from io import open
 
 here = path.abspath(path.dirname(__file__))
 
-_RELEASE = "0.1.0"
+_RELEASE = "0.2.0"
 
 # Get the long description from the README file
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
@@ -151,7 +151,7 @@ setup(
     #
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['tensorflow>=2.0', 'tensorflow-probability>=0.8.0'],  # Optional
+    install_requires=['tensorflow>=2.0', 'tensorflow-probability>=0.8.0', "plotly", "colorlover"],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"

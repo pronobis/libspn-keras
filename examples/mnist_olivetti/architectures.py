@@ -1,10 +1,14 @@
+import itertools
+
 import numpy as np
 import tensorflow as tf
 
 from libspn_keras.dimension_permutation import DimensionPermutation
+from libspn_keras.initializers import KMeans
 from libspn_keras.initializers.epsilon_inverse_fan_in import EpsilonInverseFanIn
 from libspn_keras.initializers.equidistant import Equidistant
 from libspn_keras.initializers.poon_domingos import PoonDomingosMeanOfQuantileSplit
+from libspn_keras.layers import Conv2DSum
 from libspn_keras.layers.conv2d_product import Conv2DProduct
 from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.dense_sum import DenseSum
@@ -23,12 +27,13 @@ from itertools import cycle
 class ArchConfig:
 
     def __init__(self, depthwise, num_non_overlapping, sum_num_channels, num_components,
-                 prod_num_channels):
+                 prod_num_channels, num_conv_sums):
         self.depthwise = depthwise
         self.num_non_overlapping = num_non_overlapping
         self.sum_num_channels = sum_num_channels
         self.num_components = num_components
         self.prod_num_channels = prod_num_channels
+        self.num_conv_sums = num_conv_sums
 
 
 def get_config(name):
@@ -40,7 +45,8 @@ def get_config(name):
             num_non_overlapping=0,
             sum_num_channels=cycle([2]),
             num_components=4,
-            prod_num_channels=cycle([None])
+            prod_num_channels=cycle([None]),
+            num_conv_sums=2
         )
     if name == "mnist":
         return ArchConfig(
@@ -48,15 +54,17 @@ def get_config(name):
             num_non_overlapping=2,
             sum_num_channels=cycle([8]),
             num_components=8,
-            prod_num_channels=cycle([None])
+            prod_num_channels=cycle([None]),
+            num_conv_sums=2
         )
     if name == "cifar10":
         return ArchConfig(
-            depthwise=iter([True, True, True, True, True, True]),
+            depthwise=iter([False, True, True, True, True, True]),
             num_non_overlapping=1,
             sum_num_channels=iter([32, 32, 64, 64, 64]),
-            num_components=32,
-            prod_num_channels=cycle([None])
+            num_components=8,
+            prod_num_channels=cycle([None]),
+            num_conv_sums=2
         )
     else:
         raise ValueError("Unknown config")
@@ -74,19 +82,23 @@ def construct_dgcspn_model(
 
     spatial_dims = int(np.sqrt(np.prod(input_shape[0:2])))
 
-    if input_shape[-1] > 1:
-        location_initializer = initializers.TruncatedNormal(stddev=1.0)
-    elif initialization_data is not None:
-        location_initializer = PoonDomingosMeanOfQuantileSplit(
-            data=initialization_data.squeeze(), normalization_epsilon=normalization_epsilon)
+    if initialization_data is not None:
+        if config_name in ["mnist", 'olivetti']:
+            location_initializer = PoonDomingosMeanOfQuantileSplit(
+                data=initialization_data.squeeze(), normalization_epsilon=normalization_epsilon)
+        elif config_name == "cifar10":
+            location_initializer = KMeans(
+                data=initialization_data.squeeze(), normalization_epsilon=normalization_epsilon,
+                data_fraction=0.05
+            )
     else:
         location_initializer = Equidistant(minval=-2.0, maxval=2.0)
 
     config = get_config(config_name)
     leaf = dict(normal=NormalLeaf, cauchy=CauchyLeaf, laplace=LaplaceLeaf)[leaf_type](
         num_components=config.num_components, location_initializer=location_initializer,
-        location_trainable=location_trainable,
-        scale_trainable=False, dimension_permutation=DimensionPermutation.SPATIAL
+        location_trainable=location_trainable, use_accumulators=False,
+        dimension_permutation=DimensionPermutation.SPATIAL
     )
     accumulator_initializer = (
         tf.initializers.TruncatedNormal(mean=1.0, stddev=weight_stddev)
@@ -100,6 +112,9 @@ def construct_dgcspn_model(
         accumulator_regularizer=accumulator_regularizer
     )
 
+    sum_type_iter = itertools.chain(
+        iter([Conv2DSum] * config.num_conv_sums), itertools.cycle([Local2DSum]))
+
     # The 'backbone' stack of alternating sums and products
     for _ in range(config.num_non_overlapping):
         sum_product_stack.append(
@@ -112,7 +127,7 @@ def construct_dgcspn_model(
             sum_product_stack.append(LogDropout(rate=dropout_rate))
 
         sum_product_stack.append(
-            Local2DSum(num_sums=next(config.sum_num_channels), **sum_kwargs)
+            next(sum_type_iter)(num_sums=next(config.sum_num_channels), **sum_kwargs)
         )
 
     stack_size = int(np.ceil(np.log2(spatial_dims // 2 ** config.num_non_overlapping)))
@@ -128,7 +143,7 @@ def construct_dgcspn_model(
             sum_product_stack.append(LogDropout(rate=dropout_rate))
 
         sum_product_stack.append(
-            Local2DSum(num_sums=next(config.sum_num_channels), **sum_kwargs)
+            next(sum_type_iter)(num_sums=next(config.sum_num_channels), **sum_kwargs)
         )
 
     sum_product_stack.append(

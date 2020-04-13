@@ -1,7 +1,7 @@
 from tensorflow import keras
 import tensorflow as tf
 
-from libspn_keras.backprop_mode import BackpropMode
+from libspn_keras.backprop_mode import BackpropMode, infer_logspace_accumulators
 from libspn_keras.constraints.greater_equal_epsilon import GreaterEqualEpsilon
 from libspn_keras.dimension_permutation import DimensionPermutation, infer_dimension_permutation
 from libspn_keras.logspace import logspace_wrapper_initializer
@@ -25,10 +25,11 @@ class RootSum(keras.layers.Layer):
             can be used for e.g. (Sparse)CategoricalCrossEntropy losses. If False, computes
             the weighted sum of the input, which effectively is the log probability of the
             distribution defined by the SPN.
-        logspace_accumulators: If True, accumulators will be represented in log-space which
-            is typically used with BackpropMode.GRADIENT. If False, accumulators will be
+        logspace_accumulators: If ``True``, accumulators will be represented in log-space which
+            is typically used with ``BackpropMode.GRADIENT``. If ``False``, accumulators will be
             represented in linear space. Weights are computed by normalizing the accumulators
-            per sum, so that we always end up with a normalized SPN.
+            per sum, so that we always end up with a normalized SPN. If ``None`` (default) it
+            will be set to ``True`` for ``BackpropMode.GRADIENT`` and ``False`` otherwise.
         accumulator_initializer: Initializer for accumulator. If None, defaults to
             initializers.Constant(1.0)
         backprop_mode: Backpropagation mode. Can be either BackpropMode.GRADIENT,
@@ -44,7 +45,7 @@ class RootSum(keras.layers.Layer):
         **kwargs: kwargs to pass on to the keras.Layer super class
     """
     def __init__(
-        self, return_weighted_child_logits=True, logspace_accumulators=False,
+        self, return_weighted_child_logits=True, logspace_accumulators=None,
         accumulator_initializer=None, backprop_mode=BackpropMode.GRADIENT,
         dimension_permutation=DimensionPermutation.AUTO, accumulator_regularizer=None,
         linear_accumulator_constraint=None, **kwargs
@@ -52,7 +53,8 @@ class RootSum(keras.layers.Layer):
         super(RootSum, self).__init__(**kwargs)
         self.return_weighted_child_logits = return_weighted_child_logits
         self.accumulator_initializer = accumulator_initializer or initializers.Constant(1.0)
-        self.logspace_accumulators = logspace_accumulators
+        self.logspace_accumulators = infer_logspace_accumulators(backprop_mode) \
+            if logspace_accumulators is None else logspace_accumulators
         self.backprop_mode = backprop_mode
         self.dimension_permutation = dimension_permutation
         self.accumulator_regularizer = accumulator_regularizer
