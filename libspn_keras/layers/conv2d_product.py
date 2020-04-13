@@ -92,6 +92,7 @@ class Conv2DProduct(keras.layers.Layer):
     def _call_onehot_kernels(self, x):
         # Split in list of tensors which will be added up using outer products
         pad_left, pad_right, pad_top, pad_bottom = self._pad_sizes()
+
         x_padded = tf.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]])
         out = tf.nn.conv2d(
             x_padded, self._onehot_kernels, strides=self.strides, padding='VALID',
@@ -212,8 +213,8 @@ class Conv2DProduct(keras.layers.Layer):
             return pad_left, pad_right, pad_top, pad_bottom
         if self.padding == 'final':
             kernel_height, kernel_width = self._effective_kernel_size()
-            pad_top = (kernel_height - 1) * 2 - self._spatial_dim_sizes[0]
-            pad_left = (kernel_width - 1) * 2 - self._spatial_dim_sizes[1]
+            pad_top = (kernel_height - 1) * 2 - self._spatial_dim_sizes[0] if self.kernel_size[0] > 1 else 0
+            pad_left = (kernel_width - 1) * 2 - self._spatial_dim_sizes[1] if self.kernel_size[1] > 1 else 0
             return pad_left, 0, pad_top, 0
         raise ValueError(
             "{}: invalid padding algorithm. Use 'valid', 'full' or 'wicker_top', got '{}'"

@@ -1,6 +1,5 @@
 import tensorflow as tf
 import numpy as np
-from tensorflow import keras
 from tensorflow.keras import initializers
 import logging
 
@@ -24,6 +23,8 @@ class PermuteAndPadScopesRandom(PermuteAndPadScopes):
     def __init__(self, num_decomps, factors=None, num_vars_spn_input=None, **kwargs):
         super(PermuteAndPadScopesRandom, self).__init__(num_decomps, **kwargs)
         self.num_decomps = num_decomps
+        self.factors = factors
+        self.num_vars_spn_input = num_vars_spn_input
         self._num_nodes = self._num_scopes = self.permutations = None
         if factors is not None and num_vars_spn_input is not None:
             self.generate_permutations(factors, num_vars_spn_input)
@@ -66,3 +67,11 @@ class PermuteAndPadScopesRandom(PermuteAndPadScopes):
             shape=perms.shape, dtype=tf.int32
         )
         return perms
+
+    def get_config(self):
+        config = dict(
+            num_vars_input=self.num_vars_spn_input,
+            factors=self.factors
+        )
+        base_config = super(PermuteAndPadScopesRandom, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))

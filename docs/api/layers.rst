@@ -56,8 +56,17 @@ final layer of an SPN should still be a ``RootSum``. Use ``SpatialToRegions`` to
 from a spatial SPN to a region SPN.
 
 .. autoclass:: libspn_keras.layers.Local2DSum
+.. autoclass:: libspn_keras.layers.Conv2DSum
 .. autoclass:: libspn_keras.layers.Conv2DProduct
 .. autoclass:: libspn_keras.layers.SpatialToRegions
+
+Dynamic SPN layers
+------------------
+For reusing SPN structures along the temporal dimension one can implement dynamic SPNs. These rely
+on *template SPNs*, *top SPNs* and an *interface*. The interface of the previous timestep and the
+template at the current timestep can be combined through ``TemporalDenseProduct``.
+
+.. autoclass:: libspn_keras.layers.TemporalDenseProduct
 
 Regularization layers
 ---------------------

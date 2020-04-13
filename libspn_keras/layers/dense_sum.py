@@ -1,4 +1,4 @@
-from libspn_keras.backprop_mode import BackpropMode
+from libspn_keras.backprop_mode import BackpropMode, infer_logspace_accumulators
 from libspn_keras.constraints.greater_equal_epsilon import GreaterEqualEpsilon
 from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.math.logmatmul import logmatmul
@@ -19,9 +19,11 @@ class DenseSum(keras.layers.Layer):
 
     Args:
         num_sums: Number of sums per scope
-        logspace_accumulators: Whether to use a log-space representation in the trainable
-            accumulators. Should be set to False when using EM backpropgation modes. Should
-            be set to True for Gradient backpropagation.
+        logspace_accumulators: If ``True``, accumulators will be represented in log-space which
+            is typically used with ``BackpropMode.GRADIENT``. If ``False``, accumulators will be
+            represented in linear space. Weights are computed by normalizing the accumulators
+            per sum, so that we always end up with a normalized SPN. If ``None`` (default) it
+            will be set to ``True`` for ``BackpropMode.GRADIENT`` and ``False`` otherwise.
         accumulator_initializer: Initializer for accumulator. Will automatically be converted
             to log-space values if ``logspace_accumulators`` is enabled.
         backprop_mode: Backpropagation mode can be BackpropMode.GRADIENT, BackpropMode.HARD_EM,
@@ -33,13 +35,14 @@ class DenseSum(keras.layers.Layer):
         **kwargs: kwargs to pass on to keras.Layer super class
     """
     def __init__(
-        self, num_sums, logspace_accumulators=False, accumulator_initializer=None,
+        self, num_sums, logspace_accumulators=None, accumulator_initializer=None,
         backprop_mode=BackpropMode.GRADIENT, accumulator_regularizer=None,
         linear_accumulator_constraint=None, **kwargs
     ):
         super(DenseSum, self).__init__(**kwargs)
         self.num_sums = num_sums
-        self.logspace_accumulators = logspace_accumulators
+        self.logspace_accumulators = infer_logspace_accumulators(backprop_mode) \
+            if logspace_accumulators is None else logspace_accumulators
         self.accumulator_initializer = accumulator_initializer or initializers.Constant(1)
         self.backprop_mode = backprop_mode
         self.accumulator_regularizer = accumulator_regularizer
