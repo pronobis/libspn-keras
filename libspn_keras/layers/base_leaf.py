@@ -1,18 +1,14 @@
 from tensorflow import keras
 import tensorflow as tf
 
-from libspn_keras.dimension_permutation import DimensionPermutation, infer_dimension_permutation
-
 
 class BaseLeaf(keras.layers.Layer):
 
     def __init__(
-        self, num_components, dtype=tf.float32, dimension_permutation=DimensionPermutation.AUTO,
-        use_cdf=False, multivariate=False, **kwargs
+        self, num_components, dtype=tf.float32, use_cdf=False, multivariate=False, **kwargs
     ):
         super(BaseLeaf, self).__init__(dtype=dtype, **kwargs)
         self.num_components = num_components
-        self.dimension_permutation = dimension_permutation
         self.use_cdf = use_cdf
         self.multivariate = multivariate
         self._distribution = self._num_scopes = self._num_decomps = None

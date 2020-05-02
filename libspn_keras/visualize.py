@@ -99,7 +99,7 @@ def _assemble_dense_spn_figure(dense_spn, show_padding=True):
             num_scopes = 1
             num_nodes = 1
         else:
-            num_scopes, _, _, num_nodes = layer.output_shape
+            _, num_scopes, _, num_nodes = layer.output_shape
         total_nodes = num_scopes * num_nodes
         max_total_nodes = max(total_nodes, max_total_nodes)
 
@@ -124,7 +124,7 @@ def _assemble_dense_spn_figure(dense_spn, show_padding=True):
             num_scopes = 1
             num_nodes = 1
         else:
-            num_scopes, _, _, num_nodes = layer.output_shape
+            _, num_scopes, _, num_nodes = layer.output_shape
         current_width = num_scopes * num_nodes
         if current_width < last_width:
             if last_num_nodes == num_nodes * num_scopes:

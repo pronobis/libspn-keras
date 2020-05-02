@@ -3,7 +3,6 @@ import tensorflow as tf
 
 from libspn_keras.backprop_mode import BackpropMode, infer_logspace_accumulators
 from libspn_keras.constraints.greater_equal_epsilon import GreaterEqualEpsilon
-from libspn_keras.dimension_permutation import DimensionPermutation, infer_dimension_permutation
 from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.math.logmatmul import logmatmul
 from libspn_keras.math.hard_em_grads import \
@@ -34,10 +33,6 @@ class RootSum(keras.layers.Layer):
             initializers.Constant(1.0)
         backprop_mode: Backpropagation mode. Can be either BackpropMode.GRADIENT,
             BackpropMode.HARD_EM, BackpropMode.SOFT_EM or BackpropMode.HARD_EM_UNWEIGHTED
-        dimension_permutation: Dimension permutation. If DimensionPermutation.AUTO, the layer
-            will try to infer it from the input tensors during the graph build phase. If needed,
-            it can be changed to DimensionPermutation.SPATIAL for e.g. spatial SPNs or
-            DimensionPermutation.REGIONS for dense SPNs.
         accumulator_regularizer: Regularizer for accumulator.
         linear_accumulator_constraint: Constraint for linear accumulators. Defaults to a
             constraint that ensures a minimum of a small positive constant. If
@@ -47,8 +42,7 @@ class RootSum(keras.layers.Layer):
     def __init__(
         self, return_weighted_child_logits=True, logspace_accumulators=None,
         accumulator_initializer=None, backprop_mode=BackpropMode.GRADIENT,
-        dimension_permutation=DimensionPermutation.AUTO, accumulator_regularizer=None,
-        linear_accumulator_constraint=None, **kwargs
+        accumulator_regularizer=None, linear_accumulator_constraint=None, **kwargs
     ):
         super(RootSum, self).__init__(**kwargs)
         self.return_weighted_child_logits = return_weighted_child_logits
@@ -56,7 +50,6 @@ class RootSum(keras.layers.Layer):
         self.logspace_accumulators = infer_logspace_accumulators(backprop_mode) \
             if logspace_accumulators is None else logspace_accumulators
         self.backprop_mode = backprop_mode
-        self.dimension_permutation = dimension_permutation
         self.accumulator_regularizer = accumulator_regularizer
         self.linear_accumulator_constraint = \
             linear_accumulator_constraint or GreaterEqualEpsilon(1e-10)

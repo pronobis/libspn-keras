@@ -13,46 +13,40 @@ class PermuteAndPadScopesRandom(PermuteAndPadScopes):
     Permutes scopes, usually applied after a ``FlatToRegions`` and a ``BaseLeaf`` layer.
 
     Args:
-        num_decomps: Number of decompositions to generate permutations for
         factors (list of ints): Number of factors in preceding product layers. Needed to compute
             the effective number of scopes, including padded nodes. Can be applied at later stage
             through ``generate_factors``.
         **kwargs: kwargs to pass on to the ``keras.Layer`` superclass.
-
     """
-    def __init__(self, num_decomps, factors=None, num_vars_spn_input=None, **kwargs):
-        super(PermuteAndPadScopesRandom, self).__init__(num_decomps, **kwargs)
-        self.num_decomps = num_decomps
+    def __init__(self, factors=None, **kwargs):
+        super(PermuteAndPadScopesRandom, self).__init__(None, **kwargs)
         self.factors = factors
-        self.num_vars_spn_input = num_vars_spn_input
-        self._num_nodes = self._num_scopes = self.permutations = None
-        if factors is not None and num_vars_spn_input is not None:
-            self.generate_permutations(factors, num_vars_spn_input)
-        elif factors is None and num_vars_spn_input is not None:
-            raise ValueError("Must have both 'factors' and 'num_vars_spn_input' or neither")
-        elif factors is not None and num_vars_spn_input is None:
-            raise ValueError("Must have both 'factors' and 'num_vars_spn_input' or neither")
 
-    def generate_permutations(self, factors, num_vars_spn_input):
-        if not factors:
-            raise ValueError("{}: factors needs to be a non-empty sequence.")
-        factor_cumprod = np.cumprod(factors)
+    def set_factors(self, factors):
+        self.factors = factors
+
+    def build(self, input_shape):
+        _, num_scopes, num_decomps, num_nodes_in = input_shape
+
+        if self.factors is None or self.factors == []:
+            raise ValueError("Factors needs to be a non-empty sequence.")
+        factor_cumprod = np.cumprod(self.factors)
         factor_prod = factor_cumprod[-1]
-        if factor_prod < num_vars_spn_input:
+        if factor_prod < num_scopes:
             raise ValueError("{}: not enough factors to cover all variables ({} vs. {})."
-                             .format(self, factor_prod, num_vars_spn_input))
+                             .format(self, factor_prod, num_scopes))
         for i, fc in enumerate(factor_cumprod[:-1]):
-            if fc >= num_vars_spn_input:
+            if fc >= num_scopes:
                 raise ValueError(
                     "{}: too many factors, taking out the bottom {} products still "
                     "results in {} factors while {} are needed.".format(
-                        self, len(factors) - i - 1, fc, num_vars_spn_input))
+                        self, len(self.factors) - i - 1, fc, num_scopes))
 
         # Now we generate the random index permutations
-        perms = [np.random.permutation(num_vars_spn_input).astype(int).tolist()
-                 for _ in range(self.num_decomps)]
+        perms = [np.random.permutation(num_scopes).astype(int).tolist()
+                 for _ in range(num_decomps)]
 
-        num_m1 = factor_prod - num_vars_spn_input
+        num_m1 = factor_prod - num_scopes
         if num_m1 > 0:
             # e.g. num_m1 == 2 and factor_prod = 32. Then rate_m1 is 16, so once every 16 values
             # we should leave a variable slot empty
