@@ -196,7 +196,7 @@ def _assemble_dense_spn_figure(dense_spn, show_padding=True):
             node_group_sizes.append(num_nodes)
 
             if scope == set():
-                scope_suffix = '\emptyset'
+                scope_suffix = r'\emptyset'
             else:
                 scope_suffix = '{' + ', '.join('X_{}'.format(s) for s in sorted(scope)) + '}'
             names.append('$\\text{' + layer.__class__.__name__ + ' }' + scope_suffix + '$')
