@@ -18,20 +18,9 @@ class BaseLeaf(keras.layers.Layer):
         self._distribution = self._num_scopes = self._num_decomps = None
 
     def build(self, input_shape):
-        effective_dimension_permutation = infer_dimension_permutation(input_shape) \
-            if self.dimension_permutation == DimensionPermutation.AUTO \
-            else self.dimension_permutation
-
-        if effective_dimension_permutation == DimensionPermutation.SPATIAL:
-            _, *scope_and_decomp_dims, multivariate_size = input_shape
-            distribution_shape = [1] + scope_and_decomp_dims + [
-                self.num_components, multivariate_size]
-        else:
-            *scope_and_decomp_dims, _, multivariate_size = input_shape
-            distribution_shape = scope_and_decomp_dims + \
-                 [1, self.num_components, multivariate_size]
-
-        self._num_scopes, self._num_decomps = scope_and_decomp_dims
+        _, *scope_dims, multivariate_size = input_shape
+        distribution_shape = [1] + scope_dims + [self.num_components, multivariate_size]
+        self._num_scopes, self._num_decomps = scope_dims
         self._distribution = self._build_distribution(distribution_shape)
         super(BaseLeaf, self).build(input_shape)
 
@@ -45,17 +34,8 @@ class BaseLeaf(keras.layers.Layer):
         return tf.reduce_sum(log_prob, axis=-1)
 
     def compute_output_shape(self, input_shape):
-
-        inferred_dimension_permutation = infer_dimension_permutation(input_shape) \
-            if self.dimension_permutation == DimensionPermutation.AUTO \
-            else self.dimension_permutation
-        if inferred_dimension_permutation == DimensionPermutation.SPATIAL:
-            _, *scope_and_decomp_dims, _ = input_shape
-            out_shape = [None] + scope_and_decomp_dims + [self.num_components]
-        else:
-            *scope_and_decomp_dims, _, _ = input_shape
-            out_shape = scope_and_decomp_dims + [None, self.num_components]
-
+        *outer_dims, _ = input_shape
+        out_shape = outer_dims + [self.num_components]
         return out_shape
 
     def get_config(self):

@@ -36,10 +36,10 @@ class TemporalDenseProduct(keras.layers.Layer):
 
     def compute_output_shape(self, input_shape):
         a_shape, _ = input_shape
-        num_scopes_in, num_decomps, num_batch, num_nodes_in = a_shape
+        num_batch, num_scopes_in, num_decomps, num_nodes_in = a_shape
         return (
+            num_batch,
             num_scopes_in,
             num_decomps,
-            num_batch,
             num_nodes_in ** 2
         )

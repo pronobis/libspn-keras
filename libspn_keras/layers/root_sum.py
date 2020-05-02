@@ -67,20 +67,10 @@ class RootSum(keras.layers.Layer):
                 "Logspace accumulators can only be used with BackpropMode.GRADIENT")
 
     def build(self, input_shape):
-        # Create a trainable weight variable for this layer.
-        self._inferred_dimension_permutation = infer_dimension_permutation(input_shape) \
-            if self.dimension_permutation == DimensionPermutation.AUTO \
-            else self.dimension_permutation
+        _, num_scopes_in, num_decomps_in, self._num_nodes_in = input_shape
 
-        if self._inferred_dimension_permutation == DimensionPermutation.SPATIAL:
-            self._num_nodes_in = num_nodes_in = np.prod(input_shape[1:])
-        else:
-            num_scopes_in, num_decomps_in, _, num_nodes_in = input_shape
-
-            self._num_nodes_in = num_nodes_in
-
-            if num_scopes_in != 1 or num_decomps_in != 1:
-                raise ValueError("Number of scopes and decomps must both be 1")
+        if num_scopes_in != 1 or num_decomps_in != 1:
+            raise ValueError("Number of scopes and decomps must both be 1")
 
         initializer = self.accumulator_initializer
         accumulator_constraint = self.linear_accumulator_constraint
@@ -89,7 +79,7 @@ class RootSum(keras.layers.Layer):
             accumulator_constraint = None
 
         self.accumulators = self.add_weight(
-            name='weights', shape=(num_nodes_in,), initializer=initializer,
+            name='weights', shape=(self._num_nodes_in,), initializer=initializer,
             regularizer=self.accumulator_regularizer, constraint=accumulator_constraint
         )
 
@@ -124,16 +114,7 @@ class RootSum(keras.layers.Layer):
                 x_squeezed, tf.expand_dims(log_weights_normalized, axis=1))
 
     def compute_output_shape(self, input_shape):
-        if len(input_shape) == 2:
-            num_batch, num_nodes_in = input_shape
-        else:
-            inferred_dimension_permutation = infer_dimension_permutation(input_shape) \
-                if self.dimension_permutation == DimensionPermutation.AUTO \
-                else self.dimension_permutation
-            if inferred_dimension_permutation == DimensionPermutation.SPATIAL:
-                num_batch, _, _, num_nodes_in = input_shape
-            else:
-                _, _, num_batch, num_nodes_in = input_shape
+        num_batch, _, _, num_nodes_in = input_shape
         if self.return_weighted_child_logits:
             return [num_batch, num_nodes_in]
         else:

@@ -32,5 +32,8 @@ class _Indicator(distributions.Distribution):
             allow_nan_stats=True, validate_args=False)
 
     def _log_prob(self, value):
-        return tf.squeeze(tf.one_hot(
-            value, depth=self._num_components, on_value=0.0, off_value=float('-inf')), axis=3)
+        indicator_values = tf.one_hot(
+            value, depth=self._num_components, on_value=0.0, off_value=float('-inf'))
+        rank = len(indicator_values.shape)
+        indicator_values = tf.transpose(indicator_values, list(range(rank - 2)) + [rank - 1, rank - 2])
+        return tf.squeeze(indicator_values, axis=3)

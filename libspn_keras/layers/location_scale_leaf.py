@@ -33,8 +33,7 @@ class LocationScaleLeafBase(BaseLeaf):
 
     def _build_distribution(self, shape):
         if self.use_accumulators:
-            denom_accumulator, num_accumulator, scale = \
-                self._create_loc_accumulators_and_scale(shape)
+            denom_accumulator, num_accumulator, scale = self._create_loc_accumulators_and_scale(shape)
             loc = num_accumulator / denom_accumulator
             dist = self._build_distribution_from_loc_and_scale(loc=loc, scale=scale)
             return LocationScaleEMGradWrapper(dist, denom_accumulator, num_accumulator)

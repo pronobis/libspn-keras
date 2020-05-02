@@ -19,7 +19,7 @@ def logmultiply_hard_em(child_log_prob, linear_accumulators):
     def _inner_fn(child_log_prob, linear_accumulators):
 
         out = child_log_prob + tf.expand_dims(
-            tf.nn.log_softmax(tf.log(linear_accumulators)), axis=0)
+            tf.nn.log_softmax(tf.math.log(linear_accumulators)), axis=0)
 
         def grad(dy):
             return dy, tf.reduce_sum(tf.reshape(dy, (-1, tf.size(linear_accumulators))), axis=0)

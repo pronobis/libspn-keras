@@ -8,6 +8,7 @@ from libspn_keras import metrics
 from libspn_keras import losses
 from libspn_keras import layers
 from libspn_keras import constraints
+from libspn_keras import initializers
 from libspn_keras.region import RegionNode
 from libspn_keras.region import RegionVariable
 from libspn_keras.region import region_graph_to_dense_spn
