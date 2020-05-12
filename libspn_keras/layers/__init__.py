@@ -1,4 +1,3 @@
-from libspn_keras.layers.bernoulli_condition import BernoulliCondition
 from libspn_keras.layers.conv2d_product import Conv2DProduct
 from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.dense_sum import DenseSum
@@ -21,7 +20,6 @@ from libspn_keras.layers.permute_and_pad_scopes_random import PermuteAndPadScope
 from libspn_keras.layers.conv2d_sum import Conv2DSum
 
 __all__ = [
-    'BernoulliCondition',
     'Conv2DProduct',
     'DenseProduct',
     'DenseSum',

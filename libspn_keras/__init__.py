@@ -1,6 +1,5 @@
 from libspn_keras.backprop_mode import BackpropMode
 from libspn_keras.logspace import logspace_wrapper_initializer
-from libspn_keras.normalizationaxes import NormalizationAxes
 from libspn_keras.utils.generative_learning_em import GenerativeLearningEM
 from libspn_keras import optimizers
 from libspn_keras import metrics
@@ -18,7 +17,6 @@ from libspn_keras import models
 __all__ = [
     'BackpropMode',
     'logspace_wrapper_initializer',
-    'NormalizationAxes',
     'optimizers',
     'metrics',
     'losses',
