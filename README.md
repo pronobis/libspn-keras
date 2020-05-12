@@ -52,7 +52,7 @@ univariate as well as *multivariate* inputs.
 
 ## Examples / Tutorials
 1. [**Image Classification**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab](https://colab.research.google.com/drive/1yvdInaGNVoCdFFdc3mJd31Kb1dDKQoIC)
-2. [**Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab.](https://colab.research.google.com/drive/11oaX5i0PkS_unIjO2vxnMl3SS2aHzeuE)
+2. [**Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab.](https://colab.research.google.com/drive/1HohG3_Klh7fTHFi9yhtcguZgfAqZJW1a?usp=sharing)
 3. [**Randomly structured SPNs** for image classification](https://colab.research.google.com/drive/16hEjwoBEwCt2f-PAfEezvI4fu1dhVSb8)
 4. [**Understanding region SPNs**](https://colab.research.google.com/drive/1Ndg86STs7xlST23V12ODVZQSwcUfIAZj)
 5. More to come, and if you would like to see a tutorial on anything in particular 

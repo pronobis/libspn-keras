@@ -1,5 +1,12 @@
 import tensorflow as tf
 from tensorflow import test as tftest
+from libspn_keras import GenerativeLearningEM
+from libspn_keras.losses import NegativeLogLikelihood
+from libspn_keras.metrics import LogLikelihood
+from libspn_keras.optimizers import OnlineExpectationMaximization
+from tensorflow.keras import losses
+from tensorflow.keras import metrics
+import numpy as np
 
 from tests.utils import normal_leafs, product0_out, product1_out, sum0_out, root_out, \
     get_continuous_model, get_continuous_data

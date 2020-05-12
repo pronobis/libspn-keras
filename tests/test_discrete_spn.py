@@ -1,8 +1,10 @@
 import tensorflow as tf
 from tensorflow import test as tftest
 
-from tests.utils import indicators, product0_out, product1_out, sum0_out, root_out, NUM_VARS, NUM_COMPONENTS, \
-    get_discrete_data, get_discrete_model
+from libspn_keras.losses import NegativeLogLikelihood
+from libspn_keras.metrics import LogLikelihood
+from libspn_keras.optimizers import OnlineExpectationMaximization
+from tests.utils import indicators, product0_out, product1_out, sum0_out, root_out, get_discrete_data, get_discrete_model
 
 tf.config.experimental_run_functions_eagerly(True)
 
@@ -23,6 +25,12 @@ class TestDiscreteSPN(tftest.TestCase):
             x = layer(x)
             if layer.name == name:
                 return tf.exp(x)
+
+    def test_train(self):
+        dataset = tf.data.Dataset.from_tensor_slices((self.data,)).batch(3)
+        self.discrete_spn.compile(
+            optimizer=OnlineExpectationMaximization(), loss=NegativeLogLikelihood(), metrics=LogLikelihood())
+        self.discrete_spn.fit(dataset, epochs=1)
 
     def test_indicators(self):
         got = self._compute_until(self.data, "indicator_leaf")

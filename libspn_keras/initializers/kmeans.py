@@ -38,7 +38,7 @@ class KMeans(initializers.Initializer):
     def __init__(self, data=None, samplewise_normalization=True, data_fraction=0.2,
                  normalization_epsilon=1e-2, stop_epsilon=1e-4, num_iters=100,
                  group_centroids=True, max_num_clusters=8, jitter_factor=0.05,
-                 centroid_initialization="kmeans++"):
+                 centroid_initialization="kmeans++", downsample=None):
         self._data = data
         self.samplewise_normalization = samplewise_normalization
         self.normalization_epsilon = normalization_epsilon
@@ -49,19 +49,31 @@ class KMeans(initializers.Initializer):
         self.max_num_clusters = max_num_clusters
         self.jitter_factor = jitter_factor
         self.centroid_initialization = centroid_initialization
+        self.downsample = downsample
 
     def __call__(self, shape, dtype=None, partition_info=None):
+
+        data = self._data
+        height, width = shape[1:3]
+        if self.downsample is not None:
+            if height % self.downsample != 0:
+                raise ValueError(
+                    "Could not downsample image with height {} and a factor {}".format(height, self.downsample))
+            if width % self.downsample != 0:
+                raise ValueError(
+                    "Could not downsample image with width {} and a factor {}".format(width, self.downsample))
+
+            data = tf.image.resize(data, size=(height // self.downsample, width // self.downsample)).numpy()
 
         num_components = shape[-2]
         if num_components > self.max_num_clusters and num_components % self.max_num_clusters != 0:
             raise ValueError("Number of components must be multiple of max number of clusters")
 
         if self.samplewise_normalization:
-            axes = tuple(range(1, len(self._data.shape)))
-            data = (self._data - np.mean(self._data, axis=axes, keepdims=True)) \
-                   / (np.std(self._data, axis=axes, keepdims=True) + self.normalization_epsilon)
-        else:
-            data = self._data
+            axes = tuple(range(1, len(data.shape)))
+            data = (data - tf.reduce_mean(data, axis=axes, keepdims=True)) \
+                   / (tf.math.reduce_std(data, axis=axes, keepdims=True) + self.normalization_epsilon)
+            data = data.numpy()
 
         batch_size, *middle_dims, dimensionality = data.shape
 
@@ -84,6 +96,17 @@ class KMeans(initializers.Initializer):
                 stddev=self.jitter_factor
             )
             centroids = centroids + noise
+
+        if self.downsample:
+            centroids = tf.reshape(
+                centroids, (1, height // self.downsample, width // self.downsample, num_components, centroids.shape[-1]))
+            dims_prefix, last_two_dims = tf.shape(centroids)[:-2], tf.shape(centroids)[-2:]
+            channels_and_centroids_on_last_axis = tf.reshape(
+                centroids, tf.concat([dims_prefix, [last_two_dims[0] * last_two_dims[1]]], axis=0))
+            centroids = tf.reshape(
+                tf.image.resize(channels_and_centroids_on_last_axis, (height, width)),
+                [dims_prefix[0], height, width, last_two_dims[0], last_two_dims[1]]
+            )
 
         return np.reshape(np.asarray(centroids), shape)
 

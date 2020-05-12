@@ -53,7 +53,7 @@ class RootSum(keras.layers.Layer):
         self.accumulator_regularizer = accumulator_regularizer
         self.linear_accumulator_constraint = \
             linear_accumulator_constraint or GreaterEqualEpsilon(1e-10)
-        self.accumulators = self._num_nodes_in = self._inferred_dimension_permutation = None
+        self.accumulators = self._num_nodes_in = None
 
         if backprop_mode != BackpropMode.GRADIENT and logspace_accumulators:
             raise NotImplementedError(

@@ -11,7 +11,7 @@ from libspn_keras.layers.spatial_to_regions import SpatialToRegions
 from libspn_keras.layers.root_sum import RootSum
 from libspn_keras.layers.local2d_sum import Local2DSum
 from libspn_keras.layers.undecompose import Undecompose
-from libspn_keras.layers.z_score_normalization import ZScoreNormalization
+from libspn_keras.layers.normalize_standard_score import NormalizeStandardScore
 from libspn_keras.layers.base_leaf import BaseLeaf
 from libspn_keras.layers.permute_and_pad_scopes import PermuteAndPadScopes
 from libspn_keras.layers.reduce_product import ReduceProduct
@@ -35,7 +35,7 @@ __all__ = [
     'RootSum',
     'Local2DSum',
     'Undecompose',
-    'ZScoreNormalization',
+    'NormalizeStandardScore',
     'BaseLeaf',
     'PermuteAndPadScopes',
     'FlatToRegions',

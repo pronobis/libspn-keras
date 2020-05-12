@@ -178,7 +178,7 @@ def _assemble_dense_spn_figure(dense_spn, show_padding=True):
                             nk //= num_nodes_prev
 
                     elif isinstance(layer, PermuteAndPadScopes):
-                        prev_scope_index = layer.permutations.numpy()[0, scope_index]
+                        prev_scope_index = layer.permutations[0, scope_index]
                         if prev_scope_index != -1:
                             child_key = (layer_index - 1, prev_scope_index, nj % num_nodes)
                             edges_yx.append(

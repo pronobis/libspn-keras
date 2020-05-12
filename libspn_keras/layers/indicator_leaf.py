@@ -20,7 +20,10 @@ class IndicatorLeaf(BaseLeaf):
         super().__init__(num_components, dtype=dtype, **kwargs)
 
     def _build_distribution(self, shape):
-        return _Indicator(self.num_components, dtype=self.dtype)
+        self._indicator = _Indicator(self.num_components, dtype=self.dtype)
+
+    def _get_distribution(self):
+        return self._indicator
 
 
 class _Indicator(distributions.Distribution):

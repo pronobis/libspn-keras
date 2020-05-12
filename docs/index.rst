@@ -8,6 +8,7 @@
     :caption: API
 
     api/layers
+    api/models
     api/initializers
     api/losses
     api/optimizers
