@@ -55,7 +55,7 @@ class DenseSum(keras.layers.Layer):
 
     def build(self, input_shape):
         # Create a trainable weight variable for this layer.
-        self._num_scopes, self._num_decomps, _, num_nodes_in = input_shape
+        _, self._num_scopes, self._num_decomps, num_nodes_in = input_shape
 
         weights_shape = (self._num_scopes, self._num_decomps, num_nodes_in, self.num_sums)
 
@@ -74,12 +74,16 @@ class DenseSum(keras.layers.Layer):
     def call(self, x):
         log_weights_unnormalized = self._accumulators
 
+        x = tf.transpose(x, (1, 2, 0, 3))
+
         if not self.logspace_accumulators and \
                 self.backprop_mode in [BackpropMode.HARD_EM, BackpropMode.HARD_EM_UNWEIGHTED]:
-            return logmatmul_hard_em_through_grads_from_accumulators(
+            out = logmatmul_hard_em_through_grads_from_accumulators(
                 x, self._accumulators,
                 unweighted=self.backprop_mode == BackpropMode.HARD_EM_UNWEIGHTED
             )
+            out = tf.transpose(out, (2, 0, 1, 3))
+            return out
 
         if not self.logspace_accumulators and self.backprop_mode == BackpropMode.EM:
             log_weights_normalized = log_softmax_from_accumulators_with_em_grad(
@@ -89,7 +93,9 @@ class DenseSum(keras.layers.Layer):
         else:
             log_weights_normalized = tf.nn.log_softmax(log_weights_unnormalized, axis=2)
 
-        return logmatmul(x, log_weights_normalized)
+        out = logmatmul(x, log_weights_normalized)
+        out = tf.transpose(out, (2, 0, 1, 3))
+        return out
 
     def compute_output_shape(self, input_shape):
         num_scopes, num_decomps, num_batch, _ = input_shape
@@ -106,3 +112,4 @@ class DenseSum(keras.layers.Layer):
         )
         base_config = super(DenseSum, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+

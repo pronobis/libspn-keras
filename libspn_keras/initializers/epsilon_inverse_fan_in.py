@@ -34,7 +34,6 @@ class EpsilonInverseFanIn(initializers.Initializer):
 
     def get_config(self):
         return {
-            "dtype": self.dtype.name,
             "epsilon": self.epsilon,
             "axis": self.axis
         }

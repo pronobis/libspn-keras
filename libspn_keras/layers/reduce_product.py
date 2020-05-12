@@ -19,7 +19,7 @@ class ReduceProduct(keras.layers.Layer):
             = self._num_products = self._num_nodes_in = None
 
     def build(self, input_shape):
-        self._num_scopes_in, self._num_decomps, _, self._num_nodes_in = input_shape
+        _, self._num_scopes_in, self._num_decomps, self._num_nodes_in = input_shape
         if self._num_scopes_in % self.num_factors != 0:
             raise ValueError("Number of input scopes is not divisible by factor")
         self._num_scopes = self._num_scopes_in // self.num_factors
@@ -28,15 +28,15 @@ class ReduceProduct(keras.layers.Layer):
 
     def call(self, x):
         # Split in list of tensors which will be added up using outer products
-        shape = [self._num_scopes, self.num_factors, self._num_decomps, -1, self._num_nodes_in]
-        return tf.reduce_sum(tf.reshape(x, shape=shape), axis=1)
+        shape = [-1, self._num_scopes, self.num_factors, self._num_decomps, self._num_nodes_in]
+        return tf.reduce_sum(tf.reshape(x, shape=shape), axis=2)
 
     def compute_output_shape(self, input_shape):
         num_scopes_in, num_decomps, num_batch, num_nodes_in = input_shape
         return (
+            num_batch,
             num_scopes_in // self.num_factors,
             self._num_decomps,
-            num_batch,
             num_nodes_in
         )
 

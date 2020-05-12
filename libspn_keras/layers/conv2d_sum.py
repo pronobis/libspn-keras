@@ -38,15 +38,8 @@ class Conv2DSum(keras.layers.Layer):
     def __init__(
         self, num_sums, logspace_accumulators=None, accumulator_initializer=None,
         backprop_mode=BackpropMode.GRADIENT, accumulator_regularizer=None,
-        linear_accumulator_constraint=GreaterEqualEpsilon(1e-10), **kwargs
+        linear_accumulator_constraint=None, **kwargs
     ):
-        # TODO make docstrings more consistent across different sum instances
-
-        # TODO automatically infer value of logspace_accumulator from the backprop mode
-
-        # TODO verify compatibility of backprop mode and logspace_accumulator
-
-        # TODO consider renaming 'accumulator' to 'child_counts'
         super(Conv2DSum, self).__init__(**kwargs)
         self.num_sums = num_sums
         self.logspace_accumulators = infer_logspace_accumulators(backprop_mode) \
@@ -54,7 +47,7 @@ class Conv2DSum(keras.layers.Layer):
         self.accumulator_initializer = accumulator_initializer or initializers.Constant(1)
         self.backprop_mode = backprop_mode
         self.accumulator_regularizer = accumulator_regularizer
-        self.linear_accumulator_constraint = linear_accumulator_constraint
+        self.linear_accumulator_constraint = linear_accumulator_constraint or GreaterEqualEpsilon(1e-10)
         self.accumulators = None
 
     def build(self, input_shape):

@@ -35,6 +35,5 @@ class Equidistant(initializers.Initializer):
     def get_config(self):
         return {
             "minval": self.minval,
-            "maxval": self.maxval,
-            "dtype": self.dtype.name
+            "maxval": self.maxval
         }

@@ -18,11 +18,7 @@ class TemporalDenseProduct(keras.layers.Layer):
 
     def build(self, input_shape):
         a_shape, b_shape = input_shape
-        if a_shape != b_shape:
-            raise ValueError("Shapes of incoming layers must be equal, but got {} and {}".format(
-                a_shape, b_shape))
-
-        self._num_nodes_out = a_shape[-1] ** 2
+        self._num_nodes_out = a_shape[-1] * b_shape[-1]
         super(TemporalDenseProduct, self).build(input_shape)
 
     def call(self, x):
@@ -30,16 +26,16 @@ class TemporalDenseProduct(keras.layers.Layer):
         a, b = x
         a_expanded = tf.expand_dims(a, axis=-1)
         b_expanded = tf.expand_dims(b, axis=-2)
-        outer_dims = tf.shape(a_expanded)[:-1]
+        outer_dims = tf.shape(a_expanded)[:-2]
         out_shape = tf.concat([outer_dims, [self._num_nodes_out]], axis=0)
         return tf.reshape(a_expanded + b_expanded, out_shape)
 
     def compute_output_shape(self, input_shape):
-        a_shape, _ = input_shape
-        num_scopes_in, num_decomps, num_batch, num_nodes_in = a_shape
+        a_shape, b_shape = input_shape
+        num_batch, num_scopes_in, num_decomps, num_nodes_in_a = a_shape
         return (
+            num_batch,
             num_scopes_in,
             num_decomps,
-            num_batch,
-            num_nodes_in ** 2
+            num_nodes_in_a ** b_shape[-1]
         )

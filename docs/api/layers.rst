@@ -72,6 +72,6 @@ Regularization layers
 ---------------------
 .. autoclass:: libspn_keras.layers.LogDropout
 
-Miscellaneous
----------------------
-.. autoclass:: libspn_keras.layers.BernoulliCondition
+Normalization layers
+--------------------
+.. autoclass:: libspn_keras.layers.NormalizeStandardScore

@@ -135,7 +135,7 @@ def region_graph_to_dense_spn(
     pre_stack = [
         FlatToRegions(num_decomps=1, input_shape=[len(_collect_variable_nodes(region_graph_root))]),
         leaf_node,
-        PermuteAndPadScopes(num_decomps=1, permutations=np.asarray([permutation]))
+        PermuteAndPadScopes(permutations=np.asarray([permutation]))
     ]
 
     return tf.keras.Sequential(pre_stack + sum_product_stack)

@@ -3,7 +3,6 @@ import tensorflow as tf
 
 from libspn_keras.backprop_mode import BackpropMode, infer_logspace_accumulators
 from libspn_keras.constraints.greater_equal_epsilon import GreaterEqualEpsilon
-from libspn_keras.dimension_permutation import DimensionPermutation, infer_dimension_permutation
 from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.math.logmatmul import logmatmul
 from libspn_keras.math.hard_em_grads import \
@@ -34,10 +33,6 @@ class RootSum(keras.layers.Layer):
             initializers.Constant(1.0)
         backprop_mode: Backpropagation mode. Can be either BackpropMode.GRADIENT,
             BackpropMode.HARD_EM, BackpropMode.SOFT_EM or BackpropMode.HARD_EM_UNWEIGHTED
-        dimension_permutation: Dimension permutation. If DimensionPermutation.AUTO, the layer
-            will try to infer it from the input tensors during the graph build phase. If needed,
-            it can be changed to DimensionPermutation.SPATIAL for e.g. spatial SPNs or
-            DimensionPermutation.REGIONS for dense SPNs.
         accumulator_regularizer: Regularizer for accumulator.
         linear_accumulator_constraint: Constraint for linear accumulators. Defaults to a
             constraint that ensures a minimum of a small positive constant. If
@@ -47,8 +42,7 @@ class RootSum(keras.layers.Layer):
     def __init__(
         self, return_weighted_child_logits=True, logspace_accumulators=None,
         accumulator_initializer=None, backprop_mode=BackpropMode.GRADIENT,
-        dimension_permutation=DimensionPermutation.AUTO, accumulator_regularizer=None,
-        linear_accumulator_constraint=None, **kwargs
+        accumulator_regularizer=None, linear_accumulator_constraint=None, **kwargs
     ):
         super(RootSum, self).__init__(**kwargs)
         self.return_weighted_child_logits = return_weighted_child_logits
@@ -56,31 +50,20 @@ class RootSum(keras.layers.Layer):
         self.logspace_accumulators = infer_logspace_accumulators(backprop_mode) \
             if logspace_accumulators is None else logspace_accumulators
         self.backprop_mode = backprop_mode
-        self.dimension_permutation = dimension_permutation
         self.accumulator_regularizer = accumulator_regularizer
         self.linear_accumulator_constraint = \
             linear_accumulator_constraint or GreaterEqualEpsilon(1e-10)
-        self.accumulators = self._num_nodes_in = self._inferred_dimension_permutation = None
+        self.accumulators = self._num_nodes_in = None
 
         if backprop_mode != BackpropMode.GRADIENT and logspace_accumulators:
             raise NotImplementedError(
                 "Logspace accumulators can only be used with BackpropMode.GRADIENT")
 
     def build(self, input_shape):
-        # Create a trainable weight variable for this layer.
-        self._inferred_dimension_permutation = infer_dimension_permutation(input_shape) \
-            if self.dimension_permutation == DimensionPermutation.AUTO \
-            else self.dimension_permutation
+        _, num_scopes_in, num_decomps_in, self._num_nodes_in = input_shape
 
-        if self._inferred_dimension_permutation == DimensionPermutation.SPATIAL:
-            self._num_nodes_in = num_nodes_in = np.prod(input_shape[1:])
-        else:
-            num_scopes_in, num_decomps_in, _, num_nodes_in = input_shape
-
-            self._num_nodes_in = num_nodes_in
-
-            if num_scopes_in != 1 or num_decomps_in != 1:
-                raise ValueError("Number of scopes and decomps must both be 1")
+        if num_scopes_in != 1 or num_decomps_in != 1:
+            raise ValueError("Number of scopes and decomps must both be 1")
 
         initializer = self.accumulator_initializer
         accumulator_constraint = self.linear_accumulator_constraint
@@ -89,7 +72,7 @@ class RootSum(keras.layers.Layer):
             accumulator_constraint = None
 
         self.accumulators = self.add_weight(
-            name='weights', shape=(num_nodes_in,), initializer=initializer,
+            name='weights', shape=(self._num_nodes_in,), initializer=initializer,
             regularizer=self.accumulator_regularizer, constraint=accumulator_constraint
         )
 
@@ -124,16 +107,7 @@ class RootSum(keras.layers.Layer):
                 x_squeezed, tf.expand_dims(log_weights_normalized, axis=1))
 
     def compute_output_shape(self, input_shape):
-        if len(input_shape) == 2:
-            num_batch, num_nodes_in = input_shape
-        else:
-            inferred_dimension_permutation = infer_dimension_permutation(input_shape) \
-                if self.dimension_permutation == DimensionPermutation.AUTO \
-                else self.dimension_permutation
-            if inferred_dimension_permutation == DimensionPermutation.SPATIAL:
-                num_batch, _, _, num_nodes_in = input_shape
-            else:
-                _, _, num_batch, num_nodes_in = input_shape
+        num_batch, _, _, num_nodes_in = input_shape
         if self.return_weighted_child_logits:
             return [num_batch, num_nodes_in]
         else:

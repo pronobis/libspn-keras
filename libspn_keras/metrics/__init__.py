@@ -1,5 +1,5 @@
-from libspn_keras.metrics.log_marginal_likelihood import LogMarginalLikelihood
+from libspn_keras.metrics.log_likelihood import LogLikelihood
 
 __all__ = [
-    'LogMarginalLikelihood'
+    'LogLikelihood'
 ]

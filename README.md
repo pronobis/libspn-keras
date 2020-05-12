@@ -51,10 +51,10 @@ Currently, the repo is in an alpha state. Hence, one can expect some sporadic br
 univariate as well as *multivariate* inputs.
 
 ## Examples / Tutorials
-1. [**Image Classification**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab](https://colab.research.google.com/drive/1LUuZ7TBKQIma9IUkkBNbB99hlK_4ccMJ)
-2. [**Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab.](https://colab.research.google.com/drive/1XXAWoVLMkdxR7Wu4GsJnXrixTgAPZsSb)
-3. [**Randomly structured SPNs** for image classification](https://colab.research.google.com/drive/1uvJd1Q6wUdEkM2dpT4wkZfNT6lgj-2u3)
-4. [**Understanding region SPNs**](https://colab.research.google.com/drive/1QMEFEjb7jZdOtuo5OT5J2HVhNOE_3xmc)
+1. [**Image Classification**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab](https://colab.research.google.com/drive/1yvdInaGNVoCdFFdc3mJd31Kb1dDKQoIC)
+2. [**Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab.](https://colab.research.google.com/drive/1HohG3_Klh7fTHFi9yhtcguZgfAqZJW1a?usp=sharing)
+3. [**Randomly structured SPNs** for image classification](https://colab.research.google.com/drive/16hEjwoBEwCt2f-PAfEezvI4fu1dhVSb8)
+4. [**Understanding region SPNs**](https://colab.research.google.com/drive/1Ndg86STs7xlST23V12ODVZQSwcUfIAZj)
 5. More to come, and if you would like to see a tutorial on anything in particular 
 please raise an issue!
 
@@ -174,9 +174,9 @@ local2d_sum_4 (Local2DSum)   (None, 14, 14, 64)        802816
 _________________________________________________________________
 conv2d_product_5 (Conv2DProd (None, 8, 8, 64)          4         
 _________________________________________________________________
-spatial_to_regions (SpatialT (1, 1, None, 4096)        0         
+spatial_to_regions (SpatialT (None, 1, 1, 4096)        0         
 _________________________________________________________________
-dense_sum (DenseSum)         (1, 1, None, 10)          40960     
+dense_sum (DenseSum)         (None, 1, 1, 10)          40960     
 _________________________________________________________________
 root_sum (RootSum)           (None, 10)                10        
 =================================================================

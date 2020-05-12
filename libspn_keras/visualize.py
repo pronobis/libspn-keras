@@ -99,7 +99,7 @@ def _assemble_dense_spn_figure(dense_spn, show_padding=True):
             num_scopes = 1
             num_nodes = 1
         else:
-            num_scopes, _, _, num_nodes = layer.output_shape
+            _, num_scopes, _, num_nodes = layer.output_shape
         total_nodes = num_scopes * num_nodes
         max_total_nodes = max(total_nodes, max_total_nodes)
 
@@ -124,7 +124,7 @@ def _assemble_dense_spn_figure(dense_spn, show_padding=True):
             num_scopes = 1
             num_nodes = 1
         else:
-            num_scopes, _, _, num_nodes = layer.output_shape
+            _, num_scopes, _, num_nodes = layer.output_shape
         current_width = num_scopes * num_nodes
         if current_width < last_width:
             if last_num_nodes == num_nodes * num_scopes:
@@ -178,7 +178,7 @@ def _assemble_dense_spn_figure(dense_spn, show_padding=True):
                             nk //= num_nodes_prev
 
                     elif isinstance(layer, PermuteAndPadScopes):
-                        prev_scope_index = layer.permutations.numpy()[0, scope_index]
+                        prev_scope_index = layer.permutations[0, scope_index]
                         if prev_scope_index != -1:
                             child_key = (layer_index - 1, prev_scope_index, nj % num_nodes)
                             edges_yx.append(
@@ -196,7 +196,7 @@ def _assemble_dense_spn_figure(dense_spn, show_padding=True):
             node_group_sizes.append(num_nodes)
 
             if scope == set():
-                scope_suffix = '\emptyset'
+                scope_suffix = r'\emptyset'
             else:
                 scope_suffix = '{' + ', '.join('X_{}'.format(s) for s in sorted(scope)) + '}'
             names.append('$\\text{' + layer.__class__.__name__ + ' }' + scope_suffix + '$')

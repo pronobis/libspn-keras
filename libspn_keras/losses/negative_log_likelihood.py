@@ -2,7 +2,7 @@ from tensorflow import keras
 import tensorflow as tf
 
 
-class NegativeLogMarginal(keras.losses.Loss):
+class NegativeLogLikelihood(keras.losses.Loss):
     """
     Marginalizes logits over last dimension so that it computes :math:`-\log(p(X))`. This can be
     used for unsupervised generative learning.

@@ -10,23 +10,39 @@ class Undecompose(keras.layers.Layer):
     Args:
         **kwargs: kwargs to pass onto the keras.Layer super class
     """
-    def __init__(self, **kwargs):
-        # TODO undecompose to an arbitrary number of decompositions
+    def __init__(self, num_decomps=1, **kwargs):
         super(Undecompose, self).__init__(**kwargs)
-        self._num_decomps = 1
-        self._num_scopes = 1
-        self._num_nodes = self._num_decomps_in = None
+        self.num_decomps = num_decomps
+        self._num_nodes = self._num_scopes = None
 
     def build(self, input_shape):
-        num_scopes_in, num_decomps_in, _, nodes_in = input_shape
-        self._num_nodes = num_decomps_in * nodes_in
-        if num_scopes_in != 1:
-            raise ValueError("Can only decompose when there is a single scope")
+        _, self._num_scopes, num_decomps_in, nodes_in = input_shape
+
+        if num_decomps_in % self.num_decomps != 0:
+            raise ValueError("Number of decomps in input must be multiple of target number of decomps, got "
+                             "{} for input decomps and {} for target decomps.".format(num_decomps_in, self.num_decomps))
+
+        number_of_decomps_to_join = num_decomps_in // self.num_decomps
+        self._num_nodes = number_of_decomps_to_join * nodes_in
 
     def call(self, x):
-        shape = [self._num_scopes, self._num_decomps, -1, self._num_nodes]
-        return tf.reshape(tf.transpose(x, (0, 2, 1, 3)), shape)
+        shape = [-1, self._num_scopes, self.num_decomps, self._num_nodes]
+        return tf.reshape(x, shape)
 
     def compute_output_shape(self, input_shape):
-        num_scopes_in, num_decomps_in, _, nodes_in = input_shape
-        return [1, 1, None, nodes_in * num_decomps_in]
+        num_batch, num_scopes_in, num_decomps_in, nodes_in = input_shape
+        number_of_decomps_to_join = num_decomps_in // self.num_decomps
+        self._num_nodes = number_of_decomps_to_join * nodes_in
+        return (
+            num_batch,
+            num_scopes_in,
+            self.num_decomps,
+            nodes_in * number_of_decomps_to_join
+        )
+
+    def get_config(self):
+        config = dict(
+            num_decomps=self.num_decomps,
+        )
+        base_config = super(Undecompose, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
