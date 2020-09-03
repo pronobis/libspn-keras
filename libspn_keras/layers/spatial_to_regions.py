@@ -11,6 +11,29 @@ class SpatialToRegions(keras.layers.Layer):
     The dense output has leading dimensions for scopes and decomps (which will be ``[1, 1]``).
     """
 
+    def build(self, input_shape: Tuple[Optional[int], ...]) -> None:
+        """
+        Build the internal components for this layer.
+
+        Args:
+            input_shape: Shape of the input Tensor.
+
+        Raises:
+            ValueError: If dimensions are unknown.
+        """
+        _, num_cells_vertical, num_cells_horizontal, num_nodes = input_shape
+        if num_cells_horizontal is None:
+            raise ValueError(
+                "Cannot compute shape with unknown number of horizontal cells"
+            )
+        if num_cells_vertical is None:
+            raise ValueError(
+                "Cannot compute shape with unknown number of vertical cells"
+            )
+        if num_nodes is None:
+            raise ValueError("Cannot compute shape with unknown number of nodes")
+        self._out_num_nodes = num_cells_vertical * num_cells_horizontal * num_nodes
+
     def call(self, x: tf.Tensor, **kwargs) -> tf.Tensor:
         """
         Compute region representation from spatial tensor.
@@ -25,7 +48,7 @@ class SpatialToRegions(keras.layers.Layer):
             A region representation of the input.
         """
         shape = tf.shape(x)
-        return tf.reshape(x, [shape[0], 1, 1, tf.reduce_prod(shape[1:])])
+        return tf.reshape(x, [shape[0], 1, 1, self._out_num_nodes])
 
     def compute_output_shape(
         self, input_shape: Tuple[Optional[int], ...]
