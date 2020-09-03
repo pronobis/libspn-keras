@@ -20,7 +20,7 @@ def install_with_constraints(session, *args, **kwargs):
         session.install(f"--constraint={requirements.name}", *args, **kwargs)
 
 
-@nox.session(python=["3.8", "3.7"])
+@nox.session(python=["3.8", "3.7", "3.6"])
 def tests(session):
     args = session.posargs or ["--cov"]
     session.run("poetry", "install", "--no-dev", external=True)
@@ -30,7 +30,7 @@ def tests(session):
     session.run("pytest", *args)
 
 
-@nox.session(python=["3.8", "3.7"])
+@nox.session(python=["3.8", "3.7", "3.6"])
 def lint(session):
     args = session.posargs or _LOCATIONS
     install_with_constraints(
@@ -54,7 +54,7 @@ def black(session):
     session.run("black", *args, external=True)
 
 
-@nox.session(python=["3.8", "3.7"])
+@nox.session(python=["3.8", "3.7", "3.6"])
 def mypy(session):
     args = session.posargs or _LOCATIONS
     install_with_constraints(session, "mypy")
@@ -69,7 +69,7 @@ def pytype(session):
     session.run("pytype", *args)
 
 
-@nox.session(python=["3.8", "3.7"])
+@nox.session(python=["3.8", "3.7", "3.6"])
 def typeguard(session):
     args = session.posargs or ["-m", "not e2e"]
     session.run("poetry", "install", "--no-dev", external=True)

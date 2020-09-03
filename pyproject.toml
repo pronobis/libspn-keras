@@ -10,7 +10,7 @@ keywords = ["Sum Product Networks", "Probabilistic Deep Learning", "TensorFlow",
 documentation = "https://libspn-keras.readthedocs.io"
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.6.1"
 tensorflow = "^2.3"
 tensorflow-probability = "^0.11"
 colorlover = "^0.3.0"
