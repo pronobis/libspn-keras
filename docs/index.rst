@@ -1,26 +1,24 @@
-.. toctree::
-   :caption: Contents:
-
-   README.md
+LibSPN-Keras Home
+=================
+Welcome to the documentation of Keras!
 
 .. toctree::
     :hidden:
-    :caption: API
+    :maxdepth: 1
 
-    api/layers
-    api/models
-    api/initializers
-    api/losses
-    api/optimizers
-    api/metrics
-    api/constraints
-    api/region_graph
-    api/visualization
+    README.md
 
+.. toctree::
+    :hidden:
+    :caption: Reference
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+    reference/layers
+    reference/models
+    reference/sumops
+    reference/initializers
+    reference/losses
+    reference/optimizers
+    reference/metrics
+    reference/constraints
+    reference/region_graph
+    reference/visualization

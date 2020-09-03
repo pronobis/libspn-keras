@@ -1,21 +1,12 @@
-from tensorflow import keras
+from typing import Optional, Tuple
+
 import tensorflow as tf
 
-from libspn_keras.backprop_mode import BackpropMode, infer_logspace_accumulators
-from libspn_keras.constraints.greater_equal_epsilon import GreaterEqualEpsilon
-from libspn_keras.logspace import logspace_wrapper_initializer
-from libspn_keras.math.logmatmul import logmatmul
-from libspn_keras.math.hard_em_grads import \
-    logmatmul_hard_em_through_grads_from_accumulators, logmultiply_hard_em
-from tensorflow.keras import initializers
-from tensorflow.keras import regularizers
-from tensorflow.keras import constraints
-
-from libspn_keras.math.soft_em_grads import log_softmax_from_accumulators_with_em_grad
-import numpy as np
+from libspn_keras.layers.dense_sum import DenseSum
+from libspn_keras.sum_ops import SumOpBase
 
 
-class RootSum(keras.layers.Layer):
+class RootSum(DenseSum):
     """
     Final sum of an SPN. Expects input to be in log-space and produces log-space output.
 
@@ -31,96 +22,93 @@ class RootSum(keras.layers.Layer):
             will be set to ``True`` for ``BackpropMode.GRADIENT`` and ``False`` otherwise.
         accumulator_initializer: Initializer for accumulator. If None, defaults to
             initializers.Constant(1.0)
-        backprop_mode: Backpropagation mode. Can be either BackpropMode.GRADIENT,
-            BackpropMode.HARD_EM, BackpropMode.SOFT_EM or BackpropMode.HARD_EM_UNWEIGHTED
         accumulator_regularizer: Regularizer for accumulator.
         linear_accumulator_constraint: Constraint for linear accumulators. Defaults to a
             constraint that ensures a minimum of a small positive constant. If
             logspace_accumulators is set to True, this constraint wil be ignored
+        sum_op (SumOpBase): SumOpBase instance which determines how to compute the forward and
+            backward pass of the weighted sums
         **kwargs: kwargs to pass on to the keras.Layer super class
     """
+
     def __init__(
-        self, return_weighted_child_logits=True, logspace_accumulators=None,
-        accumulator_initializer=None, backprop_mode=BackpropMode.GRADIENT,
-        accumulator_regularizer=None, linear_accumulator_constraint=None, **kwargs
+        self,
+        return_weighted_child_logits: bool = True,
+        logspace_accumulators: Optional[bool] = None,
+        accumulator_initializer: Optional[tf.keras.initializers.Initializer] = None,
+        trainable: bool = True,
+        logspace_accumulator_constraint: Optional[
+            tf.keras.constraints.Constraint
+        ] = None,
+        accumulator_regularizer: Optional[tf.keras.regularizers.Regularizer] = None,
+        linear_accumulator_constraint: Optional[tf.keras.constraints.Constraint] = None,
+        sum_op: Optional[SumOpBase] = None,
+        **kwargs
     ):
-        super(RootSum, self).__init__(**kwargs)
+        super(RootSum, self).__init__(
+            logspace_accumulators=logspace_accumulators,
+            accumulator_initializer=accumulator_initializer,
+            trainable=trainable,
+            logspace_accumulator_constraint=logspace_accumulator_constraint,
+            accumulator_regularizer=accumulator_regularizer,
+            linear_accumulator_constraint=linear_accumulator_constraint,
+            sum_op=sum_op,
+            num_sums=1,
+            **kwargs
+        )
         self.return_weighted_child_logits = return_weighted_child_logits
-        self.accumulator_initializer = accumulator_initializer or initializers.Constant(1.0)
-        self.logspace_accumulators = infer_logspace_accumulators(backprop_mode) \
-            if logspace_accumulators is None else logspace_accumulators
-        self.backprop_mode = backprop_mode
-        self.accumulator_regularizer = accumulator_regularizer
-        self.linear_accumulator_constraint = \
-            linear_accumulator_constraint or GreaterEqualEpsilon(1e-10)
-        self.accumulators = self._num_nodes_in = None
 
-        if backprop_mode != BackpropMode.GRADIENT and logspace_accumulators:
-            raise NotImplementedError(
-                "Logspace accumulators can only be used with BackpropMode.GRADIENT")
+    def call(self, x: tf.Tensor, **kwargs) -> tf.Tensor:
+        """
+        Compute weighted sum at the root.
 
-    def build(self, input_shape):
-        _, num_scopes_in, num_decomps_in, self._num_nodes_in = input_shape
+        If ``return_weighted_child_logits`` is set to ``True``, this will return P(X,Y_i) for all i
+        rather than P(X).
 
-        if num_scopes_in != 1 or num_decomps_in != 1:
-            raise ValueError("Number of scopes and decomps must both be 1")
+        Args:
+            x: Input, must have only 1 decomposition and 1 scope.
+            kwargs: Remaining keyword arguments.
 
-        initializer = self.accumulator_initializer
-        accumulator_constraint = self.linear_accumulator_constraint
-        if self.logspace_accumulators:
-            initializer = logspace_wrapper_initializer(initializer)
-            accumulator_constraint = None
-
-        self.accumulators = self.add_weight(
-            name='weights', shape=(self._num_nodes_in,), initializer=initializer,
-            regularizer=self.accumulator_regularizer, constraint=accumulator_constraint
-        )
-
-    def call(self, x):
-        log_weights_unnormalized = self.accumulators
-        x_squeezed = tf.reshape(x, (-1, self._num_nodes_in))
-        if not self.logspace_accumulators:
-
-            if self.backprop_mode in [BackpropMode.HARD_EM, BackpropMode.HARD_EM_UNWEIGHTED]:
-                if self.return_weighted_child_logits:
-                    return logmultiply_hard_em(x_squeezed, self.accumulators)
-
-                logmatmul_out = logmatmul_hard_em_through_grads_from_accumulators(
-                    tf.reshape(x, (1, 1, -1, self._num_nodes_in)),
-                    tf.reshape(self.accumulators, (1, 1, self._num_nodes_in, 1)),
-                    unweighted=self.backprop_mode == BackpropMode.HARD_EM_UNWEIGHTED
-                )
-                return tf.reshape(logmatmul_out, (-1, 1))
-
-            log_weights_unnormalized = tf.math.log(log_weights_unnormalized)
-
-        if self.backprop_mode == BackpropMode.EM:
-            log_weights_normalized = log_softmax_from_accumulators_with_em_grad(
-                self.accumulators, axis=0)
-        else:
-            log_weights_normalized = tf.nn.log_softmax(log_weights_unnormalized, axis=0)
-
+        Returns:
+            Sum or weighted children.
+        """
         if self.return_weighted_child_logits:
-            return tf.expand_dims(log_weights_normalized, axis=0) + x_squeezed
+            out = self.sum_op.weighted_children(
+                x,
+                accumulators=self._accumulators,
+                logspace_accumulators=self.logspace_accumulators,
+            )
+            num_out = self._accumulators.shape[2]
         else:
-            return logmatmul(
-                x_squeezed, tf.expand_dims(log_weights_normalized, axis=1))
+            out = super(RootSum, self).call(x, **kwargs)
+            num_out = 1
+        return tf.reshape(out, [-1, num_out])
 
-    def compute_output_shape(self, input_shape):
+    def compute_output_shape(
+        self, input_shape: Tuple[Optional[int], ...]
+    ) -> Tuple[Optional[int], ...]:
+        """
+        Compute output shape of the layer.
+
+        Args:
+            input_shape: Input shape of the layer.
+
+        Returns:
+            Tuple of ints holding the output shape of the layer.
+        """
         num_batch, _, _, num_nodes_in = input_shape
-        if self.return_weighted_child_logits:
-            return [num_batch, num_nodes_in]
-        else:
-            return [num_batch, 1]
-
-    def get_config(self):
-        config = dict(
-            accumulator_initializer=initializers.serialize(self.accumulator_initializer),
-            logspace_accumulators=self.logspace_accumulators,
-            return_weighted_child_logits=self.return_weighted_child_logits,
-            backprop_mode=self.backprop_mode,
-            accumulator_regularizer=regularizers.serialize(self.accumulator_regularizer),
-            linear_accumulator_constraint=constraints.serialize(self.linear_accumulator_constraint)
+        return (
+            num_batch,
+            num_nodes_in if self.return_weighted_child_logits else num_batch,
         )
+
+    def get_config(self) -> dict:
+        """
+        Obtain a key-value representation of the layer config.
+
+        Returns:
+            A dict holding the configuration of the layer.
+        """
+        config = dict(return_weighted_child_logits=self.return_weighted_child_logits)
         base_config = super(RootSum, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))

@@ -5,9 +5,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 source_suffix = {
-    '.rst': 'restructuredtext',
-    '.txt': 'markdown',
-    '.md': 'markdown',
+    ".rst": "restructuredtext",
+    ".txt": "markdown",
+    ".md": "markdown",
 }
 
 # -- Path setup --------------------------------------------------------------
@@ -20,14 +20,14 @@ source_suffix = {
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath(".."))
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'LibSPN Keras'
-copyright = '2020, Jos van de Wolfshaar, Andrzej Pronobis'
-author = 'Jos van de Wolfshaar, Andrzej Pronobis'
+project = "LibSPN Keras"
+copyright = "2020, Jos van de Wolfshaar, Andrzej Pronobis"
+author = "Jos van de Wolfshaar, Andrzej Pronobis"
 
 # The full version, including alpha/beta/rc tags
 release = "0.3.0"
@@ -41,19 +41,20 @@ release = "0.3.0"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-   'sphinx.ext.autodoc',
-   'sphinx.ext.coverage',
-   'sphinx.ext.napoleon',
-   'recommonmark'
+    "sphinx.ext.autodoc",
+    "sphinx.ext.coverage",
+    "sphinx.ext.napoleon",
+    "recommonmark",
+    "sphinx_autodoc_typehints",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['requirements.txt', 'venv', '../venv', '../examples']
+exclude_patterns = ["requirements.txt", "venv", "../venv", "../examples"]
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -66,18 +67,18 @@ html_theme = "sphinx_rtd_theme"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# html_static_path = ["_static"]
 
 autodoc_mock_imports = [
     "tensorflow",
     "plotly",
     "tensorflow_probability",
     "colorlover",
-    "numpy"
+    "numpy",
 ]
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # html_theme = 'bootstrap'
 # html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()

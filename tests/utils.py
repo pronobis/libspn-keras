@@ -1,26 +1,29 @@
 import numpy as np
-from tensorflow.keras import initializers
-
-import libspn_keras as spnk
-from libspn_keras import BackpropMode
 from scipy import stats
 import tensorflow as tf
 from tensorflow import keras
+from tensorflow.keras import initializers
+
+import libspn_keras as spnk
 from libspn_keras.models import SequentialSumProductNetwork
+from libspn_keras.sum_ops import (
+    SumOpGradBackprop,
+    SumOpHardEMBackprop,
+    SumOpUnweightedHardEMBackprop,
+)
 
 NUM_VARS = 4
 NUM_COMPONENTS = 2
-FIRST_SUM_WEIGHTS = np.array([[[
-    [0.6, 0.1, 0.1, 0.2],
-    [0.1, 0.1, 0.6, 0.2]
-]], [[
-    [0.4, 0.3, 0.2, 0.1],
-    [0.1, 0.2, 0.3, 0.4]
-]]
-]).transpose((0, 1, 3, 2))
+FIRST_SUM_WEIGHTS = np.array(
+    [
+        [[[0.6, 0.1, 0.1, 0.2], [0.1, 0.1, 0.6, 0.2]]],
+        [[[0.4, 0.3, 0.2, 0.1], [0.1, 0.2, 0.3, 0.4]]],
+    ]
+).transpose((0, 1, 3, 2))
 SECOND_SUM_WEIGHTS = np.array([0.25, 0.15, 0.35, 0.25])
 NORMAL_COMPONENTS_LOCATIONS = np.array(
-    [[0.0, 1.0], [0.0, 1.0], [0.0, 1.0], [0.0, 1.0]]).reshape([1, 4, 1, 2, 1])
+    [[0.0, 1.0], [0.0, 1.0], [0.0, 1.0], [0.0, 1.0]]
+).reshape([1, 4, 1, 2, 1])
 BATCH_SIZE = 16
 NUM_STEPS = 3
 
@@ -85,93 +88,119 @@ def get_continuous_data():
     component0 = np.random.normal(size=(BATCH_SIZE * NUM_VARS))
     component1 = np.random.normal(loc=1.0, size=(BATCH_SIZE * NUM_VARS))
     choice = np.random.random() > 0.5
-    data = np.array(np.where(choice, component0, component1)).reshape(BATCH_SIZE, NUM_VARS)
+    data = np.array(np.where(choice, component0, component1)).reshape(
+        BATCH_SIZE, NUM_VARS
+    )
     return data
 
 
 def get_continuous_model(infer_no_evidence=False):
-    backprop_mode = BackpropMode.GRADIENT if infer_no_evidence else BackpropMode.HARD_EM_UNWEIGHTED
-    spn = SequentialSumProductNetwork([
-        spnk.layers.FlatToRegions(num_decomps=1, input_shape=(NUM_VARS,)),
-        spnk.layers.NormalLeaf(
-            num_components=NUM_COMPONENTS,
-            use_accumulators=True,
-            scale_trainable=False, location_trainable=True,
-            location_initializer=keras.initializers.Constant(value=NORMAL_COMPONENTS_LOCATIONS)
-        ),
-        spnk.layers.PermuteAndPadScopes([[0, 1, 2, 3]]),
-        spnk.layers.DenseProduct(
-            num_factors=2
-        ),
-        spnk.layers.DenseSum(
-            num_sums=2, logspace_accumulators=False, backprop_mode=backprop_mode,
-            accumulator_initializer=initializers.Constant(FIRST_SUM_WEIGHTS)
-        ),
-        spnk.layers.DenseProduct(
-            num_factors=2
-        ),
-        spnk.layers.RootSum(
-            logspace_accumulators=False, backprop_mode=backprop_mode,
-            accumulator_initializer=initializers.Constant(SECOND_SUM_WEIGHTS),
-            return_weighted_child_logits=False
-        ),
-    ], infer_no_evidence=infer_no_evidence)
+    sum_op = SumOpGradBackprop() if infer_no_evidence else SumOpHardEMBackprop()
+    spn = SequentialSumProductNetwork(
+        [
+            spnk.layers.FlatToRegions(num_decomps=1, input_shape=(NUM_VARS,)),
+            spnk.layers.NormalLeaf(
+                num_components=NUM_COMPONENTS,
+                use_accumulators=True,
+                scale_trainable=False,
+                location_trainable=True,
+                location_initializer=keras.initializers.Constant(
+                    value=NORMAL_COMPONENTS_LOCATIONS
+                ),
+            ),
+            spnk.layers.PermuteAndPadScopes([[0, 1, 2, 3]]),
+            spnk.layers.DenseProduct(num_factors=2),
+            spnk.layers.DenseSum(
+                num_sums=2,
+                logspace_accumulators=False,
+                sum_op=sum_op,
+                accumulator_initializer=initializers.Constant(FIRST_SUM_WEIGHTS),
+            ),
+            spnk.layers.DenseProduct(num_factors=2),
+            spnk.layers.RootSum(
+                logspace_accumulators=False,
+                sum_op=sum_op,
+                accumulator_initializer=initializers.Constant(SECOND_SUM_WEIGHTS),
+                return_weighted_child_logits=False,
+            ),
+        ],
+        infer_no_evidence=infer_no_evidence,
+    )
     spn.summary()
     return spn
 
 
 def get_dynamic_model():
-    sum_kwargs = dict(logspace_accumulators=False, backprop_mode=BackpropMode.HARD_EM_UNWEIGHTED)
-    template = keras.models.Sequential([
-        spnk.layers.FlatToRegions(num_decomps=1, input_shape=(NUM_VARS,), dtype=tf.int32),
-        spnk.layers.IndicatorLeaf(num_components=NUM_COMPONENTS),
-        spnk.layers.PermuteAndPadScopes([[0, 1, 2, 3]]),
-        spnk.layers.DenseProduct(
-            num_factors=2
-        ),
-        spnk.layers.DenseSum(
-            num_sums=2, accumulator_initializer=initializers.Constant(FIRST_SUM_WEIGHTS), **sum_kwargs
-        ),
-        spnk.layers.DenseProduct(
-            num_factors=2
-        ),
-    ])
-    top_net = keras.Sequential([
-        spnk.layers.RootSum(
-            accumulator_initializer=initializers.Constant(SECOND_SUM_WEIGHTS), input_shape=[1, 1, 4],
-            return_weighted_child_logits=False, **sum_kwargs
-        )
-    ], name='top_net')
+    sum_kwargs = dict(
+        logspace_accumulators=False, sum_op=SumOpUnweightedHardEMBackprop()
+    )
+    template = keras.models.Sequential(
+        [
+            spnk.layers.FlatToRegions(
+                num_decomps=1, input_shape=(NUM_VARS,), dtype=tf.int32
+            ),
+            spnk.layers.IndicatorLeaf(num_components=NUM_COMPONENTS),
+            spnk.layers.PermuteAndPadScopes([[0, 1, 2, 3]]),
+            spnk.layers.DenseProduct(num_factors=2),
+            spnk.layers.DenseSum(
+                num_sums=2,
+                accumulator_initializer=initializers.Constant(FIRST_SUM_WEIGHTS),
+                **sum_kwargs
+            ),
+            spnk.layers.DenseProduct(num_factors=2),
+        ]
+    )
+    top_net = keras.Sequential(
+        [
+            spnk.layers.RootSum(
+                accumulator_initializer=initializers.Constant(SECOND_SUM_WEIGHTS),
+                input_shape=[1, 1, 4],
+                return_weighted_child_logits=False,
+                **sum_kwargs
+            )
+        ],
+        name="top_net",
+    )
     interface_t_minus1 = keras.Sequential(
-        [spnk.layers.DenseSum(num_sums=2, input_shape=[1, 1, 4], **sum_kwargs)], name='interface_t_minus_1')
+        [spnk.layers.DenseSum(num_sums=2, input_shape=[1, 1, 4], **sum_kwargs)],
+        name="interface_t_minus_1",
+    )
     interface_t0 = keras.Sequential(
-        [spnk.layers.DenseSum(num_sums=2, input_shape=[1, 1, 4], **sum_kwargs)], name='interface_t0')
+        [spnk.layers.DenseSum(num_sums=2, input_shape=[1, 1, 4], **sum_kwargs)],
+        name="interface_t0",
+    )
     dynamic_spn = spnk.models.DynamicSumProductNetwork(
-        template_network=template, interface_network_t0=interface_t0, interface_network_t_minus_1=interface_t_minus1,
-        top_network=top_net)
+        template_network=template,
+        interface_network_t0=interface_t0,
+        interface_network_t_minus_1=interface_t_minus1,
+        top_network=top_net,
+    )
     return dynamic_spn
 
 
 def get_discrete_model():
-    spn = SequentialSumProductNetwork([
-        spnk.layers.FlatToRegions(num_decomps=1, input_shape=(NUM_VARS,), dtype=tf.int32),
-        spnk.layers.IndicatorLeaf(num_components=NUM_COMPONENTS),
-        spnk.layers.PermuteAndPadScopes([[0, 1, 2, 3]]),
-        spnk.layers.DenseProduct(
-            num_factors=2
-        ),
-        spnk.layers.DenseSum(
-            num_sums=2, logspace_accumulators=False, backprop_mode=BackpropMode.HARD_EM_UNWEIGHTED,
-            accumulator_initializer=initializers.Constant(FIRST_SUM_WEIGHTS)
-        ),
-        spnk.layers.DenseProduct(
-            num_factors=2
-        ),
-        spnk.layers.RootSum(
-            logspace_accumulators=False, backprop_mode=BackpropMode.HARD_EM_UNWEIGHTED,
-            accumulator_initializer=initializers.Constant(SECOND_SUM_WEIGHTS),
-            return_weighted_child_logits=False
-        ),
-    ])
+    spn = SequentialSumProductNetwork(
+        [
+            spnk.layers.FlatToRegions(
+                num_decomps=1, input_shape=(NUM_VARS,), dtype=tf.int32
+            ),
+            spnk.layers.IndicatorLeaf(num_components=NUM_COMPONENTS),
+            spnk.layers.PermuteAndPadScopes([[0, 1, 2, 3]]),
+            spnk.layers.DenseProduct(num_factors=2),
+            spnk.layers.DenseSum(
+                num_sums=2,
+                logspace_accumulators=False,
+                sum_op=SumOpUnweightedHardEMBackprop(),
+                accumulator_initializer=initializers.Constant(FIRST_SUM_WEIGHTS),
+            ),
+            spnk.layers.DenseProduct(num_factors=2),
+            spnk.layers.RootSum(
+                logspace_accumulators=False,
+                sum_op=SumOpUnweightedHardEMBackprop(),
+                accumulator_initializer=initializers.Constant(SECOND_SUM_WEIGHTS),
+                return_weighted_child_logits=False,
+            ),
+        ]
+    )
     spn.summary()
     return spn

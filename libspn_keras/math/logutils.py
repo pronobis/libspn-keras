@@ -1,9 +1,10 @@
 import tensorflow as tf
 
 
-def replace_infs_with_zeros(x):
+def replace_infs_with_zeros(x: tf.Tensor) -> tf.Tensor:
     """
-    Replaces infinite values with zeroes
+    Replace infinite values with zeroes.
+
     Args:
         x: A `Tensor`.
 

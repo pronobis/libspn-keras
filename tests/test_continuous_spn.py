@@ -1,21 +1,20 @@
 import tensorflow as tf
 from tensorflow import test as tftest
-from libspn_keras import GenerativeLearningEM
-from libspn_keras.losses import NegativeLogLikelihood
-from libspn_keras.metrics import LogLikelihood
-from libspn_keras.optimizers import OnlineExpectationMaximization
-from tensorflow.keras import losses
-from tensorflow.keras import metrics
-import numpy as np
 
-from tests.utils import normal_leafs, product0_out, product1_out, sum0_out, root_out, \
-    get_continuous_model, get_continuous_data
+from tests.utils import (
+    get_continuous_data,
+    get_continuous_model,
+    normal_leafs,
+    product0_out,
+    product1_out,
+    root_out,
+    sum0_out,
+)
 
 tf.config.experimental_run_functions_eagerly(True)
 
 
 class TestContinuousSPN(tftest.TestCase):
-
     @classmethod
     def setUpClass(cls) -> None:
         cls.spn = get_continuous_model()
@@ -49,6 +48,7 @@ class TestContinuousSPN(tftest.TestCase):
 
     def test_root(self):
         got = tf.exp(self.spn(self.data))
-        expected = root_out(product1_out(sum0_out(product0_out(normal_leafs(self.data)))))
+        expected = root_out(
+            product1_out(sum0_out(product0_out(normal_leafs(self.data))))
+        )
         self.assertAllClose(got, expected)
-

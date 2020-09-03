@@ -1,21 +1,23 @@
-from libspn_keras.backprop_mode import BackpropMode, infer_logspace_accumulators
-from libspn_keras.constraints.greater_equal_epsilon import GreaterEqualEpsilon
-from libspn_keras.logspace import logspace_wrapper_initializer
-from libspn_keras.math.logmatmul import logmatmul
-from libspn_keras.math.hard_em_grads import logmatmul_hard_em_through_grads_from_accumulators
-from libspn_keras.math.soft_em_grads import log_softmax_from_accumulators_with_em_grad
+from typing import Optional, Tuple
+
+import tensorflow as tf
 from tensorflow import keras
+from tensorflow.keras import constraints
 from tensorflow.keras import initializers
 from tensorflow.keras import regularizers
-from tensorflow.keras import constraints
-import tensorflow as tf
+
+from libspn_keras.config.sum_op import get_default_sum_op
+from libspn_keras.constraints.greater_equal_epsilon import GreaterEqualEpsilon
+from libspn_keras.logspace import logspace_wrapper_initializer
+from libspn_keras.sum_ops import SumOpBase
 
 
 class DenseSum(keras.layers.Layer):
     """
-    Computes densely connected sums per scope and decomposition. Expects incoming ``Tensor`` to be of
-    shape [num_scopes, num_decomps, num_batch, num_nodes]. If your input is passed through a
-    ``FlatToRegions`` layer this is already taken care of.
+    Computes densely connected sums per scope and decomposition.
+
+    Expects incoming ``Tensor`` to be of shape [num_scopes, num_decomps, num_batch, num_nodes]. If your
+    input is passed through a ``FlatToRegions`` layer this is already taken care of.
 
     Args:
         num_sums: Number of sums per scope
@@ -26,90 +28,124 @@ class DenseSum(keras.layers.Layer):
             will be set to ``True`` for ``BackpropMode.GRADIENT`` and ``False`` otherwise.
         accumulator_initializer: Initializer for accumulator. Will automatically be converted
             to log-space values if ``logspace_accumulators`` is enabled.
-        backprop_mode: Backpropagation mode can be BackpropMode.GRADIENT, BackpropMode.HARD_EM,
-            BackpropMode.HARD_EM_UNWEIGHTED or BackpropMode.SOFT_EM.
         accumulator_regularizer: Regularizer for accumulator (experimental)
         linear_accumulator_constraint: Constraint for accumulator defaults to constraint that
             ensures small positive constant at minimum. Will be ignored if logspace_accumulators
             is set to True.
+        sum_op (SumOpBase): SumOpBase instance which determines how to compute the forward and
+            backward pass of the weighted sums
         **kwargs: kwargs to pass on to keras.Layer super class
     """
+
     def __init__(
-        self, num_sums, logspace_accumulators=None, accumulator_initializer=None,
-        backprop_mode=BackpropMode.GRADIENT, accumulator_regularizer=None,
-        linear_accumulator_constraint=None, **kwargs
+        self,
+        num_sums: int,
+        logspace_accumulators: Optional[bool] = None,
+        accumulator_initializer: Optional[keras.initializers.Initializer] = None,
+        sum_op: Optional[SumOpBase] = None,
+        accumulator_regularizer: Optional[keras.regularizers.Regularizer] = None,
+        logspace_accumulator_constraint: Optional[keras.constraints.Constraint] = None,
+        linear_accumulator_constraint: Optional[keras.constraints.Constraint] = None,
+        **kwargs
     ):
         super(DenseSum, self).__init__(**kwargs)
         self.num_sums = num_sums
-        self.logspace_accumulators = infer_logspace_accumulators(backprop_mode) \
-            if logspace_accumulators is None else logspace_accumulators
-        self.accumulator_initializer = accumulator_initializer or initializers.Constant(1)
-        self.backprop_mode = backprop_mode
+        self.sum_op = sum_op or get_default_sum_op()
+        self.logspace_accumulators = (
+            self.sum_op.default_logspace_accumulators()
+            if logspace_accumulators is None
+            else logspace_accumulators
+        )
+        self.accumulator_initializer = accumulator_initializer or initializers.Constant(
+            1
+        )
         self.accumulator_regularizer = accumulator_regularizer
-        self.linear_accumulator_constraint = \
+        self.linear_accumulator_constraint = (
             linear_accumulator_constraint or GreaterEqualEpsilon(1e-10)
-        self._num_decomps = self._num_scopes = self._accumulators = None
+        )
+        self.logspace_accumulator_constraint = logspace_accumulator_constraint
 
-        if backprop_mode != BackpropMode.GRADIENT and logspace_accumulators:
-            raise ValueError("Logspace accumulators are only supported for gradient backprop mode")
+    def build(self, input_shape: Tuple[Optional[int], ...]) -> None:
+        """
+        Build the internal components for this layer.
 
-    def build(self, input_shape):
+        Args:
+            input_shape: Shape of the input Tensor.
+        """
         # Create a trainable weight variable for this layer.
         _, self._num_scopes, self._num_decomps, num_nodes_in = input_shape
 
-        weights_shape = (self._num_scopes, self._num_decomps, num_nodes_in, self.num_sums)
+        weights_shape = (
+            self._num_scopes,
+            self._num_decomps,
+            num_nodes_in,
+            self.num_sums,
+        )
 
         initializer = self.accumulator_initializer
         accumulator_constraint = self.linear_accumulator_constraint
         if self.logspace_accumulators:
             initializer = logspace_wrapper_initializer(self.accumulator_initializer)
-            accumulator_constraint = None
+            accumulator_constraint = self.logspace_accumulator_constraint
 
         self._accumulators = self.add_weight(
-            name='sum_weights', shape=weights_shape, initializer=initializer,
-            regularizer=self.accumulator_regularizer, constraint=accumulator_constraint
+            name="sum_weights",
+            shape=weights_shape,
+            initializer=initializer,
+            regularizer=self.accumulator_regularizer,
+            constraint=accumulator_constraint,
         )
         super(DenseSum, self).build(input_shape)
 
-    def call(self, x):
-        log_weights_unnormalized = self._accumulators
+    def call(self, x: tf.Tensor, **kwargs) -> tf.Tensor:
+        """
+        Compute the probability of the leaf nodes.
 
-        x = tf.transpose(x, (1, 2, 0, 3))
+        Args:
+            x: Spatial or region Tensor with raw input values.
+            kwargs: Remaining keyword arguments.
 
-        if not self.logspace_accumulators and \
-                self.backprop_mode in [BackpropMode.HARD_EM, BackpropMode.HARD_EM_UNWEIGHTED]:
-            out = logmatmul_hard_em_through_grads_from_accumulators(
-                x, self._accumulators,
-                unweighted=self.backprop_mode == BackpropMode.HARD_EM_UNWEIGHTED
-            )
-            out = tf.transpose(out, (2, 0, 1, 3))
-            return out
+        Returns:
+            A Tensor with the probabilities per component.
+        """
+        return self.sum_op.weighted_sum(
+            x, self._accumulators, self.logspace_accumulators
+        )
 
-        if not self.logspace_accumulators and self.backprop_mode == BackpropMode.EM:
-            log_weights_normalized = log_softmax_from_accumulators_with_em_grad(
-                self._accumulators, axis=2)
-        elif not self.logspace_accumulators:
-            log_weights_normalized = tf.nn.log_softmax(tf.math.log(log_weights_unnormalized), axis=2)
-        else:
-            log_weights_normalized = tf.nn.log_softmax(log_weights_unnormalized, axis=2)
+    def compute_output_shape(
+        self, input_shape: Tuple[Optional[int], ...]
+    ) -> Tuple[Optional[int], ...]:
+        """
+        Compute output shape of the layer.
 
-        out = logmatmul(x, log_weights_normalized)
-        out = tf.transpose(out, (2, 0, 1, 3))
-        return out
+        Args:
+            input_shape: Input shape of the layer.
 
-    def compute_output_shape(self, input_shape):
+        Returns:
+            Tuple of ints holding the output shape of the layer.
+        """
         num_scopes, num_decomps, num_batch, _ = input_shape
-        return num_scopes, num_decomps, num_batch, self.num_sums
+        return num_batch, num_scopes, num_decomps, self.num_sums
 
-    def get_config(self):
+    def get_config(self) -> dict:
+        """
+        Obtain a key-value representation of the layer config.
+
+        Returns:
+            A dict holding the configuration of the layer.
+        """
         config = dict(
             num_sums=self.num_sums,
-            accumulator_initializer=initializers.serialize(self.accumulator_initializer),
+            accumulator_initializer=initializers.serialize(
+                self.accumulator_initializer
+            ),
             logspace_accumulators=self.logspace_accumulators,
-            backprop_mode=self.backprop_mode,
-            accumulator_regularizer=regularizers.serialize(self.accumulator_regularizer),
-            linear_accumulator_constraint=constraints.serialize(self.linear_accumulator_constraint)
+            accumulator_regularizer=regularizers.serialize(
+                self.accumulator_regularizer
+            ),
+            linear_accumulator_constraint=constraints.serialize(
+                self.linear_accumulator_constraint
+            ),
         )
         base_config = super(DenseSum, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
-

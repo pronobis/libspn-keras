@@ -18,4 +18,3 @@ When training with either ``HARD_EM`` or ``HARD_EM_UNWEIGHTED``, you can use the
 ``EpsilonInverseFanIn`` initializer.
 
 .. autoclass:: libspn_keras.initializers.EpsilonInverseFanIn
-

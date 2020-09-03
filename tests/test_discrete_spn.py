@@ -4,13 +4,20 @@ from tensorflow import test as tftest
 from libspn_keras.losses import NegativeLogLikelihood
 from libspn_keras.metrics import LogLikelihood
 from libspn_keras.optimizers import OnlineExpectationMaximization
-from tests.utils import indicators, product0_out, product1_out, sum0_out, root_out, get_discrete_data, get_discrete_model
+from tests.utils import (
+    get_discrete_data,
+    get_discrete_model,
+    indicators,
+    product0_out,
+    product1_out,
+    root_out,
+    sum0_out,
+)
 
 tf.config.experimental_run_functions_eagerly(True)
 
 
 class TestDiscreteSPN(tftest.TestCase):
-
     @classmethod
     def setUpClass(cls) -> None:
         cls.discrete_spn = get_discrete_model()
@@ -29,7 +36,10 @@ class TestDiscreteSPN(tftest.TestCase):
     def test_train(self):
         dataset = tf.data.Dataset.from_tensor_slices((self.data,)).batch(3)
         self.discrete_spn.compile(
-            optimizer=OnlineExpectationMaximization(), loss=NegativeLogLikelihood(), metrics=LogLikelihood())
+            optimizer=OnlineExpectationMaximization(),
+            loss=NegativeLogLikelihood(),
+            metrics=LogLikelihood(),
+        )
         self.discrete_spn.fit(dataset, epochs=1)
 
     def test_indicators(self):
@@ -56,4 +66,3 @@ class TestDiscreteSPN(tftest.TestCase):
         got = tf.exp(self.discrete_spn(self.data))
         expected = root_out(product1_out(sum0_out(product0_out(indicators(self.data)))))
         self.assertAllClose(got, expected)
-

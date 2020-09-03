@@ -13,7 +13,11 @@
 .idea/**/dictionaries
 .idea/**/shelf
 
+.pytype
+
 *.h5
+
+*.DS_Store
 
 # Generated files
 .idea/**/contentModel.xml
