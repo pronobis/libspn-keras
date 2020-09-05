@@ -131,44 +131,48 @@ class Conv2DProduct(keras.layers.Layer):
 
     def _call_onehot_kernels(self, x: tf.Tensor) -> tf.Tensor:
         # Split in list of tensors which will be added up using outer products
-        pad_left, pad_right, pad_top, pad_bottom = self._pad_sizes()
+        with tf.name_scope("OneHotConv"):
+            pad_left, pad_right, pad_top, pad_bottom = self._pad_sizes()
 
-        x_padded = tf.pad(
-            x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]]
-        )
-        out = tf.nn.conv2d(
-            x_padded,
-            self._onehot_kernels,
-            strides=self.strides,
-            padding="VALID",
-            dilations=self.dilations,
-        )
-        return out
+            x_padded = tf.pad(
+                x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]]
+            )
+            out = tf.nn.conv2d(
+                x_padded,
+                self._onehot_kernels,
+                strides=self.strides,
+                padding="VALID",
+                dilations=self.dilations,
+            )
+            return out
 
     def _call_depthwise(self, x: tf.Tensor) -> tf.Tensor:
         # Split in list of tensors which will be added up using outer products
-        pad_left, pad_right, pad_top, pad_bottom = self._pad_sizes()
-        channels_first = tf.reshape(
-            tf.transpose(x, (0, 3, 1, 2)), (-1,) + self._spatial_dim_sizes + (1,)
-        )
-        x_padded = tf.pad(
-            channels_first,
-            [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]],
-        )
-        out = tf.nn.conv2d(
-            x_padded,
-            self._onehot_kernels,
-            strides=self.strides,
-            padding="VALID",
-            dilations=self.dilations,
-        )
+        with tf.name_scope("DepthwiseConv"):
+            pad_left, pad_right, pad_top, pad_bottom = self._pad_sizes()
+            channels_first = tf.reshape(
+                tf.transpose(x, (0, 3, 1, 2)), (-1,) + self._spatial_dim_sizes + (1,)
+            )
+            x_padded = tf.pad(
+                channels_first,
+                [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]],
+            )
+            out = tf.nn.conv2d(
+                x_padded,
+                self._onehot_kernels,
+                strides=self.strides,
+                padding="VALID",
+                dilations=self.dilations,
+            )
 
-        spatial_dim_sizes_out = self._compute_out_size_spatial(*self._spatial_dim_sizes)
+            spatial_dim_sizes_out = self._compute_out_size_spatial(
+                *self._spatial_dim_sizes
+            )
 
-        return tf.transpose(
-            tf.reshape(out, (-1, self.num_channels) + spatial_dim_sizes_out),
-            (0, 2, 3, 1),
-        )
+            return tf.transpose(
+                tf.reshape(out, (-1, self.num_channels) + spatial_dim_sizes_out),
+                (0, 2, 3, 1),
+            )
 
     def compute_output_shape(
         self, input_shape: Tuple[Optional[int], ...]

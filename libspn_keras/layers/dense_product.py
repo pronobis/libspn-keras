@@ -64,32 +64,36 @@ class DenseProduct(keras.layers.Layer):
             self._num_decomps,
             self._num_nodes_in,
         ]
-        log_prob_per_factor = tf.split(
-            tf.reshape(x, shape=shape), axis=2, num_or_size_splits=self.num_factors
-        )
+        with tf.name_scope("LogProbPerFactor"):
+            log_prob_per_factor = tf.split(
+                tf.reshape(x, shape=shape), axis=2, num_or_size_splits=self.num_factors
+            )
 
         # Reshape to [scopes, decomps, batch, 1, ..., child.dim_nodes, ..., 1] where
         # child.dim_nodes is inserted at the i-th index within the trailing 1s, where i corresponds
         # to the index of the log prob
-        log_prob_per_factor_broadcastable = [
-            tf.reshape(
-                log_prob,
-                [-1, self._num_scopes_out, self._num_decomps]
-                + [
-                    1 if j != i else self._num_nodes_in for j in range(self.num_factors)
-                ],
-            )
-            for i, log_prob in enumerate(log_prob_per_factor)
-        ]
+        with tf.name_scope("ToBroadcastable"):
+            log_prob_per_factor_broadcastable = [
+                tf.reshape(
+                    log_prob,
+                    [-1, self._num_scopes_out, self._num_decomps]
+                    + [
+                        1 if j != i else self._num_nodes_in
+                        for j in range(self.num_factors)
+                    ],
+                )
+                for i, log_prob in enumerate(log_prob_per_factor)
+            ]
         # Add up everything (effectively computing an outer product) and flatten the last
         # num_factors dimensions.
-        outer_product = functools.reduce(
-            operator.add, log_prob_per_factor_broadcastable
-        )
-        return tf.reshape(
-            outer_product,
-            [-1, self._num_scopes_out, self._num_decomps, self._num_products],
-        )
+        with tf.name_scope("NOrderOuterProduct"):
+            outer_product = functools.reduce(
+                operator.add, log_prob_per_factor_broadcastable
+            )
+            return tf.reshape(
+                outer_product,
+                [-1, self._num_scopes_out, self._num_decomps, self._num_products],
+            )
 
     def compute_output_shape(
         self, input_shape: Tuple[Optional[int], ...]

@@ -11,8 +11,11 @@ from libspn_keras.math.logmatmul import logmatmul
 def _batch_scope_tranpose(f):  # type: ignore  # noqa: ANN001,ANN202
     @functools.wraps(f)  # type: ignore  # noqa: ANN202
     def impl(self: SumOpBase, x: tf.Tensor, *args, **kwargs) -> tf.Tensor:  # type: ignore
-        result = f(self, tf.transpose(x, (1, 2, 0, 3)), *args, **kwargs)
-        return tf.transpose(result, (2, 0, 1, 3))
+        with tf.name_scope("ScopesAndDecompsFirst"):
+            scopes_decomps_first = tf.transpose(x, (1, 2, 0, 3))
+        result = f(self, scopes_decomps_first, *args, **kwargs)
+        with tf.name_scope("BatchFirst"):
+            return tf.transpose(result, (2, 0, 1, 3))
 
     return impl
 
@@ -69,11 +72,13 @@ class SumOpBase(abc.ABC):
 
     @staticmethod
     def _to_log_weights(x: tf.Tensor) -> tf.Tensor:
-        return SumOpBase._log_normalize(tf.math.log(x))
+        with tf.name_scope("ToLogWeights"):
+            return SumOpBase._log_normalize(tf.math.log(x))
 
     @staticmethod
     def _log_normalize(x: tf.Tensor) -> tf.Tensor:
-        return tf.nn.log_softmax(x, axis=-2)
+        with tf.name_scope("LogNormalize"):
+            return tf.nn.log_softmax(x, axis=-2)
 
     @tf.custom_gradient
     def _to_logspace_override_grad(
@@ -234,7 +239,8 @@ class SumOpEMBackprop(SumOpBase):
                 "EM is only implemented for linear space accumulators"
             )
         w = self._to_logspace_override_grad(accumulators)
-        return x + tf.linalg.matrix_transpose(w)
+        with tf.name_scope("PairwiseLogMultiply"):
+            return x + tf.linalg.matrix_transpose(w)
 
     def weighted_conv(
         self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
@@ -311,22 +317,25 @@ class SumOpHardEMBackprop(SumOpBase):
         def _inner_fn(
             x: tf.Tensor, accumulators: tf.Tensor
         ) -> Tuple[tf.Tensor, Callable[[tf.Tensor], Tuple[tf.Tensor, tf.Tensor]]]:
-            w = self._to_log_weights(accumulators)
-            # Pairwise product in forward pass
-            x = tf.expand_dims(x, axis=3)
-            w = tf.expand_dims(tf.linalg.matrix_transpose(w), axis=2)
+            with tf.name_scope("HardEMForwardPass"):
+                w = self._to_log_weights(accumulators)
+                # Pairwise product in forward pass
+                x = tf.expand_dims(x, axis=3)
+                w = tf.expand_dims(tf.linalg.matrix_transpose(w), axis=2)
 
-            # Max per sum for determining winning child + choosing the constant for numerical
-            # stability
-            weighted_children = x + w
-            max_weighted_child = tf.stop_gradient(
-                tf.reduce_max(weighted_children, axis=-1, keepdims=True)
-            )
+                # Max per sum for determining winning child + choosing the constant for numerical
+                # stability
+                weighted_children = x + w
+                max_weighted_child = tf.stop_gradient(
+                    tf.reduce_max(weighted_children, axis=-1, keepdims=True)
+                )
 
-            # Perform log(sum(exp(...))) with the numerical stability trick
-            out = tf.math.log(
-                tf.reduce_sum(tf.exp(weighted_children - max_weighted_child), axis=-1)
-            ) + tf.squeeze(max_weighted_child, axis=-1)
+                # Perform log(sum(exp(...))) with the numerical stability trick
+                out = tf.math.log(
+                    tf.reduce_sum(
+                        tf.exp(weighted_children - max_weighted_child), axis=-1
+                    )
+                ) + tf.squeeze(max_weighted_child, axis=-1)
 
             def grad(dy: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
                 # Determine winning child
@@ -397,7 +406,8 @@ class SumOpHardEMBackprop(SumOpBase):
                 "EM is only implemented for linear space accumulators"
             )
         w = self._to_logspace_override_grad(accumulators)
-        return x + tf.linalg.matrix_transpose(w)
+        with tf.name_scope("PairwiseLogMultiply"):
+            return x + tf.linalg.matrix_transpose(w)
 
     @_batch_scope_tranpose
     def weighted_conv(
@@ -428,22 +438,25 @@ class SumOpHardEMBackprop(SumOpBase):
         def _inner_fn(
             x: tf.Tensor, accumulators: tf.Tensor
         ) -> Tuple[tf.Tensor, Callable[[tf.Tensor], Tuple[tf.Tensor, tf.Tensor]]]:
-            w = self._to_log_weights(accumulators)
-            # Pairwise product in forward pass
-            x = tf.expand_dims(x, axis=3)
-            w = tf.expand_dims(tf.linalg.matrix_transpose(w), axis=2)
+            with tf.name_scope("HardEMForwardPass"):
+                w = self._to_log_weights(accumulators)
+                # Pairwise product in forward pass
+                x = tf.expand_dims(x, axis=3)
+                w = tf.expand_dims(tf.linalg.matrix_transpose(w), axis=2)
 
-            # Max per sum for determining winning child + choosing the constant for numerical
-            # stability
-            weighted_children = x + w
-            max_weighted_child = tf.stop_gradient(
-                tf.reduce_max(weighted_children, axis=-1, keepdims=True)
-            )
+                # Max per sum for determining winning child + choosing the constant for numerical
+                # stability
+                weighted_children = x + w
+                max_weighted_child = tf.stop_gradient(
+                    tf.reduce_max(weighted_children, axis=-1, keepdims=True)
+                )
 
-            # Perform log(sum(exp(...))) with the numerical stability trick
-            out = tf.math.log(
-                tf.reduce_sum(tf.exp(weighted_children - max_weighted_child), axis=-1)
-            ) + tf.squeeze(max_weighted_child, axis=-1)
+                # Perform log(sum(exp(...))) with the numerical stability trick
+                out = tf.math.log(
+                    tf.reduce_sum(
+                        tf.exp(weighted_children - max_weighted_child), axis=-1
+                    )
+                ) + tf.squeeze(max_weighted_child, axis=-1)
 
             def grad(dy: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
                 # Determine winning child
@@ -617,7 +630,8 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
                 "EM is only implemented for linear space accumulators"
             )
         w = self._to_logspace_override_grad(accumulators)
-        return x + tf.linalg.matrix_transpose(w)
+        with tf.name_scope("PairwiseLogMultiply"):
+            return x + tf.linalg.matrix_transpose(w)
 
     def weighted_conv(
         self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool

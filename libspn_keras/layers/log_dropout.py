@@ -2,7 +2,6 @@ from typing import Optional, Tuple
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.utils import tf_utils
 
 
@@ -54,7 +53,7 @@ class LogDropout(keras.layers.Layer):
             Tensor with some nodes dropped out.
         """
         if training is None:
-            training = K.learning_phase()
+            training = keras.backend.learning_phase()
 
         def dropped_inputs() -> tf.Tensor:
             noise_tensor = tf.random.uniform(
