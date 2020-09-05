@@ -1,3 +1,7 @@
+[![tests](https://github.com/pronobis/libspn-keras/workflows/tests/badge.svg)](https://github.com/pronobis/libspn-keras/actions?workflow=tests)
+[![PyPI](https://img.shields.io/pypi/v/libspn-keras.svg)](https://pypi.org/project/libspn-keras/)
+[![Read the Docs](https://readthedocs.org/projects/libspn-keras/badge/)](https://libspn-keras.readthedocs.io/)
+
 # LibSPN Keras
 
 LibSPN Keras is a library for constructing and training Sum-Product Networks. By leveraging the
@@ -51,10 +55,10 @@ Currently, the repo is in an alpha state. Hence, one can expect some sporadic br
 univariate as well as *multivariate* inputs.
 
 ## Examples / Tutorials
-1. [**Image Classification**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab](https://colab.research.google.com/drive/1yvdInaGNVoCdFFdc3mJd31Kb1dDKQoIC)
-2. [**Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab.](https://colab.research.google.com/drive/1HohG3_Klh7fTHFi9yhtcguZgfAqZJW1a?usp=sharing)
-3. [**Randomly structured SPNs** for image classification](https://colab.research.google.com/drive/16hEjwoBEwCt2f-PAfEezvI4fu1dhVSb8)
-4. [**Understanding region SPNs**](https://colab.research.google.com/drive/1Ndg86STs7xlST23V12ODVZQSwcUfIAZj)
+1. [**Image Classification**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab](https://colab.research.google.com/github/pronobis/libspn-keras/blob/add-tooling/examples/notebooks/DGC-SPN%20Image%20Classification.ipynb)
+2. [**Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab.](https://colab.research.google.com/github/pronobis/libspn-keras/blob/add-tooling/examples/notebooks/DGC-SPN%20Image%20Completion.ipynb)
+3. [**Randomly structured SPNs** for image classification](https://colab.research.google.com/github/pronobis/libspn-keras/blob/add-tooling/examples/notebooks/Randomly%20Structured%20SPNs%20Image%20Classification.ipynb)
+4. [**Understanding region SPNs**](https://colab.research.google.com/github/pronobis/libspn-keras/blob/add-tooling/examples/notebooks/Understanding%20Region%20SPNs.ipynb)
 5. More to come, and if you would like to see a tutorial on anything in particular
 please raise an issue!
 

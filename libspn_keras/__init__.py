@@ -8,6 +8,7 @@ try:
 except PackageNotFoundError:  # pragma: no cover
     __version__ = "unknown"
 
+from libspn_keras import config
 from libspn_keras import constraints
 from libspn_keras import initializers
 from libspn_keras import layers
@@ -15,6 +16,11 @@ from libspn_keras import losses
 from libspn_keras import metrics
 from libspn_keras import models
 from libspn_keras import optimizers
+from libspn_keras.config.accumulator_initializer import (
+    get_default_accumulator_initializer,
+    set_default_accumulator_initializer,
+)
+from libspn_keras.config.sum_op import get_default_sum_op, set_default_sum_op
 from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.region import region_graph_to_dense_spn
 from libspn_keras.region import RegionNode
@@ -29,6 +35,11 @@ from libspn_keras.visualize import visualize_dense_spn
 
 
 __all__ = [
+    "config",
+    "get_default_accumulator_initializer",
+    "set_default_accumulator_initializer",
+    "get_default_sum_op",
+    "set_default_sum_op",
     "logspace_wrapper_initializer",
     "optimizers",
     "metrics",

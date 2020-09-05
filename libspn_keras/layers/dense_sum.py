@@ -6,6 +6,9 @@ from tensorflow.keras import constraints
 from tensorflow.keras import initializers
 from tensorflow.keras import regularizers
 
+from libspn_keras.config.accumulator_initializer import (
+    get_default_accumulator_initializer,
+)
 from libspn_keras.config.sum_op import get_default_sum_op
 from libspn_keras.constraints.greater_equal_epsilon import GreaterEqualEpsilon
 from libspn_keras.logspace import logspace_wrapper_initializer
@@ -56,8 +59,8 @@ class DenseSum(keras.layers.Layer):
             if logspace_accumulators is None
             else logspace_accumulators
         )
-        self.accumulator_initializer = accumulator_initializer or initializers.Constant(
-            1
+        self.accumulator_initializer = (
+            accumulator_initializer or get_default_accumulator_initializer()
         )
         self.accumulator_regularizer = accumulator_regularizer
         self.linear_accumulator_constraint = (

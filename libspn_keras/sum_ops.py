@@ -87,7 +87,14 @@ class SumOpGradBackprop(SumOpBase):
     Sum op primitive with gradient in backpropagation when computed through TensorFlow's autograd engine.
 
     Internally, weighted sums are computed with default gradients for all ops being used.
+
+    Args:
+            logspace_accumulators: If provided overrides default log-space choice. For a
+                ``SumOpGradBackprop`` the default is ``True``.
     """
+
+    def __init__(self, logspace_accumulators: Optional[bool] = None):
+        self._logspace_accumulators = logspace_accumulators
 
     @_batch_scope_tranpose
     def weighted_sum(
@@ -164,7 +171,11 @@ class SumOpGradBackprop(SumOpBase):
         Returns:
             True if the default representation is in logspace and False otherwise.
         """
-        return True
+        return (
+            self._logspace_accumulators
+            if self._logspace_accumulators is not None
+            else True
+        )
 
 
 class SumOpEMBackprop(SumOpBase):
