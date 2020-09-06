@@ -1,13 +1,25 @@
+from typing import Callable, Optional, Tuple
+
+import tensorflow as tf
 from tensorflow import initializers
 
 
-def logspace_wrapper_initializer(accumulator):
+def logspace_wrapper_initializer(
+    initializer: initializers.Initializer,
+) -> Callable[[Tuple[Optional[int], ...], tf.dtypes.DType], tf.Tensor]:
+    """
+    Wrap an initializer so that its values are projected in log-space.
 
-    if not isinstance(accumulator, initializers.Initializer):
-        raise ValueError(
-            "Accumulator must be of type {}".format(initializers.Initializer.__class__))
+    Args:
+        initializer: The initializer to convert to logspace
 
-    def wrap_fn(shape, dtype=None):
-        return accumulator(shape=shape, dtype=dtype)
+    Returns:
+        A initialization callable that produces the log-space representation of `initializer`
+    """
 
-    return wrap_fn
+    def _wrap_fn(
+        shape: Tuple[Optional[int], ...], dtype: tf.dtypes.DType = None
+    ) -> tf.Tensor:
+        return tf.math.log(initializer(shape=shape, dtype=dtype))
+
+    return _wrap_fn

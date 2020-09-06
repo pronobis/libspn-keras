@@ -1,0 +1,67 @@
+[tool.poetry]
+name = "libspn-keras"
+version = "0.4.0"
+description = "LibSPN-Keras: A fledxible and scalable library for layer-based building and training of Sum-Product Networks"
+license = "MIT"
+homepage = "https://github.com/pronobis/libspn-keras"
+repository = "https://github.com/pronobis/libspn-keras"
+authors = ["Jos van de Wolfshaar <jos.vandewolfshaar@gmail.com>", "Andrzej Pronobis <pronobis@cs.washington.edupronobis@cs.washington.edu>"]
+keywords = ["Sum Product Networks", "Probabilistic Deep Learning", "TensorFlow", "Uncertainty", "Probabilistic Graphical Models"]
+documentation = "https://libspn-keras.readthedocs.io"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers"
+]
+
+[tool.poetry.dependencies]
+python = "^3.6.1"
+tensorflow = "^2.3"
+tensorflow-probability = "^0.11"
+colorlover = "^0.3.0"
+plotly = "^4.9.0"
+importlib_metadata = {version = "^1.7.0", python = "<3.8"}
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.0.1"
+nox = "^2020.5.24"
+coverage = {extras = ["toml"], version = "^5.2.1"}
+pytest-cov = "^2.10.1"
+black = "^19.10b0"
+flake8 = "^3.8.3"
+flake8-bandit = "^2.1.2"
+flake8-black = "^0.2.1"
+flake8-bugbear = "^20.1.4"
+flake8-import-order = "^0.18.1"
+pytest-mock = "^3.2.0"
+mypy = "^0.782"
+pytype = {version = "^2020.8.17", python = "3.7"}
+typeguard = "^2.9.1"
+flake8-annotations = "^2.3.0"
+flake8-docstrings = "^1.5.0"
+lint = "^1.2.1"
+darglint = "^1.5.3"
+sphinx = "^3.2.1"
+sphinx-autodoc-typehints = "^1.11.0"
+sphinx_rtd_theme = "^0.5.0"
+recommonmark = "^0.6.0"
+jupyterlab = "^2.2.6"
+
+[tool.coverage.run]
+branch = true
+source = ["libspn_keras"]
+
+[tool.coverage.paths]
+source = ["libspn_keras"]
+
+[tool.coverage.report]
+show_missing = true
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

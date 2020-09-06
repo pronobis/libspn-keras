@@ -6,4 +6,6 @@ sphinxcontrib-jsmath
 sphinxcontrib-napoleon
 sphinxcontrib-qthelp
 sphinxcontrib-serializinghtml
+sphinx-autodoc-typehints
 recommonmark
+toml

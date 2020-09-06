@@ -13,4 +13,3 @@ Feedforward models
 Temporal models
 ---------------
 .. autoclass:: libspn_keras.models.DynamicSumProductNetwork
-

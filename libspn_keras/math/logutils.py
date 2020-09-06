@@ -1,9 +1,10 @@
 import tensorflow as tf
 
 
-def replace_infs_with_zeros(x):
+def replace_infs_with_zeros(x: tf.Tensor) -> tf.Tensor:
     """
-    Replaces infinite values with zeroes
+    Replace infinite values with zeroes.
+
     Args:
         x: A `Tensor`.
 
@@ -11,4 +12,5 @@ def replace_infs_with_zeros(x):
         A `Tensor` with the same shape an dtype as `x` where infinite values are replaced
         with zeroes.
     """
-    return tf.where(tf.math.is_inf(x), tf.zeros_like(x), x)
+    with tf.name_scope("ReplaceInfsWithZeroes"):
+        return tf.where(tf.math.is_inf(x), tf.zeros_like(x), x)
