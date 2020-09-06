@@ -1862,7 +1862,7 @@ version = "0.4.4"
 test = ["pathlib2"]
 
 [[package]]
-category = "dev"
+category = "main"
 description = "Python Library for Tom's Obvious, Minimal Language"
 name = "toml"
 optional = false
@@ -2021,7 +2021,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "558596c75bbf77e0e0bab0f4d7f6663c4070ed7fa01ccc58aadb3cb100d24202"
+content-hash = "522c891bfc0c2b399d88abf4cfd684a38fa8b8146314c59d0c9d40cedf2cae91"
 python-versions = "^3.6.1"
 
 [metadata.files]

@@ -6,7 +6,7 @@ Welcome to the documentation of Keras!
     :hidden:
     :maxdepth: 1
 
-    README.md
+    ../README.md
 
 .. toctree::
     :hidden:

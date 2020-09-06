@@ -4,6 +4,7 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+
 source_suffix = {
     ".rst": "restructuredtext",
     ".txt": "markdown",
@@ -20,6 +21,8 @@ source_suffix = {
 import os
 import sys
 
+import toml
+
 sys.path.insert(0, os.path.abspath(".."))
 
 
@@ -30,7 +33,10 @@ copyright = "2020, Jos van de Wolfshaar, Andrzej Pronobis"
 author = "Jos van de Wolfshaar, Andrzej Pronobis"
 
 # The full version, including alpha/beta/rc tags
-release = "0.3.0"
+with open("../pyproject.toml", "r") as fp:
+    pyproject = toml.load(fp)
+
+release = pyproject["tool"]["poetry"]["version"]
 
 # sys.path.append(os.path.abspath('sphinxext'))
 

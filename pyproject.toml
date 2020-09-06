@@ -5,9 +5,19 @@ description = "LibSPN-Keras: A fledxible and scalable library for layer-based bu
 license = "MIT"
 homepage = "https://github.com/pronobis/libspn-keras"
 repository = "https://github.com/pronobis/libspn-keras"
-authors = ["Jos van de Wolfshaar <jos.vandewolfshaar@gmail.com>"]
+authors = ["Jos van de Wolfshaar <jos.vandewolfshaar@gmail.com>", "Andrzej Pronobis <pronobis@cs.washington.edupronobis@cs.washington.edu>"]
 keywords = ["Sum Product Networks", "Probabilistic Deep Learning", "TensorFlow", "Uncertainty", "Probabilistic Graphical Models"]
 documentation = "https://libspn-keras.readthedocs.io"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers"
+]
 
 [tool.poetry.dependencies]
 python = "^3.6.1"
@@ -16,6 +26,7 @@ tensorflow-probability = "^0.11"
 colorlover = "^0.3.0"
 plotly = "^4.9.0"
 importlib_metadata = {version = "^1.7.0", python = "<3.8"}
+toml = "^0.10.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.0.1"

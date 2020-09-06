@@ -10,7 +10,7 @@ EM learning. All of these operations inherit from the ``SumOpBase`` class in ``l
 By default, LibSPN-Keras uses ``SumOpGradBackprop``.
 
 Getting And Setting a Sum Op
---------------------------
+----------------------------
 These methods allow for setting and getting the current default ``SumOpBase``. By setting a default all sum layers
 (``DenseSum``, ``Conv2DSum``, ``Local2DSum`` and ``RootSum``) will use that sum op, unless you explicitly provide a
 ``SumOpBase`` instance to any of those classes when initializing them.
