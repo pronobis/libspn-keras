@@ -67,88 +67,157 @@ please raise an issue!
 
 Check out the way we can build complex DGC-SPNs in a layer-wise fashion:
 ```python
-from libspn_keras import layers
+import libspn_keras as spnk
 from tensorflow import keras
 
-sum_kwargs = dict(
-    accumulator_initializer=keras.initializers.TruncatedNormal(
-        stddev=0.5, mean=1.0),
-    logspace_accumulators=True
+spnk.set_default_sum_op(spnk.SumOpGradBackprop())
+spnk.set_default_accumulator_initializer(
+    keras.initializers.TruncatedNormal(stddev=0.5, mean=1.0)
 )
 
 sum_product_network = keras.Sequential([
-  layers.NormalLeaf(
-      input_shape=(28, 28, 1),
+  spnk.layers.NormalizeStandardScore(input_shape=(28, 28, 1)),
+  spnk.layers.NormalLeaf(
       num_components=16,
       location_trainable=True,
       location_initializer=keras.initializers.TruncatedNormal(
           stddev=1.0, mean=0.0)
   ),
   # Non-overlapping products
-  layers.Conv2DProduct(
+  spnk.layers.Conv2DProduct(
       depthwise=True,
       strides=[2, 2],
       dilations=[1, 1],
       kernel_size=[2, 2],
       padding='valid'
   ),
-  layers.Local2DSum(num_sums=16, **sum_kwargs),
+  spnk.layers.Local2DSum(num_sums=16),
   # Non-overlapping products
-  layers.Conv2DProduct(
+  spnk.layers.Conv2DProduct(
       depthwise=True,
       strides=[2, 2],
       dilations=[1, 1],
       kernel_size=[2, 2],
       padding='valid'
   ),
-  layers.Local2DSum(num_sums=32, **sum_kwargs),
+  spnk.layers.Local2DSum(num_sums=32),
   # Overlapping products, starting at dilations [1, 1]
-  layers.Conv2DProduct(
+  spnk.layers.Conv2DProduct(
       depthwise=True,
       strides=[1, 1],
       dilations=[1, 1],
       kernel_size=[2, 2],
       padding='full'
   ),
-  layers.Local2DSum(num_sums=32, **sum_kwargs),
+  spnk.layers.Local2DSum(num_sums=32),
   # Overlapping products, with dilations [2, 2] and full padding
-  layers.Conv2DProduct(
+  spnk.layers.Conv2DProduct(
       depthwise=True,
       strides=[1, 1],
       dilations=[2, 2],
       kernel_size=[2, 2],
       padding='full'
   ),
-  layers.Local2DSum(num_sums=64, **sum_kwargs),
-  # Overlapping products, with dilations [4, 4] and full padding
-  layers.Conv2DProduct(
+  spnk.layers.Local2DSum(num_sums=64),
+  # Overlapping products, with dilations [2, 2] and full padding
+  spnk.layers.Conv2DProduct(
       depthwise=True,
       strides=[1, 1],
       dilations=[4, 4],
       kernel_size=[2, 2],
       padding='full'
   ),
-  layers.Local2DSum(num_sums=64, **sum_kwargs),
-  # Overlapping products, with dilations [8, 8] and 'final' padding to combine
+  spnk.layers.Local2DSum(num_sums=64),
+  # Overlapping products, with dilations [2, 2] and 'final' padding to combine
   # all scopes
-  layers.Conv2DProduct(
+  spnk.layers.Conv2DProduct(
       depthwise=True,
       strides=[1, 1],
       dilations=[8, 8],
       kernel_size=[2, 2],
       padding='final'
   ),
-  layers.SpatialToRegions(),
+  spnk.layers.SpatialToRegions(),
   # Class roots
-  layers.DenseSum(num_sums=10, **sum_kwargs),
-  layers.RootSum(
-      return_weighted_child_logits=True,
-      logspace_accumulators=True,
-      accumulator_initializer=keras.initializers.TruncatedNormal(
-          stddev=0.0, mean=1.0)
-  )
+  spnk.layers.DenseSum(num_sums=10),
+  spnk.layers.RootSum(return_weighted_child_logits=True)
 ])
-sum_product_network.summary()
+
+sum_product_network.summary(line_length=100)from tensorflow import keras
+
+spnk.set_default_accumulator_initializer(
+    keras.initializers.TruncatedNormal(stddev=0.5, mean=1.0)
+)
+
+sum_product_network = keras.Sequential([
+  spnk.layers.NormalizeStandardScore(input_shape=(28, 28, 1)),
+  spnk.layers.NormalLeaf(
+      num_components=16,
+      location_trainable=True,
+      location_initializer=keras.initializers.TruncatedNormal(
+          stddev=1.0, mean=0.0)
+  ),
+  # Non-overlapping products
+  spnk.layers.Conv2DProduct(
+      depthwise=True,
+      strides=[2, 2],
+      dilations=[1, 1],
+      kernel_size=[2, 2],
+      padding='valid'
+  ),
+  spnk.layers.Local2DSum(num_sums=16),
+  # Non-overlapping products
+  spnk.layers.Conv2DProduct(
+      depthwise=True,
+      strides=[2, 2],
+      dilations=[1, 1],
+      kernel_size=[2, 2],
+      padding='valid'
+  ),
+  spnk.layers.Local2DSum(num_sums=32),
+  # Overlapping products, starting at dilations [1, 1]
+  spnk.layers.Conv2DProduct(
+      depthwise=True,
+      strides=[1, 1],
+      dilations=[1, 1],
+      kernel_size=[2, 2],
+      padding='full'
+  ),
+  spnk.layers.Local2DSum(num_sums=32),
+  # Overlapping products, with dilations [2, 2] and full padding
+  spnk.layers.Conv2DProduct(
+      depthwise=True,
+      strides=[1, 1],
+      dilations=[2, 2],
+      kernel_size=[2, 2],
+      padding='full'
+  ),
+  spnk.layers.Local2DSum(num_sums=64),
+  # Overlapping products, with dilations [2, 2] and full padding
+  spnk.layers.Conv2DProduct(
+      depthwise=True,
+      strides=[1, 1],
+      dilations=[4, 4],
+      kernel_size=[2, 2],
+      padding='full'
+  ),
+  spnk.layers.Local2DSum(num_sums=64),
+  # Overlapping products, with dilations [2, 2] and 'final' padding to combine
+  # all scopes
+  spnk.layers.Conv2DProduct(
+      depthwise=True,
+      strides=[1, 1],
+      dilations=[8, 8],
+      kernel_size=[2, 2],
+      padding='final'
+  ),
+  spnk.layers.SpatialToRegions(),
+  # Class roots
+  spnk.layers.DenseSum(num_sums=10),
+  spnk.layers.RootSum(return_weighted_child_logits=True)
+])
+
+sum_product_network.summary(line_length=100)
 ```
 
 Which produces:
