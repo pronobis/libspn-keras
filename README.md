@@ -15,7 +15,7 @@ a straightforward Keras-compatible interface.
 * [API Reference](reference.md)
 
 ## Documentation
-The documentation of the library is hosted on [ReadTheDocs](https://libspn-keras.readthedocs.io/en/latest/README.html).
+The documentation of the library is hosted on [ReadTheDocs](https://libspn-keras.readthedocs.io/en/latest/index.html).
 
 ## What are SPNs?
 
