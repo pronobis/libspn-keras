@@ -4,13 +4,15 @@
 [![Read the Docs](https://readthedocs.org/projects/libspn-keras/badge/)](https://libspn-keras.readthedocs.io/)
 
 # LibSPN Keras
-
 LibSPN Keras is a library for constructing and training Sum-Product Networks. By leveraging the
 Keras framework with a TensorFlow backend, it offers both ease-of-use and scalability. Whereas the
 previously available `libspn` focused on scalability, `libspn-keras` offers scalability **and**
 a straightforward Keras-compatible interface.
 
 ![](logo.png "LibSPN Keras logo")
+
+## Contents
+* [API Reference](reference.md)
 
 ## Documentation
 The documentation of the library is hosted on [ReadTheDocs](https://libspn-keras.readthedocs.io/en/latest/README.html).
@@ -56,10 +58,10 @@ Currently, the repo is in an alpha state. Hence, one can expect some sporadic br
 univariate as well as *multivariate* inputs.
 
 ## Examples / Tutorials
-1. [**Image Classification**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/DGC-SPN%20Image%20Classification.ipynb)
-2. [**Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab.](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/DGC-SPN%20Image%20Completion.ipynb)
-3. [**Randomly structured SPNs** for image classification](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/Randomly%20Structured%20SPNs%20Image%20Classification.ipynb)
-4. [**Understanding region SPNs**](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/Understanding%20Region%20SPNs.ipynb)
+1. [**Image Classification**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab](https://colab.research.google.com/github/pronobis/libspn-keras/blob/add-tooling/examples/notebooks/DGC-SPN%20Image%20Classification.ipynb)
+2. [**Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN) with `libspn-keras` in Colab.](https://colab.research.google.com/github/pronobis/libspn-keras/blob/add-tooling/examples/notebooks/DGC-SPN%20Image%20Completion.ipynb)
+3. [**Randomly structured SPNs** for image classification](https://colab.research.google.com/github/pronobis/libspn-keras/blob/add-tooling/examples/notebooks/Randomly%20Structured%20SPNs%20Image%20Classification.ipynb)
+4. [**Understanding region SPNs**](https://colab.research.google.com/github/pronobis/libspn-keras/blob/add-tooling/examples/notebooks/Understanding%20Region%20SPNs.ipynb)
 5. More to come, and if you would like to see a tutorial on anything in particular
 please raise an issue!
 

@@ -1,16 +1,10 @@
-LibSPN-Keras Home
-=================
-Welcome to the documentation of Keras!
+API Reference
+=============
 
+```eval_rst
 .. toctree::
     :hidden:
-    :maxdepth: 1
-
-    ../README.md
-
-.. toctree::
-    :hidden:
-    :caption: Reference
+    :caption: API Reference
 
     reference/layers
     reference/models
@@ -22,3 +16,4 @@ Welcome to the documentation of Keras!
     reference/constraints
     reference/region_graph
     reference/visualization
+```
