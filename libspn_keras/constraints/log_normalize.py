@@ -12,8 +12,8 @@ class LogNormalize(Constraint):
         axis (int): Axis along whichto normalize
     """
 
-    def __init__(self, axis: Optional[int] = None):
-        self.axis = -2 if axis is None else axis
+    def __init__(self, axis: Optional[int] = -2):
+        self.axis = axis
 
     def __call__(self, w: tf.Tensor) -> tf.Tensor:
         """

@@ -10,7 +10,9 @@ from libspn_keras.config.accumulator_initializer import (
     get_default_accumulator_initializer,
 )
 from libspn_keras.config.sum_op import get_default_sum_op
-from libspn_keras.constraints.greater_equal_epsilon import GreaterEqualEpsilon
+from libspn_keras.constraints.greater_equal_epsilon_normalized import (
+    GreaterEqualEpsilonNormalized,
+)
 from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.sum_ops import SumOpBase
 
@@ -64,7 +66,7 @@ class DenseSum(keras.layers.Layer):
         )
         self.accumulator_regularizer = accumulator_regularizer
         self.linear_accumulator_constraint = (
-            linear_accumulator_constraint or GreaterEqualEpsilon(1e-10)
+            linear_accumulator_constraint or GreaterEqualEpsilonNormalized()
         )
         self.logspace_accumulator_constraint = logspace_accumulator_constraint
 
