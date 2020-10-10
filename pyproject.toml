@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "libspn-keras"
-version = "0.4.0"
+version = "0.5.0"
 description = "LibSPN-Keras: A fledxible and scalable library for layer-based building and training of Sum-Product Networks"
 license = "MIT"
 homepage = "https://github.com/pronobis/libspn-keras"

@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import tensorflow as tf
 from tensorflow import keras
@@ -9,7 +9,18 @@ from tensorflow.python.keras.engine.sequential import (
 )
 from tensorflow.python.util import nest
 
-from libspn_keras.layers import LocationScaleLeafBase, NormalizeStandardScore
+from libspn_keras.layers.base_leaf import BaseLeaf
+from libspn_keras.layers.dense_product import DenseProduct
+from libspn_keras.layers.dense_sum import DenseSum
+from libspn_keras.layers.flat_to_regions import FlatToRegions
+from libspn_keras.layers.location_scale_leaf import LocationScaleLeafBase
+from libspn_keras.layers.log_dropout import LogDropout
+from libspn_keras.layers.normalize_standard_score import NormalizeStandardScore
+from libspn_keras.layers.permute_and_pad_scopes_random import PermuteAndPadScopes
+from libspn_keras.layers.permute_and_pad_scopes_random import PermuteAndPadScopesRandom
+from libspn_keras.layers.reduce_product import ReduceProduct
+from libspn_keras.layers.root_sum import RootSum
+from libspn_keras.layers.undecompose import Undecompose
 
 
 class SequentialSumProductNetwork(keras.Sequential):
@@ -22,21 +33,23 @@ class SequentialSumProductNetwork(keras.Sequential):
     Args:
         unsupervised (bool): If ``True`` the model does not expect label inputs in .fit() or
             .evaluate(). Also, losses and metrics should not expect a target output, just a y_hat.
-            By default, it will be inferred from ``infer_no_evidence``.
+            By default, it will be inferred from ``infer_no_evidence`` and otherwise defaults to
+            ``True``.
         infer_no_evidence (bool): If ``True``, the model expects an evidence mask defined as a
             boolean tensor which is used to mask out variables that are not part of the evidence.
     """
 
     def __init__(
         self,
-        *args,
+        layers: List[tf.keras.layers.Layer],
         infer_no_evidence: bool = False,
         unsupervised: Optional[bool] = None,
         **kwargs
     ):
+        self._infer_factors_for_region_spn(layers)
         if unsupervised is None:
             unsupervised = False if infer_no_evidence else True
-        super().__init__(*args, **kwargs)
+        super().__init__(layers, **kwargs)
         self.unsupervised = unsupervised
         self.infer_no_evidence = infer_no_evidence
         if infer_no_evidence and unsupervised:
@@ -220,3 +233,40 @@ class SequentialSumProductNetwork(keras.Sequential):
             return self._test_step_unsupervised(data)
         else:
             return super(SequentialSumProductNetwork, self).test_step(data)
+
+    @staticmethod
+    def _is_region_spn(layers: List[tf.keras.layers.Layer]) -> bool:
+        for layer in layers:
+            if not isinstance(
+                layer,
+                (
+                    DenseProduct,
+                    DenseSum,
+                    ReduceProduct,
+                    RootSum,
+                    PermuteAndPadScopes,
+                    FlatToRegions,
+                    LogDropout,
+                    BaseLeaf,
+                    NormalizeStandardScore,
+                    Undecompose,
+                ),
+            ):
+                return False
+
+        return True
+
+    def _infer_factors_for_region_spn(
+        self, layers: List[tf.keras.layers.Layer]
+    ) -> None:
+        if self._is_region_spn(layers):
+            for layer in layers:
+                if isinstance(layer, PermuteAndPadScopesRandom):
+                    if layer.factors is None:
+                        layer.set_factors(
+                            [
+                                layer.num_factors
+                                for layer in layers
+                                if isinstance(layer, (DenseProduct, ReduceProduct))
+                            ]
+                        )

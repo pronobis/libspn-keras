@@ -29,7 +29,11 @@ class SumOpBase(abc.ABC):
 
     @abc.abstractmethod
     def weighted_sum(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Implement sum operation on log inputs X and accumulators w.
@@ -38,11 +42,16 @@ class SumOpBase(abc.ABC):
             x: Input Tensor.
             accumulators: Unnormalized accumulators.
             logspace_accumulators: Whether accumulators are in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
         """
 
     @abc.abstractmethod
     def weighted_children(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute weighted children (used in RootSum).
@@ -51,11 +60,16 @@ class SumOpBase(abc.ABC):
             x: Input Tensor.
             accumulators: Unnormalized accumulators.
             logspace_accumulators: Whether accumulators are in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
         """
 
     @abc.abstractmethod
     def weighted_conv(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute weighted convolution (used in ConvSum).
@@ -64,6 +78,7 @@ class SumOpBase(abc.ABC):
             x: Input Tensor.
             accumulators: Unnormalized accumulators.
             logspace_accumulators: Whether accumulators are in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
         """
 
     @abc.abstractmethod
@@ -80,11 +95,46 @@ class SumOpBase(abc.ABC):
         with tf.name_scope("LogNormalize"):
             return tf.nn.log_softmax(x, axis=-2)
 
-    @tf.custom_gradient
     def _to_logspace_override_grad(
-        self, accumulators: tf.Tensor
+        self, accumulators: tf.Tensor, normalize_in_forward_pass: bool
     ) -> Tuple[tf.Tensor, Callable[[tf.Tensor], tf.Tensor]]:
-        return self._to_log_weights(accumulators), lambda dy: dy
+        @tf.custom_gradient
+        def _inner(
+            accumulators: tf.Tensor,
+        ) -> Tuple[tf.Tensor, Callable[[tf.Tensor], tf.Tensor]]:
+            if normalize_in_forward_pass:
+                return (
+                    self._to_log_weights(accumulators),
+                    lambda dy: dy
+                    / (tf.abs(tf.reduce_sum(dy, axis=2, keepdims=True)) + 1e-20),
+                )
+            else:
+                return (
+                    tf.math.log(accumulators),
+                    lambda dy: dy
+                    / (tf.abs(tf.reduce_sum(dy, axis=2, keepdims=True)) + 1e-20),
+                )
+
+        return _inner(accumulators)
+
+    def _weights_in_logspace(
+        self,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
+    ) -> tf.Tensor:
+        if logspace_accumulators:
+            return (
+                self._log_normalize(accumulators)
+                if normalize_in_forward_pass
+                else accumulators
+            )
+        else:
+            return (
+                self._to_log_weights(accumulators)
+                if normalize_in_forward_pass
+                else tf.math.log(accumulators)
+            )
 
 
 class SumOpGradBackprop(SumOpBase):
@@ -95,15 +145,26 @@ class SumOpGradBackprop(SumOpBase):
 
     Args:
             logspace_accumulators: If provided overrides default log-space choice. For a
-                ``SumOpGradBackprop`` the default is ``True``.
+                ``SumOpGradBackprop`` the default is ``True``
+            normalize_in_forward_pass: If provided overrides normalize that would otherwise be
+                determined from the constraints that are used for a sum layer's weights.
     """
 
-    def __init__(self, logspace_accumulators: Optional[bool] = None):
+    def __init__(
+        self,
+        logspace_accumulators: Optional[bool] = None,
+        normalize_in_forward_pass: Optional[bool] = None,
+    ):
         self._logspace_accumulators = logspace_accumulators
+        self._normalize = normalize_in_forward_pass
 
     @_batch_scope_tranpose
     def weighted_sum(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute a weighted sum.
@@ -111,20 +172,24 @@ class SumOpGradBackprop(SumOpBase):
         Args:
             x: Input Tensor
             accumulators: Accumulators, can be seen as unnormalized representations of weights.
-            logspace_accumulators: Whether or not accumulators are represented in logspaace.
+            logspace_accumulators: Whether or not accumulators are represented in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
 
         Returns:
             A Tensor with the weighted sums.
         """
-        w = (
-            self._log_normalize(accumulators)
-            if logspace_accumulators
-            else self._to_log_weights(accumulators)
+        normalize_in_forward_pass = self._normalize or normalize_in_forward_pass
+        w = self._weights_in_logspace(
+            accumulators, logspace_accumulators, normalize_in_forward_pass
         )
         return logmatmul(x, w)
 
     def weighted_children(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute weighted children, without summing over the final axis.
@@ -134,20 +199,23 @@ class SumOpGradBackprop(SumOpBase):
         Args:
             x: Input Tensor
             accumulators: Accumulators, can be seen as unnormalized representations of weights.
-            logspace_accumulators: Whether or not accumulators are represented in logspaace.
+            logspace_accumulators: Whether or not accumulators are represented in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
 
         Returns:
             A Tensor with the weighted sums.
         """
-        w = (
-            self._log_normalize(accumulators)
-            if logspace_accumulators
-            else self._to_log_weights(accumulators)
+        w = self._weights_in_logspace(
+            accumulators, logspace_accumulators, normalize_in_forward_pass
         )
         return x + tf.linalg.matrix_transpose(w)
 
     def weighted_conv(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute weighted convolutions.
@@ -157,15 +225,14 @@ class SumOpGradBackprop(SumOpBase):
         Args:
             x: Input Tensor
             accumulators: Accumulators, can be seen as unnormalized representations of weights.
-            logspace_accumulators: Whether or not accumulators are represented in logspaace.
+            logspace_accumulators: Whether or not accumulators are represented in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
 
         Returns:
             A Tensor with the weighted convolutions.
         """
-        w = (
-            self._log_normalize(accumulators)
-            if logspace_accumulators
-            else self._to_log_weights(accumulators)
+        w = self._weights_in_logspace(
+            accumulators, logspace_accumulators, normalize_in_forward_pass
         )
         return logconv1x1_2d(x, w)
 
@@ -192,7 +259,11 @@ class SumOpEMBackprop(SumOpBase):
 
     @_batch_scope_tranpose
     def weighted_sum(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute a weighted sum.
@@ -200,7 +271,8 @@ class SumOpEMBackprop(SumOpBase):
         Args:
             x: Input Tensor
             accumulators: Accumulators, can be seen as unnormalized representations of weights.
-            logspace_accumulators: Whether or not accumulators are represented in logspaace.
+            logspace_accumulators: Whether or not accumulators are represented in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
 
         Returns:
             A Tensor with the weighted sums.
@@ -212,11 +284,15 @@ class SumOpEMBackprop(SumOpBase):
             raise NotImplementedError(
                 "EM is only implemented for linear space accumulators"
             )
-        w = self._to_logspace_override_grad(accumulators)
+        w = self._to_logspace_override_grad(accumulators, normalize_in_forward_pass)
         return logmatmul(x, w)
 
     def weighted_children(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute weighted children, without summing over the final axis.
@@ -226,7 +302,8 @@ class SumOpEMBackprop(SumOpBase):
         Args:
             x: Input Tensor
             accumulators: Accumulators, can be seen as unnormalized representations of weights.
-            logspace_accumulators: Whether or not accumulators are represented in logspaace.
+            logspace_accumulators: Whether or not accumulators are represented in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
 
         Returns:
             A Tensor with the weighted sums.
@@ -238,12 +315,16 @@ class SumOpEMBackprop(SumOpBase):
             raise NotImplementedError(
                 "EM is only implemented for linear space accumulators"
             )
-        w = self._to_logspace_override_grad(accumulators)
+        w = self._to_logspace_override_grad(accumulators, normalize_in_forward_pass)
         with tf.name_scope("PairwiseLogMultiply"):
             return x + tf.linalg.matrix_transpose(w)
 
     def weighted_conv(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute weighted convolutions.
@@ -253,7 +334,8 @@ class SumOpEMBackprop(SumOpBase):
         Args:
             x: Input Tensor
             accumulators: Accumulators, can be seen as unnormalized representations of weights.
-            logspace_accumulators: Whether or not accumulators are represented in logspaace.
+            logspace_accumulators: Whether or not accumulators are represented in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
 
         Returns:
             A Tensor with the weighted convolutions.
@@ -265,7 +347,7 @@ class SumOpEMBackprop(SumOpBase):
             raise NotImplementedError(
                 "EM is only implemented for linear space accumulators"
             )
-        w = self._to_logspace_override_grad(accumulators)
+        w = self._to_logspace_override_grad(accumulators, normalize_in_forward_pass)
         return logconv1x1_2d(x, w)
 
     def default_logspace_accumulators(self) -> bool:
@@ -292,7 +374,11 @@ class SumOpHardEMBackprop(SumOpBase):
 
     @_batch_scope_tranpose
     def weighted_sum(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute a weighted sum.
@@ -300,7 +386,8 @@ class SumOpHardEMBackprop(SumOpBase):
         Args:
             x: Input Tensor
             accumulators: Accumulators, can be seen as unnormalized representations of weights.
-            logspace_accumulators: Whether or not accumulators are represented in logspaace.
+            logspace_accumulators: Whether or not accumulators are represented in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
 
         Returns:
             A Tensor with the weighted sums.
@@ -318,7 +405,11 @@ class SumOpHardEMBackprop(SumOpBase):
             x: tf.Tensor, accumulators: tf.Tensor
         ) -> Tuple[tf.Tensor, Callable[[tf.Tensor], Tuple[tf.Tensor, tf.Tensor]]]:
             with tf.name_scope("HardEMForwardPass"):
-                w = self._to_log_weights(accumulators)
+                w = (
+                    self._to_log_weights(accumulators)
+                    if normalize_in_forward_pass
+                    else tf.math.log(accumulators)
+                )
                 # Pairwise product in forward pass
                 x = tf.expand_dims(x, axis=3)
                 w = tf.expand_dims(tf.linalg.matrix_transpose(w), axis=2)
@@ -376,14 +467,24 @@ class SumOpHardEMBackprop(SumOpBase):
                 child_counts = tf.reduce_sum(per_sample_weight_counts, axis=3)
                 weight_counts = tf.reduce_sum(per_sample_weight_counts, axis=2)
 
-                return child_counts, tf.transpose(weight_counts, (0, 1, 3, 2))
+                weight_counts = accumulators * tf.linalg.matrix_transpose(weight_counts)
+
+                weight_counts /= (
+                    tf.reduce_sum(tf.abs(weight_counts), axis=2, keepdims=True) + 1e-16
+                )
+
+                return child_counts, weight_counts
 
             return out, grad
 
         return _inner_fn(x, accumulators)
 
     def weighted_children(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute weighted children, without summing over the final axis.
@@ -393,7 +494,8 @@ class SumOpHardEMBackprop(SumOpBase):
         Args:
             x: Input Tensor
             accumulators: Accumulators, can be seen as unnormalized representations of weights.
-            logspace_accumulators: Whether or not accumulators are represented in logspaace.
+            logspace_accumulators: Whether or not accumulators are represented in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
 
         Returns:
             A Tensor with the weighted sums.
@@ -405,13 +507,17 @@ class SumOpHardEMBackprop(SumOpBase):
             raise NotImplementedError(
                 "EM is only implemented for linear space accumulators"
             )
-        w = self._to_logspace_override_grad(accumulators)
+        w = self._to_logspace_override_grad(accumulators, normalize_in_forward_pass)
         with tf.name_scope("PairwiseLogMultiply"):
             return x + tf.linalg.matrix_transpose(w)
 
     @_batch_scope_tranpose
     def weighted_conv(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute weighted convolutions.
@@ -421,7 +527,8 @@ class SumOpHardEMBackprop(SumOpBase):
         Args:
             x: Input Tensor
             accumulators: Accumulators, can be seen as unnormalized representations of weights.
-            logspace_accumulators: Whether or not accumulators are represented in logspaace.
+            logspace_accumulators: Whether or not accumulators are represented in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
 
         Returns:
             A Tensor with the weighted convolutions.
@@ -439,7 +546,11 @@ class SumOpHardEMBackprop(SumOpBase):
             x: tf.Tensor, accumulators: tf.Tensor
         ) -> Tuple[tf.Tensor, Callable[[tf.Tensor], Tuple[tf.Tensor, tf.Tensor]]]:
             with tf.name_scope("HardEMForwardPass"):
-                w = self._to_log_weights(accumulators)
+                w = (
+                    self._to_log_weights(accumulators)
+                    if normalize_in_forward_pass
+                    else tf.math.log(normalize_in_forward_pass)
+                )
                 # Pairwise product in forward pass
                 x = tf.expand_dims(x, axis=3)
                 w = tf.expand_dims(tf.linalg.matrix_transpose(w), axis=2)
@@ -499,7 +610,13 @@ class SumOpHardEMBackprop(SumOpBase):
                 # Sum over spatial axes
                 weight_counts = tf.reduce_sum(weight_counts, axis=[0, 1], keepdims=True)
 
-                return child_counts, tf.linalg.matrix_transpose(weight_counts)
+                weight_counts = accumulators * tf.linalg.matrix_transpose(weight_counts)
+
+                weight_counts /= (
+                    tf.reduce_sum(tf.abs(weight_counts), axis=2, keepdims=True) + 1e-16
+                )
+
+                return child_counts, weight_counts
 
             return out, grad
 
@@ -531,9 +648,12 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
     def __init__(self, sample_prob: Optional[Union[float, tf.Tensor]] = None):
         self.sample_prob = sample_prob
 
-    @_batch_scope_tranpose
     def weighted_sum(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute a weighted sum.
@@ -541,7 +661,8 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
         Args:
             x: Input Tensor
             accumulators: Accumulators, can be seen as unnormalized representations of weights.
-            logspace_accumulators: Whether or not accumulators are represented in logspaace.
+            logspace_accumulators: Whether or not accumulators are represented in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
 
         Returns:
             A Tensor with the weighted sums.
@@ -560,7 +681,11 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
         ) -> Tuple[tf.Tensor, Callable[[tf.Tensor], Tuple[tf.Tensor, tf.Tensor]]]:
 
             # Normalized
-            weights = self._to_log_weights(accumulators)
+            weights = (
+                self._to_log_weights(accumulators)
+                if normalize_in_forward_pass
+                else tf.math.log(accumulators)
+            )
 
             out = logmatmul(x, weights)
 
@@ -600,6 +725,13 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
                 weight_counts = tf.matmul(
                     winning_child_per_scope_one_hot, parent_counts, transpose_a=True
                 )
+
+                weight_counts = accumulators * weight_counts
+
+                weight_counts /= (
+                    tf.reduce_sum(tf.abs(weight_counts), axis=2, keepdims=True) + 1e-16
+                )
+
                 return child_counts, weight_counts
 
             return out, grad
@@ -607,7 +739,11 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
         return _inner_fn(x, accumulators)
 
     def weighted_children(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute weighted children, without summing over the final axis.
@@ -617,7 +753,8 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
         Args:
             x: Input Tensor
             accumulators: Accumulators, can be seen as unnormalized representations of weights.
-            logspace_accumulators: Whether or not accumulators are represented in logspaace.
+            logspace_accumulators: Whether or not accumulators are represented in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
 
         Returns:
             A Tensor with the weighted sums.
@@ -629,12 +766,16 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
             raise NotImplementedError(
                 "EM is only implemented for linear space accumulators"
             )
-        w = self._to_logspace_override_grad(accumulators)
+        w = self._to_logspace_override_grad(accumulators, normalize_in_forward_pass)
         with tf.name_scope("PairwiseLogMultiply"):
             return x + tf.linalg.matrix_transpose(w)
 
     def weighted_conv(
-        self, x: tf.Tensor, accumulators: tf.Tensor, logspace_accumulators: bool
+        self,
+        x: tf.Tensor,
+        accumulators: tf.Tensor,
+        logspace_accumulators: bool,
+        normalize_in_forward_pass: bool,
     ) -> tf.Tensor:
         """
         Compute weighted convolutions.
@@ -644,7 +785,8 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
         Args:
             x: Input Tensor
             accumulators: Accumulators, can be seen as unnormalized representations of weights.
-            logspace_accumulators: Whether or not accumulators are represented in logspaace.
+            logspace_accumulators: Whether or not accumulators are represented in logspace.
+            normalize_in_forward_pass: Whether weights should be normalized during forward inference.
 
         Returns:
             A Tensor with the weighted convolutions.
@@ -663,7 +805,11 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
         ) -> Tuple[tf.Tensor, Callable[[tf.Tensor], Tuple[tf.Tensor, tf.Tensor]]]:
 
             # Normalized
-            weights = self._to_log_weights(accumulators)
+            weights = (
+                self._to_log_weights(accumulators)
+                if normalize_in_forward_pass
+                else tf.math.log(accumulators)
+            )
 
             out = logmatmul(x, weights)
 
@@ -704,6 +850,13 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
                     winning_child_per_scope_one_hot, parent_counts, transpose_a=True
                 )
                 weight_counts = tf.reduce_sum(weight_counts, axis=[0, 1], keepdims=True)
+
+                weight_counts = accumulators * tf.linalg.matrix_transpose(weight_counts)
+
+                weight_counts /= (
+                    tf.reduce_sum(tf.abs(weight_counts), axis=2, keepdims=True) + 1e-16
+                )
+
                 return child_counts, weight_counts
 
             return out, grad

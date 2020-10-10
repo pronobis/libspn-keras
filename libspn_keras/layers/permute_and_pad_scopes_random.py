@@ -98,6 +98,7 @@ class PermuteAndPadScopesRandom(PermuteAndPadScopes):
                 for i in range(num_m1):
                     p.insert(i * rate_m1, -1)
         self.permutations = self.add_weight(
+            name="permutations",
             initializer=initializers.Constant(perms),
             trainable=False,
             shape=[num_decomps, factor_prod],

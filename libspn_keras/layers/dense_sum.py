@@ -9,7 +9,14 @@ from tensorflow.keras import regularizers
 from libspn_keras.config.accumulator_initializer import (
     get_default_accumulator_initializer,
 )
+from libspn_keras.config.linear_accumulator_constraint import (
+    get_default_linear_accumulators_constraint,
+)
+from libspn_keras.config.logspace_accumulator_constraint import (
+    get_default_logspace_accumulators_constraint,
+)
 from libspn_keras.config.sum_op import get_default_sum_op
+from libspn_keras.constraints import LogNormalized
 from libspn_keras.constraints.greater_equal_epsilon_normalized import (
     GreaterEqualEpsilonNormalized,
 )
@@ -66,9 +73,13 @@ class DenseSum(keras.layers.Layer):
         )
         self.accumulator_regularizer = accumulator_regularizer
         self.linear_accumulator_constraint = (
-            linear_accumulator_constraint or GreaterEqualEpsilonNormalized()
+            linear_accumulator_constraint
+            or get_default_linear_accumulators_constraint()
         )
-        self.logspace_accumulator_constraint = logspace_accumulator_constraint
+        self.logspace_accumulator_constraint = (
+            logspace_accumulator_constraint
+            or get_default_logspace_accumulators_constraint()
+        )
 
     def build(self, input_shape: Tuple[Optional[int], ...]) -> None:
         """
@@ -78,12 +89,12 @@ class DenseSum(keras.layers.Layer):
             input_shape: Shape of the input Tensor.
         """
         # Create a trainable weight variable for this layer.
-        _, self._num_scopes, self._num_decomps, num_nodes_in = input_shape
+        _, self._num_scopes, self._num_decomps, self._num_nodes_in = input_shape
 
         weights_shape = (
             self._num_scopes,
             self._num_decomps,
-            num_nodes_in,
+            self._num_nodes_in,
             self.num_sums,
         )
 
@@ -100,6 +111,11 @@ class DenseSum(keras.layers.Layer):
             regularizer=self.accumulator_regularizer,
             constraint=accumulator_constraint,
         )
+        if accumulator_constraint is not None:
+            self._accumulators.assign(accumulator_constraint(self._accumulators))
+        self._forward_normalize = not isinstance(
+            accumulator_constraint, (GreaterEqualEpsilonNormalized, LogNormalized)
+        )
         super(DenseSum, self).build(input_shape)
 
     def call(self, x: tf.Tensor, **kwargs) -> tf.Tensor:
@@ -114,7 +130,7 @@ class DenseSum(keras.layers.Layer):
             A Tensor with the probabilities per component.
         """
         return self.sum_op.weighted_sum(
-            x, self._accumulators, self.logspace_accumulators
+            x, self._accumulators, self.logspace_accumulators, self._forward_normalize
         )
 
     def compute_output_shape(

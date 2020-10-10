@@ -24,7 +24,9 @@ class GreaterEqualEpsilonNormalized(Constraint):
         Returns:
             Clipped weight Tensor.
         """
-        clipped = tf.maximum(w, self.epsilon)
+        clipped = tf.maximum(
+            w, self.epsilon / tf.cast(tf.shape(w)[self.axis], tf.float32)
+        )
         return clipped / tf.reduce_sum(clipped, axis=self.axis, keepdims=True)
 
     def get_config(self) -> dict:

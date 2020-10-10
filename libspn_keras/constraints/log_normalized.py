@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow.keras.constraints import Constraint
 
 
-class LogNormalize(Constraint):
+class LogNormalized(Constraint):
     """
     Normalizes log-space weights.
 

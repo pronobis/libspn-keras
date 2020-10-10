@@ -70,4 +70,5 @@ class Conv2DSum(DenseSum):
             x,
             accumulators=self._accumulators,
             logspace_accumulators=self.logspace_accumulators,
+            normalize_in_forward_pass=self._forward_normalize,
         )

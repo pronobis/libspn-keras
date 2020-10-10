@@ -1,5 +1,5 @@
 from .greater_equal_epsilon import GreaterEqualEpsilon
 from .greater_equal_epsilon_normalized import GreaterEqualEpsilonNormalized
-from .log_normalize import LogNormalize
+from .log_normalized import LogNormalized
 
-__all__ = ["GreaterEqualEpsilon", "GreaterEqualEpsilonNormalized", "LogNormalize"]
+__all__ = ["GreaterEqualEpsilon", "GreaterEqualEpsilonNormalized", "LogNormalized"]
