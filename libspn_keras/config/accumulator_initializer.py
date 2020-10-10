@@ -1,6 +1,8 @@
-from tensorflow.keras.initializers import Initializer, TruncatedNormal
+from tensorflow.keras.initializers import Initializer
 
-_DEFAULT_ACCUMULATOR_INITIALIZER = TruncatedNormal(stddev=0.5, mean=1.0)
+from libspn_keras.initializers.dirichlet import Dirichlet
+
+_DEFAULT_ACCUMULATOR_INITIALIZER = Dirichlet(alpha=1.0, axis=-2)
 
 
 def set_default_accumulator_initializer(initializer: Initializer) -> None:

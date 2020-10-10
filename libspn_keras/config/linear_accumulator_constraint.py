@@ -1,24 +1,25 @@
+from typing import Optional
+
 from tensorflow.keras.constraints import Constraint
 
 from libspn_keras.constraints.greater_equal_epsilon_normalized import (
     GreaterEqualEpsilonNormalized,
 )
 
-_DEFAULT_LINEAR_ACCUMULATOR_CONSTRAINT = None
+
+_DEFAULT_LINEAR_ACCUMULATOR_CONSTRAINT: Optional[
+    Constraint
+] = GreaterEqualEpsilonNormalized()
 
 
-def get_default_linear_accumulators_constraint() -> Constraint:
+def get_default_linear_accumulators_constraint() -> Optional[Constraint]:
     """
     Get default linear accumulator constraint.
 
     Returns:
         A ``Constraint`` instance that was set with ``set_default_linear_accumulators_constraint``
     """
-    return (
-        GreaterEqualEpsilonNormalized()
-        if _DEFAULT_LINEAR_ACCUMULATOR_CONSTRAINT is None
-        else _DEFAULT_LINEAR_ACCUMULATOR_CONSTRAINT
-    )
+    return _DEFAULT_LINEAR_ACCUMULATOR_CONSTRAINT
 
 
 def set_default_linear_accumulators_constraint(op: Constraint) -> None:
