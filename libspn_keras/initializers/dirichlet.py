@@ -10,9 +10,9 @@ class Dirichlet(initializers.Initializer):
     Initializes all values in a tensor with :math:`Dir(\alpha)`.
 
     Args:
-        axis: The axis for input nodes so that :math:`K^{-1}` is the inverse fan in. Usually,
-            this is ``-2``.
-        epsilon: A small non-zero constant
+        axis: The axis over which to sample from a :math:`Dir(\alpha)`.
+        alpha: The :math:`\alpha` parameter of the Dirichlet distribution.
+            If a scalar, this is broadcast along the given axis.
     """
 
     def __init__(
