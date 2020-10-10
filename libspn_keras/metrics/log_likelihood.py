@@ -12,7 +12,7 @@ class LogLikelihood(keras.metrics.Mean):
     since a target for :math:`Y` is absent in unsupervised learning.
     """
 
-    def __init__(self, name: str = "log_marginal", **kwargs):
+    def __init__(self, name: str = "llh", **kwargs):
         super(LogLikelihood, self).__init__(name=name, **kwargs)
 
     def update_state(

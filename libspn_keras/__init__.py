@@ -20,6 +20,14 @@ from libspn_keras.config.accumulator_initializer import (
     get_default_accumulator_initializer,
     set_default_accumulator_initializer,
 )
+from libspn_keras.config.linear_accumulator_constraint import (
+    get_default_linear_accumulators_constraint,
+    set_default_linear_accumulators_constraint,
+)
+from libspn_keras.config.logspace_accumulator_constraint import (
+    get_default_logspace_accumulators_constraint,
+    set_default_logspace_accumulators_constraint,
+)
 from libspn_keras.config.sum_op import get_default_sum_op, set_default_sum_op
 from libspn_keras.logspace import logspace_wrapper_initializer
 from libspn_keras.region import region_graph_to_dense_spn
@@ -38,6 +46,10 @@ __all__ = [
     "config",
     "get_default_accumulator_initializer",
     "set_default_accumulator_initializer",
+    "set_default_logspace_accumulators_constraint",
+    "set_default_linear_accumulators_constraint",
+    "get_default_linear_accumulators_constraint",
+    "get_default_logspace_accumulators_constraint",
     "get_default_sum_op",
     "set_default_sum_op",
     "logspace_wrapper_initializer",

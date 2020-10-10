@@ -43,7 +43,7 @@ class RootSum(DenseSum):
         accumulator_regularizer: Optional[tf.keras.regularizers.Regularizer] = None,
         linear_accumulator_constraint: Optional[tf.keras.constraints.Constraint] = None,
         sum_op: Optional[SumOpBase] = None,
-        **kwargs
+        **kwargs,
     ):
         super(RootSum, self).__init__(
             logspace_accumulators=logspace_accumulators,
@@ -54,7 +54,7 @@ class RootSum(DenseSum):
             linear_accumulator_constraint=linear_accumulator_constraint,
             sum_op=sum_op,
             num_sums=1,
-            **kwargs
+            **kwargs,
         )
         self.return_weighted_child_logits = return_weighted_child_logits
 
@@ -72,17 +72,42 @@ class RootSum(DenseSum):
         Returns:
             Sum or weighted children.
         """
+        x_reshaped = tf.reshape(x, (-1, 1, 1, self._num_nodes_in))
+
         if self.return_weighted_child_logits:
             out = self.sum_op.weighted_children(
-                x,
+                x_reshaped,
                 accumulators=self._accumulators,
                 logspace_accumulators=self.logspace_accumulators,
+                normalize_in_forward_pass=self._forward_normalize,
             )
             num_out = self._accumulators.shape[2]
         else:
-            out = super(RootSum, self).call(x, **kwargs)
+            out = super(RootSum, self).call(x_reshaped, **kwargs)
             num_out = 1
         return tf.reshape(out, [-1, num_out])
+
+    def build(self, input_shape: Tuple[Optional[int], ...]) -> None:
+        """
+        Build the internal components for this layer.
+
+        Args:
+            input_shape: Shape of the input Tensor.
+
+        Raises:
+            ValueError: Raised when the number of input scopes does not equal 1, or
+                if number of decompositions or nodes in the input is unknown.
+        """
+        num_batch, num_scopes, num_decomps, num_nodes = input_shape
+        if num_scopes != 1:
+            raise ValueError(
+                f"Expected to have 1 scope at the input of a RootSum, got {num_scopes}"
+            )
+        if num_decomps is None:
+            raise ValueError("Must have known number of decompositions")
+        if num_nodes is None:
+            raise ValueError("Must have known number of nodes")
+        super(RootSum, self).build((num_batch, num_scopes, 1, num_decomps * num_nodes))
 
     def compute_output_shape(
         self, input_shape: Tuple[Optional[int], ...]
@@ -95,11 +120,22 @@ class RootSum(DenseSum):
 
         Returns:
             Tuple of ints holding the output shape of the layer.
+
+
+        Raises:
+            ValueError: Raised when the number of decompositions
+                or nodes in the input is unknown.
         """
-        num_batch, _, _, num_nodes_in = input_shape
+        num_batch, _, num_decomps, num_nodes_in = input_shape
+        if num_decomps is None:
+            raise ValueError("Must have known number of decompositions")
+        if num_nodes_in is None:
+            raise ValueError("Must have known number of nodes")
         return (
             num_batch,
-            num_nodes_in if self.return_weighted_child_logits else num_batch,
+            num_decomps * num_nodes_in
+            if self.return_weighted_child_logits
+            else num_batch,
         )
 
     def get_config(self) -> dict:
