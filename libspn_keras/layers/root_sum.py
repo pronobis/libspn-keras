@@ -95,13 +95,18 @@ class RootSum(DenseSum):
             input_shape: Shape of the input Tensor.
 
         Raises:
-            ValueError: Raised when the number of input scopes does not equal 1.
+            ValueError: Raised when the number of input scopes does not equal 1, or
+                if number of decompositions or nodes in the input is unknown.
         """
         num_batch, num_scopes, num_decomps, num_nodes = input_shape
         if num_scopes != 1:
             raise ValueError(
                 f"Expected to have 1 scope at the input of a RootSum, got {num_scopes}"
             )
+        if num_decomps is None:
+            raise ValueError("Must have known number of decompositions")
+        if num_nodes is None:
+            raise ValueError("Must have known number of nodes")
         super(RootSum, self).build((num_batch, num_scopes, 1, num_decomps * num_nodes))
 
     def compute_output_shape(
@@ -115,8 +120,17 @@ class RootSum(DenseSum):
 
         Returns:
             Tuple of ints holding the output shape of the layer.
+
+
+        Raises:
+            ValueError: Raised when the number of decompositions
+                or nodes in the input is unknown.
         """
         num_batch, _, num_decomps, num_nodes_in = input_shape
+        if num_decomps is None:
+            raise ValueError("Must have known number of decompositions")
+        if num_nodes_in is None:
+            raise ValueError("Must have known number of nodes")
         return (
             num_batch,
             num_decomps * num_nodes_in

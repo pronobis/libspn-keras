@@ -146,17 +146,12 @@ class SumOpGradBackprop(SumOpBase):
     Args:
             logspace_accumulators: If provided overrides default log-space choice. For a
                 ``SumOpGradBackprop`` the default is ``True``
-            normalize_in_forward_pass: If provided overrides normalize that would otherwise be
-                determined from the constraints that are used for a sum layer's weights.
     """
 
     def __init__(
-        self,
-        logspace_accumulators: Optional[bool] = None,
-        normalize_in_forward_pass: Optional[bool] = None,
+        self, logspace_accumulators: Optional[bool] = None,
     ):
         self._logspace_accumulators = logspace_accumulators
-        self._normalize = normalize_in_forward_pass
 
     @_batch_scope_tranpose
     def weighted_sum(
@@ -178,7 +173,6 @@ class SumOpGradBackprop(SumOpBase):
         Returns:
             A Tensor with the weighted sums.
         """
-        normalize_in_forward_pass = self._normalize or normalize_in_forward_pass
         w = self._weights_in_logspace(
             accumulators, logspace_accumulators, normalize_in_forward_pass
         )
