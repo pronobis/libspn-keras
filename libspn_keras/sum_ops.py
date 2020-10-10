@@ -467,13 +467,7 @@ class SumOpHardEMBackprop(SumOpBase):
                 child_counts = tf.reduce_sum(per_sample_weight_counts, axis=3)
                 weight_counts = tf.reduce_sum(per_sample_weight_counts, axis=2)
 
-                weight_counts = accumulators * tf.linalg.matrix_transpose(weight_counts)
-
-                weight_counts /= (
-                    tf.reduce_sum(tf.abs(weight_counts), axis=2, keepdims=True) + 1e-16
-                )
-
-                return child_counts, weight_counts
+                return child_counts, tf.transpose(weight_counts, (0, 1, 3, 2))
 
             return out, grad
 
@@ -610,13 +604,7 @@ class SumOpHardEMBackprop(SumOpBase):
                 # Sum over spatial axes
                 weight_counts = tf.reduce_sum(weight_counts, axis=[0, 1], keepdims=True)
 
-                weight_counts = accumulators * tf.linalg.matrix_transpose(weight_counts)
-
-                weight_counts /= (
-                    tf.reduce_sum(tf.abs(weight_counts), axis=2, keepdims=True) + 1e-16
-                )
-
-                return child_counts, weight_counts
+                return child_counts, tf.linalg.matrix_transpose(weight_counts)
 
             return out, grad
 
@@ -648,6 +636,7 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
     def __init__(self, sample_prob: Optional[Union[float, tf.Tensor]] = None):
         self.sample_prob = sample_prob
 
+    @_batch_scope_tranpose
     def weighted_sum(
         self,
         x: tf.Tensor,
@@ -725,13 +714,6 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
                 weight_counts = tf.matmul(
                     winning_child_per_scope_one_hot, parent_counts, transpose_a=True
                 )
-
-                weight_counts = accumulators * weight_counts
-
-                weight_counts /= (
-                    tf.reduce_sum(tf.abs(weight_counts), axis=2, keepdims=True) + 1e-16
-                )
-
                 return child_counts, weight_counts
 
             return out, grad
@@ -850,13 +832,6 @@ class SumOpUnweightedHardEMBackprop(SumOpBase):
                     winning_child_per_scope_one_hot, parent_counts, transpose_a=True
                 )
                 weight_counts = tf.reduce_sum(weight_counts, axis=[0, 1], keepdims=True)
-
-                weight_counts = accumulators * tf.linalg.matrix_transpose(weight_counts)
-
-                weight_counts /= (
-                    tf.reduce_sum(tf.abs(weight_counts), axis=2, keepdims=True) + 1e-16
-                )
-
                 return child_counts, weight_counts
 
             return out, grad
