@@ -58,7 +58,7 @@ Currently, the repo is in an alpha state. Hence, one can expect some sporadic br
 univariate as well as *multivariate* inputs.
 
 ## Examples / Tutorials
-1. **Benchmark**: `libspn-keras` andd Einsum Networks. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/Benchmark%20With%20Einsum%20Networks.ipynb)
+1. **Benchmark**: `libspn-keras` and Einsum Networks. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/Benchmark%20With%20Einsum%20Networks.ipynb)
 2. **Image Classification**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN). [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/DGC-SPN%20Image%20Classification.ipynb)
 3. **Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN). [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/DGC-SPN%20Image%20Completion.ipynb)
 4. **Understanding region SPNs** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/Understanding%20Region%20SPNs.ipynb)
