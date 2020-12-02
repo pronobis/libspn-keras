@@ -2,6 +2,7 @@ from typing import Optional, Tuple
 
 import tensorflow as tf
 
+from libspn_keras.constraints import GreaterEqualEpsilonNormalized, LogNormalized
 from libspn_keras.layers.dense_sum import DenseSum
 from libspn_keras.logspace import logspace_wrapper_initializer
 
@@ -40,17 +41,20 @@ class Conv2DSum(DenseSum):
         weights_shape = (1, 1, num_channels_in, self.num_sums)
 
         initializer = self.accumulator_initializer
-        accumulator_contraint = self.linear_accumulator_constraint
+        accumulator_constraint = self.linear_accumulator_constraint
         if self.logspace_accumulators:
             initializer = logspace_wrapper_initializer(initializer)
-            accumulator_contraint = self.logspace_accumulator_constraint
+            accumulator_constraint = self.logspace_accumulator_constraint
 
+        self._forward_normalize = not isinstance(
+            accumulator_constraint, (GreaterEqualEpsilonNormalized, LogNormalized)
+        )
         self._accumulators = self.add_weight(
             name="sum_weights",
             shape=weights_shape,
             initializer=initializer,
             regularizer=self.accumulator_regularizer,
-            constraint=accumulator_contraint,
+            constraint=accumulator_constraint,
         )
         super(DenseSum, self).build(input_shape)
 

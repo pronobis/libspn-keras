@@ -23,6 +23,7 @@ class LocationScaleLeafBase(BaseLeaf, abc.ABC):
         location_initializer: Initializer for location variable
         location_trainable: Boolean that indicates whether location is trainable
         scale_initializer: Initializer for scale variable
+        scale_constraint: Constraint for scale parameter
         **kwargs: kwar
 
         gs to pass on to the keras.Layer super class
@@ -37,6 +38,7 @@ class LocationScaleLeafBase(BaseLeaf, abc.ABC):
         scale_trainable: bool = False,
         accumulator_initializer: Optional[tf.keras.initializers.Initializer] = None,
         use_accumulators: bool = False,
+        scale_constraint: Optional[tf.keras.constraints.Constraint] = None,
         **kwargs
     ):
         super(LocationScaleLeafBase, self).__init__(
@@ -50,6 +52,7 @@ class LocationScaleLeafBase(BaseLeaf, abc.ABC):
         self.scale_trainable = scale_trainable
         self.accumulator_initializer = accumulator_initializer or initializers.Ones()
         self.use_accumulators = use_accumulators
+        self.scale_constraint = scale_constraint
         self._num_scopes = self._num_decomps = None
 
     def _build_distribution(self, shape: Tuple[Optional[int], ...]) -> None:
@@ -71,12 +74,12 @@ class LocationScaleLeafBase(BaseLeaf, abc.ABC):
 
     def _get_distribution_from_vars(self) -> tfp.distributions.Distribution:
         if self.scale_trainable and not self.use_accumulators:
-            return self._build_distribution_from_loc_and_scale(
-                loc=self.loc, scale=tf.nn.softplus(self.scale)
-            )
-        return self._build_distribution_from_loc_and_scale(
-            loc=self.loc, scale=self.scale
-        )
+            scale = tf.nn.softplus(self.scale)
+        else:
+            scale = self.scale
+        if self.scale_constraint is not None:
+            scale = self.scale_constraint(scale)
+        return self._build_distribution_from_loc_and_scale(loc=self.loc, scale=scale)
 
     def _get_distribution_from_accumulators(
         self,
@@ -88,6 +91,8 @@ class LocationScaleLeafBase(BaseLeaf, abc.ABC):
                 / self.second_order_moment_denom_accum
                 - tf.square(loc)
             )
+            if self.scale_constraint is not None:
+                scale = self.scale_constraint(scale)
             dist = self._build_distribution_from_loc_and_scale(loc=loc, scale=scale)
             return LocationScaleEMGradWrapper(
                 dist,
@@ -97,9 +102,10 @@ class LocationScaleLeafBase(BaseLeaf, abc.ABC):
                 self.second_order_moment_num_accum,
             )
         else:
-            dist = self._build_distribution_from_loc_and_scale(
-                loc=loc, scale=self.scale
-            )
+            scale = self.scale
+            if self.scale_constraint is not None:
+                scale = self.scale_constraint(scale)
+            dist = self._build_distribution_from_loc_and_scale(loc=loc, scale=scale)
             return LocationEMGradWrapper(
                 dist,
                 self.first_order_moment_denom_accum,
