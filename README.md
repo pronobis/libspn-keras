@@ -45,7 +45,7 @@ Currently, the repo is in an alpha state. Hence, one can expect some sporadic br
 - Gradient based training for generative and discriminative problems
 - Hard EM training for generative problems
 - Hard EM training with unweighted weights for generative problems
-- Soft EM training (experimental) for generative problems
+- Soft EM training for generative problems
 - [Deep Generalized Convolutional Sum-Product Networks](https://arxiv.org/abs/1902.06155)
 - SPNs with arbitrary decompositions
 - Fully compatible with Keras and TensorFlow 2.0
