@@ -25,12 +25,11 @@ def logconv1x1_2d(input: tf.Tensor, filter: tf.Tensor) -> tf.Tensor:
             tf.stop_gradient(tf.reduce_max(input, axis=-1, keepdims=True))
         )
 
-        filter -= filter_max
-        input -= input_max
-
         out = tf.math.log(
             tf.nn.convolution(
-                input=tf.exp(input), filters=tf.exp(filter), padding="SAME"
+                input=tf.exp(input - input_max),
+                filters=tf.exp(filter - filter_max),
+                padding="SAME",
             )
         )
         out += filter_max + input_max
