@@ -1127,14 +1127,6 @@ version = "1.4.2"
 
 [[package]]
 category = "dev"
-description = "a Python implementation of parameterize and SRFI 39"
-name = "parameterize"
-optional = false
-python-versions = "*"
-version = "0.2"
-
-[[package]]
-category = "dev"
 description = "Parameterized testing with any Python test framework"
 name = "parameterized"
 optional = false
@@ -2063,7 +2055,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "1da1c889a53fb34373c613a28e04c83dc3a352c70746f1b71f43cb200061d0e6"
+content-hash = "616ab0ec3110395f00cab0e0415e95b6da46b235c3a6928b14ddd85ed50b4131"
 lock-version = "1.0"
 python-versions = "^3.6.1"
 
@@ -2661,9 +2653,6 @@ packaging = [
 ]
 pandocfilters = [
     {file = "pandocfilters-1.4.2.tar.gz", hash = "sha256:b3dd70e169bb5449e6bc6ff96aea89c5eea8c5f6ab5e207fc2f521a2cf4a0da9"},
-]
-parameterize = [
-    {file = "parameterize-0.2.tar.gz", hash = "sha256:f3d8dcc50995b54ef9ff44fdca5a96fb15e57df0c77d622f87d483060a270928"},
 ]
 parameterized = [
     {file = "parameterized-0.7.4-py2.py3-none-any.whl", hash = "sha256:59ab908e31c01505a987a2be78854e19cb1630c047bbab7848169c371d614d56"},
