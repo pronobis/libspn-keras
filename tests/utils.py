@@ -26,6 +26,12 @@ NORMAL_COMPONENTS_LOCATIONS = np.array(
 ).reshape([1, 4, 1, 2, 1])
 BATCH_SIZE = 16
 NUM_STEPS = 3
+SUM_OPS = [
+    [spnk.SumOpEMBackprop()],
+    [spnk.SumOpHardEMBackprop()],
+    [spnk.SumOpUnweightedHardEMBackprop()],
+    [spnk.SumOpGradBackprop()],
+]
 
 
 def indicators(x):

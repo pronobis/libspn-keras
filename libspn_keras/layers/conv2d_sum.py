@@ -56,6 +56,8 @@ class Conv2DSum(DenseSum):
             regularizer=self.accumulator_regularizer,
             constraint=accumulator_constraint,
         )
+        if accumulator_constraint is not None:
+            self._accumulators.assign(accumulator_constraint(self._accumulators))
         super(DenseSum, self).build(input_shape)
 
     def call(self, x: tf.Tensor, **kwargs) -> tf.Tensor:
