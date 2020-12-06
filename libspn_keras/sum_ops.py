@@ -537,7 +537,7 @@ class SumOpHardEMBackprop(SumOpBase):
                 w = (
                     self._to_log_weights(accumulators)
                     if normalize_in_forward_pass
-                    else tf.math.log(normalize_in_forward_pass)
+                    else tf.math.log(accumulators)
                 )
                 # Pairwise product in forward pass
                 x = tf.expand_dims(x, axis=3)
