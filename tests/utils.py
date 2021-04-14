@@ -1,16 +1,15 @@
 import numpy as np
-from scipy import stats
 import tensorflow as tf
+from scipy import stats
 from tensorflow import keras
 from tensorflow.keras import initializers
 
 import libspn_keras as spnk
+from libspn_keras import SumOpEMBackprop
+from libspn_keras import SumOpGradBackprop
+from libspn_keras import SumOpHardEMBackprop
+from libspn_keras import SumOpUnweightedHardEMBackprop
 from libspn_keras.models import SequentialSumProductNetwork
-from libspn_keras.sum_ops import (
-    SumOpGradBackprop,
-    SumOpHardEMBackprop,
-    SumOpUnweightedHardEMBackprop,
-)
 
 NUM_VARS = 4
 NUM_COMPONENTS = 2
@@ -26,11 +25,12 @@ NORMAL_COMPONENTS_LOCATIONS = np.array(
 ).reshape([1, 4, 1, 2, 1])
 BATCH_SIZE = 16
 NUM_STEPS = 3
+
 SUM_OPS = [
-    [spnk.SumOpEMBackprop()],
-    [spnk.SumOpHardEMBackprop()],
-    [spnk.SumOpUnweightedHardEMBackprop()],
-    [spnk.SumOpGradBackprop()],
+    [SumOpEMBackprop()],
+    [SumOpHardEMBackprop()],
+    [SumOpUnweightedHardEMBackprop()],
+    [SumOpGradBackprop()],
 ]
 
 

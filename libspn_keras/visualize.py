@@ -1,21 +1,20 @@
-from collections import OrderedDict
 import functools
 import itertools
 import operator
-from typing import Any, List
+from collections import OrderedDict
+from typing import Any
+from typing import List
 
 import colorlover as cl
 import numpy as np
 import plotly.graph_objects as go
 import tensorflow as tf
 
-from libspn_keras.layers import (
-    DenseProduct,
-    DenseSum,
-    FlatToRegions,
-    PermuteAndPadScopes,
-    RootSum,
-)
+from libspn_keras.layers import DenseProduct
+from libspn_keras.layers import DenseSum
+from libspn_keras.layers import FlatToRegions
+from libspn_keras.layers import PermuteAndPadScopes
+from libspn_keras.layers import RootSum
 
 
 def visualize_dense_spn(

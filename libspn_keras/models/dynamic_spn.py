@@ -1,4 +1,5 @@
-from typing import Dict, Tuple
+from typing import Dict
+from typing import Tuple
 
 import tensorflow as tf
 from tensorflow import keras

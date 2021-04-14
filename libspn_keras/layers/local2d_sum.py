@@ -1,4 +1,5 @@
-from typing import Optional, Tuple
+from typing import Optional
+from typing import Tuple
 
 from libspn_keras.layers.dense_sum import DenseSum
 from libspn_keras.logspace import logspace_wrapper_initializer

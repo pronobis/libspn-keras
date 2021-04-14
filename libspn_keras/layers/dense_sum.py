@@ -1,4 +1,5 @@
-from typing import Optional, Tuple
+from typing import Optional
+from typing import Tuple
 
 import tensorflow as tf
 from tensorflow import keras
@@ -21,7 +22,7 @@ from libspn_keras.constraints.greater_equal_epsilon_normalized import (
     GreaterEqualEpsilonNormalized,
 )
 from libspn_keras.logspace import logspace_wrapper_initializer
-from libspn_keras.sum_ops import SumOpBase
+from libspn_keras.sum_ops.base import SumOpBase
 
 
 class DenseSum(keras.layers.Layer):

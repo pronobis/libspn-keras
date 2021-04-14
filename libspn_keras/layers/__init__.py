@@ -6,12 +6,10 @@ from libspn_keras.layers.dense_sum import DenseSum
 from libspn_keras.layers.flat_to_regions import FlatToRegions
 from libspn_keras.layers.indicator_leaf import IndicatorLeaf
 from libspn_keras.layers.local2d_sum import Local2DSum
-from libspn_keras.layers.location_scale_leaf import (
-    CauchyLeaf,
-    LaplaceLeaf,
-    LocationScaleLeafBase,
-    NormalLeaf,
-)
+from libspn_keras.layers.location_scale_leaf import CauchyLeaf
+from libspn_keras.layers.location_scale_leaf import LaplaceLeaf
+from libspn_keras.layers.location_scale_leaf import LocationScaleLeafBase
+from libspn_keras.layers.location_scale_leaf import NormalLeaf
 from libspn_keras.layers.log_dropout import LogDropout
 from libspn_keras.layers.normalize_standard_score import NormalizeStandardScore
 from libspn_keras.layers.permute_and_pad_scopes import PermuteAndPadScopes

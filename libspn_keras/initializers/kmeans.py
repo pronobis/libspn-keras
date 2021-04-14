@@ -1,5 +1,7 @@
 import itertools
-from typing import Any, List, Optional, Tuple
+from typing import List
+from typing import Optional
+from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -268,8 +270,8 @@ class KMeans(initializers.Initializer):
             )
             super_centroids = tf.gather(flat_centroids, indices, axis=0)
 
-        def generate_permutations(n: int) -> List[Tuple[Any]]:
-            return list(*itertools.permutations(range(n)))
+        def generate_permutations(n: int) -> List[Tuple[int, ...]]:
+            return list(itertools.permutations(range(n)))
 
         permutations = generate_permutations(num_clusters)
 

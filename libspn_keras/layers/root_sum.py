@@ -1,9 +1,10 @@
-from typing import Optional, Tuple
+from typing import Optional
+from typing import Tuple
 
 import tensorflow as tf
 
 from libspn_keras.layers.dense_sum import DenseSum
-from libspn_keras.sum_ops import SumOpBase
+from libspn_keras.sum_ops.base import SumOpBase
 
 
 class RootSum(DenseSum):

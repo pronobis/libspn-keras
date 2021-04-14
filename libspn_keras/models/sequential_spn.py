@@ -1,12 +1,14 @@
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.python.keras.engine import data_adapter
-from tensorflow.python.keras.engine.sequential import (
-    _get_shape_tuple,
-    SINGLE_LAYER_OUTPUT_ERROR_MSG,
-)
+from tensorflow.python.keras.engine.sequential import _get_shape_tuple
+from tensorflow.python.keras.engine.sequential import SINGLE_LAYER_OUTPUT_ERROR_MSG
 from tensorflow.python.util import nest
 
 from libspn_keras.layers.base_leaf import BaseLeaf
@@ -44,6 +46,7 @@ class SequentialSumProductNetwork(keras.Sequential):
         layers: List[tf.keras.layers.Layer],
         infer_no_evidence: bool = False,
         unsupervised: Optional[bool] = None,
+        infer_weighted_sum: bool = True,
         **kwargs
     ):
         self._infer_factors_for_region_spn(layers)
@@ -57,6 +60,7 @@ class SequentialSumProductNetwork(keras.Sequential):
                 "Model cannot be unsupervised when evidence should be inferred"
             )
         self.infer_no_evidence = infer_no_evidence
+        self.infer_weighted_sum = infer_weighted_sum
         if infer_no_evidence:
             self._normalize_index = self._normalize_layer = None
             for i, layer in enumerate(self.layers):
@@ -67,7 +71,6 @@ class SequentialSumProductNetwork(keras.Sequential):
                 if isinstance(layer, LocationScaleLeafBase):
                     self._leaf_index = i
                     self._leaf_layer = layer
-                    break
             else:
                 raise ValueError("No LocationScaleLeafBase leaf layer found")
 
@@ -163,9 +166,26 @@ class SequentialSumProductNetwork(keras.Sequential):
                 # `outputs` will be the inputs to the next layer.
                 inputs = outputs
 
+        batch_size = tf.shape(inputs)[0]
         leaf_grads = tape.gradient(outputs, leaf_out)
-        modes = self._leaf_layer.get_modes()
-        outputs = tf.reduce_sum(tf.expand_dims(leaf_grads, axis=-1) * modes, axis=3)
+        leaf_representation = self._leaf_layer.get_leaf_representation(size=batch_size)
+        normalized_leaf_grads = tf.math.divide_no_nan(
+            leaf_grads, tf.reduce_sum(tf.abs(leaf_grads), axis=-1, keepdims=True)
+        )
+        if self.infer_weighted_sum:
+            outputs = tf.reduce_sum(
+                normalized_leaf_grads[..., tf.newaxis] * leaf_representation, axis=3
+            )
+        else:
+            outputs = tf.gather(
+                tf.tile(
+                    leaf_representation,
+                    [tf.shape(normalized_leaf_grads)[0], 1, 1, 1, 1],
+                ),
+                tf.argmax(normalized_leaf_grads, axis=-1),
+                axis=-2,
+                batch_dims=3,
+            )
         outputs = tf.where(evidence_mask, leaf_inputs, outputs)
         if self._normalize_layer is not None and self._normalize_index is not None:
             outputs = (

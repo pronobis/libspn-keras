@@ -1,4 +1,6 @@
-from typing import Any, Callable, Tuple
+from typing import Any
+from typing import Callable
+from typing import Tuple
 
 import tensorflow as tf
 import tensorflow_probability as tfp

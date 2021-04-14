@@ -1,4 +1,6 @@
-from typing import Dict, Tuple, Union
+from typing import Dict
+from typing import Tuple
+from typing import Union
 
 import tensorflow as tf
 from tensorflow import keras

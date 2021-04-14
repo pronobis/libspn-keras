@@ -3,7 +3,7 @@
 import-order-style = google
 application-import-names = libspn_keras,tests
 select = ANN,B,B9,BLK,C,D,DAR,E,F,I,S,W
-ignore = ANN002,ANN003,ANN101,ANN204,D100,D104,D105,D107,E203,E501,W503,W605
+ignore = ANN002,ANN003,ANN101,ANN204,D100,D104,D105,D107,E203,E501,W503,W605,I100
 max-complexity = 10
 max-line-length = 100
 per-file-ignores =

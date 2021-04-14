@@ -1,9 +1,22 @@
 import abc
-from typing import Optional, Tuple
+from enum import Enum
+from typing import Optional
+from typing import Tuple
+from typing import Type
 
 import tensorflow as tf
-from tensorflow import keras
 import tensorflow_probability as tfp
+from tensorflow import keras
+
+
+class LeafRepresentation(Enum):
+    """Leaf representation used when computing samples or for imputing missing variables."""
+
+    # Use the mode of the distribution
+    MODE = "mode"
+
+    # Sample from the distribution
+    SAMPLE = "sample"
 
 
 class BaseLeaf(keras.layers.Layer, abc.ABC):
@@ -15,9 +28,16 @@ class BaseLeaf(keras.layers.Layer, abc.ABC):
         dtype: DType of the input.
     """
 
-    def __init__(self, num_components: int, dtype: tf.DType = tf.float32, **kwargs):
+    def __init__(
+        self,
+        num_components: int,
+        leaf_representation: LeafRepresentation = LeafRepresentation.MODE,
+        dtype: tf.DType = tf.float32,
+        **kwargs
+    ):
         super(BaseLeaf, self).__init__(dtype=dtype, **kwargs)
         self.num_components = num_components
+        self.leaf_representation = leaf_representation
 
     def build(self, input_shape: Tuple[Optional[int], ...]) -> None:
         """
@@ -77,9 +97,51 @@ class BaseLeaf(keras.layers.Layer, abc.ABC):
         Returns:
             A dict holding the configuration of the layer.
         """
-        config = dict(num_components=self.num_components)
+        config = dict(
+            num_components=self.num_components,
+            leaf_representation=self.leaf_representation.value,
+        )
         base_config = super(BaseLeaf, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
+    @classmethod
+    def from_config(cls: Type["BaseLeaf"], config: dict) -> "BaseLeaf":
+        """Create layer from its config.
+
+        This method is the reverse of `get_config`,
+        capable of instantiating the same layer from the config
+        dictionary. It does not handle layer connectivity
+        (handled by Network), nor weights (handled by `set_weights`).
+
+        Arguments:
+            config: A Python dictionary, typically the
+                output of get_config.
+
+        Returns:
+            A layer instance.
+        """
+        leaf_representation = LeafRepresentation(
+            config.pop("leaf_representation", "mode")
+        )
+        return cls(leaf_representation=leaf_representation, **config)
+
+    def get_leaf_representation(self, size: tf.Tensor) -> tf.Tensor:
+        """
+        Obtain the distribution modes.
+
+        This can be used for e.g. MPE estimates of inputs.
+
+        Arguments:
+            size: 0D tensor with size of representation. Typically, this corresponds to the batch size.
+
+        Raises:
+            NotImplementedError: Not all descendants of BaseLeaf have this implemented.
+        """
+        raise NotImplementedError(
+            "A {} does not implement leaf representation.".format(
+                self.__class__.__name__
+            )
+        )
 
     def get_modes(self) -> tf.Tensor:
         """

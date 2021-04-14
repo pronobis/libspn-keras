@@ -1,5 +1,7 @@
 import logging
-from typing import List, Optional, Tuple
+from typing import List
+from typing import Optional
+from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
