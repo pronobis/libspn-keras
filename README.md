@@ -62,7 +62,8 @@ univariate as well as *multivariate* inputs.
 2. **Image Classification**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN). [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/DGC-SPN%20Image%20Classification.ipynb)
 3. **Image Completion**: A Deep Generalized Convolutional Sum-Product Network (DGC-SPN). [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/DGC-SPN%20Image%20Completion.ipynb)
 4. **Understanding region SPNs** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/Understanding%20Region%20SPNs.ipynb)
-5. More to come, and if you would like to see a tutorial on anything in particular
+5. **Samping with convolutional SPNs** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pronobis/libspn-keras/blob/master/examples/notebooks/Sampling%20with%20conv%20SPNs.ipynb)
+6. More to come, and if you would like to see a tutorial on anything in particular
 please raise an issue!
 
 Check out the way we can build complex DGC-SPNs in a layer-wise fashion:
