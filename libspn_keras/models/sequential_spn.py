@@ -33,12 +33,16 @@ class SequentialSumProductNetwork(keras.Sequential):
     ``keras.Sequential``, so layers are passed to it as a list.
 
     Args:
+        layers (list of Layer): List of tf.keras.layers.Layer instance
+        infer_no_evidence (bool): If ``True``, the model expects an evidence mask defined as a
+            boolean tensor which is used to mask out variables that are not part of the evidence.
         unsupervised (bool): If ``True`` the model does not expect label inputs in .fit() or
             .evaluate(). Also, losses and metrics should not expect a target output, just a y_hat.
             By default, it will be inferred from ``infer_no_evidence`` and otherwise defaults to
             ``True``.
-        infer_no_evidence (bool): If ``True``, the model expects an evidence mask defined as a
-            boolean tensor which is used to mask out variables that are not part of the evidence.
+        infer_weighted_sum (bool): If ``True`` gives weighted sum of leaf representations,
+            where coefficients are given by backprop signals. Otherwise chooses argmax of those
+            coefficients.
     """
 
     def __init__(
@@ -52,7 +56,7 @@ class SequentialSumProductNetwork(keras.Sequential):
         self._infer_factors_for_region_spn(layers)
         if unsupervised is None:
             unsupervised = False if infer_no_evidence else True
-        super().__init__(layers, **kwargs)
+        super(SequentialSumProductNetwork, self).__init__(layers, **kwargs)
         self.unsupervised = unsupervised
         self.infer_no_evidence = infer_no_evidence
         if infer_no_evidence and unsupervised:
@@ -71,6 +75,7 @@ class SequentialSumProductNetwork(keras.Sequential):
                 if isinstance(layer, LocationScaleLeafBase):
                     self._leaf_index = i
                     self._leaf_layer = layer
+                    break
             else:
                 raise ValueError("No LocationScaleLeafBase leaf layer found")
 
@@ -178,10 +183,7 @@ class SequentialSumProductNetwork(keras.Sequential):
             )
         else:
             outputs = tf.gather(
-                tf.tile(
-                    leaf_representation,
-                    [tf.shape(normalized_leaf_grads)[0], 1, 1, 1, 1],
-                ),
+                leaf_representation,
                 tf.argmax(normalized_leaf_grads, axis=-1),
                 axis=-2,
                 batch_dims=3,
@@ -253,6 +255,23 @@ class SequentialSumProductNetwork(keras.Sequential):
             return self._test_step_unsupervised(data)
         else:
             return super(SequentialSumProductNetwork, self).test_step(data)
+
+    def zero_evidence_inference(self, size: tf.Tensor) -> tf.Tensor:
+        """
+        Do inference when no evidence at all is provided.
+
+        This means that internally, all evidence booleans are set to ``False``.
+
+        Args:
+            size: Size of batch.
+
+        Returns:
+            Representation of batch size in absence of evidence.
+        """
+        shape = tf.cast(tf.concat([[size], self.input_shape[1:]], axis=0), tf.int32)
+        input = tf.zeros(shape)
+        evidence_mask = tf.zeros(shape, dtype=tf.bool)
+        return self.predict([input, evidence_mask])
 
     @staticmethod
     def _is_region_spn(layers: List[tf.keras.layers.Layer]) -> bool:

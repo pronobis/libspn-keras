@@ -3,7 +3,7 @@ from typing import Tuple
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.python.keras.utils import tf_utils
+from tensorflow.python.layers.utils import smart_cond
 
 
 class LogDropout(keras.layers.Layer):
@@ -78,9 +78,7 @@ class LogDropout(keras.layers.Layer):
         if self.rate == 0.0:
             return tf.identity(inputs)
 
-        output = tf_utils.smart_cond(
-            training, dropped_inputs, lambda: tf.identity(inputs)
-        )
+        output = smart_cond(training, dropped_inputs, lambda: tf.identity(inputs))
         return output
 
     def get_config(self) -> dict:

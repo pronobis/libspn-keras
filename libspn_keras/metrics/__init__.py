@@ -1,3 +1,4 @@
-from libspn_keras.metrics.log_likelihood import LogLikelihood
+from .log_joint import LogJoint
+from .log_likelihood import LogLikelihood
 
-__all__ = ["LogLikelihood"]
+__all__ = ["LogLikelihood", "LogJoint"]

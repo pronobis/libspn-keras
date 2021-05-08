@@ -17,8 +17,6 @@ class PoonDomingosMeanOfQuantileSplit(initializers.Initializer):
 
     Args:
         data (numpy.ndarray): Data to compute quantiles over
-        samplewise_normalization: Whether to 'Z-score normalize' the data sample-wise before
-            computing the quantiles and means.
         normalization_epsilon: Non-zero constant to account for near-zero standard deviations in
             normalizations.
 
@@ -28,17 +26,13 @@ class PoonDomingosMeanOfQuantileSplit(initializers.Initializer):
     """
 
     def __init__(
-        self,
-        data: Optional[np.ndarray] = None,
-        samplewise_normalization: bool = True,
-        normalization_epsilon: float = 1e-2,
+        self, data: Optional[np.ndarray] = None, normalization_epsilon: float = 1e-2,
     ):
         self._data = data
-        self.samplewise_normalization = samplewise_normalization
         self.normalization_epsilon = normalization_epsilon
 
     def __call__(
-        self, shape: Tuple[Optional[int], ...], dtype: tf.dtypes.DType = None
+        self, shape: Tuple[Optional[int], ...], dtype: tf.dtypes.DType = None, **kwargs
     ) -> tf.Tensor:
         """
         Compute initializations along the last axis.
@@ -46,6 +40,7 @@ class PoonDomingosMeanOfQuantileSplit(initializers.Initializer):
         Args:
             shape: Shape of Tensor to initialize.
             dtype: DType of Tensor to initialize.
+            kwargs: Remaining kwargs.
 
         Returns:
             Initial value.
@@ -60,14 +55,7 @@ class PoonDomingosMeanOfQuantileSplit(initializers.Initializer):
 
         num_quantiles = shape[-2]
 
-        if self.samplewise_normalization:
-            axes = tuple(range(1, len(self._data.shape)))
-            data = (self._data - np.mean(self._data, axis=axes, keepdims=True)) / (
-                np.std(self._data, axis=axes, keepdims=True)
-                + self.normalization_epsilon
-            )
-        else:
-            data = self._data
+        data = self._data
 
         batch_size = data.shape[0]
         quantile_sections = np.arange(
@@ -82,9 +70,7 @@ class PoonDomingosMeanOfQuantileSplit(initializers.Initializer):
         means_per_quantile = [
             np.mean(v, axis=0, keepdims=True) for v in values_per_quantile
         ]
-        return tf.expand_dims(
-            tf.cast(np.stack(means_per_quantile, axis=-1), dtype=dtype), axis=-1
-        )
+        return tf.cast(np.stack(means_per_quantile, axis=-2), dtype=dtype)
 
     def get_config(self) -> dict:
         """

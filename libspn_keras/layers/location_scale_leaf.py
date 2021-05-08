@@ -222,7 +222,7 @@ class LocationScaleLeafBase(BaseLeaf, abc.ABC):
             Tensor representing the leaves. Possibilities are mode or sample.
         """
         if self.leaf_representation == LeafRepresentation.MODE:
-            return self._get_distribution().mode()
+            return tf.repeat(self._get_distribution().mode(), size, axis=0)
         else:
             return self._get_distribution().sample(size)
 

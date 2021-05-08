@@ -22,4 +22,4 @@ class NegativeLogJoint(keras.losses.Loss):
         Returns:
             A `Tensor` that describes  a generative supervised loss.
         """
-        return -tf.gather(y_pred, tf.cast(y_true, tf.int32), axis=1)
+        return -tf.gather(y_pred, tf.cast(y_true, tf.int32), axis=1, batch_dims=1)

@@ -20,7 +20,7 @@ class SumProductNetwork(keras.Model):
     """
 
     def __init__(self, *args, unsupervised: bool = True, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(SumProductNetwork, self).__init__(*args, **kwargs)
         self.unsupervised = unsupervised
 
     def _train_step_unsupervised(

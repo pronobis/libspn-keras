@@ -2,7 +2,6 @@ import abc
 from enum import Enum
 from typing import Optional
 from typing import Tuple
-from typing import Type
 
 import tensorflow as tf
 import tensorflow_probability as tfp
@@ -105,7 +104,7 @@ class BaseLeaf(keras.layers.Layer, abc.ABC):
         return dict(list(base_config.items()) + list(config.items()))
 
     @classmethod
-    def from_config(cls: Type["BaseLeaf"], config: dict) -> "BaseLeaf":
+    def from_config(cls, config: dict) -> "BaseLeaf":  # noqa: ANN102
         """Create layer from its config.
 
         This method is the reverse of `get_config`,

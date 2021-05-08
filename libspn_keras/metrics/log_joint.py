@@ -4,20 +4,19 @@ import tensorflow as tf
 from tensorflow import keras
 
 
-class LogLikelihood(keras.metrics.Mean):
+class LogJoint(keras.metrics.Mean):
     r"""
-    Compute log marginal :math:`1/N \sum \log(p(X))`.
+    Compute log joint :math:`1/N \sum \log(p(X,Y))`.
 
-    Assumes that the last layer of the SPN is a ``RootSum``. It ignores the ``y_true`` argument,
-    since a target for :math:`Y` is absent in unsupervised learning.
+    Assumes that the last layer of the SPN is a ``RootSum`` with ``return_weighted_child_logits=True``.
     """
 
-    def __init__(self, name: str = "llh", **kwargs):
-        super(LogLikelihood, self).__init__(name=name, **kwargs)
+    def __init__(self, name: str = "log_joint", **kwargs):
+        super(LogJoint, self).__init__(name=name, **kwargs)
 
     def update_state(
         self,
-        y_target: tf.Tensor,
+        y_true: tf.Tensor,
         y_pred: tf.Tensor,
         sample_weight: Optional[float] = None,
     ) -> tf.Tensor:
@@ -29,14 +28,12 @@ class LogLikelihood(keras.metrics.Mean):
         [1, 1, 0, 0] then value of `result()` would be 2.
 
         Args:
-            y_target: Target tensor, ignored since this metric is for unsupervised learning
+            y_true: Prediction target.
             y_pred: Predictions coming from the model.
             sample_weight: Optional weighting of each example. Defaults to 1.
 
         Returns:
             Update op.
         """
-        values = tf.reduce_logsumexp(y_pred, axis=-1)
-        return super(LogLikelihood, self).update_state(
-            values, sample_weight=sample_weight
-        )
+        values = tf.gather(y_pred, tf.cast(y_true, tf.int32), batch_dims=1, axis=1)
+        return super(LogJoint, self).update_state(values, sample_weight=sample_weight)

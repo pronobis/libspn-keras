@@ -11,6 +11,7 @@ from libspn_keras.layers.location_scale_leaf import LaplaceLeaf
 from libspn_keras.layers.location_scale_leaf import LocationScaleLeafBase
 from libspn_keras.layers.location_scale_leaf import NormalLeaf
 from libspn_keras.layers.log_dropout import LogDropout
+from libspn_keras.layers.normalize_standard_score import NormalizeAxes
 from libspn_keras.layers.normalize_standard_score import NormalizeStandardScore
 from libspn_keras.layers.permute_and_pad_scopes import PermuteAndPadScopes
 from libspn_keras.layers.permute_and_pad_scopes_random import PermuteAndPadScopesRandom
@@ -34,6 +35,7 @@ __all__ = [
     "RootSum",
     "Local2DSum",
     "Undecompose",
+    "NormalizeAxes",
     "NormalizeStandardScore",
     "BaseLeaf",
     "PermuteAndPadScopes",
