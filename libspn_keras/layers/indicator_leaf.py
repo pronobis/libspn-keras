@@ -31,6 +31,25 @@ class IndicatorLeaf(BaseLeaf):
     def _get_distribution(self) -> distributions.Distribution:
         return self._indicator
 
+    def get_leaf_representation(self, size: tf.Tensor) -> tf.Tensor:
+        """
+        Obtain the leaf representation.
+
+        This can be used for e.g. MPE estimates of inputs.
+
+        Arguments:
+            size: 0D tensor with size of representation. Typically, this corresponds to the batch size.
+
+        Returns:
+            Tensor that represents leaf values (to be used when inferring values outside evidence)
+        """
+        pre_tile_shape = [1] * (len(self.output_shape) - 1) + [self.num_components, 1]
+
+        return tf.tile(
+            tf.reshape(tf.range(self.num_components, dtype=tf.float32), pre_tile_shape),
+            (size,) + self.output_shape[1:-1] + (1, 1),
+        )
+
 
 class _Indicator(distributions.Distribution):
     def __init__(

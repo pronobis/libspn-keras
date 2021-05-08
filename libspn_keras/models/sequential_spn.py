@@ -15,7 +15,6 @@ from libspn_keras.layers.base_leaf import BaseLeaf
 from libspn_keras.layers.dense_product import DenseProduct
 from libspn_keras.layers.dense_sum import DenseSum
 from libspn_keras.layers.flat_to_regions import FlatToRegions
-from libspn_keras.layers.location_scale_leaf import LocationScaleLeafBase
 from libspn_keras.layers.log_dropout import LogDropout
 from libspn_keras.layers.normalize_standard_score import NormalizeStandardScore
 from libspn_keras.layers.permute_and_pad_scopes_random import PermuteAndPadScopes
@@ -72,12 +71,12 @@ class SequentialSumProductNetwork(keras.Sequential):
                     self._normalize_index = i
                     self._normalize_layer = layer
 
-                if isinstance(layer, LocationScaleLeafBase):
+                if isinstance(layer, BaseLeaf):
                     self._leaf_index = i
                     self._leaf_layer = layer
                     break
             else:
-                raise ValueError("No LocationScaleLeafBase leaf layer found")
+                raise ValueError("No leaf layer found")
 
     def call(
         self,
@@ -188,7 +187,7 @@ class SequentialSumProductNetwork(keras.Sequential):
                 axis=-2,
                 batch_dims=3,
             )
-        outputs = tf.where(evidence_mask, leaf_inputs, outputs)
+        outputs = tf.where(evidence_mask, tf.cast(leaf_inputs, tf.float32), outputs)
         if self._normalize_layer is not None and self._normalize_index is not None:
             outputs = (
                 outputs * (stddev + self._normalize_layer.normalization_epsilon) + mean
@@ -269,7 +268,7 @@ class SequentialSumProductNetwork(keras.Sequential):
             Representation of batch size in absence of evidence.
         """
         shape = tf.cast(tf.concat([[size], self.input_shape[1:]], axis=0), tf.int32)
-        input = tf.zeros(shape)
+        input = tf.zeros(shape, dtype=self.input.dtype)
         evidence_mask = tf.zeros(shape, dtype=tf.bool)
         return self.predict([input, evidence_mask])
 
