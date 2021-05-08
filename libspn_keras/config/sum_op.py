@@ -1,4 +1,5 @@
-from libspn_keras.sum_ops import SumOpBase, SumOpGradBackprop
+from libspn_keras.sum_ops.base import SumOpBase
+from libspn_keras.sum_ops.grad_backprop import SumOpGradBackprop
 
 _DEFAULT_SUM_OP = None
 

@@ -37,6 +37,7 @@ from libspn_keras.sum_ops import (
     SumOpEMBackprop,
     SumOpGradBackprop,
     SumOpHardEMBackprop,
+    SumOpSampleBackprop,
     SumOpUnweightedHardEMBackprop,
 )
 from libspn_keras.visualize import visualize_dense_spn
@@ -64,8 +65,9 @@ __all__ = [
     "visualize_dense_spn",
     "initializers",
     "models",
+    "SumOpSampleBackprop",
     "SumOpUnweightedHardEMBackprop",
+    "SumOpHardEMBackprop",
     "SumOpEMBackprop",
     "SumOpGradBackprop",
-    "SumOpHardEMBackprop",
 ]

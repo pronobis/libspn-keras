@@ -1,12 +1,14 @@
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.python.keras.engine import data_adapter
-from tensorflow.python.keras.engine.sequential import (
-    _get_shape_tuple,
-    SINGLE_LAYER_OUTPUT_ERROR_MSG,
-)
+from tensorflow.python.keras.engine.sequential import _get_shape_tuple
+from tensorflow.python.keras.engine.sequential import SINGLE_LAYER_OUTPUT_ERROR_MSG
 from tensorflow.python.util import nest
 
 from libspn_keras.layers.base_leaf import BaseLeaf
@@ -31,12 +33,16 @@ class SequentialSumProductNetwork(keras.Sequential):
     ``keras.Sequential``, so layers are passed to it as a list.
 
     Args:
+        layers (list of Layer): List of tf.keras.layers.Layer instance
+        infer_no_evidence (bool): If ``True``, the model expects an evidence mask defined as a
+            boolean tensor which is used to mask out variables that are not part of the evidence.
         unsupervised (bool): If ``True`` the model does not expect label inputs in .fit() or
             .evaluate(). Also, losses and metrics should not expect a target output, just a y_hat.
             By default, it will be inferred from ``infer_no_evidence`` and otherwise defaults to
             ``True``.
-        infer_no_evidence (bool): If ``True``, the model expects an evidence mask defined as a
-            boolean tensor which is used to mask out variables that are not part of the evidence.
+        infer_weighted_sum (bool): If ``True`` gives weighted sum of leaf representations,
+            where coefficients are given by backprop signals. Otherwise chooses argmax of those
+            coefficients.
     """
 
     def __init__(
@@ -44,12 +50,13 @@ class SequentialSumProductNetwork(keras.Sequential):
         layers: List[tf.keras.layers.Layer],
         infer_no_evidence: bool = False,
         unsupervised: Optional[bool] = None,
+        infer_weighted_sum: bool = True,
         **kwargs
     ):
         self._infer_factors_for_region_spn(layers)
         if unsupervised is None:
             unsupervised = False if infer_no_evidence else True
-        super().__init__(layers, **kwargs)
+        super(SequentialSumProductNetwork, self).__init__(layers, **kwargs)
         self.unsupervised = unsupervised
         self.infer_no_evidence = infer_no_evidence
         if infer_no_evidence and unsupervised:
@@ -57,6 +64,7 @@ class SequentialSumProductNetwork(keras.Sequential):
                 "Model cannot be unsupervised when evidence should be inferred"
             )
         self.infer_no_evidence = infer_no_evidence
+        self.infer_weighted_sum = infer_weighted_sum
         if infer_no_evidence:
             self._normalize_index = self._normalize_layer = None
             for i, layer in enumerate(self.layers):
@@ -163,9 +171,23 @@ class SequentialSumProductNetwork(keras.Sequential):
                 # `outputs` will be the inputs to the next layer.
                 inputs = outputs
 
+        batch_size = tf.shape(inputs)[0]
         leaf_grads = tape.gradient(outputs, leaf_out)
-        modes = self._leaf_layer.get_modes()
-        outputs = tf.reduce_sum(tf.expand_dims(leaf_grads, axis=-1) * modes, axis=3)
+        leaf_representation = self._leaf_layer.get_leaf_representation(size=batch_size)
+        normalized_leaf_grads = tf.math.divide_no_nan(
+            leaf_grads, tf.reduce_sum(tf.abs(leaf_grads), axis=-1, keepdims=True)
+        )
+        if self.infer_weighted_sum:
+            outputs = tf.reduce_sum(
+                normalized_leaf_grads[..., tf.newaxis] * leaf_representation, axis=3
+            )
+        else:
+            outputs = tf.gather(
+                leaf_representation,
+                tf.argmax(normalized_leaf_grads, axis=-1),
+                axis=-2,
+                batch_dims=3,
+            )
         outputs = tf.where(evidence_mask, leaf_inputs, outputs)
         if self._normalize_layer is not None and self._normalize_index is not None:
             outputs = (
@@ -233,6 +255,23 @@ class SequentialSumProductNetwork(keras.Sequential):
             return self._test_step_unsupervised(data)
         else:
             return super(SequentialSumProductNetwork, self).test_step(data)
+
+    def zero_evidence_inference(self, size: tf.Tensor) -> tf.Tensor:
+        """
+        Do inference when no evidence at all is provided.
+
+        This means that internally, all evidence booleans are set to ``False``.
+
+        Args:
+            size: Size of batch.
+
+        Returns:
+            Representation of batch size in absence of evidence.
+        """
+        shape = tf.cast(tf.concat([[size], self.input_shape[1:]], axis=0), tf.int32)
+        input = tf.zeros(shape)
+        evidence_mask = tf.zeros(shape, dtype=tf.bool)
+        return self.predict([input, evidence_mask])
 
     @staticmethod
     def _is_region_spn(layers: List[tf.keras.layers.Layer]) -> bool:

@@ -72,6 +72,13 @@ Regularization layers
 ---------------------
 .. autoclass:: libspn_keras.layers.LogDropout
 
+Normalization
+-------------
+
+Normalization axes
+^^^^^^^^^^^^^^^^^^
+.. autoclass:: libspn_keras.layers.NormaizationAxes
+
 Normalization layers
---------------------
+^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: libspn_keras.layers.NormalizeStandardScore

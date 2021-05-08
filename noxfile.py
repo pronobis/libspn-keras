@@ -14,6 +14,7 @@ def install_with_constraints(session, *args, **kwargs):
             "export",
             "--dev",
             "--format=requirements.txt",
+            "--without-hashes",
             f"--output={requirements.name}",
             external=True,
         )
@@ -27,10 +28,11 @@ def tests(session):
     install_with_constraints(
         session,
         "coverage[toml]",
+        "parameterized",
         "pytest",
         "pytest-cov",
         "pytest-mock",
-        "parameterized",
+        "scipy",
     )
     session.run("pytest", *args)
 

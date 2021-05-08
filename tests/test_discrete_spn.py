@@ -4,15 +4,13 @@ from tensorflow import test as tftest
 from libspn_keras.losses import NegativeLogLikelihood
 from libspn_keras.metrics import LogLikelihood
 from libspn_keras.optimizers import OnlineExpectationMaximization
-from tests.utils import (
-    get_discrete_data,
-    get_discrete_model,
-    indicators,
-    product0_out,
-    product1_out,
-    root_out,
-    sum0_out,
-)
+from tests.utils import get_discrete_data
+from tests.utils import get_discrete_model
+from tests.utils import indicators
+from tests.utils import product0_out
+from tests.utils import product1_out
+from tests.utils import root_out
+from tests.utils import sum0_out
 
 tf.config.experimental_run_functions_eagerly(True)
 

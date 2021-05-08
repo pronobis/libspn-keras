@@ -1,8 +1,10 @@
-from typing import Optional, Tuple
+from typing import Optional
+from typing import Tuple
 
 import tensorflow as tf
 
-from libspn_keras.constraints import GreaterEqualEpsilonNormalized, LogNormalized
+from libspn_keras.constraints import GreaterEqualEpsilonNormalized
+from libspn_keras.constraints import LogNormalized
 from libspn_keras.layers.dense_sum import DenseSum
 from libspn_keras.logspace import logspace_wrapper_initializer
 

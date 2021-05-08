@@ -1,15 +1,13 @@
 import tensorflow as tf
 from tensorflow import test as tftest
 
-from tests.utils import (
-    get_continuous_data,
-    get_continuous_model,
-    normal_leafs,
-    product0_out,
-    product1_out,
-    root_out,
-    sum0_out,
-)
+from tests.utils import get_continuous_data
+from tests.utils import get_continuous_model
+from tests.utils import normal_leafs
+from tests.utils import product0_out
+from tests.utils import product1_out
+from tests.utils import root_out
+from tests.utils import sum0_out
 
 tf.config.experimental_run_functions_eagerly(True)
 

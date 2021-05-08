@@ -1,4 +1,6 @@
-from typing import Callable, Optional, Tuple
+from typing import Callable
+from typing import Optional
+from typing import Tuple
 
 import tensorflow as tf
 from tensorflow import initializers

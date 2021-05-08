@@ -1,19 +1,29 @@
 import abc
-from collections import deque, OrderedDict
 import functools
 import itertools
 import operator
-from typing import Callable, Dict, Iterator, List, Mapping, Optional, Tuple
+from collections import deque
+from collections import OrderedDict
+from typing import Callable
+from typing import Dict
+from typing import Iterator
+from typing import List
+from typing import Mapping
+from typing import Optional
+from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.constraints import Constraint
 from tensorflow.keras.initializers import Initializer
 
-from libspn_keras.layers import BaseLeaf, DenseProduct, DenseSum, RootSum
+from libspn_keras.layers import BaseLeaf
+from libspn_keras.layers import DenseProduct
+from libspn_keras.layers import DenseSum
+from libspn_keras.layers import RootSum
 from libspn_keras.layers.flat_to_regions import FlatToRegions
 from libspn_keras.layers.permute_and_pad_scopes import PermuteAndPadScopes
-from libspn_keras.sum_ops import SumOpGradBackprop
+from libspn_keras.sum_ops.base import SumOpBase
 
 
 class OverlappingScopesException(Exception):
@@ -154,6 +164,7 @@ def region_graph_to_dense_spn(
     product_first: bool = True,
     num_classes: Optional[int] = None,
     with_root: bool = True,
+    sum_op: Optional[SumOpBase] = None,
 ) -> tf.keras.Sequential:
     """
     Convert a region graph (built from :class:`RegionNode` and :class:`RegionVar`) to a dense SPN.
@@ -173,7 +184,8 @@ def region_graph_to_dense_spn(
             at the end but will instead directly connect the root to the final layer of the dense
             stack. This means if set to ``None`` the SPN cannot be used for classification.
         with_root: If ``True``, sets a ``RootSum`` as the final layer.
-        return_weighted_child_logits: Whether to return weighted child logits. If ``
+        return_weighted_child_logits: Whether to return weighted child logits.
+        sum_op: SumOpBase instance to use for sum layers.
 
     Returns:
         A Sum-Product Network as a tf.keras.Sequential model.
@@ -183,33 +195,50 @@ def region_graph_to_dense_spn(
         num_factors_leaf_to_root,
     ) = _region_graph_to_permutations_and_prods_per_depth(region_graph_root)
 
-    sum_kwargs = dict(
-        logspace_accumulators=logspace_accumulators,
-        accumulator_initializer=accumulator_initializer,
-        linear_accumulator_constraint=linear_accumulator_constraint,
-        sum_op=SumOpGradBackprop(),
-    )
-
     sum_product_stack: List[tf.keras.layers.Layer] = []
     if not product_first:
         sum_product_stack.append(
-            DenseSum(num_sums=next(num_sums_iterable), **sum_kwargs)
+            DenseSum(
+                num_sums=next(num_sums_iterable),
+                logspace_accumulators=logspace_accumulators,
+                accumulator_initializer=accumulator_initializer,
+                linear_accumulator_constraint=linear_accumulator_constraint,
+                sum_op=sum_op,
+            )
         )
     for depth, num_factors in enumerate(num_factors_leaf_to_root):
         sum_product_stack.append(DenseProduct(num_factors=num_factors))
         if depth == len(num_factors_leaf_to_root) - 1:
             break
         sum_product_stack.append(
-            DenseSum(num_sums=next(num_sums_iterable), **sum_kwargs)
+            DenseSum(
+                num_sums=next(num_sums_iterable),
+                logspace_accumulators=logspace_accumulators,
+                accumulator_initializer=accumulator_initializer,
+                linear_accumulator_constraint=linear_accumulator_constraint,
+                sum_op=sum_op,
+            )
         )
 
     if num_classes is not None:
-        sum_product_stack.append(DenseSum(num_sums=num_classes, **sum_kwargs))  # type: ignore
+        sum_product_stack.append(
+            DenseSum(
+                num_sums=num_classes,
+                logspace_accumulators=logspace_accumulators,
+                accumulator_initializer=accumulator_initializer,
+                linear_accumulator_constraint=linear_accumulator_constraint,
+                sum_op=sum_op,
+            )
+        )
 
     if with_root:
         sum_product_stack.append(
             RootSum(
-                return_weighted_child_logits=return_weighted_child_logits, **sum_kwargs  # type: ignore
+                return_weighted_child_logits=return_weighted_child_logits,
+                logspace_accumulators=logspace_accumulators,
+                accumulator_initializer=accumulator_initializer,
+                linear_accumulator_constraint=linear_accumulator_constraint,
+                sum_op=sum_op,  # type: ignore
             )
         )
 

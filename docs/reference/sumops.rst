@@ -28,3 +28,8 @@ Sum Operations With EM Signals In Backward Pass
 .. autoclass:: libspn_keras.sum_ops.SumOpEMBackprop
 .. autoclass:: libspn_keras.sum_ops.SumOpHardEMBackprop
 .. autoclass:: libspn_keras.sum_ops.SumOpUnweightedHardEMBackprop
+
+
+Sum Operations With Sample Signals In Backward Pass
+-----------------------------------------------
+.. autoclass:: libspn_keras.sum_ops.SumOpSampleBackprop

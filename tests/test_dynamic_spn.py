@@ -1,7 +1,9 @@
 import tensorflow as tf
 from tensorflow import test as tftest
 
-from tests.utils import get_discrete_data, get_dynamic_model, NUM_VARS
+from tests.utils import get_discrete_data
+from tests.utils import get_dynamic_model
+from tests.utils import NUM_VARS
 
 tf.config.experimental_run_functions_eagerly(True)
 

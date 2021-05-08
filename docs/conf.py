@@ -3,10 +3,7 @@
 # This file only contains a selection of the most common options. For a full
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
-
 # -- Path setup --------------------------------------------------------------
-
-
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation region_graph_root, use os.path.abspath to make it absolute, like shown here.
@@ -15,6 +12,9 @@ import os
 import sys
 
 from recommonmark.transform import AutoStructify
+
+import libspn_keras
+
 
 sys.path.insert(0, os.path.abspath(".."))
 
@@ -25,7 +25,6 @@ project = "LibSPN Keras"
 copyright = "2020, Jos van de Wolfshaar, Andrzej Pronobis"
 author = "Jos van de Wolfshaar, Andrzej Pronobis"
 
-import libspn_keras
 
 # The short X.Y version.
 version = libspn_keras.__version__

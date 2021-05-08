@@ -1,9 +1,10 @@
-from parameterized import parameterized
 import tensorflow as tf
+from parameterized import parameterized
 from tensorflow import test as tftest
 
 import libspn_keras as spnk
-from tests.utils import get_discrete_data, SUM_OPS
+from tests.utils import get_discrete_data
+from tests.utils import SUM_OPS
 
 tf.config.experimental_run_functions_eagerly(True)
 

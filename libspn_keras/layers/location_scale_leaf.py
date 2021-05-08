@@ -1,17 +1,18 @@
 import abc
-from typing import Optional, Tuple, Union
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import tensorflow as tf
-from tensorflow import initializers
 import tensorflow_probability as tfp
+from tensorflow import initializers
 from tensorflow_probability.python.math import softplus_inverse
 
 from libspn_keras.constraints import GreaterEqualEpsilon
 from libspn_keras.layers.base_leaf import BaseLeaf
-from libspn_keras.math.soft_em_grads import (
-    LocationEMGradWrapper,
-    LocationScaleEMGradWrapper,
-)
+from libspn_keras.layers.base_leaf import LeafRepresentation
+from libspn_keras.math.soft_em_grads import LocationEMGradWrapper
+from libspn_keras.math.soft_em_grads import LocationScaleEMGradWrapper
 
 
 class LocationScaleLeafBase(BaseLeaf, abc.ABC):
@@ -24,9 +25,7 @@ class LocationScaleLeafBase(BaseLeaf, abc.ABC):
         location_trainable: Boolean that indicates whether location is trainable
         scale_initializer: Initializer for scale variable
         scale_constraint: Constraint for scale parameter
-        **kwargs: kwar
-
-        gs to pass on to the keras.Layer super class
+        **kwargs: kwargs to pass on to the keras.Layer super class
     """
 
     def __init__(
@@ -84,11 +83,15 @@ class LocationScaleLeafBase(BaseLeaf, abc.ABC):
     def _get_distribution_from_accumulators(
         self,
     ) -> Union[LocationScaleEMGradWrapper, LocationEMGradWrapper]:
-        loc = self.first_order_moment_num_accum / self.first_order_moment_denom_accum
+        loc = tf.math.divide_no_nan(
+            self.first_order_moment_num_accum, self.first_order_moment_denom_accum
+        )
         if self.scale_trainable:
             scale = tf.sqrt(
-                self.second_order_moment_num_accum
-                / self.second_order_moment_denom_accum
+                tf.math.divide_no_nan(
+                    self.second_order_moment_num_accum,
+                    self.second_order_moment_denom_accum,
+                )
                 - tf.square(loc)
             )
             if self.scale_constraint is not None:
@@ -208,6 +211,21 @@ class LocationScaleLeafBase(BaseLeaf, abc.ABC):
         base_config = super(LocationScaleLeafBase, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
+    def get_leaf_representation(self, size: tf.Tensor) -> tf.Tensor:
+        """
+        Leaf representation that is used during backprop.
+
+        Args:
+            size: 0D Tensor with integer size.
+
+        Returns:
+            Tensor representing the leaves. Possibilities are mode or sample.
+        """
+        if self.leaf_representation == LeafRepresentation.MODE:
+            return tf.repeat(self._get_distribution().mode(), size, axis=0)
+        else:
+            return self._get_distribution().sample(size)
+
     def get_modes(self) -> tf.Tensor:
         """
         Obtain the distribution modes.
@@ -215,7 +233,7 @@ class LocationScaleLeafBase(BaseLeaf, abc.ABC):
         This can be used for e.g. MPE estimates of inputs.
 
         Returns:
-            A dict holding the configuration of the layer.
+            A Tensor that contains the mode of this layer
         """
         return self._get_distribution().mode()
 
