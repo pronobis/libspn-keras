@@ -5,11 +5,18 @@ import tensorflow as tf
 
 
 class OnlineExpectationMaximization(tf.keras.optimizers.Optimizer):
-    """
+    r"""
     Online expectation maximization.
 
     Requires sum layers to use any of the EM-based :class:`~libspn_keras.SumOpBase` instances, such as
     :class:`~libspn_keras.SumOpEMBackprop` :class:`~libspn_keras.SumOpHardEMBackprop`.
+
+    Args:
+        learning_rate: Learning rate for EM. If learning rate is :math:`\eta`, then updates are given by:
+            :math:`w \leftarrow (1-\eta)w + \eta \Delta w`
+        accumulate_batches: The number of batches to accumulate gradients before applying updates.
+        name: Name of the optimizer
+        kwargs: Remaining kwargs to pass to :class:`~tensorflow.keras.optimizers.Optimizer` superclass
     """
 
     _HAS_AGGREGATE_GRAD = True
@@ -58,7 +65,10 @@ class OnlineExpectationMaximization(tf.keras.optimizers.Optimizer):
         multi_batch_updated = multi_batch_accumulates.assign_add(grad)
 
         must_update = tf.equal(
-            _mod_proxy(self.iterations + 1, self._accumulate_batches), 0
+            _mod_proxy(
+                self.iterations + 1, tf.convert_to_tensor(self._accumulate_batches)
+            ),
+            0,
         )
         updated_var = tf.cond(
             must_update,
