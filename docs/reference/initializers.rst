@@ -10,21 +10,32 @@ Since accumulator initializers are often the same for all layers in an SPN, ``li
 functions to get and set default accumulator initializers. These can still be overridden by providing the initializers
 explicitly at initialization of a layer.
 
-.. autofunction:: libspn_keras.config.accumulator_initializer.set_default_accumulator_initializer
-.. autofunction:: libspn_keras.config.accumulator_initializer.get_default_accumulator_initializer
+.. autofunction:: libspn_keras.set_default_accumulator_initializer
+.. autofunction:: libspn_keras.get_default_accumulator_initializer
 
 Location initializers
 ---------------------
-For a leaf distribution of the location scale family, the following initializers are useful
+For a leaf distribution of the location scale family, the following initializers can be used for initializing the
+location parameters
 
 .. autoclass:: libspn_keras.initializers.PoonDomingosMeanOfQuantileSplit
 .. autoclass:: libspn_keras.initializers.KMeans
 .. autoclass:: libspn_keras.initializers.Equidistant
 
+Scale initializers
+---------------------
+For a leaf distribution of the location scale family, the following initializers can be used for initializing the
+scale parameters
+
+.. autoclass:: libspn_keras.initializers.PoonDomingosStddevOfQuantileSplit
+
 Weight initializers
 -------------------
-When training with either ``HARD_EM`` or ``HARD_EM_UNWEIGHTED``, you can use the
-``EpsilonInverseFanIn`` initializer.
+
+.. autoclass:: libspn_keras.initializers.Dirichlet
+
+**Note**
+Initializer for discrete EM (:class:`~libspn_keras.SumOpHardEMBackprop` and
+:class:`~libspn_keras.SumOpUnweightedHardEMBackprop`).
 
 .. autoclass:: libspn_keras.initializers.EpsilonInverseFanIn
-.. autoclass:: libspn_keras.initializers.Dirichlet

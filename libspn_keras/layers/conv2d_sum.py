@@ -17,10 +17,10 @@ class Conv2DSum(DenseSum):
         num_sums: Number of sums per spatial cell. Corresponds to the number of channels in
             the output
         logspace_accumulators: If ``True``, accumulators will be represented in log-space which
-            is typically used with ``BackpropMode.GRADIENT``. If ``False``, accumulators will be
-            represented in linear space. Weights are computed by normalizing the accumulators
+            is typically used with :class:`~libspn_keras.SumOpGradBackprop`. If ``False``, accumulators
+            will be represented in linear space. Weights are computed by normalizing the accumulators
             per sum, so that we always end up with a normalized SPN. If ``None`` (default) it
-            will be set to ``True`` for ``BackpropMode.GRADIENT`` and ``False`` otherwise.
+            will be set to ``True`` for :class:`~libspn_keras.SumOpGradBackprop` and ``False`` otherwise.
         accumulator_initializer: Initializer for accumulator
         sum_op (SumOpBase): SumOpBase instance which determines how to compute the forward and
             backward pass of the weighted sums

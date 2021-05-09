@@ -12,15 +12,21 @@ class NormalizeAxes(Enum):
     """
     Enum for normalization axes.
 
-    Enumerates possible choices for normalization axes. ``SAMPLE_WISE`` corresponds to normalizing each
-    sample. ``VARIABLE_WISE`` is for normalizing the values for each variable using statistics across all
-    samples, while ``GLOBAL`` corresponds to statistics gathered from all input values (no specific axes
-    excluded from reduction).
+    Enumerates possible choices for normalization axes. :attr:`~libspn_keras.layers.NormalizeAxes.SAMPLE`
+    orresponds to normalizing each sample. :attr:`~libspn_keras.layers.NormalizeAxes.VARIABLE_WISE` is
+    for normalizing the values for each variable using statistics across all samples, while
+    :attr:`~libspn_keras.layers.NormalizeAxes.GLOBAL` corresponds to statistics gathered from all input
+    values (no specific axes excluded from reduction).
     """
 
     SAMPLE_WISE = "sample-wise"
+    """Normalize each sample"""
+
     VARIABLE_WISE = "variable-wise"
+    """Normalize each variable"""
+
     GLOBAL = "global"
+    """Normalize using all variables across all samples"""
 
 
 class NormalizeStandardScore(keras.layers.Layer):

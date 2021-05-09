@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath(".."))
 # -- Project information -----------------------------------------------------
 
 project = "LibSPN Keras"
-copyright = "2020, Jos van de Wolfshaar, Andrzej Pronobis"
+copyright = "2021, Jos van de Wolfshaar, Andrzej Pronobis"
 author = "Jos van de Wolfshaar, Andrzej Pronobis"
 
 

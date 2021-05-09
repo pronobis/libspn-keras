@@ -3,7 +3,7 @@ API Reference
 
 ```eval_rst
 .. toctree::
-    :hidden:
+    :maxdepth: 2
     :caption: API Reference
 
     reference/layers

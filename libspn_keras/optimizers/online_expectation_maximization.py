@@ -8,8 +8,8 @@ class OnlineExpectationMaximization(tf.keras.optimizers.Optimizer):
     """
     Online expectation maximization.
 
-    Requires sum layers to use any of the EM-based SumOpBase instances, such as SumOpEMBackrop
-    and SumOpHardEMBackprop.
+    Requires sum layers to use any of the EM-based :class:`~libspn_keras.SumOpBase` instances, such as
+    :class:`~libspn_keras.SumOpEMBackprop` :class:`~libspn_keras.SumOpHardEMBackprop`.
     """
 
     _HAS_AGGREGATE_GRAD = True

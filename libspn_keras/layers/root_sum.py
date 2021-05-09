@@ -17,10 +17,10 @@ class RootSum(DenseSum):
             the weighted sum of the input, which effectively is the log probability of the
             distribution defined by the SPN.
         logspace_accumulators: If ``True``, accumulators will be represented in log-space which
-            is typically used with ``BackpropMode.GRADIENT``. If ``False``, accumulators will be
-            represented in linear space. Weights are computed by normalizing the accumulators
+            is typically used with :class:`~libspn_keras.SumOpGradBackprop`. If ``False``, accumulators
+            will be represented in linear space. Weights are computed by normalizing the accumulators
             per sum, so that we always end up with a normalized SPN. If ``None`` (default) it
-            will be set to ``True`` for ``BackpropMode.GRADIENT`` and ``False`` otherwise.
+            will be set to ``True`` for :class:`~libspn_keras.SumOpGradBackprop` and ``False`` otherwise.
         accumulator_initializer: Initializer for accumulator. If None, defaults to
             initializers.Constant(1.0)
         accumulator_regularizer: Regularizer for accumulator.

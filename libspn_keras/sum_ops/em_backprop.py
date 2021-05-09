@@ -10,7 +10,8 @@ class SumOpEMBackprop(SumOpBase):
     """
     Sum op primitive with EM signals in backpropagation.
 
-    These are dense EM signals as opposed to the other EM based instances of ``SumOpBase``.
+    These are dense EM signals as opposed to the other EM based instances of
+    :class:`~libspn_keras.sum_ops.SumOpBase`
     """
 
     @batch_scope_transpose
