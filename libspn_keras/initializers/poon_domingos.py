@@ -12,13 +12,10 @@ class PoonDomingosQuantileSplitBase(abc.ABC, initializers.Initializer):
 
     The data is divided over :math:`K` quantiles where :math:`K` is the number of nodes along
     the last axis of the tensor to be initialized. The quantiles are computed over all samples
-    in the provided ``data``. Then, the mean per quantile is taken as the value for
-    initialization.
+    in the provided ``data``.
 
     Args:
         data (numpy.ndarray): Data to compute quantiles over
-        normalization_epsilon: Non-zero constant to account for near-zero standard deviations in
-            normalizations.
 
     References:
         Sum-Product Networks, a New Deep Architecture
@@ -105,8 +102,6 @@ class PoonDomingosMeanOfQuantileSplit(PoonDomingosQuantileSplitBase):
 
     Args:
         data (numpy.ndarray): Data to compute quantiles over
-        normalization_epsilon: Non-zero constant to account for near-zero standard deviations in
-            normalizations.
 
     References:
         Sum-Product Networks, a New Deep Architecture
@@ -128,8 +123,6 @@ class PoonDomingosStddevOfQuantileSplit(PoonDomingosQuantileSplitBase):
 
     Args:
         data (numpy.ndarray): Data to compute quantiles over
-        normalization_epsilon: Non-zero constant to account for near-zero standard deviations in
-            normalizations.
 
     References:
         Sum-Product Networks, a New Deep Architecture
