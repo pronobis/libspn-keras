@@ -9,9 +9,9 @@ from tensorflow.python.keras.engine import data_adapter
 
 class SumProductNetwork(keras.Model):
     """
-    An SPN analogue of tensorflow.keras.Model that can be trained generatively.
+    An SPN analogue of ``tensorflow.keras.Model`` that can be trained generatively.
 
-    It does not expect labels y when calling .fit() if ``unsupervised`` == True.
+    It does not expect labels y when calling ``.fit()`` if ``unsupervised == True``.
 
     Args:
         unsupervised (bool): If ``True`` (default) the model does not expect label inputs in

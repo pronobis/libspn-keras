@@ -26,17 +26,17 @@ from libspn_keras.layers.undecompose import Undecompose
 
 class SequentialSumProductNetwork(keras.Sequential):
     """
-    An analogue of ``tensorflow.keras.Sequential`` that can be trained in an unsupervised way.
+    An analogue of :class:`~tensorflow.keras.Sequential` that can be trained in an unsupervised way.
 
-    It does not expect labels y when calling .fit() if ``unsupervised`` == True. Inherits from
-    ``keras.Sequential``, so layers are passed to it as a list.
+    It does not expect labels y when calling ``.fit()`` if ``unsupervised == True``. Inherits from
+    :class:`~tensorflow.keras.Sequential`, so layers are passed to it as a list.
 
     Args:
         layers (list of Layer): List of tf.keras.layers.Layer instance
         infer_no_evidence (bool): If ``True``, the model expects an evidence mask defined as a
             boolean tensor which is used to mask out variables that are not part of the evidence.
-        unsupervised (bool): If ``True`` the model does not expect label inputs in .fit() or
-            .evaluate(). Also, losses and metrics should not expect a target output, just a y_hat.
+        unsupervised (bool): If ``True`` the model does not expect label inputs in ``.fit()`` or
+            ``.evaluate()``. Also, losses and metrics should not expect a target output, just a y_hat.
             By default, it will be inferred from ``infer_no_evidence`` and otherwise defaults to
             ``True``.
         infer_weighted_sum (bool): If ``True`` gives weighted sum of leaf representations,
