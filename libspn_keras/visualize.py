@@ -25,7 +25,10 @@ def visualize_dense_spn(
     node_size: int = 30,
 ) -> go.Figure:
     """
-    Visualize dense SPN, consisting of ``DenseSum``, ``DenseProduct``, ``RootSum`` and leaf layers.
+    Visualize dense SPN.
+
+    The dense SPN must consist of :class:`~libspn_keras.layers.DenseSum`,
+    :class:`~libspn_keras.layers.DenseProduct`, :class:`~libspn_keras.layers.RootSum` and leaf layers.
 
     Args:
         dense_spn: An SPN of type ``tensorflow.keras.Sequential``

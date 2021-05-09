@@ -16,7 +16,7 @@ class SumOpGradBackprop(SumOpBase):
 
     Args:
             logspace_accumulators: If provided overrides default log-space choice. For a
-                ``SumOpGradBackprop`` the default is ``True``
+                :class:`~libspn_keras.SumOpGradBackprop` the default is ``True``
     """
 
     def __init__(

@@ -13,8 +13,8 @@ class KMeans(initializers.Initializer):
     Initializer learned through K-means from data.
 
     The centroids learned from K-means are used to initialize the location parameters of a location-scale
-    leaf, such as a ``NormalLeaf``. This is particularly useful for variables with dimensionality of
-    greater than 1.
+    leaf, such as a :class:`~libspn_keras.layers.NormalLeaf`. This is particularly useful for variables
+    with dimensionality of greater than 1.
 
 
     Notes:
